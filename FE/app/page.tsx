@@ -18,7 +18,8 @@ import { LoadingAnimation } from "@/components/loading-animation";
 import { StockMapPreview } from "@/components/stock-map-preview";
 import { AnimateOnScroll } from "@/components/animate-on-scroll";
 import { useState, useEffect, useRef } from "react";
-import { EnhancedHeader } from "@/components/enhanced-header";
+import NavBar from "./components/Navbar";
+import { isLoggingOut } from "./utils/auth";
 
 // 인라인 StockTicker 컴포넌트
 function StockTicker() {
@@ -206,6 +207,12 @@ export default function StockMapLanding() {
   const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // 로그아웃 중이면 로딩 화면을 건너뜁니다
+    if (isLoggingOut()) {
+      setIsLoading(false);
+      return;
+    }
+
     // 실제 앱에서는 데이터 로딩이 완료되면 setIsLoading(false) 호출
     const timer = setTimeout(() => {
       setIsLoading(false);
@@ -263,8 +270,8 @@ export default function StockMapLanding() {
         </div>
       </div>
 
-      {/* Enhanced Header */}
-      <EnhancedHeader scrolled={scrolled} />
+      {/* NavBar 컴포넌트 사용 */}
+      <NavBar />
 
       {/* 주식 티커 - 헤더 위에 표시 */}
       <div className="fixed top-16 left-0 right-0 z-[60]">

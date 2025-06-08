@@ -18,6 +18,7 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MouseFollower } from "@/components/mouse-follower";
 import { useState } from "react";
+import { setTokens } from "../utils/auth";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -46,9 +47,19 @@ export default function LoginPage() {
       }
 
       const data = await response.json();
-      // TODO: 토큰을 로컬 스토리지에 저장하고 홈페이지로 리다이렉트
-      localStorage.setItem("token", data.token);
-      window.location.href = "/";
+      console.log("로그인 성공, 토큰 저장 시도:", data.token);
+
+      // 토큰 저장
+      setTokens(data.token, "dummy-refresh-token");
+
+      // 토큰이 제대로 저장되었는지 확인
+      const savedToken = localStorage.getItem("accessToken");
+      console.log("저장된 토큰 확인:", savedToken);
+
+      // 약간의 지연 후 리다이렉트
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 100);
     } catch (error) {
       console.error("로그인 실패:", error);
       alert(error instanceof Error ? error.message : "로그인에 실패했습니다.");
