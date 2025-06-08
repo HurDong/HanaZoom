@@ -1,5 +1,7 @@
 package com.hanazoom.controller;
 
+import com.hanazoom.dto.member.LoginRequest;
+import com.hanazoom.dto.member.LoginResponse;
 import com.hanazoom.dto.member.SignupRequest;
 import com.hanazoom.service.MemberService;
 import jakarta.validation.Valid;
@@ -21,5 +23,11 @@ public class MemberController {
     public ResponseEntity<Void> signup(@Valid @RequestBody SignupRequest request) {
         memberService.signup(request);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        LoginResponse response = memberService.login(request);
+        return ResponseEntity.ok(response);
     }
 }
