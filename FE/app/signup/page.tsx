@@ -1,53 +1,108 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { Checkbox } from "@/components/ui/checkbox"
-import { MapPin, Mail, Lock, Eye, EyeOff, User, Phone } from "lucide-react"
-import Link from "next/link"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { MouseFollower } from "@/components/mouse-follower"
-import { useState } from "react"
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { MapPin, Mail, Lock, Eye, EyeOff, User, Phone } from "lucide-react";
+import Link from "next/link";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { MouseFollower } from "@/components/mouse-follower";
+import { useState } from "react";
 
 export default function SignupPage() {
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     password: "",
     confirmPassword: "",
-  })
+  });
   const [agreements, setAgreements] = useState({
     terms: false,
     privacy: false,
     marketing: false,
-  })
+  });
 
   const handleSocialSignup = (provider: string) => {
     // OAuth 2.0 회원가입 로직 구현 예정
-    console.log(`${provider} 회원가입 시도`)
-  }
+    console.log(`${provider} 회원가입 시도`);
+  };
 
-  const handleSignup = (e: React.FormEvent) => {
-    e.preventDefault()
-    // 회원가입 로직 구현 예정
-    console.log("회원가입 시도:", { formData, agreements })
-  }
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // 전화번호 형식 검사
+    const phoneRegex = /^01(?:0|1|[6-9])-(?:\d{3}|\d{4})-\d{4}$/;
+    if (!phoneRegex.test(formData.phone)) {
+      alert("전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)");
+      return;
+    }
+
+    // 비밀번호 형식 검사
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+    if (!passwordRegex.test(formData.password)) {
+      alert("비밀번호는 8자 이상의 영문자와 숫자 조합이어야 합니다.");
+      return;
+    }
+
+    // 비밀번호 확인
+    if (formData.password !== formData.confirmPassword) {
+      alert("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:8080/api/members/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          phone: formData.phone,
+          termsAgreed: agreements.terms,
+          privacyAgreed: agreements.privacy,
+          marketingAgreed: agreements.marketing,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      // 회원가입 성공 시 로그인 페이지로 이동
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("회원가입 실패:", error);
+      alert(
+        error instanceof Error ? error.message : "회원가입에 실패했습니다."
+      );
+    }
+  };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleAgreementChange = (field: string, checked: boolean) => {
-    setAgreements((prev) => ({ ...prev, [field]: checked }))
-  }
+    setAgreements((prev) => ({ ...prev, [field]: checked }));
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 flex items-center justify-center p-4 relative overflow-hidden">
@@ -79,7 +134,9 @@ export default function SignupPage() {
           <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-lg flex items-center justify-center shadow-lg">
             <MapPin className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-bold text-green-800 dark:text-green-200">주식맛집</span>
+          <span className="text-xl font-bold text-green-800 dark:text-green-200">
+            주식맛집
+          </span>
         </Link>
         <ThemeToggle />
       </div>
@@ -139,7 +196,10 @@ export default function SignupPage() {
           {/* 회원가입 폼 */}
           <form onSubmit={handleSignup} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-green-800 dark:text-green-200">
+              <Label
+                htmlFor="name"
+                className="text-green-800 dark:text-green-200"
+              >
                 이름
               </Label>
               <div className="relative">
@@ -157,7 +217,10 @@ export default function SignupPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-green-800 dark:text-green-200">
+              <Label
+                htmlFor="email"
+                className="text-green-800 dark:text-green-200"
+              >
                 이메일
               </Label>
               <div className="relative">
@@ -175,7 +238,10 @@ export default function SignupPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-green-800 dark:text-green-200">
+              <Label
+                htmlFor="phone"
+                className="text-green-800 dark:text-green-200"
+              >
                 휴대폰 번호
               </Label>
               <div className="relative">
@@ -193,7 +259,10 @@ export default function SignupPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-green-800 dark:text-green-200">
+              <Label
+                htmlFor="password"
+                className="text-green-800 dark:text-green-200"
+              >
                 비밀번호
               </Label>
               <div className="relative">
@@ -203,7 +272,9 @@ export default function SignupPage() {
                   type={showPassword ? "text" : "password"}
                   placeholder="8자 이상 입력하세요"
                   value={formData.password}
-                  onChange={(e) => handleInputChange("password", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("password", e.target.value)
+                  }
                   className="pl-10 pr-10 border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
                   required
                 />
@@ -212,13 +283,20 @@ export default function SignupPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-3 text-green-500 hover:text-green-700 dark:hover:text-green-300"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-green-800 dark:text-green-200">
+              <Label
+                htmlFor="confirmPassword"
+                className="text-green-800 dark:text-green-200"
+              >
                 비밀번호 확인
               </Label>
               <div className="relative">
@@ -228,7 +306,9 @@ export default function SignupPage() {
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="비밀번호를 다시 입력하세요"
                   value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("confirmPassword", e.target.value)
+                  }
                   className="pl-10 pr-10 border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
                   required
                 />
@@ -237,7 +317,11 @@ export default function SignupPage() {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-3 text-green-500 hover:text-green-700 dark:hover:text-green-300"
                 >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -248,12 +332,20 @@ export default function SignupPage() {
                 <Checkbox
                   id="terms"
                   checked={agreements.terms}
-                  onCheckedChange={(checked) => handleAgreementChange("terms", checked as boolean)}
+                  onCheckedChange={(checked) =>
+                    handleAgreementChange("terms", checked as boolean)
+                  }
                   className="border-green-300 text-green-600 focus:ring-green-500"
                 />
-                <Label htmlFor="terms" className="text-sm text-green-700 dark:text-green-300">
+                <Label
+                  htmlFor="terms"
+                  className="text-sm text-green-700 dark:text-green-300"
+                >
                   <span className="text-red-500">*</span> 이용약관에 동의합니다{" "}
-                  <Link href="/terms" className="text-green-600 dark:text-green-400 hover:underline">
+                  <Link
+                    href="/terms"
+                    className="text-green-600 dark:text-green-400 hover:underline"
+                  >
                     (보기)
                   </Link>
                 </Label>
@@ -263,12 +355,21 @@ export default function SignupPage() {
                 <Checkbox
                   id="privacy"
                   checked={agreements.privacy}
-                  onCheckedChange={(checked) => handleAgreementChange("privacy", checked as boolean)}
+                  onCheckedChange={(checked) =>
+                    handleAgreementChange("privacy", checked as boolean)
+                  }
                   className="border-green-300 text-green-600 focus:ring-green-500"
                 />
-                <Label htmlFor="privacy" className="text-sm text-green-700 dark:text-green-300">
-                  <span className="text-red-500">*</span> 개인정보처리방침에 동의합니다{" "}
-                  <Link href="/privacy" className="text-green-600 dark:text-green-400 hover:underline">
+                <Label
+                  htmlFor="privacy"
+                  className="text-sm text-green-700 dark:text-green-300"
+                >
+                  <span className="text-red-500">*</span> 개인정보처리방침에
+                  동의합니다{" "}
+                  <Link
+                    href="/privacy"
+                    className="text-green-600 dark:text-green-400 hover:underline"
+                  >
                     (보기)
                   </Link>
                 </Label>
@@ -278,10 +379,15 @@ export default function SignupPage() {
                 <Checkbox
                   id="marketing"
                   checked={agreements.marketing}
-                  onCheckedChange={(checked) => handleAgreementChange("marketing", checked as boolean)}
+                  onCheckedChange={(checked) =>
+                    handleAgreementChange("marketing", checked as boolean)
+                  }
                   className="border-green-300 text-green-600 focus:ring-green-500"
                 />
-                <Label htmlFor="marketing" className="text-sm text-green-700 dark:text-green-300">
+                <Label
+                  htmlFor="marketing"
+                  className="text-sm text-green-700 dark:text-green-300"
+                >
                   마케팅 정보 수신에 동의합니다 (선택)
                 </Label>
               </div>
@@ -298,7 +404,10 @@ export default function SignupPage() {
 
           <div className="text-center text-sm text-green-700 dark:text-green-300">
             이미 계정이 있으신가요?{" "}
-            <Link href="/login" className="text-green-600 dark:text-green-400 hover:underline font-medium">
+            <Link
+              href="/login"
+              className="text-green-600 dark:text-green-400 hover:underline font-medium"
+            >
               로그인하기 🚀
             </Link>
           </div>
@@ -309,12 +418,17 @@ export default function SignupPage() {
         .floating-symbol {
           animation: float 6s ease-in-out infinite;
         }
-        
+
         @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-20px) rotate(5deg); }
+          0%,
+          100% {
+            transform: translateY(0px) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-20px) rotate(5deg);
+          }
         }
       `}</style>
     </div>
-  )
+  );
 }
