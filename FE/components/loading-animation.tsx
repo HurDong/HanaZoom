@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
+import { useEffect, useState } from "react";
 
 interface LoadingAnimationProps {
-  onComplete: () => void
+  onComplete: () => void;
 }
 
 export function LoadingAnimation({ onComplete }: LoadingAnimationProps) {
-  const [progress, setProgress] = useState(0)
-  const [currentStep, setCurrentStep] = useState(0)
+  const [progress, setProgress] = useState(0);
+  const [currentStep, setCurrentStep] = useState(0);
 
   const steps = [
     "주식 데이터 수집 중...",
@@ -16,27 +16,27 @@ export function LoadingAnimation({ onComplete }: LoadingAnimationProps) {
     "맛집 정보 준비 중...",
     "지도 그리는 중...",
     "완료! 🎉",
-  ]
+  ];
 
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress((prev) => {
-        const newProgress = prev + Math.random() * 15
+        const newProgress = prev + Math.random() * 15;
         if (newProgress >= 100) {
-          setTimeout(onComplete, 500)
-          return 100
+          setTimeout(onComplete, 500);
+          return 100;
         }
-        return newProgress
-      })
-    }, 200)
+        return newProgress;
+      });
+    }, 200);
 
-    return () => clearInterval(interval)
-  }, [onComplete])
+    return () => clearInterval(interval);
+  }, [onComplete]);
 
   useEffect(() => {
-    const stepIndex = Math.floor((progress / 100) * (steps.length - 1))
-    setCurrentStep(stepIndex)
-  }, [progress, steps.length])
+    const stepIndex = Math.floor((progress / 100) * (steps.length - 1));
+    setCurrentStep(stepIndex);
+  }, [progress, steps.length]);
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 flex items-center justify-center z-50 transition-all duration-500">
@@ -46,7 +46,9 @@ export function LoadingAnimation({ onComplete }: LoadingAnimationProps) {
           <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-lg flex items-center justify-center animate-pulse">
             <span className="text-2xl">🗺️</span>
           </div>
-          <span className="text-2xl font-bold text-green-800 dark:text-green-200">주식맛집</span>
+          <span className="text-2xl font-bold text-green-800 dark:text-green-200">
+            주식맛집
+          </span>
         </div>
 
         {/* 차트 그리기 애니메이션 */}
@@ -84,7 +86,9 @@ export function LoadingAnimation({ onComplete }: LoadingAnimationProps) {
               <div
                 key={i}
                 className={`absolute w-3 h-3 bg-green-500 rounded-full transition-all duration-500 ${
-                  progress > (i + 1) * 20 ? "opacity-100 scale-100" : "opacity-0 scale-0"
+                  progress > (i + 1) * 20
+                    ? "opacity-100 scale-100"
+                    : "opacity-0 scale-0"
                 }`}
                 style={{
                   left: `${x}%`,
@@ -148,5 +152,5 @@ export function LoadingAnimation({ onComplete }: LoadingAnimationProps) {
         }
       `}</style>
     </div>
-  )
+  );
 }
