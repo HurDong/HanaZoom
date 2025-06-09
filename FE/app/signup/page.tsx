@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import Swal from "sweetalert2";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,8 +20,10 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MouseFollower } from "@/components/mouse-follower";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -29,38 +32,93 @@ export default function SignupPage() {
     phone: "",
     password: "",
     confirmPassword: "",
+    marketing: false,
   });
   const [agreements, setAgreements] = useState({
     terms: false,
     privacy: false,
     marketing: false,
   });
+  const [error, setError] = useState("");
 
   const handleSocialSignup = (provider: string) => {
     // OAuth 2.0 회원가입 로직 구현 예정
     console.log(`${provider} 회원가입 시도`);
   };
 
+  const formatPhoneNumber = (value: string) => {
+    // 숫자만 추출
+    const numbers = value.replace(/[^\d]/g, "");
+
+    // 길이에 따라 하이픈 추가
+    if (numbers.length <= 3) {
+      return numbers;
+    } else if (numbers.length <= 7) {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
+    } else {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(
+        7,
+        11
+      )}`;
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+
+    if (name === "phone") {
+      const formattedPhone = formatPhoneNumber(value);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: formattedPhone,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: type === "checkbox" ? checked : value,
+      }));
+    }
+  };
+
+  const showErrorAlert = (message: string) => {
+    Swal.fire({
+      title: "앗!",
+      text: message,
+      icon: "error",
+      confirmButtonText: "확인",
+      confirmButtonColor: "#10b981",
+      background: "#ffffff",
+      color: "#1f2937",
+      customClass: {
+        popup: "dark:bg-gray-900 dark:text-white",
+        title: "dark:text-white",
+        htmlContainer: "dark:text-gray-300",
+        confirmButton: "dark:bg-green-600 dark:hover:bg-green-700",
+      },
+    });
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
 
-    // 전화번호 형식 검사
+    // 전화번호 형식 검사 (하이픈이 포함된 형식)
     const phoneRegex = /^01(?:0|1|[6-9])-(?:\d{3}|\d{4})-\d{4}$/;
     if (!phoneRegex.test(formData.phone)) {
-      alert("전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)");
+      showErrorAlert("전화번호 형식이 올바르지 않습니다.\n예시: 010-1234-5678");
       return;
     }
 
     // 비밀번호 형식 검사
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
     if (!passwordRegex.test(formData.password)) {
-      alert("비밀번호는 8자 이상의 영문자와 숫자 조합이어야 합니다.");
+      showErrorAlert("비밀번호는 8자 이상의 영문자와 숫자 조합이어야 합니다.");
       return;
     }
 
     // 비밀번호 확인
     if (formData.password !== formData.confirmPassword) {
-      alert("비밀번호가 일치하지 않습니다.");
+      showErrorAlert("비밀번호가 일치하지 않습니다.");
       return;
     }
 
@@ -82,22 +140,45 @@ export default function SignupPage() {
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error);
+        const errorData = await response.json();
+        let errorMessage = "회원가입에 실패했습니다.";
+
+        // 서버에서 받은 에러 메시지 처리
+        if (errorData.errors && errorData.errors.length > 0) {
+          const error = errorData.errors[0];
+          if (error.defaultMessage) {
+            errorMessage = error.defaultMessage;
+          }
+        }
+
+        throw new Error(errorMessage);
       }
 
-      // 회원가입 성공 시 로그인 페이지로 이동
-      window.location.href = "/login";
+      // 회원가입 성공 시 성공 알림
+      await Swal.fire({
+        title: "환영합니다! 🎉",
+        text: "회원가입이 완료되었습니다.",
+        icon: "success",
+        confirmButtonText: "로그인하기",
+        confirmButtonColor: "#10b981",
+        background: "#ffffff",
+        color: "#1f2937",
+        customClass: {
+          popup: "dark:bg-gray-900 dark:text-white",
+          title: "dark:text-white",
+          htmlContainer: "dark:text-gray-300",
+          confirmButton: "dark:bg-green-600 dark:hover:bg-green-700",
+        },
+      });
+
+      // 로그인 페이지로 이동
+      router.push("/login");
     } catch (error) {
       console.error("회원가입 실패:", error);
-      alert(
+      showErrorAlert(
         error instanceof Error ? error.message : "회원가입에 실패했습니다."
       );
     }
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleAgreementChange = (field: string, checked: boolean) => {
@@ -135,7 +216,7 @@ export default function SignupPage() {
             <MapPin className="w-5 h-5 text-white" />
           </div>
           <span className="text-xl font-bold text-green-800 dark:text-green-200">
-            주식맛집
+            하나줌
           </span>
         </Link>
         <ThemeToggle />
@@ -148,7 +229,7 @@ export default function SignupPage() {
             <span className="text-2xl">✨</span>
           </div>
           <CardTitle className="text-2xl font-bold text-green-900 dark:text-green-100">
-            주식맛집 가족이 되어주세요! 🎉
+            하나줌 가족이 되어주세요! 🎉
           </CardTitle>
           <CardDescription className="text-green-700 dark:text-green-300">
             우리 동네 주식 정보를 가장 먼저 만나보세요
@@ -157,30 +238,42 @@ export default function SignupPage() {
 
         <CardContent className="space-y-6">
           {/* 소셜 회원가입 버튼들 */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             <Button
               onClick={() => handleSocialSignup("kakao")}
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-medium py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
+              className="w-full h-12 text-lg bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] font-medium rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center"
             >
               <span className="mr-2">💬</span>
-              카카오로 간편 가입
-            </Button>
-
-            <Button
-              onClick={() => handleSocialSignup("naver")}
-              className="w-full bg-green-500 hover:bg-green-600 text-white font-medium py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
-            >
-              <span className="mr-2">🔍</span>
-              네이버로 간편 가입
+              카카오로 3초 만에 시작하기
             </Button>
 
             <Button
               onClick={() => handleSocialSignup("google")}
-              variant="outline"
-              className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
+              className="w-full h-12 text-lg bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300"
             >
-              <span className="mr-2">🌐</span>
-              Google로 간편 가입
+              <svg
+                className="w-5 h-5 mr-2"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  fill="#4285F4"
+                />
+                <path
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  fill="#34A853"
+                />
+                <path
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                  fill="#FBBC05"
+                />
+                <path
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  fill="#EA4335"
+                />
+              </svg>
+              Google로 시작하기
             </Button>
           </div>
 
@@ -206,10 +299,11 @@ export default function SignupPage() {
                 <User className="absolute left-3 top-3 h-4 w-4 text-green-500" />
                 <Input
                   id="name"
+                  name="name"
                   type="text"
                   placeholder="홍길동"
                   value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  onChange={handleChange}
                   className="pl-10 border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
                   required
                 />
@@ -227,10 +321,11 @@ export default function SignupPage() {
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-green-500" />
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   placeholder="your@email.com"
                   value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  onChange={handleChange}
                   className="pl-10 border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
                   required
                 />
@@ -248,10 +343,11 @@ export default function SignupPage() {
                 <Phone className="absolute left-3 top-3 h-4 w-4 text-green-500" />
                 <Input
                   id="phone"
+                  name="phone"
                   type="tel"
-                  placeholder="010-1234-5678"
+                  placeholder="010-0000-0000"
                   value={formData.phone}
-                  onChange={(e) => handleInputChange("phone", e.target.value)}
+                  onChange={handleChange}
                   className="pl-10 border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
                   required
                 />
@@ -269,12 +365,11 @@ export default function SignupPage() {
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-green-500" />
                 <Input
                   id="password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="8자 이상 입력하세요"
                   value={formData.password}
-                  onChange={(e) =>
-                    handleInputChange("password", e.target.value)
-                  }
+                  onChange={handleChange}
                   className="pl-10 pr-10 border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
                   required
                 />
@@ -303,12 +398,11 @@ export default function SignupPage() {
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-green-500" />
                 <Input
                   id="confirmPassword"
+                  name="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="비밀번호를 다시 입력하세요"
                   value={formData.confirmPassword}
-                  onChange={(e) =>
-                    handleInputChange("confirmPassword", e.target.value)
-                  }
+                  onChange={handleChange}
                   className="pl-10 pr-10 border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
                   required
                 />
@@ -393,12 +487,16 @@ export default function SignupPage() {
               </div>
             </div>
 
+            {error && (
+              <div className="text-red-500 text-sm text-center">{error}</div>
+            )}
+
             <Button
               type="submit"
               disabled={!agreements.terms || !agreements.privacy}
               className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium py-3 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:transform-none"
             >
-              주식맛집 가족 되기 🎉
+              하나줌 가족 되기 🎉
             </Button>
           </form>
 

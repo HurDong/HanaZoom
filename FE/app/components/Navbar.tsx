@@ -41,7 +41,7 @@ export default function NavBar() {
           <MessageSquare className="w-5 h-5 text-white" />
         </div>
         <span className="text-xl font-bold text-green-800 dark:text-green-200">
-          주식맛집 커뮤니티
+          하나줌
         </span>
       </Link>
       <nav className="ml-auto flex gap-4 sm:gap-6 items-center">

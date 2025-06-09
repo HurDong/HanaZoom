@@ -47,7 +47,7 @@ export function LoadingAnimation({ onComplete }: LoadingAnimationProps) {
             <span className="text-2xl">🗺️</span>
           </div>
           <span className="text-2xl font-bold text-green-800 dark:text-green-200">
-            주식맛집
+            하나줌
           </span>
         </div>
 

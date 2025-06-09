@@ -477,7 +477,7 @@ export default function StockMapLanding() {
       {/* Footer */}
       <footer className="relative z-10 flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t border-green-200 dark:border-green-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm transition-colors duration-300">
         <p className="text-xs text-green-600 dark:text-green-400">
-          © 2024 주식맛집. 모든 권리 보유. Made with 💚
+          © 2025 하나줌 . 모든 권리 보유. Made with 💚
         </p>
         <nav className="sm:ml-auto flex gap-4 sm:gap-6">
           <Link

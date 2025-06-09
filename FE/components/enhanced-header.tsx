@@ -1,32 +1,34 @@
-"use client"
+"use client";
 
-import { MapPin, Menu, X } from "lucide-react"
-import Link from "next/link"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { MapPin, Menu, X } from "lucide-react";
+import Link from "next/link";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 
 interface EnhancedHeaderProps {
-  scrolled: boolean
+  scrolled: boolean;
 }
 
 export function EnhancedHeader({ scrolled }: EnhancedHeaderProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   // 컴포넌트가 마운트된 후에만 UI를 표시
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   if (!mounted) {
-    return null
+    return null;
   }
 
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? "bg-white/90 dark:bg-gray-900/90 shadow-md backdrop-blur-md" : "bg-transparent"
+        scrolled
+          ? "bg-white/90 dark:bg-gray-900/90 shadow-md backdrop-blur-md"
+          : "bg-transparent"
       }`}
     >
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -37,10 +39,12 @@ export function EnhancedHeader({ scrolled }: EnhancedHeaderProps) {
           </div>
           <span
             className={`text-xl font-bold transition-colors duration-300 ${
-              scrolled ? "text-green-800 dark:text-green-200" : "text-green-700 dark:text-green-100"
+              scrolled
+                ? "text-green-800 dark:text-green-200"
+                : "text-green-700 dark:text-green-100"
             }`}
           >
-            주식맛집
+            하나줌
           </span>
         </Link>
 
@@ -110,7 +114,11 @@ export function EnhancedHeader({ scrolled }: EnhancedHeaderProps) {
                 : "text-green-800 dark:text-green-200 hover:bg-green-200/50 dark:hover:bg-green-800/50"
             }`}
           >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileMenuOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </Button>
         </div>
       </div>
@@ -164,5 +172,5 @@ export function EnhancedHeader({ scrolled }: EnhancedHeaderProps) {
         </div>
       )}
     </header>
-  )
+  );
 }
