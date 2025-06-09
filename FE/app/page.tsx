@@ -62,7 +62,7 @@ export default function StockMapLanding() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 overflow-hidden relative transition-colors duration-500">
       {/* 마우스 따라다니는 아이콘들 */}
-      {/* <MouseFollower /> */}
+      <MouseFollower />
 
       {/* 배경 패턴 */}
       <div className="absolute inset-0 pointer-events-none opacity-10 dark:opacity-5">
