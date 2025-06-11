@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 export default function NavBar() {
   const [mounted, setMounted] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -18,8 +19,16 @@ export default function NavBar() {
     };
     checkLoginStatus();
 
+    const handleScroll = () => {
+      const scrollPosition = window.scrollY;
+      setScrolled(scrollPosition > 50);
+    };
+
+    window.addEventListener("scroll", handleScroll);
     window.addEventListener("load", checkLoginStatus);
+
     return () => {
+      window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("load", checkLoginStatus);
     };
   }, []);
@@ -35,7 +44,13 @@ export default function NavBar() {
   }
 
   return (
-    <header className="sticky top-0 z-10 px-4 lg:px-6 h-16 flex items-center backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-b border-green-200 dark:border-green-800 transition-colors duration-300">
+    <header
+      className={`w-full px-4 lg:px-6 h-16 flex items-center backdrop-blur-sm transition-all duration-300 ${
+        scrolled
+          ? "bg-white/90 dark:bg-gray-900/90 border-b border-green-200 dark:border-green-800 shadow-lg"
+          : "bg-transparent"
+      }`}
+    >
       <Link href="/" className="flex items-center space-x-2">
         <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-lg flex items-center justify-center shadow-lg">
           <MessageSquare className="w-5 h-5 text-white" />

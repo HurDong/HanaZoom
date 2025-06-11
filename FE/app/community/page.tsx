@@ -10,6 +10,8 @@ import Link from "next/link";
 import { mockStocks } from "@/data/mock-stocks";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MouseFollower } from "@/components/mouse-follower";
+import { StockCard } from "@/components/stock-card";
+import NavBar from "@/app/components/Navbar";
 
 export default function CommunityPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,39 +32,7 @@ export default function CommunityPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 transition-colors duration-500">
       <MouseFollower />
-
-      {/* Header */}
-      <header className="sticky top-0 z-10 px-4 lg:px-6 h-16 flex items-center backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-b border-green-200 dark:border-green-800 transition-colors duration-300">
-        <Link href="/" className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-lg flex items-center justify-center shadow-lg">
-            <MessageSquare className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl font-bold text-green-800 dark:text-green-200">
-            하나줌
-          </span>
-        </Link>
-        <nav className="ml-auto flex gap-4 sm:gap-6 items-center">
-          <Link
-            href="/"
-            className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors"
-          >
-            홈
-          </Link>
-          <Link
-            href="/community"
-            className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors"
-          >
-            커뮤니티
-          </Link>
-          <Link
-            href="/login"
-            className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors"
-          >
-            로그인
-          </Link>
-          <ThemeToggle />
-        </nav>
-      </header>
+      <NavBar />
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">

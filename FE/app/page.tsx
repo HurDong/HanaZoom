@@ -92,7 +92,9 @@ export default function StockMapLanding() {
       </div>
 
       {/* NavBar 컴포넌트 사용 */}
-      <NavBar />
+      <div className="fixed top-0 left-0 right-0 z-[100]">
+        <NavBar />
+      </div>
 
       {/* 주식 티커 - 헤더 위에 표시 */}
       <div className="fixed top-16 left-0 right-0 z-[60]">
