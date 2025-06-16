@@ -18,7 +18,6 @@ export function MouseFollower() {
 
   useEffect(() => {
     let moveTimeout: NodeJS.Timeout;
-    let animationFrame: number;
 
     const handleMouseMove = (e: MouseEvent) => {
       const now = Date.now();
@@ -51,7 +50,6 @@ export function MouseFollower() {
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       clearTimeout(moveTimeout);
-      cancelAnimationFrame(animationFrame);
     };
   }, []);
 
@@ -162,23 +160,58 @@ export function MouseFollower() {
 
       {/* 클릭 효과 */}
       <style jsx global>{`
-        * {
+        /* 기본 페이지에서만 커서 숨기기 */
+        body > *:not(.swal2-container):not(.swal2-shown) * {
           cursor: none !important;
         }
 
-        a,
-        button,
-        [role="button"],
+        /* 모달이나 로그인 창에서는 커서 표시 */
+        .swal2-container *,
+        .swal2-shown *,
+        .swal2-popup * {
+          cursor: auto !important;
+        }
+
+        /* 입력 필드에서는 기본 커서 표시 */
         input,
         textarea,
         select {
-          cursor: none !important;
+          cursor: text !important;
         }
 
-        a:hover,
-        button:hover,
-        [role="button"]:hover {
-          cursor: none !important;
+        /* 버튼과 링크에서는 포인터 커서 표시 */
+        button,
+        [role="button"],
+        a {
+          cursor: pointer !important;
+        }
+
+        /* SweetAlert2 다크모드 스타일 개선 */
+        .dark .swal2-popup {
+          background: #1a1a1a !important;
+          color: #ffffff !important;
+          box-shadow: 0 0 20px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        .dark .swal2-title {
+          color: #ffffff !important;
+          font-weight: 600 !important;
+        }
+
+        .dark .swal2-html-container {
+          color: #e5e5e5 !important;
+        }
+
+        .dark .swal2-confirm {
+          background: #22c55e !important;
+          color: white !important;
+          font-weight: 500 !important;
+        }
+
+        .dark .swal2-cancel {
+          background: #374151 !important;
+          color: #e5e5e5 !important;
+          font-weight: 500 !important;
         }
       `}</style>
     </div>

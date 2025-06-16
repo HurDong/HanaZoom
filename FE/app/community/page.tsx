@@ -1,69 +1,44 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { TrendingUp, TrendingDown, Search, MessageSquare } from "lucide-react"
-import Link from "next/link"
-import { mockStocks } from "@/data/mock-stocks"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { MouseFollower } from "@/components/mouse-follower"
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TrendingUp, TrendingDown, Search, MessageSquare } from "lucide-react";
+import Link from "next/link";
+import { mockStocks } from "@/data/mock-stocks";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { MouseFollower } from "@/components/mouse-follower";
+import { StockCard } from "@/components/stock-card";
+import NavBar from "@/app/components/Navbar";
 
 export default function CommunityPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [activeTab, setActiveTab] = useState("all")
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("all");
 
   const filteredStocks = mockStocks.filter((stock) => {
     const matchesSearch =
-      stock.name.toLowerCase().includes(searchTerm.toLowerCase()) || stock.symbol.includes(searchTerm)
+      stock.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      stock.symbol.includes(searchTerm);
 
-    if (activeTab === "all") return matchesSearch
-    if (activeTab === "up") return matchesSearch && stock.change > 0
-    if (activeTab === "down") return matchesSearch && stock.change < 0
+    if (activeTab === "all") return matchesSearch;
+    if (activeTab === "up") return matchesSearch && stock.change > 0;
+    if (activeTab === "down") return matchesSearch && stock.change < 0;
 
-    return matchesSearch
-  })
+    return matchesSearch;
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 transition-colors duration-500">
       <MouseFollower />
-
-      {/* Header */}
-      <header className="sticky top-0 z-10 px-4 lg:px-6 h-16 flex items-center backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-b border-green-200 dark:border-green-800 transition-colors duration-300">
-        <Link href="/" className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-lg flex items-center justify-center shadow-lg">
-            <MessageSquare className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl font-bold text-green-800 dark:text-green-200">주식맛집 커뮤니티</span>
-        </Link>
-        <nav className="ml-auto flex gap-4 sm:gap-6 items-center">
-          <Link
-            href="/"
-            className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors"
-          >
-            홈
-          </Link>
-          <Link
-            href="/community"
-            className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors"
-          >
-            커뮤니티
-          </Link>
-          <Link
-            href="/login"
-            className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors"
-          >
-            로그인
-          </Link>
-          <ThemeToggle />
-        </nav>
-      </header>
+      <NavBar />
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-green-900 dark:text-green-100 mb-2">종목 토론방</h1>
+          <h1 className="text-3xl font-bold text-green-900 dark:text-green-100 mb-2">
+            종목 토론방
+          </h1>
           <p className="text-green-700 dark:text-green-300">
             관심 있는 종목에 대한 의견을 나누고 다른 투자자들과 소통해보세요!
           </p>
@@ -79,9 +54,16 @@ export default function CommunityPage() {
               className="pl-10 border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
             />
           </div>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full sm:w-auto"
+          >
             <TabsList className="bg-green-100 dark:bg-green-900/50">
-              <TabsTrigger value="all" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
+              <TabsTrigger
+                value="all"
+                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800"
+              >
                 전체
               </TabsTrigger>
               <TabsTrigger
@@ -111,13 +93,19 @@ export default function CommunityPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-2xl">{stock.emoji}</span>
                       <div>
-                        <h3 className="font-bold text-green-900 dark:text-green-100">{stock.name}</h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{stock.symbol}</p>
+                        <h3 className="font-bold text-green-900 dark:text-green-100">
+                          {stock.name}
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {stock.symbol}
+                        </p>
                       </div>
                     </div>
                     <div
                       className={`flex items-center ${
-                        stock.change >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                        stock.change >= 0
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
                       }`}
                     >
                       {stock.change >= 0 ? (
@@ -152,10 +140,12 @@ export default function CommunityPage() {
 
         {filteredStocks.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400">검색 결과가 없습니다.</p>
+            <p className="text-gray-500 dark:text-gray-400">
+              검색 결과가 없습니다.
+            </p>
           </div>
         )}
       </main>
     </div>
-  )
+  );
 }
