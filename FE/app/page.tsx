@@ -11,6 +11,8 @@ import {
   ArrowRight,
   TrendingUp,
   TrendingDown,
+  Map,
+  LogIn,
 } from "lucide-react";
 import Link from "next/link";
 import { MouseFollower } from "@/components/mouse-follower";
@@ -147,26 +149,26 @@ export default function StockMapLanding() {
                     <br />
                     지역별 투자 트렌드를 귀여운 지도로 확인해보세요 🗺️✨
                   </p>
-
-                  <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                    <Link href="/community">
-                      <Button
-                        size="lg"
-                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 dark:from-green-600 dark:to-emerald-500 dark:hover:from-green-700 dark:hover:to-emerald-600 text-white px-8 py-3 rounded-full shadow-lg hover:shadow-xl dark:shadow-green-900/30 transition-all duration-300 transform hover:scale-105"
-                      >
-                        커뮤니티 둘러보기 💬
-                      </Button>
-                    </Link>
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="border-green-300 dark:border-green-600 text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 px-8 py-3 rounded-full transition-all duration-300 backdrop-blur-sm"
-                      onClick={scrollToFeatures}
-                    >
-                      사용법 보기 📖
-                    </Button>
-                  </div>
                 </AnimateOnScroll>
+
+                <div className="flex flex-col sm:flex-row gap-4 relative z-50 mt-8">
+                  <button
+                    onClick={() => (window.location.href = "/map")}
+                    className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white text-lg px-8 py-6 rounded-md flex items-center justify-center cursor-pointer relative z-50"
+                    style={{ position: "relative", zIndex: 50 }}
+                  >
+                    <Map className="w-5 h-5 mr-2" />
+                    지도 보러가기
+                  </button>
+                  <button
+                    onClick={() => (window.location.href = "/login")}
+                    className="w-full sm:w-auto text-green-600 dark:text-green-400 border border-green-600 dark:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/50 text-lg px-8 py-6 rounded-md flex items-center justify-center cursor-pointer relative z-50"
+                    style={{ position: "relative", zIndex: 50 }}
+                  >
+                    <LogIn className="w-5 h-5 mr-2" />
+                    로그인
+                  </button>
+                </div>
               </div>
 
               <div className="lg:w-1/2">

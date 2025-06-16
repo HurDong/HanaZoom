@@ -10,7 +10,6 @@ import Link from "next/link";
 import { mockStocks } from "@/data/mock-stocks";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MouseFollower } from "@/components/mouse-follower";
-import { StockCard } from "@/components/stock-card";
 import NavBar from "@/app/components/Navbar";
 
 export default function CommunityPage() {
@@ -87,25 +86,27 @@ export default function CommunityPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredStocks.map((stock) => (
             <Link key={stock.symbol} href={`/community/${stock.symbol}`}>
-              <Card className="h-full border-green-200 dark:border-green-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm hover:shadow-lg transition-all duration-300 transform hover:scale-105">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{stock.emoji}</span>
+              <Card className="h-full border-green-200 dark:border-green-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm hover:shadow-lg transition-all duration-300 transform hover:scale-105 hover:border-green-400 dark:hover:border-green-600 group">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl transform group-hover:scale-110 transition-transform duration-300">
+                        {stock.emoji}
+                      </span>
                       <div>
-                        <h3 className="font-bold text-green-900 dark:text-green-100">
+                        <h3 className="font-bold text-green-900 dark:text-green-100 text-lg group-hover:text-green-700 dark:group-hover:text-green-300 transition-colors">
                           {stock.name}
                         </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           {stock.symbol}
                         </p>
                       </div>
                     </div>
                     <div
-                      className={`flex items-center ${
+                      className={`flex items-center px-3 py-1 rounded-full ${
                         stock.change >= 0
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-red-600 dark:text-red-400"
+                          ? "bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400"
+                          : "bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400"
                       }`}
                     >
                       {stock.change >= 0 ? (
@@ -120,13 +121,13 @@ export default function CommunityPage() {
                     </div>
                   </div>
                   <div className="flex justify-between items-center mt-4">
-                    <span className="text-lg font-bold text-green-800 dark:text-green-200">
+                    <span className="text-xl font-bold text-green-800 dark:text-green-200">
                       ₩{stock.price.toLocaleString()}
                     </span>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200"
+                      className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 hover:bg-green-50 dark:hover:bg-green-900/50 transition-colors"
                     >
                       <MessageSquare className="w-4 h-4 mr-1" />
                       토론방 입장
