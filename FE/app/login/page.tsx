@@ -31,6 +31,11 @@ export default function LoginPage() {
     password: "",
   });
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const showErrorAlert = (message: string) => {
     Swal.fire({
       title: "앗!",
@@ -64,6 +69,12 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 이메일 유효성 검사
+    if (!validateEmail(formData.email)) {
+      showErrorAlert("올바른 이메일 형식이 아닙니다.");
+      return;
+    }
 
     try {
       const response = await fetch("http://localhost:8080/api/members/login", {
@@ -145,19 +156,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* 헤더 */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-lg flex items-center justify-center shadow-lg">
-              <MapPin className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold text-green-800 dark:text-green-200">
-              하나줌
-            </span>
-          </Link>
-          <ThemeToggle />
-        </div>
-
         {/* 로그인 카드 */}
         <Card className="w-full max-w-lg bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-2xl my-8">
           <CardContent className="p-8">
@@ -173,7 +171,7 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-6">
+            <form onSubmit={handleLogin} className="space-y-6" noValidate>
               <div className="space-y-2">
                 <Label
                   htmlFor="email"
@@ -186,12 +184,12 @@ export default function LoginPage() {
                   <Input
                     id="email"
                     name="email"
-                    type="email"
+                    type="text"
                     placeholder="your@email.com"
                     value={formData.email}
                     onChange={handleChange}
                     className="pl-10 h-12 text-lg border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
-                    required
+                    formNoValidate
                   />
                 </div>
               </div>
