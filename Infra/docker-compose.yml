@@ -25,6 +25,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    restart: on-failure:3
 
   db:
     image: mysql:8.0
@@ -38,6 +39,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     mem_limit: 256m
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
       test:
         [
@@ -50,9 +52,10 @@ services:
           "hanazoom",
           "-phanazoom",
         ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
 volumes:
   mysql_data:
