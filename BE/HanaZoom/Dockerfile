@@ -10,9 +10,6 @@ COPY gradle gradle
 RUN gradle dependencies --no-daemon --build-cache \
     -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=256m"
 
-# 환경 변수 파일 복사
-COPY .env ./
-
 # 나머지 소스 복사
 COPY . .
 RUN gradle build -x test --no-daemon --build-cache \
@@ -23,7 +20,6 @@ FROM openjdk:17-slim
 WORKDIR /app
 
 COPY --from=build /app/build/libs/*.jar app.jar
-COPY --from=build /app/.env ./
 
 EXPOSE 8080
 
