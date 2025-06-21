@@ -5,7 +5,7 @@ WORKDIR /app
 # 패키지 매니저 설치 및 의존성 설치
 COPY package*.json pnpm-lock.yaml ./
 RUN npm install -g pnpm --no-fund --no-audit
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --prod
 
 # 소스 코드 복사 및 빌드
 COPY . .
