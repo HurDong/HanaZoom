@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { API_ENDPOINTS } from "../config/api";
 
 export default function ConnectionTest() {
   const [status, setStatus] = useState<
@@ -13,8 +14,7 @@ export default function ConnectionTest() {
   const testConnection = async () => {
     try {
       setStatus("loading");
-      // 실제 배포 시에는 환경변수로 관리되어야 합니다
-      const response = await fetch("http://localhost:8080/api/health");
+      const response = await fetch(API_ENDPOINTS.health);
       if (response.ok) {
         setStatus("success");
         setMessage("백엔드 서버와 연결되었습니다!");

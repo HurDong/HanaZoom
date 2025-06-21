@@ -22,6 +22,7 @@ import { MouseFollower } from "@/components/mouse-follower";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/app/components/Navbar";
+import { API_ENDPOINTS } from "../config/api";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -124,7 +125,7 @@ export default function SignupPage() {
     }
 
     try {
-      const response = await fetch("http://localhost:8080/api/members/signup", {
+      const response = await fetch(API_ENDPOINTS.signup, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
