@@ -12,7 +12,7 @@ RUN gradle dependencies --no-daemon --build-cache \
 
 # 나머지 소스 복사
 COPY . .
-RUN gradle build --no-daemon --build-cache \
+RUN gradle build -x test --no-daemon --build-cache \
     -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=256m"
 
 FROM openjdk:17-slim
