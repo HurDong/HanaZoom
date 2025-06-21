@@ -43,10 +43,3 @@ test {
 	maxHeapSize = "256m"
 	jvmArgs = ['-Xms128m', '-Xmx256m']
 }
-
-// Gradle 설정
-gradle.properties {
-	'org.gradle.jvmargs'='-Xmx512m -XX:MaxMetaspaceSize=256m'
-	'org.gradle.parallel'='true'
-	'org.gradle.caching'='true'
-}
