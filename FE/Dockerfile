@@ -34,4 +34,4 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV NEXT_PUBLIC_API_URL=http://54.180.109.147:8080
 
-CMD ["npm", "start", "--", "--hostname", "0.0.0.0"] 
+CMD ["npm", "start", "--", "--hostname", "0.0.0.0"]
