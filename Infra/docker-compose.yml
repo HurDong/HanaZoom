@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: ../FE
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ../BE/HanaZoom
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=hanazoom
+      - MYSQL_DATABASE=hanazoom
+      - MYSQL_USER=hanazoom
+      - MYSQL_PASSWORD=hanazoom
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
