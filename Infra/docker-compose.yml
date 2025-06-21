@@ -9,7 +9,6 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://${EC2_PUBLIC_IP}:8080
     depends_on:
       - backend
 
@@ -24,7 +23,8 @@ services:
       - JAVA_OPTS=-Xmx512m -Xms256m
     mem_limit: 768m
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   db:
     image: mysql:8.0
@@ -38,6 +38,21 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     mem_limit: 256m
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "hanazoom",
+          "-phanazoom",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   mysql_data:
