@@ -9,6 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/infra/')
 
     steps:
       - uses: actions/checkout@v2
@@ -74,7 +75,7 @@ jobs:
           echo "ECR_REGISTRY=268556604739.dkr.ecr.ap-northeast-2.amazonaws.com" >> $GITHUB_ENV
 
       - name: Build and Push Backend Docker image
-        if: contains(steps.changed-files.outputs.all_changed_files, 'BE/')
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/infra/') || contains(steps.changed-files.outputs.all_changed_files, 'BE/')
         env:
           ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
           ECR_REPOSITORY: hanazoom-backend
@@ -89,7 +90,7 @@ jobs:
           fi
 
       - name: Build and Push Frontend Docker image
-        if: contains(steps.changed-files.outputs.all_changed_files, 'FE/')
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/infra/') || contains(steps.changed-files.outputs.all_changed_files, 'FE/')
         env:
           ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
           ECR_REPOSITORY: hanazoom-frontend
