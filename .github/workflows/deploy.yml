@@ -23,7 +23,7 @@ jobs:
 
       - name: Cache Gradle packages
         if: contains(steps.changed-files.outputs.all_changed_files, 'BE/')
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.gradle/caches
@@ -34,7 +34,7 @@ jobs:
 
       - name: Cache Node modules
         if: contains(steps.changed-files.outputs.all_changed_files, 'FE/')
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: "FE/node_modules"
           key: ${{ runner.os }}-node-${{ hashFiles('FE/package-lock.json') }}
@@ -45,7 +45,7 @@ jobs:
         uses: docker/setup-buildx-action@v1
 
       - name: Cache Docker layers
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ github.sha }}
