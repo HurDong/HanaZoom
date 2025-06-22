@@ -89,6 +89,16 @@ jobs:
           echo "COMMIT_HASH=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
           echo "ECR_REGISTRY=268556604739.dkr.ecr.ap-northeast-2.amazonaws.com" >> $GITHUB_ENV
 
+      - name: Copy deployment files to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ env.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "Infra/docker-compose.yml,Infra/mysql/"
+          target: "/home/ubuntu/HanaZoom"
+          strip_components: 1
+
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
@@ -101,9 +111,13 @@ jobs:
             export COMMIT_HASH=${{ env.COMMIT_HASH }}
             export ECR_REGISTRY=${{ env.ECR_REGISTRY }}
             aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin $ECR_REGISTRY
+            mkdir -p /home/ubuntu/HanaZoom
             cd /home/ubuntu/HanaZoom
             echo "ECR_REGISTRY=${ECR_REGISTRY}" > .env
             echo "ENV_SUFFIX=${ENV_SUFFIX}" >> .env
             echo "IMAGE_TAG=${ENV_SUFFIX}-${COMMIT_HASH}" >> .env
+            echo "DB_USERNAME=hanazoom_user" >> .env
+            echo "DB_PASSWORD=hanazoom1234!" >> .env
+            echo "DB_ROOT_PASSWORD=hanazoom1234!" >> .env
             docker-compose pull
             docker-compose up -d
