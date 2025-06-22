@@ -7,9 +7,14 @@ COPY package*.json pnpm-lock.yaml ./
 RUN npm install -g pnpm --no-fund --no-audit && \
     pnpm install --frozen-lockfile
 
-# Copy only necessary source files
+# Copy all configuration files
 COPY next.config.* .
 COPY tsconfig.json .
+COPY tailwind.config.* .
+COPY postcss.config.* .
+COPY components.json .
+
+# Copy source files
 COPY public ./public
 COPY app ./app
 COPY components ./components
@@ -29,11 +34,15 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy only production necessary files
+# Copy configuration files and build output
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=builder /app/package.json .
+COPY --from=builder /app/pnpm-lock.yaml .
+COPY --from=builder /app/next.config.* .
+COPY --from=builder /app/postcss.config.* .
+COPY --from=builder /app/tailwind.config.* .
+COPY --from=builder /app/components.json .
 
 # Install only production dependencies
 RUN npm install -g pnpm --no-fund --no-audit && \
