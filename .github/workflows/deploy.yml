@@ -32,10 +32,11 @@ jobs:
             echo "ENV_SUFFIX=dev" >> $GITHUB_ENV
           fi
           echo "COMMIT_HASH=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+          echo "ECR_REGISTRY=268556604739.dkr.ecr.ap-northeast-2.amazonaws.com" >> $GITHUB_ENV
 
       - name: Build and Push Backend Docker image
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
           ECR_REPOSITORY: hanazoom-backend
           IMAGE_TAG: ${{ env.ENV_SUFFIX }}-${{ env.COMMIT_HASH }}
         working-directory: ./BE/HanaZoom
@@ -49,7 +50,7 @@ jobs:
 
       - name: Build and Push Frontend Docker image
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
           ECR_REPOSITORY: hanazoom-frontend
           IMAGE_TAG: ${{ env.ENV_SUFFIX }}-${{ env.COMMIT_HASH }}
         working-directory: ./FE
@@ -67,6 +68,8 @@ jobs:
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/infra/')
 
     steps:
+      - uses: actions/checkout@v2
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -84,6 +87,7 @@ jobs:
             echo "ENV_SUFFIX=dev" >> $GITHUB_ENV
           fi
           echo "COMMIT_HASH=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+          echo "ECR_REGISTRY=268556604739.dkr.ecr.ap-northeast-2.amazonaws.com" >> $GITHUB_ENV
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
@@ -91,13 +95,15 @@ jobs:
           host: ${{ env.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: ENV_SUFFIX,COMMIT_HASH
+          envs: ENV_SUFFIX,COMMIT_HASH,ECR_REGISTRY
           script: |
             export ENV_SUFFIX=${{ env.ENV_SUFFIX }}
             export COMMIT_HASH=${{ env.COMMIT_HASH }}
-            aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
-            cd /home/ec2-user/HanaZoom
-            echo "ENV_SUFFIX=${ENV_SUFFIX}" > .env
+            export ECR_REGISTRY=${{ env.ECR_REGISTRY }}
+            aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin $ECR_REGISTRY
+            cd /home/ubuntu/HanaZoom
+            echo "ECR_REGISTRY=${ECR_REGISTRY}" > .env
+            echo "ENV_SUFFIX=${ENV_SUFFIX}" >> .env
             echo "IMAGE_TAG=${ENV_SUFFIX}-${COMMIT_HASH}" >> .env
             docker-compose pull
             docker-compose up -d
