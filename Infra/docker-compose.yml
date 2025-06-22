@@ -1,31 +1,26 @@
-version: "3.8"
+version: "3"
 
 services:
   frontend:
-    build:
-      context: ../FE
-      dockerfile: Dockerfile
+    image: ${ECR_REGISTRY}/hanazoom-frontend:${IMAGE_TAG:-latest}
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${ENV_SUFFIX:-production}
     depends_on:
       - backend
 
   backend:
-    build:
-      context: ../BE/HanaZoom
-      dockerfile: Dockerfile
+    image: ${ECR_REGISTRY}/hanazoom-backend:${IMAGE_TAG:-latest}
     ports:
       - "8080:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - JAVA_OPTS=-Xmx512m -Xms256m
+      - SPRING_PROFILES_ACTIVE=${ENV_SUFFIX:-prod}
     mem_limit: 768m
     depends_on:
       db:
         condition: service_healthy
-    restart: on-failure:3
+    restart: always
     networks:
       - app-network
 
