@@ -6,9 +6,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "하나줌 - 우리 동네 핫한 주식 찾기",
-  description: "지역별 인기 주식 종목을 한눈에 확인할 수 있는 주식 맛집 지도",
-  generator: "v0.dev",
+  title: "HanaZoom",
+  description: "주식 맛집 지도",
 };
 
 export default function RootLayout({
@@ -18,6 +17,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko" suppressHydrationWarning>
+      <head>
+        <script
+          type="text/javascript"
+          src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY}&libraries=services`}
+          async
+        />
+      </head>
       <body className={inter.className}>
         <ThemeProvider
           attribute="class"

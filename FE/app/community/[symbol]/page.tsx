@@ -125,18 +125,18 @@ export default function StockDiscussionPage() {
         <OpinionForm stock={stock} onSubmit={handleAddOpinion} />
 
         <div className="mb-6 flex flex-col sm:flex-row justify-between gap-4">
-          <h2 className="text-xl font-bold text-green-900 dark:text-green-100">
+          <h2 className="text-2xl font-bold text-green-900 dark:text-green-100 flex items-center gap-2">
             투자자 의견{" "}
-            <span className="text-green-600 dark:text-green-400">
+            <span className="text-sm font-normal px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400">
               {sortedAndFilteredOpinions.length}
             </span>
           </h2>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <Select
               value={filterOption}
               onValueChange={(value) => setFilterOption(value as FilterOption)}
             >
-              <SelectTrigger className="w-[120px] border-green-200 dark:border-green-700">
+              <SelectTrigger className="w-[140px] border-green-200 dark:border-green-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
                 <SelectValue placeholder="필터" />
               </SelectTrigger>
               <SelectContent>
@@ -150,7 +150,7 @@ export default function StockDiscussionPage() {
               value={sortOption}
               onValueChange={(value) => setSortOption(value as SortOption)}
             >
-              <SelectTrigger className="w-[120px] border-green-200 dark:border-green-700">
+              <SelectTrigger className="w-[140px] border-green-200 dark:border-green-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
                 <SelectValue placeholder="정렬" />
               </SelectTrigger>
               <SelectContent>
@@ -163,16 +163,19 @@ export default function StockDiscussionPage() {
         </div>
 
         {sortedAndFilteredOpinions.length > 0 ? (
-          sortedAndFilteredOpinions.map((opinion) => (
-            <OpinionCard
-              key={opinion.id}
-              opinion={opinion}
-              comments={mockComments[opinion.id] || []}
-            />
-          ))
+          <div className="space-y-4">
+            {sortedAndFilteredOpinions.map((opinion) => (
+              <OpinionCard
+                key={opinion.id}
+                opinion={opinion}
+                comments={mockComments[opinion.id] || []}
+              />
+            ))}
+          </div>
         ) : (
-          <div className="text-center py-12 bg-white/50 dark:bg-gray-900/50 rounded-lg backdrop-blur-sm">
-            <p className="text-gray-500 dark:text-gray-400">
+          <div className="text-center py-16 bg-white/50 dark:bg-gray-900/50 rounded-lg backdrop-blur-sm border border-green-200 dark:border-green-800">
+            <MessageSquare className="w-12 h-12 text-green-400 dark:text-green-600 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400 text-lg">
               아직 작성된 의견이 없습니다. 첫 의견을 작성해보세요!
             </p>
           </div>

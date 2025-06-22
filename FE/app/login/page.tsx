@@ -22,6 +22,7 @@ import { setTokens } from "../utils/auth";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import NavBar from "@/app/components/Navbar";
+import { API_ENDPOINTS } from "../config/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -77,7 +78,7 @@ export default function LoginPage() {
     }
 
     try {
-      const response = await fetch("http://localhost:8080/api/members/login", {
+      const response = await fetch(API_ENDPOINTS.login, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

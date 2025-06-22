@@ -1,0 +1,74 @@
+version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: ../FE
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ../BE/HanaZoom
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - JAVA_OPTS=-Xmx512m -Xms256m
+    mem_limit: 768m
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure:3
+    networks:
+      - app-network
+
+  db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=hanazoom
+      - MYSQL_DATABASE=hanazoom
+      - MYSQL_USER=hanazoom
+      - MYSQL_PASSWORD=hanazoom
+    volumes:
+      - mysql_data:/var/lib/mysql
+    mem_limit: 256m
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --bind-address=0.0.0.0
+      - --skip-name-resolve
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "hanazoom",
+          "-phanazoom",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - app-network
+
+volumes:
+  mysql_data:
+
+networks:
+  app-network:
+    driver: bridge
