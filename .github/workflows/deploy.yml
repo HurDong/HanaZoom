@@ -13,6 +13,45 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Check changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v35
+        with:
+          files: |
+            BE/**
+            FE/**
+
+      - name: Cache Gradle packages
+        if: contains(steps.changed-files.outputs.all_changed_files, 'BE/')
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('BE/HanaZoom/**/*.gradle*', 'BE/HanaZoom/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Cache Node modules
+        if: contains(steps.changed-files.outputs.all_changed_files, 'FE/')
+        uses: actions/cache@v2
+        with:
+          path: "FE/node_modules"
+          key: ${{ runner.os }}-node-${{ hashFiles('FE/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -35,32 +74,48 @@ jobs:
           echo "ECR_REGISTRY=268556604739.dkr.ecr.ap-northeast-2.amazonaws.com" >> $GITHUB_ENV
 
       - name: Build and Push Backend Docker image
+        if: contains(steps.changed-files.outputs.all_changed_files, 'BE/')
         env:
           ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
           ECR_REPOSITORY: hanazoom-backend
           IMAGE_TAG: ${{ env.ENV_SUFFIX }}-${{ env.COMMIT_HASH }}
         working-directory: ./BE/HanaZoom
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new \
+            --push \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
-            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-            docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+            docker buildx build \
+              --cache-from=type=local,src=/tmp/.buildx-cache \
+              --push \
+              -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
           fi
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Build and Push Frontend Docker image
+        if: contains(steps.changed-files.outputs.all_changed_files, 'FE/')
         env:
           ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
           ECR_REPOSITORY: hanazoom-frontend
           IMAGE_TAG: ${{ env.ENV_SUFFIX }}-${{ env.COMMIT_HASH }}
         working-directory: ./FE
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new \
+            --push \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
-            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-            docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+            docker buildx build \
+              --cache-from=type=local,src=/tmp/.buildx-cache \
+              --push \
+              -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
           fi
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   deploy:
     needs: build
@@ -95,9 +150,10 @@ jobs:
           host: ${{ env.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "Infra/docker-compose.yml,Infra/mysql/"
+          source: "Infra/*"
           target: "/home/ubuntu/HanaZoom"
           strip_components: 1
+          overwrite: true
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
@@ -113,11 +169,13 @@ jobs:
             aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin $ECR_REGISTRY
             mkdir -p /home/ubuntu/HanaZoom
             cd /home/ubuntu/HanaZoom
+            ls -la  # 디버깅을 위한 디렉토리 내용 확인
             echo "ECR_REGISTRY=${ECR_REGISTRY}" > .env
             echo "ENV_SUFFIX=${ENV_SUFFIX}" >> .env
             echo "IMAGE_TAG=${ENV_SUFFIX}-${COMMIT_HASH}" >> .env
             echo "DB_USERNAME=hanazoom_user" >> .env
             echo "DB_PASSWORD=hanazoom1234!" >> .env
             echo "DB_ROOT_PASSWORD=hanazoom1234!" >> .env
+            cat docker-compose.yml  # 디버깅을 위한 파일 내용 확인
             docker-compose pull
             docker-compose up -d
