@@ -2,32 +2,42 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# 패키지 매니저 설치 및 의존성 설치 (개발 의존성 포함)
+# Install dependencies
 COPY package*.json pnpm-lock.yaml ./
-RUN npm install -g pnpm --no-fund --no-audit
-# --prod 플래그 제거하여 devDependencies도 설치
-RUN pnpm install
+RUN npm install -g pnpm --no-fund --no-audit && \
+    pnpm install --frozen-lockfile
 
-# 소스 코드 복사 및 빌드
-COPY . .
-# 빌드 전에 환경 변수 설정
-ENV NEXT_PUBLIC_API_URL=http://localhost:8080
+# Copy only necessary source files
+COPY next.config.* .
+COPY tsconfig.json .
+COPY public ./public
+COPY app ./app
+COPY components ./components
+COPY styles ./styles
+COPY types ./types
+COPY lib ./lib
+COPY hooks ./hooks
+COPY data ./data
+
+# Build the application
+ENV NEXT_PUBLIC_API_URL=http://54.180.109.147:8080
 ENV NODE_ENV=production
 RUN pnpm build
 
-# 프로덕션 이미지
+# Production image
 FROM node:18-alpine
 
 WORKDIR /app
 
-# 필요한 파일들 복사
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/pnpm-lock.yaml ./
+# Copy only production necessary files
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/node_modules ./node_modules
-# tsconfig.json도 복사 (경로 별칭 설정을 위해)
-COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
+
+# Install only production dependencies
+RUN npm install -g pnpm --no-fund --no-audit && \
+    pnpm install --prod --frozen-lockfile
 
 EXPOSE 3000
 
