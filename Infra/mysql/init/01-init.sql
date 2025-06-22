@@ -1,0 +1,16 @@
+-- 데이터베이스 생성
+CREATE DATABASE IF NOT EXISTS hanazoom;
+USE hanazoom;
+
+-- 회원 테이블
+CREATE TABLE IF NOT EXISTS member (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 인덱스 생성
+CREATE INDEX idx_member_email ON member(email); 

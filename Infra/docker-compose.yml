@@ -16,6 +16,9 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=${ENV_SUFFIX:-prod}
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/hanazoom?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
     mem_limit: 768m
     depends_on:
       db:
@@ -29,12 +32,13 @@ services:
     ports:
       - "3306:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=hanazoom
       - MYSQL_DATABASE=hanazoom
-      - MYSQL_USER=hanazoom
-      - MYSQL_PASSWORD=hanazoom
+      - MYSQL_USER=${DB_USERNAME}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
     mem_limit: 256m
     command:
       - --character-set-server=utf8mb4
@@ -50,19 +54,19 @@ services:
           "ping",
           "-h",
           "localhost",
-          "-u",
-          "hanazoom",
-          "-phanazoom",
+          "-u$$MYSQL_USER",
+          "-p$$MYSQL_PASSWORD",
         ]
-      interval: 20s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
     networks:
       - app-network
 
 volumes:
   mysql_data:
+    driver: local
 
 networks:
   app-network:
