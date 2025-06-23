@@ -16,16 +16,20 @@ jobs:
 
       - name: Free up disk space
         run: |
-          # GitHub Actions runner 디스크 공간 정리
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo apt-get autoremove -y
-          sudo apt-get clean
-          # Docker 시스템 정리
-          docker system prune -af --volumes
-          # 디스크 사용량 확인
+          echo "🧹 빠른 디스크 공간 정리 시작..."
+          # 빠른 디스크 공간 정리 (병렬 처리 + 존재 확인)
+          {
+            [ -d "/usr/share/dotnet" ] && sudo rm -rf /usr/share/dotnet &
+            [ -d "/usr/local/lib/android" ] && sudo rm -rf /usr/local/lib/android &
+            [ -d "/opt/ghc" ] && sudo rm -rf /opt/ghc &
+            [ -d "/opt/hostedtoolcache/CodeQL" ] && sudo rm -rf /opt/hostedtoolcache/CodeQL &
+            wait
+          }
+          echo "📦 Docker 정리..."
+          # 경량 Docker 정리 (가장 빠른 옵션)
+          docker image prune -f || true
+          docker container prune -f || true
+          echo "✅ 정리 완료"
           df -h
 
       - name: Check changed files
