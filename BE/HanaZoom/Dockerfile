@@ -6,6 +6,9 @@ WORKDIR /app
 COPY gradle gradle
 COPY gradlew gradlew.bat build.gradle settings.gradle gradle.properties ./
 
+# gradlew 실행 권한 부여
+RUN chmod +x ./gradlew
+
 # 의존성 다운로드 (병렬 처리 + 메모리 최적화)
 RUN ./gradlew dependencies --no-daemon --build-cache --parallel \
     -Dorg.gradle.jvmargs="-Xmx1g -XX:MaxMetaspaceSize=512m" \
