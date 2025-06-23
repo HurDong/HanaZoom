@@ -22,7 +22,7 @@ ENV NEXT_PUBLIC_API_URL=http://54.180.109.147:8080
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Next.js 빌드 (캐시 활용)
+# Next.js 빌드 (안전한 방식)
 RUN pnpm build
 
 FROM base AS runner
@@ -36,16 +36,22 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Next.js 빌드 결과물만 복사
+# 필요한 파일들 복사
+COPY --from=builder /app/next.config.mjs ./
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
+
+# .next 폴더 복사
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+
+# 프로덕션 의존성 설치
+RUN pnpm install --prod --frozen-lockfile
 
 USER nextjs
 
 EXPOSE 3000
 
 ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["pnpm", "start"]

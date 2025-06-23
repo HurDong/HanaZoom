@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Docker 최적화를 위한 standalone 모드
-  output: "standalone",
+  // Docker 최적화 (standalone 비활성화)
+  // output: 'standalone',
   eslint: {
     ignoreDuringBuilds: true,
   },
