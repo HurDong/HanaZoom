@@ -14,6 +14,20 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Free up disk space
+        run: |
+          # GitHub Actions runner 디스크 공간 정리
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          # Docker 시스템 정리
+          docker system prune -af --volumes
+          # 디스크 사용량 확인
+          df -h
+
       - name: Check changed files
         id: changed-files
         uses: tj-actions/changed-files@v35
@@ -43,7 +57,11 @@ jobs:
             ${{ runner.os }}-node-
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.11.6
+          buildkitd-flags: --allow-insecure-entitlement=security.insecure
 
       - name: Cache Docker layers
         uses: actions/cache@v3
@@ -82,12 +100,29 @@ jobs:
           IMAGE_TAG: ${{ env.ENV_SUFFIX }}-${{ env.COMMIT_HASH }}
         working-directory: ./BE/HanaZoom
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          # 빌드 전 디스크 공간 확인
+          df -h
+          # Docker 빌드 시 캐시 활용 및 멀티스테이지 빌드 최적화
+          docker buildx build \
+            --platform linux/amd64 \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            --load \
+            .
+          # 빌드 후 불필요한 이미지 정리
+          docker image prune -f
+          # ECR에 푸시
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
             docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           fi
+          # 로컬 이미지 정리
+          docker rmi $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG || true
+          # 캐시 디렉토리 교체
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Build and Push Frontend Docker image
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/infra/') || contains(steps.changed-files.outputs.all_changed_files, 'FE/')
@@ -97,12 +132,37 @@ jobs:
           IMAGE_TAG: ${{ env.ENV_SUFFIX }}-${{ env.COMMIT_HASH }}
         working-directory: ./FE
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          # 빌드 전 디스크 공간 확인 및 정리
+          df -h
+          docker system prune -f
+          # Docker 빌드 시 캐시 활용 및 멀티스테이지 빌드 최적화
+          docker buildx build \
+            --platform linux/amd64 \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            --load \
+            .
+          # 빌드 후 불필요한 이미지 정리
+          docker image prune -f
+          # ECR에 푸시
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
             docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           fi
+          # 로컬 이미지 정리
+          docker rmi $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG || true
+          # 캐시 디렉토리 교체
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Final cleanup
+        if: always()
+        run: |
+          # 최종 정리
+          docker system prune -af --volumes
+          df -h
 
   deploy:
     needs: build
@@ -153,6 +213,9 @@ jobs:
             export ENV_SUFFIX=${{ env.ENV_SUFFIX }}
             export COMMIT_HASH=${{ env.COMMIT_HASH }}
             export ECR_REGISTRY=${{ env.ECR_REGISTRY }}
+            # EC2에서도 디스크 공간 확인 및 정리
+            df -h
+            docker system prune -f
             aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin $ECR_REGISTRY
             mkdir -p /home/ubuntu/HanaZoom
             cd /home/ubuntu/HanaZoom
@@ -166,3 +229,5 @@ jobs:
             cat docker-compose.yml  # 디버깅을 위한 파일 내용 확인
             docker-compose pull
             docker-compose up -d
+            # 배포 후 정리
+            docker image prune -f
