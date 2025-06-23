@@ -21,8 +21,9 @@ COPY . .
 ENV NEXT_PUBLIC_API_URL=http://54.180.109.147:8080
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV SKIP_ENV_VALIDATION=1
 
-# Next.js 빌드 (안전한 방식)
+# Next.js 빌드 (간단한 방식)
 RUN pnpm build
 
 FROM base AS runner
