@@ -1,5 +1,6 @@
 package com.hanazoom.domain.member;
 
+import com.hanazoom.domain.region.Region;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -31,6 +32,9 @@ public class Member {
     @Column(nullable = false)
     private String phone;
 
+    @Column(name = "region_id")
+    private Long regionId;
+
     @Column(nullable = false)
     private boolean termsAgreed;
 
@@ -53,7 +57,7 @@ public class Member {
 
     // 생성자
     public Member(String email, String password, String name, String phone,
-            boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed) {
+            boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed, Long regionId) {
         this.email = email;
         this.password = password;
         this.name = name;
@@ -61,6 +65,7 @@ public class Member {
         this.termsAgreed = termsAgreed;
         this.privacyAgreed = privacyAgreed;
         this.marketingAgreed = marketingAgreed;
+        this.regionId = regionId;
     }
 
     // 업데이트 메서드
@@ -70,6 +75,10 @@ public class Member {
 
     public void updateLastLogin() {
         this.lastLoginAt = LocalDateTime.now();
+    }
+
+    public void updateRegion(Long regionId) {
+        this.regionId = regionId;
     }
 
     public void updateMarketingAgreement(boolean agreed) {

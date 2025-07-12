@@ -6,26 +6,32 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=${ENV_SUFFIX:-production}
-    depends_on:
-      - backend
+      - NODE_ENV=${NODE_ENV:-production}
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
 
   backend:
     image: ${ECR_REGISTRY}/hanazoom-backend:${IMAGE_TAG:-latest}
     ports:
       - "8080:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=${ENV_SUFFIX:-prod}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
       - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/hanazoom?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-    mem_limit: 768m
     depends_on:
       db:
         condition: service_healthy
     restart: always
-    networks:
-      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
 
   db:
     image: mysql:8.0
@@ -38,14 +44,6 @@ services:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./mysql/init:/docker-entrypoint-initdb.d
-    mem_limit: 256m
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --default-authentication-plugin=mysql_native_password
-      - --bind-address=0.0.0.0
-      - --skip-name-resolve
     healthcheck:
       test:
         [
@@ -61,13 +59,12 @@ services:
       timeout: 5s
       retries: 5
     restart: always
-    networks:
-      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
 
 volumes:
   mysql_data:
     driver: local
-
-networks:
-  app-network:
-    driver: bridge

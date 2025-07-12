@@ -1,0 +1,20 @@
+# Docker Registry
+ECR_REGISTRY=YOUR_AWS_ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com
+
+# Environment
+ENV_SUFFIX=prod  # or dev
+
+# Image Tags
+IMAGE_TAG=${ENV_SUFFIX}-latest
+
+# Application Settings
+SPRING_PROFILES_ACTIVE=${ENV_SUFFIX}
+NODE_ENV=${ENV_SUFFIX}
+
+# Database Settings
+DB_USERNAME=hanazoom_user
+DB_PASSWORD=your_secure_password
+DB_ROOT_PASSWORD=your_secure_root_password
+
+# Logging
+LOG_LEVEL=info  # or debug for dev environment 

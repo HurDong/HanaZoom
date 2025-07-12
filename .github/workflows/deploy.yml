@@ -1,0 +1,168 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, infra/*, feature/*, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/infra/')
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Check changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v35
+        with:
+          files: |
+            BE/**
+            FE/**
+
+      - name: Cache Gradle packages
+        if: contains(steps.changed-files.outputs.all_changed_files, 'BE/')
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('BE/HanaZoom/**/*.gradle*', 'BE/HanaZoom/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Cache Node modules
+        if: contains(steps.changed-files.outputs.all_changed_files, 'FE/')
+        uses: actions/cache@v3
+        with:
+          path: "FE/node_modules"
+          key: ${{ runner.os }}-node-${{ hashFiles('FE/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Set environment variables
+        run: |
+          if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
+            echo "ENV_SUFFIX=prod" >> $GITHUB_ENV
+          else
+            echo "ENV_SUFFIX=dev" >> $GITHUB_ENV
+          fi
+          echo "COMMIT_HASH=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+          echo "ECR_REGISTRY=268556604739.dkr.ecr.ap-northeast-2.amazonaws.com" >> $GITHUB_ENV
+
+      - name: Build and Push Backend Docker image
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/infra/') || contains(steps.changed-files.outputs.all_changed_files, 'BE/')
+        env:
+          ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
+          ECR_REPOSITORY: hanazoom-backend
+          IMAGE_TAG: ${{ env.ENV_SUFFIX }}-${{ env.COMMIT_HASH }}
+        working-directory: ./BE/HanaZoom
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
+            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+            docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          fi
+
+      - name: Build and Push Frontend Docker image
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/infra/') || contains(steps.changed-files.outputs.all_changed_files, 'FE/')
+        env:
+          ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
+          ECR_REPOSITORY: hanazoom-frontend
+          IMAGE_TAG: ${{ env.ENV_SUFFIX }}-${{ env.COMMIT_HASH }}
+        working-directory: ./FE
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
+            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+            docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          fi
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/infra/')
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Set environment variables
+        run: |
+          if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
+            echo "EC2_HOST=${{ secrets.PROD_EC2_HOST }}" >> $GITHUB_ENV
+            echo "ENV_SUFFIX=prod" >> $GITHUB_ENV
+          else
+            echo "EC2_HOST=${{ secrets.DEV_EC2_HOST }}" >> $GITHUB_ENV
+            echo "ENV_SUFFIX=dev" >> $GITHUB_ENV
+          fi
+          echo "COMMIT_HASH=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+          echo "ECR_REGISTRY=268556604739.dkr.ecr.ap-northeast-2.amazonaws.com" >> $GITHUB_ENV
+
+      - name: Copy deployment files to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ env.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "Infra/*"
+          target: "/home/ubuntu/HanaZoom"
+          strip_components: 1
+          overwrite: true
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ENV_SUFFIX,COMMIT_HASH,ECR_REGISTRY
+          script: |
+            export ENV_SUFFIX=${{ env.ENV_SUFFIX }}
+            export COMMIT_HASH=${{ env.COMMIT_HASH }}
+            export ECR_REGISTRY=${{ env.ECR_REGISTRY }}
+            aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin $ECR_REGISTRY
+            mkdir -p /home/ubuntu/HanaZoom
+            cd /home/ubuntu/HanaZoom
+            ls -la  # 디버깅을 위한 디렉토리 내용 확인
+            echo "ECR_REGISTRY=${ECR_REGISTRY}" > .env
+            echo "ENV_SUFFIX=${ENV_SUFFIX}" >> .env
+            echo "IMAGE_TAG=${ENV_SUFFIX}-${COMMIT_HASH}" >> .env
+            echo "DB_USERNAME=hanazoom_user" >> .env
+            echo "DB_PASSWORD=hanazoom1234!" >> .env
+            echo "DB_ROOT_PASSWORD=hanazoom1234!" >> .env
+            cat docker-compose.yml  # 디버깅을 위한 파일 내용 확인
+            docker-compose pull
+            docker-compose up -d
