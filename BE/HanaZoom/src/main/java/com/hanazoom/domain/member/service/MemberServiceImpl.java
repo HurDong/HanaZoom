@@ -1,20 +1,17 @@
-package com.hanazoom.service.impl;
+package com.hanazoom.domain.member.service;
 
-import com.hanazoom.domain.member.Member;
-import com.hanazoom.dto.member.LoginRequest;
-import com.hanazoom.dto.member.LoginResponse;
-import com.hanazoom.dto.member.SignupRequest;
-import com.hanazoom.dto.member.TokenRefreshRequest;
-import com.hanazoom.dto.member.TokenRefreshResponse;
-import com.hanazoom.repository.MemberRepository;
-import com.hanazoom.service.MemberService;
-import com.hanazoom.service.TokenService;
-import com.hanazoom.util.JwtUtil;
-import com.hanazoom.util.PasswordUtil;
+import com.hanazoom.domain.member.entity.Member;
+import com.hanazoom.domain.member.dto.LoginRequest;
+import com.hanazoom.domain.member.dto.LoginResponse;
+import com.hanazoom.domain.member.dto.SignupRequest;
+import com.hanazoom.domain.member.dto.TokenRefreshRequest;
+import com.hanazoom.domain.member.dto.TokenRefreshResponse;
+import com.hanazoom.domain.member.repository.MemberRepository;
+import com.hanazoom.global.util.JwtUtil;
+import com.hanazoom.global.util.PasswordUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.UUID;
 
 @Service

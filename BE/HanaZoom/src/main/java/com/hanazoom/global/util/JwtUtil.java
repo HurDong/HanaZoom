@@ -1,6 +1,6 @@
-package com.hanazoom.util;
+package com.hanazoom.global.util;
 
-import com.hanazoom.config.JwtConfig;
+import com.hanazoom.global.config.JwtConfig;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;

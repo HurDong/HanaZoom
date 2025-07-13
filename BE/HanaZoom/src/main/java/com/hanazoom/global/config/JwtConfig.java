@@ -1,4 +1,4 @@
-package com.hanazoom.config;
+package com.hanazoom.global.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;

@@ -1,8 +1,7 @@
-package com.hanazoom.service.impl;
+package com.hanazoom.domain.member.service;
 
-import com.hanazoom.config.JwtConfig;
-import com.hanazoom.service.TokenService;
-import com.hanazoom.util.JwtUtil;
+import com.hanazoom.global.config.JwtConfig;
+import com.hanazoom.global.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

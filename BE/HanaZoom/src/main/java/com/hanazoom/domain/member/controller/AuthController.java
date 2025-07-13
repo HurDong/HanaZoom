@@ -1,12 +1,12 @@
-package com.hanazoom.controller;
+package com.hanazoom.domain.member.controller;
 
-import com.hanazoom.dto.member.LoginRequest;
-import com.hanazoom.dto.member.LoginResponse;
-import com.hanazoom.dto.member.SignupRequest;
-import com.hanazoom.dto.member.TokenRefreshRequest;
-import com.hanazoom.dto.member.TokenRefreshResponse;
-import com.hanazoom.service.MemberService;
-import com.hanazoom.util.JwtUtil;
+import com.hanazoom.domain.member.dto.LoginRequest;
+import com.hanazoom.domain.member.dto.LoginResponse;
+import com.hanazoom.domain.member.dto.SignupRequest;
+import com.hanazoom.domain.member.dto.TokenRefreshRequest;
+import com.hanazoom.domain.member.dto.TokenRefreshResponse;
+import com.hanazoom.domain.member.service.MemberService;
+import com.hanazoom.global.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

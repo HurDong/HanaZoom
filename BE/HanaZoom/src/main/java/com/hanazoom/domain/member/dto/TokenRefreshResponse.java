@@ -1,4 +1,4 @@
-package com.hanazoom.dto.member;
+package com.hanazoom.domain.member.dto;
 
 import lombok.Getter;
 

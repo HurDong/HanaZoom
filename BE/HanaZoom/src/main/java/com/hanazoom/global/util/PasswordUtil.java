@@ -1,4 +1,4 @@
-package com.hanazoom.util;
+package com.hanazoom.global.util;
 
 import org.springframework.stereotype.Component;
 
