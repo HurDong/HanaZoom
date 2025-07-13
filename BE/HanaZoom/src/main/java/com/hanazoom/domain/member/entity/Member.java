@@ -1,4 +1,4 @@
-package com.hanazoom.domain.member;
+package com.hanazoom.domain.member.entity;
 
 import com.hanazoom.domain.region.Region;
 import jakarta.persistence.*;

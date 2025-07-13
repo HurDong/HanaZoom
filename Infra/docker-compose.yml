@@ -1,32 +1,45 @@
 version: "3"
 
 services:
+  # Frontend Service (for local development)
   frontend:
-    image: ${ECR_REGISTRY}/hanazoom-frontend:${IMAGE_TAG:-latest}
+    build:
+      context: ../FE
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=${ENV_SUFFIX:-production}
+      - NODE_ENV=development
     depends_on:
       - backend
+    networks:
+      - app-network
 
+  # Backend Service (for local development)
   backend:
-    image: ${ECR_REGISTRY}/hanazoom-backend:${IMAGE_TAG:-latest}
+    build:
+      context: ../BE/HanaZoom
+      dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "8080:8080" # The port was changed from 8082 to 8080 for consistency.
     environment:
-      - SPRING_PROFILES_ACTIVE=${ENV_SUFFIX:-prod}
+      - SPRING_PROFILES_ACTIVE=prod # Connects to mysql in docker, not h2
       - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/hanazoom?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-    mem_limit: 768m
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: always
     networks:
       - app-network
 
+  # Database Service
   db:
     image: mysql:8.0
     ports:
@@ -39,13 +52,10 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./mysql/init:/docker-entrypoint-initdb.d
-    mem_limit: 256m
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --default-authentication-plugin=mysql_native_password
-      - --bind-address=0.0.0.0
-      - --skip-name-resolve
     healthcheck:
       test:
         [
@@ -54,9 +64,26 @@ services:
           "ping",
           "-h",
           "localhost",
-          "-u$$MYSQL_USER",
-          "-p$$MYSQL_PASSWORD",
+          "-u${DB_USERNAME}",
+          "-p${DB_PASSWORD}",
         ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - app-network
+
+  # Redis Service
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -66,6 +93,8 @@ services:
 
 volumes:
   mysql_data:
+    driver: local
+  redis_data:
     driver: local
 
 networks:
