@@ -2,7 +2,6 @@
 
 import type React from "react";
 import Swal from "sweetalert2";
-
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,17 +18,17 @@ import { MapPin, Mail, Lock, Eye, EyeOff, User, Phone } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MouseFollower } from "@/components/mouse-follower";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/app/components/Navbar";
 import { API_ENDPOINTS } from "../config/api";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import Script from "next/script";
+
+declare global {
+  interface Window {
+    daum: any;
+  }
+}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -42,7 +41,10 @@ export default function SignupPage() {
     password: "",
     confirmPassword: "",
     marketing: false,
-    region: "", // 추가: 지역 선택
+    address: "", // 전체 주소
+    zonecode: "", // 우편번호
+    detailAddress: "", // 상세주소
+    region: "", // 시/도 정보
   });
   const [agreements, setAgreements] = useState({
     terms: false,
@@ -90,10 +92,48 @@ export default function SignupPage() {
     }
   };
 
-  const handleRegionChange = (value: string) => {
+  const handleAddressSearch = () => {
+    new window.daum.Postcode({
+      oncomplete: function (data: any) {
+        // 시/도 정보 추출 및 매핑
+        const regionMapping: { [key: string]: string } = {
+          서울: "SEOUL",
+          부산: "BUSAN",
+          대구: "DAEGU",
+          인천: "INCHEON",
+          광주: "GWANGJU",
+          대전: "DAEJEON",
+          울산: "ULSAN",
+          세종: "SEJONG",
+          경기: "GYEONGGI",
+          강원: "GANGWON",
+          충북: "CHUNGBUK",
+          충남: "CHUNGNAM",
+          전북: "JEONBUK",
+          전남: "JEONNAM",
+          경북: "GYEONGBUK",
+          경남: "GYEONGNAM",
+          제주: "JEJU",
+        };
+
+        const sido = data.sido.replace(/[특별시광역시특별자치시도]/g, "");
+
+        setFormData((prev) => ({
+          ...prev,
+          address: data.address,
+          zonecode: data.zonecode,
+          region: regionMapping[sido] || "",
+        }));
+      },
+    }).open();
+  };
+
+  const handleDetailAddressChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     setFormData((prev) => ({
       ...prev,
-      region: value,
+      detailAddress: e.target.value,
     }));
   };
 
@@ -119,9 +159,9 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
 
-    // 지역 선택 검증 추가
-    if (!formData.region) {
-      showErrorAlert("거주 지역을 선택해주세요.");
+    // 주소 검증 추가
+    if (!formData.address || !formData.zonecode) {
+      showErrorAlert("주소를 입력해주세요.");
       return;
     }
 
@@ -156,7 +196,10 @@ export default function SignupPage() {
           email: formData.email,
           password: formData.password,
           phone: formData.phone,
-          region: formData.region, // 추가: 지역 정보
+          address: formData.address,
+          detailAddress: formData.detailAddress,
+          zonecode: formData.zonecode,
+          region: formData.region,
           termsAgreed: agreements.terms,
           privacyAgreed: agreements.privacy,
           marketingAgreed: agreements.marketing,
@@ -167,7 +210,6 @@ export default function SignupPage() {
         const errorData = await response.json();
         let errorMessage = "회원가입에 실패했습니다.";
 
-        // 서버에서 받은 에러 메시지 처리
         if (errorData.errors && errorData.errors.length > 0) {
           const error = errorData.errors[0];
           if (error.defaultMessage) {
@@ -178,7 +220,6 @@ export default function SignupPage() {
         throw new Error(errorMessage);
       }
 
-      // 회원가입 성공 시 성공 알림
       await Swal.fire({
         title: "환영합니다! 🎉",
         text: "회원가입이 완료되었습니다.",
@@ -195,7 +236,6 @@ export default function SignupPage() {
         },
       });
 
-      // 로그인 페이지로 이동
       router.push("/login");
     } catch (error) {
       console.error("회원가입 실패:", error);
@@ -250,6 +290,7 @@ export default function SignupPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignup} className="space-y-4">
+              {/* 이름 입력 필드 */}
               <div className="space-y-2">
                 <Label
                   htmlFor="name"
@@ -270,6 +311,8 @@ export default function SignupPage() {
                   />
                 </div>
               </div>
+
+              {/* 이메일 입력 필드 */}
               <div className="space-y-2">
                 <Label
                   htmlFor="email"
@@ -290,6 +333,8 @@ export default function SignupPage() {
                   />
                 </div>
               </div>
+
+              {/* 전화번호 입력 필드 */}
               <div className="space-y-2">
                 <Label
                   htmlFor="phone"
@@ -311,45 +356,58 @@ export default function SignupPage() {
                 </div>
               </div>
 
+              {/* 주소 입력 필드 */}
               <div className="space-y-2">
                 <Label
-                  htmlFor="region"
+                  htmlFor="address"
                   className="text-green-800 dark:text-green-200"
                 >
-                  거주 지역
+                  주소
                 </Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 h-5 w-5 text-green-500 z-10" />
-                  <Select
-                    value={formData.region}
-                    onValueChange={handleRegionChange}
-                  >
-                    <SelectTrigger className="pl-10 border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400">
-                      <SelectValue placeholder="거주 지역을 선택하세요" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SEOUL">서울특별시</SelectItem>
-                      <SelectItem value="BUSAN">부산광역시</SelectItem>
-                      <SelectItem value="DAEGU">대구광역시</SelectItem>
-                      <SelectItem value="INCHEON">인천광역시</SelectItem>
-                      <SelectItem value="GWANGJU">광주광역시</SelectItem>
-                      <SelectItem value="DAEJEON">대전광역시</SelectItem>
-                      <SelectItem value="ULSAN">울산광역시</SelectItem>
-                      <SelectItem value="SEJONG">세종특별자치시</SelectItem>
-                      <SelectItem value="GYEONGGI">경기도</SelectItem>
-                      <SelectItem value="GANGWON">강원도</SelectItem>
-                      <SelectItem value="CHUNGBUK">충청북도</SelectItem>
-                      <SelectItem value="CHUNGNAM">충청남도</SelectItem>
-                      <SelectItem value="JEONBUK">전라북도</SelectItem>
-                      <SelectItem value="JEONNAM">전라남도</SelectItem>
-                      <SelectItem value="GYEONGBUK">경상북도</SelectItem>
-                      <SelectItem value="GYEONGNAM">경상남도</SelectItem>
-                      <SelectItem value="JEJU">제주특별자치도</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <MapPin className="absolute left-3 top-3 h-5 w-5 text-green-500" />
+                      <Input
+                        id="zonecode"
+                        name="zonecode"
+                        type="text"
+                        placeholder="우편번호"
+                        value={formData.zonecode}
+                        readOnly
+                        className="pl-10 border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleAddressSearch}
+                      className="bg-green-500 hover:bg-green-600 text-white"
+                    >
+                      주소 검색
+                    </Button>
+                  </div>
+                  <Input
+                    id="address"
+                    name="address"
+                    type="text"
+                    placeholder="주소"
+                    value={formData.address}
+                    readOnly
+                    className="border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
+                  />
+                  <Input
+                    id="detailAddress"
+                    name="detailAddress"
+                    type="text"
+                    placeholder="상세주소를 입력하세요"
+                    value={formData.detailAddress}
+                    onChange={handleDetailAddressChange}
+                    className="border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
+                  />
                 </div>
               </div>
 
+              {/* 비밀번호 입력 필드 */}
               <div className="space-y-2">
                 <Label
                   htmlFor="password"
@@ -381,6 +439,8 @@ export default function SignupPage() {
                   </button>
                 </div>
               </div>
+
+              {/* 비밀번호 확인 필드 */}
               <div className="space-y-2">
                 <Label
                   htmlFor="confirmPassword"
@@ -472,23 +532,8 @@ export default function SignupPage() {
             </form>
           </CardContent>
         </Card>
-
-        <style jsx>{`
-          .floating-symbol {
-            animation: float 6s ease-in-out infinite;
-          }
-
-          @keyframes float {
-            0%,
-            100% {
-              transform: translateY(0px) rotate(0deg);
-            }
-            50% {
-              transform: translateY(-20px) rotate(5deg);
-            }
-          }
-        `}</style>
       </div>
+      <Script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js" />
     </div>
   );
 }
