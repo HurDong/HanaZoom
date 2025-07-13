@@ -23,6 +23,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/app/components/Navbar";
 import { API_ENDPOINTS } from "../config/api";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -35,6 +42,7 @@ export default function SignupPage() {
     password: "",
     confirmPassword: "",
     marketing: false,
+    region: "", // 추가: 지역 선택
   });
   const [agreements, setAgreements] = useState({
     terms: false,
@@ -82,6 +90,13 @@ export default function SignupPage() {
     }
   };
 
+  const handleRegionChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      region: value,
+    }));
+  };
+
   const showErrorAlert = (message: string) => {
     Swal.fire({
       title: "앗!",
@@ -103,6 +118,12 @@ export default function SignupPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // 지역 선택 검증 추가
+    if (!formData.region) {
+      showErrorAlert("거주 지역을 선택해주세요.");
+      return;
+    }
 
     // 전화번호 형식 검사 (하이픈이 포함된 형식)
     const phoneRegex = /^01(?:0|1|[6-9])-(?:\d{3}|\d{4})-\d{4}$/;
@@ -135,6 +156,7 @@ export default function SignupPage() {
           email: formData.email,
           password: formData.password,
           phone: formData.phone,
+          region: formData.region, // 추가: 지역 정보
           termsAgreed: agreements.terms,
           privacyAgreed: agreements.privacy,
           marketingAgreed: agreements.marketing,
@@ -288,6 +310,46 @@ export default function SignupPage() {
                   />
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <Label
+                  htmlFor="region"
+                  className="text-green-800 dark:text-green-200"
+                >
+                  거주 지역
+                </Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3 h-5 w-5 text-green-500 z-10" />
+                  <Select
+                    value={formData.region}
+                    onValueChange={handleRegionChange}
+                  >
+                    <SelectTrigger className="pl-10 border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400">
+                      <SelectValue placeholder="거주 지역을 선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SEOUL">서울특별시</SelectItem>
+                      <SelectItem value="BUSAN">부산광역시</SelectItem>
+                      <SelectItem value="DAEGU">대구광역시</SelectItem>
+                      <SelectItem value="INCHEON">인천광역시</SelectItem>
+                      <SelectItem value="GWANGJU">광주광역시</SelectItem>
+                      <SelectItem value="DAEJEON">대전광역시</SelectItem>
+                      <SelectItem value="ULSAN">울산광역시</SelectItem>
+                      <SelectItem value="SEJONG">세종특별자치시</SelectItem>
+                      <SelectItem value="GYEONGGI">경기도</SelectItem>
+                      <SelectItem value="GANGWON">강원도</SelectItem>
+                      <SelectItem value="CHUNGBUK">충청북도</SelectItem>
+                      <SelectItem value="CHUNGNAM">충청남도</SelectItem>
+                      <SelectItem value="JEONBUK">전라북도</SelectItem>
+                      <SelectItem value="JEONNAM">전라남도</SelectItem>
+                      <SelectItem value="GYEONGBUK">경상북도</SelectItem>
+                      <SelectItem value="GYEONGNAM">경상남도</SelectItem>
+                      <SelectItem value="JEJU">제주특별자치도</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label
                   htmlFor="password"
