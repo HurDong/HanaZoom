@@ -9,14 +9,11 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**")
-                .allowedOrigins(
-                        "http://localhost:3000", // 로컬 개발 환경
-                        "http://54.180.109.147:3000" // EC2 프론트엔드
-                )
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+        registry.addMapping("/**")
+                .allowedOriginPatterns("*") // 개발 편의를 위해 모든 origin 허용
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*")
                 .allowCredentials(true)
-                .exposedHeaders("Access-Control-Allow-Private-Network");
+                .maxAge(3600); // 1시간 캐시
     }
 }

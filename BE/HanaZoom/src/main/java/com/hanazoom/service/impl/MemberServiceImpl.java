@@ -4,11 +4,18 @@ import com.hanazoom.domain.member.Member;
 import com.hanazoom.dto.member.LoginRequest;
 import com.hanazoom.dto.member.LoginResponse;
 import com.hanazoom.dto.member.SignupRequest;
+import com.hanazoom.dto.member.TokenRefreshRequest;
+import com.hanazoom.dto.member.TokenRefreshResponse;
 import com.hanazoom.repository.MemberRepository;
 import com.hanazoom.service.MemberService;
+import com.hanazoom.service.TokenService;
+import com.hanazoom.util.JwtUtil;
+import com.hanazoom.util.PasswordUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -16,6 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberServiceImpl implements MemberService {
 
     private final MemberRepository memberRepository;
+    private final JwtUtil jwtUtil;
+    private final PasswordUtil passwordUtil;
+    private final TokenService tokenService;
 
     @Override
     @Transactional
@@ -24,14 +34,18 @@ public class MemberServiceImpl implements MemberService {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
 
+        // 비밀번호 암호화
+        String encodedPassword = passwordUtil.encodePassword(request.getPassword());
+
         Member member = new Member(
                 request.getEmail(),
-                request.getPassword(),
+                encodedPassword,
                 request.getName(),
                 request.getPhone(),
                 request.isTermsAgreed(),
                 request.isPrivacyAgreed(),
-                request.isMarketingAgreed());
+                request.isMarketingAgreed(),
+                request.getRegionId());
 
         memberRepository.save(member);
     }
@@ -42,14 +56,50 @@ public class MemberServiceImpl implements MemberService {
         Member member = memberRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 일치하지 않습니다."));
 
-        if (!member.getPassword().equals(request.getPassword())) {
+        if (!passwordUtil.matches(request.getPassword(), member.getPassword())) {
             throw new IllegalArgumentException("이메일 또는 비밀번호가 일치하지 않습니다.");
         }
 
         member.updateLastLogin();
-        // TODO: JWT 토큰 생성 로직 추가
-        String token = "dummy-token";
 
-        return new LoginResponse(member.getId(), member.getEmail(), member.getName(), token);
+        // JWT 토큰 생성
+        String accessToken = jwtUtil.generateAccessToken(member.getId(), member.getEmail());
+        String refreshToken = jwtUtil.generateRefreshToken(member.getId(), member.getEmail());
+
+        // Redis에 토큰 저장
+        tokenService.saveAccessToken(member.getId(), accessToken);
+        tokenService.saveRefreshToken(member.getId(), refreshToken);
+
+        return new LoginResponse(member.getId(), member.getEmail(), member.getName(), accessToken, refreshToken);
+    }
+
+    @Override
+    @Transactional
+    public TokenRefreshResponse refreshToken(TokenRefreshRequest request) {
+        // Refresh Token에서 사용자 정보 추출
+        UUID memberId = jwtUtil.getMemberIdFromToken(request.getRefreshToken());
+        String email = jwtUtil.getEmailFromToken(request.getRefreshToken());
+
+        // Refresh Token 유효성 검증
+        if (!tokenService.isValidRefreshToken(memberId, request.getRefreshToken())) {
+            throw new IllegalArgumentException("유효하지 않은 Refresh Token입니다.");
+        }
+
+        // 새로운 토큰 생성
+        String newAccessToken = jwtUtil.generateAccessToken(memberId, email);
+        String newRefreshToken = jwtUtil.generateRefreshToken(memberId, email);
+
+        // Redis에 새로운 토큰 저장
+        tokenService.saveAccessToken(memberId, newAccessToken);
+        tokenService.saveRefreshToken(memberId, newRefreshToken);
+
+        return new TokenRefreshResponse(newAccessToken, newRefreshToken);
+    }
+
+    @Override
+    @Transactional
+    public void logout(UUID memberId) {
+        // Redis에서 모든 토큰 삭제
+        tokenService.removeAllTokens(memberId);
     }
 }

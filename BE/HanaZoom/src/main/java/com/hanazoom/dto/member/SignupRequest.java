@@ -25,4 +25,6 @@ public class SignupRequest {
     private boolean termsAgreed;
     private boolean privacyAgreed;
     private boolean marketingAgreed;
+
+    private Long regionId; // 관심 지역 ID (선택사항)
 }

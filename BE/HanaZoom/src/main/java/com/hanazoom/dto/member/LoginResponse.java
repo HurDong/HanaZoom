@@ -9,12 +9,14 @@ public class LoginResponse {
     private final UUID id;
     private final String email;
     private final String name;
-    private final String token;
+    private final String accessToken;
+    private final String refreshToken;
 
-    public LoginResponse(UUID id, String email, String name, String token) {
+    public LoginResponse(UUID id, String email, String name, String accessToken, String refreshToken) {
         this.id = id;
         this.email = email;
         this.name = name;
-        this.token = token;
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
     }
 }
