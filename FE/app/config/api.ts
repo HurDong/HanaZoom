@@ -1,6 +1,6 @@
 // API 기본 URL 설정
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://54.180.109.147:8080";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 // API 엔드포인트 설정
 export const API_ENDPOINTS = {

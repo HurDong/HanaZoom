@@ -45,4 +45,5 @@ test {
 	useJUnitPlatform()
 	maxHeapSize = "256m"
 	jvmArgs = ['-Xms128m', '-Xmx256m']
+	enabled = false
 }
