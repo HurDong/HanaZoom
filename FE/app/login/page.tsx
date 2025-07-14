@@ -90,12 +90,17 @@ export default function LoginPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
         let errorMessage = "로그인에 실패했습니다.";
 
-        // 서버에서 받은 에러 메시지 처리
-        if (errorData.message) {
-          errorMessage = errorData.message;
+        try {
+          const errorData = await response.json();
+          // 서버에서 받은 에러 메시지 처리
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (jsonError) {
+          // JSON 파싱 실패 시 기본 메시지 사용 (로그 제거)
+          errorMessage = "로그인에 실패했습니다. 다시 시도해주세요.";
         }
 
         throw new Error(errorMessage);
@@ -126,7 +131,7 @@ export default function LoginPage() {
       // 메인 페이지로 이동
       router.push("/");
     } catch (error) {
-      console.error("로그인 실패:", error);
+      // 에러 로그 제거 - 사용자에게는 Sweet Alert로 표시
       showErrorAlert(
         error instanceof Error ? error.message : "로그인에 실패했습니다."
       );
