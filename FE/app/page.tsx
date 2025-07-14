@@ -15,6 +15,7 @@ import {
   LogIn,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { MouseFollower } from "@/components/mouse-follower";
 import { LoadingAnimation } from "@/components/loading-animation";
 import { StockMapPreview } from "@/components/stock-map-preview";
@@ -22,11 +23,14 @@ import { AnimateOnScroll } from "@/components/animate-on-scroll";
 import { useState, useEffect, useRef } from "react";
 import NavBar from "./components/Navbar";
 import { StockTicker } from "@/components/stock-ticker";
+import { isLoggedIn } from "./utils/auth";
 
 export default function StockMapLanding() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [showContent, setShowContent] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
 
   const handleLoadingComplete = () => {
@@ -36,6 +40,9 @@ export default function StockMapLanding() {
   };
 
   useEffect(() => {
+    // 로그인 상태 확인
+    setLoggedIn(isLoggedIn());
+
     // 실제 앱에서는 데이터 로딩이 완료되면 setIsLoading(false) 호출
     const timer = setTimeout(() => {
       setIsLoading(false);
@@ -153,21 +160,23 @@ export default function StockMapLanding() {
 
                 <div className="flex flex-col sm:flex-row gap-4 relative z-50 mt-8">
                   <button
-                    onClick={() => (window.location.href = "/map")}
+                    onClick={() => router.push("/map")}
                     className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white text-lg px-8 py-6 rounded-md flex items-center justify-center cursor-pointer relative z-50"
                     style={{ position: "relative", zIndex: 50 }}
                   >
                     <Map className="w-5 h-5 mr-2" />
                     지도 보러가기
                   </button>
-                  <button
-                    onClick={() => (window.location.href = "/login")}
-                    className="w-full sm:w-auto text-green-600 dark:text-green-400 border border-green-600 dark:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/50 text-lg px-8 py-6 rounded-md flex items-center justify-center cursor-pointer relative z-50"
-                    style={{ position: "relative", zIndex: 50 }}
-                  >
-                    <LogIn className="w-5 h-5 mr-2" />
-                    로그인
-                  </button>
+                  {!loggedIn && (
+                    <button
+                      onClick={() => router.push("/login")}
+                      className="w-full sm:w-auto text-green-600 dark:text-green-400 border border-green-600 dark:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/50 text-lg px-8 py-6 rounded-md flex items-center justify-center cursor-pointer relative z-50"
+                      style={{ position: "relative", zIndex: 50 }}
+                    >
+                      <LogIn className="w-5 h-5 mr-2" />
+                      로그인
+                    </button>
+                  )}
                 </div>
               </div>
 
