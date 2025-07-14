@@ -16,6 +16,9 @@ CREATE TABLE `regions` (
     INDEX `idx_parent_id` (`parent_id`) -- 추후 부모 ID 기반 검색 성능을 위해 인덱스를 추가합니다.
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 데이터베이스 연결 및 이후 모든 통신에 사용할 문자 인코딩을 UTF-8로 설정합니다.
+SET NAMES 'utf8mb4';
+
 -- This data is based on https://github.com/vuski/admdongkor
 -- Filtered for: 서울특별시, 경기도, 인천광역시
 START TRANSACTION;

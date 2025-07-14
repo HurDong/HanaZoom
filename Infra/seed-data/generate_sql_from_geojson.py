@@ -151,6 +151,8 @@ CREATE TABLE `regions` (
 
     sql_statements = [
         create_table_sql,
+        "\n-- 데이터베이스 연결 및 이후 모든 통신에 사용할 문자 인코딩을 UTF-8로 설정합니다.",
+        "SET NAMES 'utf8mb4';",
         f"\n-- This data is based on https://github.com/vuski/admdongkor",
         f"-- Filtered for: {', '.join(TARGET_REGIONS)}",
         "START TRANSACTION;"
