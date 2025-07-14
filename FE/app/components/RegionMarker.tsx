@@ -1,8 +1,8 @@
 "use client";
 
-import { MapMarker } from "react-kakao-maps-sdk";
+import { CustomOverlayMap } from "react-kakao-maps-sdk";
 import { motion } from "framer-motion";
-import { Region } from "@/app/map/page"; // 수정: 타입을 map 페이지에서 직접 가져옵니다.
+import { Region } from "@/app/map/page";
 
 export interface RegionMarkerProps {
   region: Region;
@@ -12,60 +12,79 @@ export interface RegionMarkerProps {
 export const RegionMarker = ({ region, onClick }: RegionMarkerProps) => {
   const { name, latitude, longitude, type } = region;
 
-  const getMarkerStyle = () => {
+  // 줌 레벨(타입)에 따라 스타일을 동적으로 결정하는 함수
+  const getMarkerStyles = () => {
     switch (type) {
       case "CITY":
         return {
-          width: "100px",
-          height: "36px",
-          fontSize: "16px",
-          fontWeight: "bold",
-          backgroundColor: "rgba(255, 255, 255, 0.9)",
-          color: "#166534", // green-800
-          border: "2px solid #166534",
+          padding: "px-4 py-2",
+          fontSize: "text-base font-bold",
+          shadow: "shadow-lg",
+          borderColor: "border-emerald-500",
+          textColor: "text-emerald-800 dark:text-emerald-100",
+          zIndex: 30,
         };
       case "DISTRICT":
         return {
-          width: "80px",
-          height: "32px",
-          fontSize: "14px",
-          fontWeight: "600",
-          backgroundColor: "rgba(255, 255, 255, 0.85)",
-          color: "#15803d", // green-700
-          border: "1.5px solid #15803d",
+          padding: "px-3 py-1.5",
+          fontSize: "text-sm font-semibold",
+          shadow: "shadow-md",
+          borderColor: "border-green-500",
+          textColor: "text-green-800 dark:text-green-100",
+          zIndex: 20,
         };
       case "NEIGHBORHOOD":
         return {
-          width: "70px",
-          height: "28px",
-          fontSize: "12px",
-          backgroundColor: "rgba(255, 255, 255, 0.8)",
-          color: "#16a34a", // green-600
-          border: "1px solid #16a34a",
+          padding: "px-2 py-1",
+          fontSize: "text-xs font-medium",
+          shadow: "shadow",
+          borderColor: "border-teal-500",
+          textColor: "text-teal-800 dark:text-teal-100",
+          zIndex: 10,
         };
-      default:
-        return {};
+      default: // 혹시 모를 예외 상황 대비
+        return {
+          padding: "px-2 py-1",
+          fontSize: "text-xs font-medium",
+          shadow: "shadow",
+          borderColor: "border-gray-500",
+          textColor: "text-gray-800 dark:text-gray-100",
+          zIndex: 10,
+        };
     }
   };
 
-  const style = getMarkerStyle();
+  const styles = getMarkerStyles();
 
   return (
-    <MapMarker
+    <CustomOverlayMap
       position={{ lat: latitude, lng: longitude }}
-      clickable={true}
-      onClick={() => onClick(region)}
+      yAnchor={1.4} // 말풍선 꼬리가 마커 위치를 가리키도록 y축 오프셋 조정
+      zIndex={styles.zIndex}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.5, y: 10 }}
+        initial={{ opacity: 0, scale: 0.8, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
         whileHover={{ scale: 1.1, zIndex: 100 }}
-        className="flex items-center justify-center rounded-lg shadow-md cursor-pointer backdrop-blur-sm"
-        style={style}
+        transition={{
+          duration: 0.2,
+          type: "spring",
+          stiffness: 300,
+          damping: 20,
+        }}
+        onClick={() => onClick(region)}
+        className="cursor-pointer"
       >
-        {name}
+        <div
+          className={`relative ${styles.padding} ${styles.fontSize} ${styles.textColor} ${styles.shadow} bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg border-2 ${styles.borderColor}`}
+        >
+          {name}
+          {/* 말풍선 꼬리 부분 */}
+          <div
+            className={`absolute left-1/2 -bottom-[9px] transform -translate-x-1/2 w-4 h-4 bg-white/90 dark:bg-gray-800/90 rotate-45 border-b-2 border-r-2 ${styles.borderColor}`}
+          ></div>
+        </div>
       </motion.div>
-    </MapMarker>
+    </CustomOverlayMap>
   );
 };

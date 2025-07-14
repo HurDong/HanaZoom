@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Map, useKakaoLoader } from "react-kakao-maps-sdk";
 import axios from "axios";
 import { RegionMarker } from "@/app/components/RegionMarker";
@@ -24,6 +24,7 @@ export interface Region {
 const KAKAO_MAP_API_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY;
 
 export default function MapPage() {
+  // kakao map script와 data fetching을 동시에 시작합니다.
   useKakaoLoader({
     appkey: KAKAO_MAP_API_KEY!,
     libraries: ["clusterer", "services"],
@@ -38,7 +39,7 @@ export default function MapPage() {
   useEffect(() => {
     const fetchRegions = async () => {
       try {
-        setIsLoading(true);
+        // isLoading은 true로 유지하며 데이터 fetch 시작
         const response = await axios.get<Region[]>(
           "http://localhost:8080/api/regions"
         );
@@ -50,6 +51,7 @@ export default function MapPage() {
           "지역 데이터를 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요."
         );
       } finally {
+        // 데이터 fetch가 성공하든 실패하든 로딩 상태를 해제합니다.
         setIsLoading(false);
       }
     };
@@ -57,19 +59,19 @@ export default function MapPage() {
     fetchRegions();
   }, []);
 
-  const getVisibleRegions = () => {
+  // useMemo를 사용해 regions나 zoomLevel이 변경될 때만 필터링을 다시 실행합니다.
+  const visibleRegions = useMemo(() => {
+    if (regions.length === 0) return [];
     if (zoomLevel > 8) return regions.filter((r) => r.type === "CITY");
     if (zoomLevel > 5) return regions.filter((r) => r.type === "DISTRICT");
     return regions.filter((r) => r.type === "NEIGHBORHOOD");
-  };
+  }, [regions, zoomLevel]);
 
   const handleMarkerClick = (region: Region) => {
     setCenter({ lat: region.latitude, lng: region.longitude });
     if (region.type === "CITY") setZoomLevel(7);
     if (region.type === "DISTRICT") setZoomLevel(4);
   };
-
-  const visibleRegions = getVisibleRegions();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 overflow-hidden relative transition-colors duration-500">
@@ -82,6 +84,7 @@ export default function MapPage() {
 
       <main className="relative z-10 pt-36">
         <div className="container mx-auto px-4 py-4 h-[calc(100vh-10rem)] flex gap-4">
+          {/* 지도 컨트롤 사이드 패널 */}
           <Card className="w-1/4 hidden md:flex flex-col bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-green-200 dark:border-green-800">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-green-900 dark:text-green-100">
@@ -127,23 +130,20 @@ export default function MapPage() {
             </CardContent>
           </Card>
 
-          <div className="w-full md:w-3/4 h-full rounded-lg overflow-hidden shadow-2xl border-4 border-white/50 dark:border-gray-800/50 flex items-center justify-center bg-green-50 dark:bg-green-950">
+          {/* 지도 영역 */}
+          <div className="w-full md:w-3/4 h-full rounded-lg overflow-hidden shadow-2xl border-4 border-white/50 dark:border-gray-800/50 flex items-center justify-center bg-green-50/50 dark:bg-green-950/50">
             {isLoading ? (
               <LoadingAnimation onComplete={() => {}} />
             ) : error ? (
-              <div className="text-red-500 p-4 text-center">{error}</div>
+              <div className="text-red-500 p-4 text-center font-semibold">
+                {error}
+              </div>
             ) : (
               <Map
                 center={center}
                 style={{ width: "100%", height: "100%" }}
                 level={zoomLevel}
                 onZoomChanged={(map) => setZoomLevel(map.getLevel())}
-                onCenterChanged={(map) =>
-                  setCenter({
-                    lat: map.getCenter().getLat(),
-                    lng: map.getCenter().getLng(),
-                  })
-                }
               >
                 {visibleRegions.map((region) => (
                   <RegionMarker
