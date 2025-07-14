@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Map, MapMarker, useKakaoLoader } from "react-kakao-maps-sdk";
+import { Map, useKakaoLoader } from "react-kakao-maps-sdk";
 import axios from "axios";
 import { RegionMarker } from "@/app/components/RegionMarker";
 import { LoadingAnimation } from "@/components/loading-animation";
 
 // 백엔드 RegionResponse DTO와 일치하는 타입 정의
-interface Region {
+export interface Region {
   id: number;
   name: string;
   type: "CITY" | "DISTRICT" | "NEIGHBORHOOD";
@@ -26,6 +26,7 @@ export default function MapPage() {
 
   const [regions, setRegions] = useState<Region[]>([]);
   const [zoomLevel, setZoomLevel] = useState(9);
+  const [center, setCenter] = useState({ lat: 37.5665, lng: 126.978 });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,6 +66,12 @@ export default function MapPage() {
     }
   };
 
+  const handleMarkerClick = (region: Region) => {
+    setCenter({ lat: region.latitude, lng: region.longitude });
+    if (region.type === "CITY") setZoomLevel(7);
+    if (region.type === "DISTRICT") setZoomLevel(4);
+  };
+
   const visibleRegions = getVisibleRegions();
 
   if (isLoading) {
@@ -82,18 +89,22 @@ export default function MapPage() {
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <Map
-        center={{ lat: 37.5665, lng: 126.978 }}
+        center={center}
         style={{ width: "100%", height: "100%" }}
-        level={9}
+        level={zoomLevel}
         onZoomChanged={(map) => setZoomLevel(map.getLevel())}
+        onCenterChanged={(map) =>
+          setCenter({
+            lat: map.getCenter().getLat(),
+            lng: map.getCenter().getLng(),
+          })
+        }
       >
         {visibleRegions.map((region) => (
           <RegionMarker
             key={region.id}
-            position={{ lat: region.latitude, lng: region.longitude }}
-            text={region.name}
-            type={region.type}
-            zoomLevel={zoomLevel}
+            region={region}
+            onClick={handleMarkerClick}
           />
         ))}
       </Map>

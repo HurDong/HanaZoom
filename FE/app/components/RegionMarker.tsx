@@ -1,60 +1,71 @@
 "use client";
 
-import { CustomOverlayMap, MapMarker } from "react-kakao-maps-sdk";
-import { Region } from "@/data/mock-regions";
+import { MapMarker } from "react-kakao-maps-sdk";
 import { motion } from "framer-motion";
+import { Region } from "@/app/map/page"; // 수정: 타입을 map 페이지에서 직접 가져옵니다.
 
-interface RegionMarkerProps {
+export interface RegionMarkerProps {
   region: Region;
   onClick: (region: Region) => void;
 }
 
 export const RegionMarker = ({ region, onClick }: RegionMarkerProps) => {
-  const isCity = region.type === "CITY";
-  const isDistrict = region.type === "DISTRICT";
+  const { name, latitude, longitude, type } = region;
 
-  const size = isCity ? 64 : isDistrict ? 48 : 32;
-  const fontSize = isCity ? "text-sm" : isDistrict ? "text-xs" : "text-[10px]";
-  const zIndex = isCity ? 30 : isDistrict ? 20 : 10;
+  const getMarkerStyle = () => {
+    switch (type) {
+      case "CITY":
+        return {
+          width: "100px",
+          height: "36px",
+          fontSize: "16px",
+          fontWeight: "bold",
+          backgroundColor: "rgba(255, 255, 255, 0.9)",
+          color: "#166534", // green-800
+          border: "2px solid #166534",
+        };
+      case "DISTRICT":
+        return {
+          width: "80px",
+          height: "32px",
+          fontSize: "14px",
+          fontWeight: "600",
+          backgroundColor: "rgba(255, 255, 255, 0.85)",
+          color: "#15803d", // green-700
+          border: "1.5px solid #15803d",
+        };
+      case "NEIGHBORHOOD":
+        return {
+          width: "70px",
+          height: "28px",
+          fontSize: "12px",
+          backgroundColor: "rgba(255, 255, 255, 0.8)",
+          color: "#16a34a", // green-600
+          border: "1px solid #16a34a",
+        };
+      default:
+        return {};
+    }
+  };
+
+  const style = getMarkerStyle();
 
   return (
-    <CustomOverlayMap
-      position={{ lat: region.latitude, lng: region.longitude }}
-      yAnchor={1}
+    <MapMarker
+      position={{ lat: latitude, lng: longitude }}
+      clickable={true}
+      onClick={() => onClick(region)}
     >
       <motion.div
-        initial={{ scale: 0.5, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
+        initial={{ opacity: 0, scale: 0.5, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="relative flex flex-col items-center cursor-pointer"
-        onClick={() => onClick(region)}
-        style={{ zIndex }}
+        whileHover={{ scale: 1.1, zIndex: 100 }}
+        className="flex items-center justify-center rounded-lg shadow-md cursor-pointer backdrop-blur-sm"
+        style={style}
       >
-        <div
-          className={`flex items-center justify-center rounded-full border-2 bg-white/80 backdrop-blur-sm transition-all duration-300 hover:scale-110 hover:shadow-lg dark:bg-gray-900/80 ${
-            isCity
-              ? "w-16 h-16 border-emerald-500 shadow-emerald-500/30"
-              : isDistrict
-              ? "w-12 h-12 border-green-500 shadow-green-500/30"
-              : "w-8 h-8 border-teal-500 shadow-teal-500/20"
-          }`}
-        >
-          <span
-            className={`font-bold text-gray-800 dark:text-gray-200 ${fontSize}`}
-          >
-            {region.name}
-          </span>
-        </div>
-        <div
-          className={`absolute bottom-[-4px] w-2 h-2 transform rotate-45 bg-white dark:bg-gray-900 border-b-2 border-r-2 ${
-            isCity
-              ? "border-emerald-500"
-              : isDistrict
-              ? "border-green-500"
-              : "border-teal-500"
-          }`}
-        ></div>
+        {name}
       </motion.div>
-    </CustomOverlayMap>
+    </MapMarker>
   );
 };
