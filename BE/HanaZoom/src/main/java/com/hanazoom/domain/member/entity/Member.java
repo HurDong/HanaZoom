@@ -1,9 +1,13 @@
 package com.hanazoom.domain.member.entity;
 
-import com.hanazoom.domain.region.Region;
+import com.hanazoom.domain.region.entity.Region;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDateTime;
@@ -11,53 +15,50 @@ import java.util.UUID;
 
 @Entity
 @Getter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "members")
 public class Member {
 
     @Id
     @UuidGenerator
-    @Column(columnDefinition = "BINARY(16)")
+    @Column(name = "id", columnDefinition = "BINARY(16)")
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
 
-    @Column(nullable = false)
+    @Column(name = "password", nullable = false, length = 255)
     private String password;
 
-    @Column(nullable = false)
+    @Column(name = "name", nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false)
+    @Column(name = "phone", nullable = false, length = 20)
     private String phone;
 
-    @Column(name = "region_id")
-    private Long regionId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "region_id")
+    private Region region;
 
-    @Column(nullable = false)
+    @Column(name = "terms_agreed", nullable = false)
     private boolean termsAgreed;
 
-    @Column(nullable = false)
+    @Column(name = "privacy_agreed", nullable = false)
     private boolean privacyAgreed;
 
-    @Column(nullable = false)
+    @Column(name = "marketing_agreed", nullable = false)
     private boolean marketingAgreed;
 
-    @Column(nullable = false)
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @Column
+    @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
-
-    // 생성자
+    @Builder
     public Member(String email, String password, String name, String phone,
-            boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed, Long regionId) {
+            boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed, Region region) {
         this.email = email;
         this.password = password;
         this.name = name;
@@ -65,7 +66,7 @@ public class Member {
         this.termsAgreed = termsAgreed;
         this.privacyAgreed = privacyAgreed;
         this.marketingAgreed = marketingAgreed;
-        this.regionId = regionId;
+        this.region = region;
     }
 
     // 업데이트 메서드
@@ -77,8 +78,8 @@ public class Member {
         this.lastLoginAt = LocalDateTime.now();
     }
 
-    public void updateRegion(Long regionId) {
-        this.regionId = regionId;
+    public void updateRegion(Region region) {
+        this.region = region;
     }
 
     public void updateMarketingAgreement(boolean agreed) {
