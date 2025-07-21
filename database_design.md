@@ -219,6 +219,8 @@ CREATE TABLE members (
     address VARCHAR(255) NULL COMMENT '주소',
     detail_address VARCHAR(255) NULL COMMENT '상세주소',
     zonecode VARCHAR(10) NULL COMMENT '우편번호',
+    latitude DECIMAL(10, 8) NULL COMMENT '위도',
+    longitude DECIMAL(11, 8) NULL COMMENT '경도',
     terms_agreed BOOLEAN NOT NULL DEFAULT FALSE,
     privacy_agreed BOOLEAN NOT NULL DEFAULT FALSE,
     marketing_agreed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -232,7 +234,7 @@ CREATE TABLE members (
 ### 특징
 
 - **UUID 사용**: 회원의 실제 ID를 예측할 수 없도록 UUID 사용
-- **주소 정보 저장**: 카카오 API를 통해 받은 주소, 상세주소, 우편번호를 직접 저장
+- **주소 및 좌표 저장**: 주소 정보와 함께 변환된 위도/경도 좌표를 저장하여 빠른 지도 로딩 지원
 - **개인정보**: 필수 동의 항목과 마케팅 동의 항목 분리
 
 ---
