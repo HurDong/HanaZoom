@@ -10,6 +10,7 @@ import { StockTicker } from "@/components/stock-ticker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Compass, Layers, TrendingUp } from "lucide-react";
+import { useAuthStore } from "@/app/utils/auth";
 
 // 백엔드 RegionResponse DTO와 일치하는 타입 정의
 export interface Region {
@@ -24,8 +25,8 @@ export interface Region {
 const KAKAO_MAP_API_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY;
 
 export default function MapPage() {
-  // kakao map script와 data fetching을 동시에 시작합니다.
-  useKakaoLoader({
+  // kakao map script 로딩 상태를 관리합니다.
+  const [isLoaded] = useKakaoLoader({
     appkey: KAKAO_MAP_API_KEY!,
     libraries: ["clusterer", "services"],
   });
@@ -33,31 +34,72 @@ export default function MapPage() {
   const [regions, setRegions] = useState<Region[]>([]);
   const [zoomLevel, setZoomLevel] = useState(9);
   const [center, setCenter] = useState({ lat: 37.5665, lng: 126.978 });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // 초기 로딩 상태를 false로 변경
   const [error, setError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false); // 클라이언트 렌더링 여부 확인
+  const user = useAuthStore((state) => state.user);
 
+  // 이 useEffect는 컴포넌트가 클라이언트에서 마운트될 때 딱 한 번 실행됩니다.
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // 모든 로직을 관장하는 최종 useEffect
+  useEffect(() => {
+    // 1. 클라이언트 환경이 아니면 아무것도 하지 않음
+    if (!isClient) return;
+
+    // 2. 지역 데이터를 먼저 불러옴
     const fetchRegions = async () => {
       try {
-        // isLoading은 true로 유지하며 데이터 fetch 시작
         const response = await axios.get<Region[]>(
           "http://localhost:8080/api/regions"
         );
         setRegions(response.data);
-        setError(null);
       } catch (err) {
-        console.error("Failed to fetch regions:", err);
-        setError(
-          "지역 데이터를 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요."
-        );
-      } finally {
-        // 데이터 fetch가 성공하든 실패하든 로딩 상태를 해제합니다.
-        setIsLoading(false);
+        setError("지역 데이터를 불러오는 데 실패했습니다.");
       }
     };
-
     fetchRegions();
-  }, []);
+
+    // 3. 사용자 주소가 없으면 여기서 중단
+    if (!user?.address) return;
+
+    // 4. 카카오맵 services 라이브러리가 로드될 때까지 주기적으로 확인
+    const intervalId = setInterval(() => {
+      if (window.kakao?.maps?.services) {
+        clearInterval(intervalId); // 성공 시 인터벌 중지
+
+        try {
+          const geocoder = new window.kakao.maps.services.Geocoder();
+          geocoder.addressSearch(
+            user.address,
+            (
+              result: kakao.maps.services.Address[],
+              status: kakao.maps.services.Status
+            ) => {
+              if (
+                status === window.kakao.maps.services.Status.OK &&
+                result.length > 0
+              ) {
+                const newCenter = {
+                  lat: parseFloat(result[0].y),
+                  lng: parseFloat(result[0].x),
+                };
+                setCenter(newCenter);
+                setZoomLevel(4);
+              }
+            }
+          );
+        } catch (error) {
+          // 에러가 발생해도 콘솔 외에는 특별한 처리를 하지 않음
+        }
+      }
+    }, 100); // 100ms 마다 확인
+
+    // 5. 컴포넌트 언마운트 시 인터벌 정리
+    return () => clearInterval(intervalId);
+  }, [isClient, user]); // user 정보가 바뀔 때도 다시 실행
 
   // useMemo를 사용해 regions나 zoomLevel이 변경될 때만 필터링을 다시 실행합니다.
   const visibleRegions = useMemo(() => {
