@@ -25,31 +25,27 @@ export interface Region {
 const KAKAO_MAP_API_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY;
 
 export default function MapPage() {
+  const user = useAuthStore((state) => state.user);
+
+  // 1. 사용자 정보에 좌표가 있으면 그것을, 없으면 서울 시청을 기본 위치로 설정
+  const initialCenter =
+    user?.latitude && user?.longitude
+      ? { lat: user.latitude, lng: user.longitude }
+      : { lat: 37.5665, lng: 126.978 };
+
   // kakao map script 로딩 상태를 관리합니다.
-  const [isLoaded] = useKakaoLoader({
+  useKakaoLoader({
     appkey: KAKAO_MAP_API_KEY!,
     libraries: ["clusterer", "services"],
   });
 
   const [regions, setRegions] = useState<Region[]>([]);
-  const [zoomLevel, setZoomLevel] = useState(9);
-  const [center, setCenter] = useState({ lat: 37.5665, lng: 126.978 });
-  const [isLoading, setIsLoading] = useState(false); // 초기 로딩 상태를 false로 변경
+  const [zoomLevel, setZoomLevel] = useState(user?.address ? 4 : 9); // 주소 있으면 줌인
+  const [center, setCenter] = useState(initialCenter);
   const [error, setError] = useState<string | null>(null);
-  const [isClient, setIsClient] = useState(false); // 클라이언트 렌더링 여부 확인
-  const user = useAuthStore((state) => state.user);
 
-  // 이 useEffect는 컴포넌트가 클라이언트에서 마운트될 때 딱 한 번 실행됩니다.
+  // 지역 데이터를 불러옵니다.
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // 모든 로직을 관장하는 최종 useEffect
-  useEffect(() => {
-    // 1. 클라이언트 환경이 아니면 아무것도 하지 않음
-    if (!isClient) return;
-
-    // 2. 지역 데이터를 먼저 불러옴
     const fetchRegions = async () => {
       try {
         const response = await axios.get<Region[]>(
@@ -61,45 +57,7 @@ export default function MapPage() {
       }
     };
     fetchRegions();
-
-    // 3. 사용자 주소가 없으면 여기서 중단
-    if (!user?.address) return;
-
-    // 4. 카카오맵 services 라이브러리가 로드될 때까지 주기적으로 확인
-    const intervalId = setInterval(() => {
-      if (window.kakao?.maps?.services) {
-        clearInterval(intervalId); // 성공 시 인터벌 중지
-
-        try {
-          const geocoder = new window.kakao.maps.services.Geocoder();
-          geocoder.addressSearch(
-            user.address,
-            (
-              result: kakao.maps.services.Address[],
-              status: kakao.maps.services.Status
-            ) => {
-              if (
-                status === window.kakao.maps.services.Status.OK &&
-                result.length > 0
-              ) {
-                const newCenter = {
-                  lat: parseFloat(result[0].y),
-                  lng: parseFloat(result[0].x),
-                };
-                setCenter(newCenter);
-                setZoomLevel(4);
-              }
-            }
-          );
-        } catch (error) {
-          // 에러가 발생해도 콘솔 외에는 특별한 처리를 하지 않음
-        }
-      }
-    }, 100); // 100ms 마다 확인
-
-    // 5. 컴포넌트 언마운트 시 인터벌 정리
-    return () => clearInterval(intervalId);
-  }, [isClient, user]); // user 정보가 바뀔 때도 다시 실행
+  }, []); // 이 효과는 한 번만 실행됩니다.
 
   // useMemo를 사용해 regions나 zoomLevel이 변경될 때만 필터링을 다시 실행합니다.
   const visibleRegions = useMemo(() => {
@@ -174,9 +132,7 @@ export default function MapPage() {
 
           {/* 지도 영역 */}
           <div className="w-full md:w-3/4 h-full rounded-lg overflow-hidden shadow-2xl border-4 border-white/50 dark:border-gray-800/50 flex items-center justify-center bg-green-50/50 dark:bg-green-950/50">
-            {isLoading ? (
-              <LoadingAnimation onComplete={() => {}} />
-            ) : error ? (
+            {error ? (
               <div className="text-red-500 p-4 text-center font-semibold">
                 {error}
               </div>

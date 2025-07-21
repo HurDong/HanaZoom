@@ -114,6 +114,8 @@ export default function LoginPage() {
         name: data.name,
         email: data.email,
         address: data.address,
+        latitude: data.latitude,
+        longitude: data.longitude,
       });
 
       // 로그인 성공 시 성공 알림

@@ -6,6 +6,8 @@ interface User {
   name: string;
   email: string;
   address: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 interface AuthStore {
