@@ -1,15 +1,21 @@
 package com.hanazoom.domain.member.service;
 
-import com.hanazoom.domain.member.dto.*;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.hanazoom.domain.member.dto.LoginRequest;
+import com.hanazoom.domain.member.dto.LoginResponse;
+import com.hanazoom.domain.member.dto.SignupRequest;
+import com.hanazoom.domain.member.dto.TokenRefreshRequest;
+import com.hanazoom.domain.member.dto.TokenRefreshResponse;
 import com.hanazoom.domain.member.entity.Member;
 import com.hanazoom.domain.member.repository.MemberRepository;
 import com.hanazoom.global.util.JwtUtil;
 import com.hanazoom.global.util.PasswordUtil;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -28,18 +34,20 @@ public class MemberServiceImpl implements MemberService {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
 
-        // 비밀번호 암호화
         String encodedPassword = passwordUtil.encodePassword(request.getPassword());
 
-        Member member = new Member(
-                request.getEmail(),
-                encodedPassword,
-                request.getName(),
-                request.getPhone(),
-                request.isTermsAgreed(),
-                request.isPrivacyAgreed(),
-                request.isMarketingAgreed(),
-                request.getRegionId());
+        Member member = Member.builder()
+                .email(request.getEmail())
+                .password(encodedPassword)
+                .name(request.getName())
+                .phone(request.getPhone())
+                .address(request.getAddress())
+                .detailAddress(request.getDetailAddress())
+                .zonecode(request.getZonecode())
+                .termsAgreed(request.isTermsAgreed())
+                .privacyAgreed(request.isPrivacyAgreed())
+                .marketingAgreed(request.isMarketingAgreed())
+                .build();
 
         memberRepository.save(member);
     }

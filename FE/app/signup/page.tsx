@@ -44,7 +44,6 @@ export default function SignupPage() {
     address: "", // 전체 주소
     zonecode: "", // 우편번호
     detailAddress: "", // 상세주소
-    region: "", // 시/도 정보
   });
   const [agreements, setAgreements] = useState({
     terms: false,
@@ -95,34 +94,10 @@ export default function SignupPage() {
   const handleAddressSearch = () => {
     new window.daum.Postcode({
       oncomplete: function (data: any) {
-        // 시/도 정보 추출 및 매핑
-        const regionMapping: { [key: string]: string } = {
-          서울: "SEOUL",
-          부산: "BUSAN",
-          대구: "DAEGU",
-          인천: "INCHEON",
-          광주: "GWANGJU",
-          대전: "DAEJEON",
-          울산: "ULSAN",
-          세종: "SEJONG",
-          경기: "GYEONGGI",
-          강원: "GANGWON",
-          충북: "CHUNGBUK",
-          충남: "CHUNGNAM",
-          전북: "JEONBUK",
-          전남: "JEONNAM",
-          경북: "GYEONGBUK",
-          경남: "GYEONGNAM",
-          제주: "JEJU",
-        };
-
-        const sido = data.sido.replace(/[특별시광역시특별자치시도]/g, "");
-
         setFormData((prev) => ({
           ...prev,
           address: data.address,
           zonecode: data.zonecode,
-          region: regionMapping[sido] || "",
         }));
       },
     }).open();
@@ -199,7 +174,6 @@ export default function SignupPage() {
           address: formData.address,
           detailAddress: formData.detailAddress,
           zonecode: formData.zonecode,
-          region: formData.region,
           termsAgreed: agreements.terms,
           privacyAgreed: agreements.privacy,
           marketingAgreed: agreements.marketing,

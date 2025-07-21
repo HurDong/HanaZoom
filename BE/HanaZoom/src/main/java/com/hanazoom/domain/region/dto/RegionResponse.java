@@ -1,7 +1,7 @@
 package com.hanazoom.domain.region.dto;
 
-import com.hanazoom.domain.region.Region;
-import com.hanazoom.domain.region.RegionType;
+import com.hanazoom.domain.region.entity.Region;
+import com.hanazoom.domain.region.entity.RegionType;
 import lombok.Getter;
 
 import java.math.BigDecimal;
@@ -21,6 +21,6 @@ public class RegionResponse {
         this.type = region.getType();
         this.latitude = region.getLatitude();
         this.longitude = region.getLongitude();
-        this.parentId = region.getParentId();
+        this.parentId = (region.getParent() != null) ? region.getParent().getId() : null;
     }
 }

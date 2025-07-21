@@ -36,9 +36,14 @@ public class Member {
     @Column(name = "phone", nullable = false, length = 20)
     private String phone;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "region_id")
-    private Region region;
+    @Column(name = "address")
+    private String address;
+
+    @Column(name = "detail_address")
+    private String detailAddress;
+
+    @Column(name = "zonecode")
+    private String zonecode;
 
     @Column(name = "terms_agreed", nullable = false)
     private boolean termsAgreed;
@@ -57,16 +62,19 @@ public class Member {
     private LocalDateTime lastLoginAt;
 
     @Builder
-    public Member(String email, String password, String name, String phone,
-            boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed, Region region) {
+    public Member(String email, String password, String name, String phone, String address, String detailAddress,
+            String zonecode,
+            boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed) {
         this.email = email;
         this.password = password;
         this.name = name;
         this.phone = phone;
+        this.address = address;
+        this.detailAddress = detailAddress;
+        this.zonecode = zonecode;
         this.termsAgreed = termsAgreed;
         this.privacyAgreed = privacyAgreed;
         this.marketingAgreed = marketingAgreed;
-        this.region = region;
     }
 
     // 업데이트 메서드
@@ -78,8 +86,10 @@ public class Member {
         this.lastLoginAt = LocalDateTime.now();
     }
 
-    public void updateRegion(Region region) {
-        this.region = region;
+    public void updateAddress(String address, String detailAddress, String zonecode) {
+        this.address = address;
+        this.detailAddress = detailAddress;
+        this.zonecode = zonecode;
     }
 
     public void updateMarketingAgreement(boolean agreed) {
