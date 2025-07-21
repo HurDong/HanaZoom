@@ -18,7 +18,7 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MouseFollower } from "@/components/mouse-follower";
 import { useState } from "react";
-import { setTokens } from "../utils/auth";
+import { setLoginData } from "../utils/auth";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import NavBar from "@/app/components/Navbar";
@@ -108,8 +108,13 @@ export default function LoginPage() {
 
       const data = await response.json();
 
-      // 토큰 저장
-      setTokens(data.accessToken, data.refreshToken);
+      // 토큰과 사용자 정보를 저장합니다.
+      await setLoginData(data.accessToken, data.refreshToken, {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        address: data.address,
+      });
 
       // 로그인 성공 시 성공 알림
       await Swal.fire({

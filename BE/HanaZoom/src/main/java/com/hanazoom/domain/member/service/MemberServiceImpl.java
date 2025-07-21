@@ -72,7 +72,8 @@ public class MemberServiceImpl implements MemberService {
         tokenService.saveAccessToken(member.getId(), accessToken);
         tokenService.saveRefreshToken(member.getId(), refreshToken);
 
-        return new LoginResponse(member.getId(), member.getEmail(), member.getName(), accessToken, refreshToken);
+        return new LoginResponse(member.getId(), member.getEmail(), member.getName(), member.getAddress(), accessToken,
+                refreshToken);
     }
 
     @Override
