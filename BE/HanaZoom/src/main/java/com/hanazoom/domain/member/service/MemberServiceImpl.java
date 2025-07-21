@@ -14,6 +14,8 @@ import com.hanazoom.domain.member.entity.Member;
 import com.hanazoom.domain.member.repository.MemberRepository;
 import com.hanazoom.global.util.JwtUtil;
 import com.hanazoom.global.util.PasswordUtil;
+import com.hanazoom.global.dto.KakaoAddressResponse;
+import com.hanazoom.global.service.KakaoApiService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class MemberServiceImpl implements MemberService {
 
     private final MemberRepository memberRepository;
+    private final KakaoApiService kakaoApiService;
     private final JwtUtil jwtUtil;
     private final PasswordUtil passwordUtil;
     private final TokenService tokenService;
@@ -32,6 +35,17 @@ public class MemberServiceImpl implements MemberService {
     public void signup(SignupRequest request) {
         if (memberRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
+        }
+
+        // 주소로부터 좌표 정보 가져오기
+        Double latitude = null;
+        Double longitude = null;
+        if (request.getAddress() != null && !request.getAddress().isEmpty()) {
+            KakaoAddressResponse.Document coordinates = kakaoApiService.getCoordinates(request.getAddress());
+            if (coordinates != null) {
+                latitude = coordinates.getLatitude();
+                longitude = coordinates.getLongitude();
+            }
         }
 
         String encodedPassword = passwordUtil.encodePassword(request.getPassword());
@@ -44,6 +58,8 @@ public class MemberServiceImpl implements MemberService {
                 .address(request.getAddress())
                 .detailAddress(request.getDetailAddress())
                 .zonecode(request.getZonecode())
+                .latitude(latitude)
+                .longitude(longitude)
                 .termsAgreed(request.isTermsAgreed())
                 .privacyAgreed(request.isPrivacyAgreed())
                 .marketingAgreed(request.isMarketingAgreed())
@@ -72,8 +88,8 @@ public class MemberServiceImpl implements MemberService {
         tokenService.saveAccessToken(member.getId(), accessToken);
         tokenService.saveRefreshToken(member.getId(), refreshToken);
 
-        return new LoginResponse(member.getId(), member.getEmail(), member.getName(), member.getAddress(), accessToken,
-                refreshToken);
+        return new LoginResponse(member.getId(), member.getEmail(), member.getName(), member.getAddress(),
+                member.getLatitude(), member.getLongitude(), accessToken, refreshToken);
     }
 
     @Override

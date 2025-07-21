@@ -1,17 +1,19 @@
 package com.hanazoom.domain.member.entity;
 
-import com.hanazoom.domain.region.entity.Region;
-import jakarta.persistence.*;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UuidGenerator;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-import org.hibernate.annotations.UuidGenerator;
-
-import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Getter
@@ -45,6 +47,12 @@ public class Member {
     @Column(name = "zonecode")
     private String zonecode;
 
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
     @Column(name = "terms_agreed", nullable = false)
     private boolean termsAgreed;
 
@@ -63,7 +71,7 @@ public class Member {
 
     @Builder
     public Member(String email, String password, String name, String phone, String address, String detailAddress,
-            String zonecode,
+            String zonecode, Double latitude, Double longitude,
             boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed) {
         this.email = email;
         this.password = password;
@@ -72,6 +80,8 @@ public class Member {
         this.address = address;
         this.detailAddress = detailAddress;
         this.zonecode = zonecode;
+        this.latitude = latitude;
+        this.longitude = longitude;
         this.termsAgreed = termsAgreed;
         this.privacyAgreed = privacyAgreed;
         this.marketingAgreed = marketingAgreed;
@@ -90,6 +100,11 @@ public class Member {
         this.address = address;
         this.detailAddress = detailAddress;
         this.zonecode = zonecode;
+    }
+
+    public void updateCoordinates(Double latitude, Double longitude) {
+        this.latitude = latitude;
+        this.longitude = longitude;
     }
 
     public void updateMarketingAgreement(boolean agreed) {
