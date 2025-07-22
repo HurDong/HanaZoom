@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { Map, useKakaoLoader } from "react-kakao-maps-sdk";
-import axios from "axios";
 import { RegionMarker } from "@/app/components/RegionMarker";
-import { LoadingAnimation } from "@/components/loading-animation";
 import NavBar from "@/app/components/Navbar";
 import { StockTicker } from "@/components/stock-ticker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Compass, Layers, TrendingUp } from "lucide-react";
+import { useAuthStore } from "@/app/utils/auth";
+import { api, API_ENDPOINTS } from "@/app/config/api";
 
 // 백엔드 RegionResponse DTO와 일치하는 타입 정의
 export interface Region {
@@ -24,44 +24,53 @@ export interface Region {
 const KAKAO_MAP_API_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY;
 
 export default function MapPage() {
-  // kakao map script와 data fetching을 동시에 시작합니다.
+  const user = useAuthStore((state) => state.user);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  // kakao map script 로딩 상태를 관리합니다.
   useKakaoLoader({
     appkey: KAKAO_MAP_API_KEY!,
     libraries: ["clusterer", "services"],
   });
 
-  const [regions, setRegions] = useState<Region[]>([]);
-  const [zoomLevel, setZoomLevel] = useState(9);
-  const [center, setCenter] = useState({ lat: 37.5665, lng: 126.978 });
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // 사용자 위치로 이동하는 함수
+  const moveToUserLocation = () => {
+    if (user?.latitude && user?.longitude) {
+      setCenter({ lat: Number(user.latitude), lng: Number(user.longitude) });
+      setZoomLevel(4);
+    }
+  };
 
+  // 초기 중심점 설정
+  const initialCenter = { lat: 37.5665, lng: 126.978 }; // 서울시청
+  const [center, setCenter] = useState(initialCenter);
+  const [zoomLevel, setZoomLevel] = useState(9);
+
+  // 컴포넌트 마운트 또는 새로고침 시 사용자 위치로 이동
+  useEffect(() => {
+    if (user?.latitude && user?.longitude) {
+      moveToUserLocation();
+    }
+  }, [user]);
+
+  // 지역 데이터를 불러옵니다.
   useEffect(() => {
     const fetchRegions = async () => {
       try {
-        // isLoading은 true로 유지하며 데이터 fetch 시작
-        const response = await axios.get<Region[]>(
-          "http://localhost:8080/api/regions"
-        );
-        setRegions(response.data);
-        setError(null);
+        const { data } = await api.get<Region[]>(API_ENDPOINTS.regions);
+        setRegions(data);
       } catch (err) {
-        console.error("Failed to fetch regions:", err);
-        setError(
-          "지역 데이터를 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요."
-        );
-      } finally {
-        // 데이터 fetch가 성공하든 실패하든 로딩 상태를 해제합니다.
-        setIsLoading(false);
+        console.error("지역 데이터를 불러오는 데 실패했습니다.", err);
+        setError("지역 데이터를 불러오는 데 실패했습니다.");
       }
     };
-
     fetchRegions();
   }, []);
 
   // useMemo를 사용해 regions나 zoomLevel이 변경될 때만 필터링을 다시 실행합니다.
   const visibleRegions = useMemo(() => {
-    if (regions.length === 0) return [];
+    if (!regions || regions.length === 0) return [];
     if (zoomLevel > 8) return regions.filter((r) => r.type === "CITY");
     if (zoomLevel > 5) return regions.filter((r) => r.type === "DISTRICT");
     return regions.filter((r) => r.type === "NEIGHBORHOOD");
@@ -72,6 +81,12 @@ export default function MapPage() {
     if (region.type === "CITY") setZoomLevel(7);
     if (region.type === "DISTRICT") setZoomLevel(4);
   };
+
+  if (error) {
+    return (
+      <div className="text-red-500 p-4 text-center font-semibold">{error}</div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 overflow-hidden relative transition-colors duration-500">
@@ -132,28 +147,20 @@ export default function MapPage() {
 
           {/* 지도 영역 */}
           <div className="w-full md:w-3/4 h-full rounded-lg overflow-hidden shadow-2xl border-4 border-white/50 dark:border-gray-800/50 flex items-center justify-center bg-green-50/50 dark:bg-green-950/50">
-            {isLoading ? (
-              <LoadingAnimation onComplete={() => {}} />
-            ) : error ? (
-              <div className="text-red-500 p-4 text-center font-semibold">
-                {error}
-              </div>
-            ) : (
-              <Map
-                center={center}
-                style={{ width: "100%", height: "100%" }}
-                level={zoomLevel}
-                onZoomChanged={(map) => setZoomLevel(map.getLevel())}
-              >
-                {visibleRegions.map((region) => (
-                  <RegionMarker
-                    key={region.id}
-                    region={region}
-                    onClick={handleMarkerClick}
-                  />
-                ))}
-              </Map>
-            )}
+            <Map
+              center={center}
+              style={{ width: "100%", height: "100%" }}
+              level={zoomLevel}
+              onZoomChanged={(map) => setZoomLevel(map.getLevel())}
+            >
+              {visibleRegions.map((region) => (
+                <RegionMarker
+                  key={region.id}
+                  region={region}
+                  onClick={handleMarkerClick}
+                />
+              ))}
+            </Map>
           </div>
         </div>
       </main>

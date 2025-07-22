@@ -1,4 +1,4 @@
-import type { Config } from "tailwindcss"
+import type { Config } from "tailwindcss";
 
 const config = {
   darkMode: ["class"],
@@ -36,6 +36,14 @@ const config = {
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+        },
+        up: {
+          DEFAULT: "hsl(var(--up))",
+          foreground: "hsl(var(--up-foreground))",
+        },
+        down: {
+          DEFAULT: "hsl(var(--down))",
+          foreground: "hsl(var(--down-foreground))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
@@ -93,6 +101,6 @@ const config = {
     },
   },
   plugins: [require("tailwindcss-animate")],
-} satisfies Config
+} satisfies Config;
 
-export default config
+export default config;

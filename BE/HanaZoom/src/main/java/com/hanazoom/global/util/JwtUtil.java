@@ -39,11 +39,11 @@ public class JwtUtil {
         Date expiryDate = new Date(now.getTime() + expiration);
 
         return Jwts.builder()
-                .subject(memberId.toString())
+                .setSubject(memberId.toString())
                 .claim("email", email)
-                .issuer(jwtConfig.getIssuer())
-                .issuedAt(now)
-                .expiration(expiryDate)
+                .setIssuer(jwtConfig.getIssuer())
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
                 .signWith(getSigningKey())
                 .compact();
     }
@@ -51,10 +51,10 @@ public class JwtUtil {
     public Claims parseToken(String token) {
         try {
             return Jwts.parser()
-                    .verifyWith(getSigningKey())
+                    .setSigningKey(getSigningKey())
                     .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
+                    .parseClaimsJws(token)
+                    .getBody();
         } catch (ExpiredJwtException e) {
             log.warn("JWT 토큰이 만료되었습니다: {}", e.getMessage());
             throw e;

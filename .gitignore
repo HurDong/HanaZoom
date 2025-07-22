@@ -5,5 +5,5 @@ Infra/keys/*.pem
 Infra/keys/*.ppk
 .env
 .env.*
-
+kis_keys.json
 # ... existing code ... 

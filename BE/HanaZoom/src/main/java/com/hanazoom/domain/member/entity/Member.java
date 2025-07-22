@@ -1,71 +1,90 @@
 package com.hanazoom.domain.member.entity;
 
-import com.hanazoom.domain.region.Region;
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import org.hibernate.annotations.UuidGenerator;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UuidGenerator;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
 @Entity
 @Getter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "members")
 public class Member {
 
     @Id
     @UuidGenerator
-    @Column(columnDefinition = "BINARY(16)")
+    @Column(name = "id", columnDefinition = "BINARY(16)")
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
 
-    @Column(nullable = false)
+    @Column(name = "password", nullable = false, length = 255)
     private String password;
 
-    @Column(nullable = false)
+    @Column(name = "name", nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false)
+    @Column(name = "phone", nullable = false, length = 20)
     private String phone;
 
-    @Column(name = "region_id")
-    private Long regionId;
+    @Column(name = "address")
+    private String address;
 
-    @Column(nullable = false)
+    @Column(name = "detail_address")
+    private String detailAddress;
+
+    @Column(name = "zonecode")
+    private String zonecode;
+
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
+    @Column(name = "terms_agreed", nullable = false)
     private boolean termsAgreed;
 
-    @Column(nullable = false)
+    @Column(name = "privacy_agreed", nullable = false)
     private boolean privacyAgreed;
 
-    @Column(nullable = false)
+    @Column(name = "marketing_agreed", nullable = false)
     private boolean marketingAgreed;
 
-    @Column(nullable = false)
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @Column
+    @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
-
-    // 생성자
-    public Member(String email, String password, String name, String phone,
-            boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed, Long regionId) {
+    @Builder
+    public Member(String email, String password, String name, String phone, String address, String detailAddress,
+            String zonecode, Double latitude, Double longitude,
+            boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed) {
         this.email = email;
         this.password = password;
         this.name = name;
         this.phone = phone;
+        this.address = address;
+        this.detailAddress = detailAddress;
+        this.zonecode = zonecode;
+        this.latitude = latitude;
+        this.longitude = longitude;
         this.termsAgreed = termsAgreed;
         this.privacyAgreed = privacyAgreed;
         this.marketingAgreed = marketingAgreed;
-        this.regionId = regionId;
     }
 
     // 업데이트 메서드
@@ -77,8 +96,15 @@ public class Member {
         this.lastLoginAt = LocalDateTime.now();
     }
 
-    public void updateRegion(Long regionId) {
-        this.regionId = regionId;
+    public void updateAddress(String address, String detailAddress, String zonecode) {
+        this.address = address;
+        this.detailAddress = detailAddress;
+        this.zonecode = zonecode;
+    }
+
+    public void updateCoordinates(Double latitude, Double longitude) {
+        this.latitude = latitude;
+        this.longitude = longitude;
     }
 
     public void updateMarketingAgreement(boolean agreed) {
