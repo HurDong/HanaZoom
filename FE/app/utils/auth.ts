@@ -36,10 +36,20 @@ export const useAuthStore = create(
 export const setLoginData = async (
   accessToken: string,
   refreshToken: string,
-  user: User
+  user: Omit<User, "latitude" | "longitude"> & {
+    latitude?: string | number | null;
+    longitude?: string | number | null;
+  }
 ) => {
+  // 좌표 데이터를 숫자로 변환
+  const processedUser: User = {
+    ...user,
+    latitude: user.latitude ? Number(user.latitude) : null,
+    longitude: user.longitude ? Number(user.longitude) : null,
+  };
+
   // accessToken과 user 정보는 Zustand store에 저장 (persist 미들웨어에 의해 localStorage에도 저장됨)
-  useAuthStore.getState().setAuth({ accessToken, user });
+  useAuthStore.getState().setAuth({ accessToken, user: processedUser });
 
   // refreshToken은 httpOnly 쿠키로 저장하기 위해 서버에 요청
   try {

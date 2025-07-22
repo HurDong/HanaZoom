@@ -21,7 +21,7 @@ import { MouseFollower } from "@/components/mouse-follower";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/app/components/Navbar";
-import { API_ENDPOINTS } from "../config/api";
+import { api, API_ENDPOINTS, ApiResponse } from "@/app/config/api";
 import Script from "next/script";
 
 declare global {
@@ -161,58 +161,21 @@ export default function SignupPage() {
     }
 
     try {
-      const response = await fetch(API_ENDPOINTS.signup, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-          phone: formData.phone,
-          address: formData.address,
-          detailAddress: formData.detailAddress,
-          zonecode: formData.zonecode,
-          termsAgreed: agreements.terms,
-          privacyAgreed: agreements.privacy,
-          marketingAgreed: agreements.marketing,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        let errorMessage = "회원가입에 실패했습니다.";
-
-        if (errorData.errors && errorData.errors.length > 0) {
-          const error = errorData.errors[0];
-          if (error.defaultMessage) {
-            errorMessage = error.defaultMessage;
-          }
-        }
-
-        throw new Error(errorMessage);
-      }
+      const { data } = await api.post<ApiResponse<{ message: string }>>(
+        API_ENDPOINTS.signup,
+        formData
+      );
 
       await Swal.fire({
-        title: "환영합니다! 🎉",
-        text: "회원가입이 완료되었습니다.",
+        title: "회원가입 성공!",
+        text: data.message || "회원가입이 완료되었습니다.",
         icon: "success",
-        confirmButtonText: "로그인하기",
-        confirmButtonColor: "#10b981",
-        background: "#ffffff",
-        color: "#1f2937",
-        customClass: {
-          popup: "dark:bg-gray-900 dark:text-white",
-          title: "dark:text-white",
-          htmlContainer: "dark:text-gray-300",
-          confirmButton: "dark:bg-green-600 dark:hover:bg-green-700",
-        },
+        timer: 1500,
+        showConfirmButton: false,
       });
 
       router.push("/login");
     } catch (error) {
-      console.error("회원가입 실패:", error);
       showErrorAlert(
         error instanceof Error ? error.message : "회원가입에 실패했습니다."
       );
