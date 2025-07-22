@@ -2,37 +2,41 @@
 
 import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
+import { api, API_ENDPOINTS, ApiResponse } from "@/app/config/api";
 
-// API 응답 데이터 타입 정의
 interface StockTicker {
   symbol: string;
   name: string;
   price: string;
-  change: string; // 예: "+1.50%" 또는 "-2.34%"
+  change: string;
   emoji: string;
 }
 
 export function StockTicker() {
   const [stocks, setStocks] = useState<StockTicker[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setIsMounted(true);
     const fetchStockData = async () => {
       try {
-        const response = await fetch("/api/v1/stocks/ticker");
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-        const data: StockTicker[] = await response.json();
-        setStocks(data);
+        setIsLoading(true);
+        const { data } = await api.get<ApiResponse<StockTicker[]>>(
+          API_ENDPOINTS.stockTicker
+        );
+        // data.data가 undefined일 경우 빈 배열로 처리
+        setStocks(data?.data || []);
       } catch (error) {
         console.error("Failed to fetch stock data:", error);
+        setStocks([]); // 에러 발생 시 빈 배열로 초기화
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchStockData();
-    const interval = setInterval(fetchStockData, 5000); // 5초마다 데이터 업데이트
+    const interval = setInterval(fetchStockData, 5000);
 
     return () => clearInterval(interval);
   }, []);
@@ -45,9 +49,28 @@ export function StockTicker() {
     return parseFloat(change.replace("%", ""));
   };
 
-  // 데이터가 로드되기 전에는 렌더링하지 않거나 로딩 상태를 보여줌
-  if (!isMounted || stocks.length === 0) {
-    return null; // 또는 로딩 스켈레톤
+  // 로딩 중이거나 마운트되지 않았을 때 스켈레톤 UI 표시
+  if (!isMounted || isLoading) {
+    return (
+      <div className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-green-600 dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-3 overflow-hidden relative shadow-lg animate-pulse">
+        <div className="flex items-center justify-center h-12">
+          <div className="h-4 bg-white/20 rounded w-32 mx-2"></div>
+          <div className="h-4 bg-white/20 rounded w-24 mx-2"></div>
+          <div className="h-4 bg-white/20 rounded w-16 mx-2"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // 데이터가 없을 때 표시할 UI
+  if (stocks.length === 0) {
+    return (
+      <div className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-green-600 dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-3 overflow-hidden relative shadow-lg">
+        <div className="flex items-center justify-center">
+          <span>주식 데이터를 불러올 수 없습니다.</span>
+        </div>
+      </div>
+    );
   }
 
   return (
