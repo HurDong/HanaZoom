@@ -10,8 +10,13 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    @Value("${kakao.rest.api.key}")
+    @Value("${kakao.rest-api-key}")
     private String kakaoRestApiKey;
+
+    @Bean
+    public WebClient webClient() {
+        return WebClient.builder().build();
+    }
 
     @Bean
     public WebClient kakaoWebClient() {
@@ -24,8 +29,8 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOriginPatterns("*") // 개발 편의를 위해 모든 origin 허용
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
+                .allowedOrigins("http://localhost:3000")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)
                 .maxAge(3600); // 1시간 캐시
