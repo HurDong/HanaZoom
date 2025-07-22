@@ -48,9 +48,8 @@ export default function MapPage() {
   useEffect(() => {
     const fetchRegions = async () => {
       try {
-        const response = await axios.get<Region[]>(
-          "http://localhost:8080/api/regions"
-        );
+        // 프록시를 사용하도록 상대 경로로 수정
+        const response = await axios.get<Region[]>("/api/v1/regions");
         setRegions(response.data);
       } catch (err) {
         setError("지역 데이터를 불러오는 데 실패했습니다.");
