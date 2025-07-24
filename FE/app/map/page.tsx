@@ -120,9 +120,29 @@ export default function MapPage() {
                   step={1}
                   onValueChange={(value) => setZoomLevel(value[0])}
                 />
-                <div className="flex justify-between text-xs text-gray-500">
-                  <span>상세</span>
-                  <span>광역</span>
+                <div className="relative mt-1">
+                  {/* 구분선 마커 */}
+                  <div className="absolute w-full flex justify-between px-1 -mt-3">
+                    <div className="relative left-[35%]">
+                      <div className="h-3 w-0.5 bg-green-600/50 dark:bg-green-400/50"></div>
+                      <div className="absolute -top-1 -left-1 w-2 h-2 rounded-full bg-green-600 dark:bg-green-400"></div>
+                    </div>
+                    <div className="relative right-[42%]">
+                      <div className="h-3 w-0.5 bg-green-600/50 dark:bg-green-400/50"></div>
+                      <div className="absolute -top-1 -left-1 w-2 h-2 rounded-full bg-green-600 dark:bg-green-400"></div>
+                    </div>
+                  </div>
+                  {/* 텍스트 레이블 */}
+                  <div className="flex justify-between text-xs text-gray-500 px-1">
+                    <span>읍/면/동</span>
+                    <span className="absolute left-[38%]">시/군/구</span>
+                    <span>광역시/도</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] text-gray-400 px-1 mt-0.5">
+                    <span>(~5)</span>
+                    <span className="absolute left-[40%]">(6~8)</span>
+                    <span>(9~)</span>
+                  </div>
                 </div>
               </div>
 
