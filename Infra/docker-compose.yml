@@ -3,7 +3,7 @@ services:
   db:
     image: mysql:8.0
     ports:
-      - "3307:3306" # 포트 변경: 3306 → 3307
+      - "3306:3306" # 포트 변경: 3306 → 3307
     environment:
       - MYSQL_DATABASE=hanazoom
       - MYSQL_USER=${DB_USERNAME:-hanazoom_user}
