@@ -2,12 +2,13 @@ package com.hanazoom.domain.region_stock.service;
 
 import com.hanazoom.domain.region.entity.Region;
 import com.hanazoom.domain.region_stock.entity.RegionStock;
+import com.hanazoom.domain.region_stock.repository.RegionStockRepository;
 import com.hanazoom.domain.stock.entity.Stock;
-import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -17,13 +18,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class RegionStockServiceImpl implements RegionStockService {
 
-    private final JdbcTemplate jdbcTemplate;
-
-    public RegionStockServiceImpl(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
+    private final RegionStockRepository regionStockRepository;
 
     @Override
     @Scheduled(fixedRate = 600000) // 10분(600,000ms)마다 실행
@@ -59,23 +57,13 @@ public class RegionStockServiceImpl implements RegionStockService {
     @Override
     @Transactional
     public void saveRegionStocks(List<RegionStock> regionStocks) {
-        String sql = "INSERT INTO region_stock (region_id, stock_id) VALUES (?, ?)";
-
-        List<Object[]> batchArgs = regionStocks.stream()
-                .map(rs -> new Object[] {
-                        rs.getRegion().getId(),
-                        rs.getStock().getId()
-                })
-                .collect(Collectors.toList());
-
-        jdbcTemplate.batchUpdate(sql, batchArgs);
+        regionStockRepository.saveAll(regionStocks);
     }
 
     @Override
     @Transactional
     public void deleteAllRegionStocks() {
-        String sql = "DELETE FROM region_stock";
-        jdbcTemplate.update(sql);
+        regionStockRepository.deleteAll();
     }
 
     private Map<Long, List<Long>> readRegionStockDataFromCsv() {

@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2e03b364-2520-4229-a362-24974da9dfb9" name="변경" comment="" />
+    <list default="true" id="2e03b364-2520-4229-a362-24974da9dfb9" name="변경" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/BE/HanaZoom/src/main/java/com/hanazoom/domain/member/service/TokenService.java" beforeDir="false" afterPath="$PROJECT_DIR$/BE/HanaZoom/src/main/java/com/hanazoom/domain/member/service/TokenService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/BE/HanaZoom/src/main/java/com/hanazoom/global/controller/HealthController.java" beforeDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -37,6 +41,12 @@
                 <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
                 <item name="hanazoom" type="f1a62948:ProjectNode" />
                 <item name="Tasks" type="e4a08cd1:TasksNode" />
+                <item name="application" type="c8890929:TasksNode$1" />
+              </path>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="hanazoom" type="f1a62948:ProjectNode" />
+                <item name="Tasks" type="e4a08cd1:TasksNode" />
                 <item name="build" type="c8890929:TasksNode$1" />
               </path>
             </expand>
@@ -55,12 +65,16 @@
     &quot;assignee&quot;: &quot;HurDong&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/HurDong/HanaZoom.git",
-    "accountId": "37115722-9d46-4ff3-ae89-9f9d4b13b05b"
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/HurDong/HanaZoom.git&quot;,
+    &quot;accountId&quot;: &quot;37115722-9d46-4ff3-ae89-9f9d4b13b05b&quot;
   }
-}]]></component>
+}</component>
+  <component name="KubernetesApiPersistence">{}</component>
+  <component name="KubernetesApiProvider">{
+  &quot;isMigrated&quot;: true
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 1
 }</component>
@@ -71,7 +85,9 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Gradle.HanaZoom [bootRun].executor": "Run",
     "Gradle.HanaZoom [build].executor": "Run",
+    "Gradle.HanaZoom [clean].executor": "Run",
     "Gradle.HanaZoom 빌드.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RequestMappingsPanelOrder0": "0",
@@ -80,8 +96,12 @@
     "RequestMappingsPanelWidth1": "75",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "Spring Boot.HanaZoomApplication.executor": "Run",
-    "git-widget-placeholder": "infra/api-communication",
+    "database.data.extractors.current.export.id": "Comma-separated (CSV)_id",
+    "deletionFromPopupRequiresConfirmation": "false",
+    "git-widget-placeholder": "feat/region-stock-scheduler",
+    "ignore.virus.scanning.warn.message": "true",
     "last_opened_file_path": "C:/Users/ehd_a/Documents/Git/HanaZoom",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -91,6 +111,9 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="ReactorSettings">
+    <option name="notificationShown" value="true" />
+  </component>
   <component name="RunManager" selected="Spring Boot.HanaZoomApplication">
     <configuration name="HanaZoom [build]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
@@ -114,6 +137,28 @@
       <RunAsTest>false</RunAsTest>
       <method v="2" />
     </configuration>
+    <configuration name="HanaZoom [clean]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$/BE/HanaZoom" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value="clean" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>false</RunAsTest>
+      <method v="2" />
+    </configuration>
     <configuration default="true" type="JetRunConfigurationType">
       <module name="HanaZoom" />
       <method v="2">
@@ -126,24 +171,36 @@
       <method v="2" />
     </configuration>
     <configuration name="HanaZoomApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <option name="envFilePaths">
+        <option value="$PROJECT_DIR$/../Stoc.kr/BE/.env" />
+      </option>
       <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
       <module name="hanazoom.main" />
+      <selectedOptions>
+        <option name="environmentVariables" />
+      </selectedOptions>
       <option name="SPRING_BOOT_MAIN_CLASS" value="com.hanazoom.HanaZoomApplication" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <list>
+      <item itemvalue="Gradle.HanaZoom [build]" />
+      <item itemvalue="Gradle.HanaZoom [clean]" />
+      <item itemvalue="Spring Boot.HanaZoomApplication" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="Gradle.HanaZoom [build]" />
+        <item itemvalue="Gradle.HanaZoom [clean]" />
       </list>
     </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9823dce3aa75-fbdcb00ec9e3-intellij.indexing.shared.core-IU-251.25410.129" />
-        <option value="bundled-js-predefined-d6986cc7102b-6a121458b545-JavaScript-IU-251.25410.129" />
+        <option value="bundled-jdk-9823dce3aa75-fbdcb00ec9e3-intellij.indexing.shared.core-IU-251.26927.53" />
+        <option value="bundled-js-predefined-d6986cc7102b-09060db00ec0-JavaScript-IU-251.26927.53" />
       </set>
     </attachedChunks>
   </component>
@@ -156,6 +213,12 @@
       <updated>1749454508275</updated>
       <workItem from="1749454509492" duration="935000" />
       <workItem from="1750538420398" duration="811000" />
+      <workItem from="1753117814569" duration="7363000" />
+      <workItem from="1753175194558" duration="21601000" />
+      <workItem from="1753258799234" duration="1490000" />
+      <workItem from="1753378492198" duration="7207000" />
+      <workItem from="1753394422407" duration="64000" />
+      <workItem from="1753513304040" duration="7047000" />
     </task>
     <servers />
   </component>

@@ -71,8 +71,8 @@ public class Member {
 
     @Builder
     public Member(String email, String password, String name, String phone, String address, String detailAddress,
-            String zonecode, Double latitude, Double longitude,
-            boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed) {
+                  String zonecode, Double latitude, Double longitude,
+                  boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed) {
         this.email = email;
         this.password = password;
         this.name = name;
