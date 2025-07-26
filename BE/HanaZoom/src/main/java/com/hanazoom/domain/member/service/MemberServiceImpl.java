@@ -1,18 +1,23 @@
 package com.hanazoom.domain.member.service;
 
-import com.hanazoom.domain.member.entity.Member;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.hanazoom.domain.member.dto.LoginRequest;
 import com.hanazoom.domain.member.dto.LoginResponse;
 import com.hanazoom.domain.member.dto.SignupRequest;
 import com.hanazoom.domain.member.dto.TokenRefreshRequest;
 import com.hanazoom.domain.member.dto.TokenRefreshResponse;
+import com.hanazoom.domain.member.entity.Member;
 import com.hanazoom.domain.member.repository.MemberRepository;
 import com.hanazoom.global.util.JwtUtil;
 import com.hanazoom.global.util.PasswordUtil;
+import com.hanazoom.global.dto.KakaoAddressResponse;
+import com.hanazoom.global.service.KakaoApiService;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +25,7 @@ import java.util.UUID;
 public class MemberServiceImpl implements MemberService {
 
     private final MemberRepository memberRepository;
+    private final KakaoApiService kakaoApiService;
     private final JwtUtil jwtUtil;
     private final PasswordUtil passwordUtil;
     private final TokenService tokenService;
@@ -31,18 +37,33 @@ public class MemberServiceImpl implements MemberService {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
 
-        // 비밀번호 암호화
+        // 주소로부터 좌표 정보 가져오기
+        Double latitude = null;
+        Double longitude = null;
+        if (request.getAddress() != null && !request.getAddress().isEmpty()) {
+            KakaoAddressResponse.Document coordinates = kakaoApiService.getCoordinates(request.getAddress());
+            if (coordinates != null) {
+                latitude = coordinates.getLatitude();
+                longitude = coordinates.getLongitude();
+            }
+        }
+
         String encodedPassword = passwordUtil.encodePassword(request.getPassword());
 
-        Member member = new Member(
-                request.getEmail(),
-                encodedPassword,
-                request.getName(),
-                request.getPhone(),
-                request.isTermsAgreed(),
-                request.isPrivacyAgreed(),
-                request.isMarketingAgreed(),
-                request.getRegionId());
+        Member member = Member.builder()
+                .email(request.getEmail())
+                .password(encodedPassword)
+                .name(request.getName())
+                .phone(request.getPhone())
+                .address(request.getAddress())
+                .detailAddress(request.getDetailAddress())
+                .zonecode(request.getZonecode())
+                .latitude(latitude)
+                .longitude(longitude)
+                .termsAgreed(request.isTermsAgreed())
+                .privacyAgreed(request.isPrivacyAgreed())
+                .marketingAgreed(request.isMarketingAgreed())
+                .build();
 
         memberRepository.save(member);
     }
@@ -67,7 +88,8 @@ public class MemberServiceImpl implements MemberService {
         tokenService.saveAccessToken(member.getId(), accessToken);
         tokenService.saveRefreshToken(member.getId(), refreshToken);
 
-        return new LoginResponse(member.getId(), member.getEmail(), member.getName(), accessToken, refreshToken);
+        return new LoginResponse(member.getId(), member.getEmail(), member.getName(), member.getAddress(),
+                member.getLatitude(), member.getLongitude(), accessToken, refreshToken);
     }
 
     @Override

@@ -1,4 +1,4 @@
-package com.hanazoom.service;
+package com.hanazoom.domain.member.service;
 
 import java.util.UUID;
 

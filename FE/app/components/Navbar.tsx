@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 import { isLoggedIn, removeTokens } from "../utils/auth";
 import { MessageSquare } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useRouter } from "next/navigation";
 
 export default function NavBar() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -33,10 +35,10 @@ export default function NavBar() {
     };
   }, []);
 
-  const handleLogout = () => {
-    removeTokens();
+  const handleLogout = async () => {
+    await removeTokens();
     setLoggedIn(false);
-    window.location.href = "/";
+    router.push("/login");
   };
 
   if (!mounted) {

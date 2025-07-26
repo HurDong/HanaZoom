@@ -1,54 +1,14 @@
-version: "3"
-
 services:
-  # Frontend Service (for local development)
-  frontend:
-    build:
-      context: ../FE
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=development
-    depends_on:
-      - backend
-    networks:
-      - app-network
-
-  # Backend Service (for local development)
-  backend:
-    build:
-      context: ../BE/HanaZoom
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080" # The port was changed from 8082 to 8080 for consistency.
-    environment:
-      - SPRING_PROFILES_ACTIVE=prod # Connects to mysql in docker, not h2
-      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/hanazoom?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-      - SPRING_DATA_REDIS_HOST=redis
-      - SPRING_DATA_REDIS_PORT=6379
-      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD}
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: always
-    networks:
-      - app-network
-
-  # Database Service
+  # Database Service (for local development)
   db:
     image: mysql:8.0
     ports:
-      - "3306:3306"
+      - "3306:3306" # 포트 변경: 3306 → 3307
     environment:
       - MYSQL_DATABASE=hanazoom
-      - MYSQL_USER=${DB_USERNAME}
-      - MYSQL_PASSWORD=${DB_PASSWORD}
-      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - MYSQL_USER=${DB_USERNAME:-hanazoom_user}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-hanazoom1234!}
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-hanazoom1234!}
     volumes:
       - mysql_data:/var/lib/mysql
       - ./mysql/init:/docker-entrypoint-initdb.d
@@ -64,8 +24,8 @@ services:
           "ping",
           "-h",
           "localhost",
-          "-u${DB_USERNAME}",
-          "-p${DB_PASSWORD}",
+          "-u${DB_USERNAME:-hanazoom_user}",
+          "-p${DB_PASSWORD:-hanazoom1234!}",
         ]
       interval: 10s
       timeout: 5s
@@ -74,16 +34,16 @@ services:
     networks:
       - app-network
 
-  # Redis Service
+  # Redis Service (for local development)
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+      - "6380:6379" # 포트 변경: 6379 → 6380
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis1234!}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis1234!}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

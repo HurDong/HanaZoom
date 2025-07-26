@@ -2,7 +2,6 @@
 
 import type React from "react";
 import Swal from "sweetalert2";
-
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,10 +18,17 @@ import { MapPin, Mail, Lock, Eye, EyeOff, User, Phone } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MouseFollower } from "@/components/mouse-follower";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/app/components/Navbar";
-import { API_ENDPOINTS } from "../config/api";
+import { api, API_ENDPOINTS, ApiResponse } from "@/app/config/api";
+import Script from "next/script";
+
+declare global {
+  interface Window {
+    daum: any;
+  }
+}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -35,6 +41,9 @@ export default function SignupPage() {
     password: "",
     confirmPassword: "",
     marketing: false,
+    address: "", // 전체 주소
+    zonecode: "", // 우편번호
+    detailAddress: "", // 상세주소
   });
   const [agreements, setAgreements] = useState({
     terms: false,
@@ -82,6 +91,27 @@ export default function SignupPage() {
     }
   };
 
+  const handleAddressSearch = () => {
+    new window.daum.Postcode({
+      oncomplete: function (data: any) {
+        setFormData((prev) => ({
+          ...prev,
+          address: data.address,
+          zonecode: data.zonecode,
+        }));
+      },
+    }).open();
+  };
+
+  const handleDetailAddressChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      detailAddress: e.target.value,
+    }));
+  };
+
   const showErrorAlert = (message: string) => {
     Swal.fire({
       title: "앗!",
@@ -104,6 +134,12 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
 
+    // 주소 검증 추가
+    if (!formData.address || !formData.zonecode) {
+      showErrorAlert("주소를 입력해주세요.");
+      return;
+    }
+
     // 전화번호 형식 검사 (하이픈이 포함된 형식)
     const phoneRegex = /^01(?:0|1|[6-9])-(?:\d{3}|\d{4})-\d{4}$/;
     if (!phoneRegex.test(formData.phone)) {
@@ -125,58 +161,21 @@ export default function SignupPage() {
     }
 
     try {
-      const response = await fetch(API_ENDPOINTS.signup, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-          phone: formData.phone,
-          termsAgreed: agreements.terms,
-          privacyAgreed: agreements.privacy,
-          marketingAgreed: agreements.marketing,
-        }),
-      });
+      const { data } = await api.post<ApiResponse<{ message: string }>>(
+        API_ENDPOINTS.signup,
+        formData
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        let errorMessage = "회원가입에 실패했습니다.";
-
-        // 서버에서 받은 에러 메시지 처리
-        if (errorData.errors && errorData.errors.length > 0) {
-          const error = errorData.errors[0];
-          if (error.defaultMessage) {
-            errorMessage = error.defaultMessage;
-          }
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      // 회원가입 성공 시 성공 알림
       await Swal.fire({
-        title: "환영합니다! 🎉",
-        text: "회원가입이 완료되었습니다.",
+        title: "회원가입 성공!",
+        text: data.message || "회원가입이 완료되었습니다.",
         icon: "success",
-        confirmButtonText: "로그인하기",
-        confirmButtonColor: "#10b981",
-        background: "#ffffff",
-        color: "#1f2937",
-        customClass: {
-          popup: "dark:bg-gray-900 dark:text-white",
-          title: "dark:text-white",
-          htmlContainer: "dark:text-gray-300",
-          confirmButton: "dark:bg-green-600 dark:hover:bg-green-700",
-        },
+        timer: 1500,
+        showConfirmButton: false,
       });
 
-      // 로그인 페이지로 이동
       router.push("/login");
     } catch (error) {
-      console.error("회원가입 실패:", error);
       showErrorAlert(
         error instanceof Error ? error.message : "회원가입에 실패했습니다."
       );
@@ -228,6 +227,7 @@ export default function SignupPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignup} className="space-y-4">
+              {/* 이름 입력 필드 */}
               <div className="space-y-2">
                 <Label
                   htmlFor="name"
@@ -248,6 +248,8 @@ export default function SignupPage() {
                   />
                 </div>
               </div>
+
+              {/* 이메일 입력 필드 */}
               <div className="space-y-2">
                 <Label
                   htmlFor="email"
@@ -268,6 +270,8 @@ export default function SignupPage() {
                   />
                 </div>
               </div>
+
+              {/* 전화번호 입력 필드 */}
               <div className="space-y-2">
                 <Label
                   htmlFor="phone"
@@ -288,6 +292,59 @@ export default function SignupPage() {
                   />
                 </div>
               </div>
+
+              {/* 주소 입력 필드 */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="address"
+                  className="text-green-800 dark:text-green-200"
+                >
+                  주소
+                </Label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <MapPin className="absolute left-3 top-3 h-5 w-5 text-green-500" />
+                      <Input
+                        id="zonecode"
+                        name="zonecode"
+                        type="text"
+                        placeholder="우편번호"
+                        value={formData.zonecode}
+                        readOnly
+                        className="pl-10 border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleAddressSearch}
+                      className="bg-green-500 hover:bg-green-600 text-white"
+                    >
+                      주소 검색
+                    </Button>
+                  </div>
+                  <Input
+                    id="address"
+                    name="address"
+                    type="text"
+                    placeholder="주소"
+                    value={formData.address}
+                    readOnly
+                    className="border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
+                  />
+                  <Input
+                    id="detailAddress"
+                    name="detailAddress"
+                    type="text"
+                    placeholder="상세주소를 입력하세요"
+                    value={formData.detailAddress}
+                    onChange={handleDetailAddressChange}
+                    className="border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
+                  />
+                </div>
+              </div>
+
+              {/* 비밀번호 입력 필드 */}
               <div className="space-y-2">
                 <Label
                   htmlFor="password"
@@ -319,6 +376,8 @@ export default function SignupPage() {
                   </button>
                 </div>
               </div>
+
+              {/* 비밀번호 확인 필드 */}
               <div className="space-y-2">
                 <Label
                   htmlFor="confirmPassword"
@@ -410,23 +469,8 @@ export default function SignupPage() {
             </form>
           </CardContent>
         </Card>
-
-        <style jsx>{`
-          .floating-symbol {
-            animation: float 6s ease-in-out infinite;
-          }
-
-          @keyframes float {
-            0%,
-            100% {
-              transform: translateY(0px) rotate(0deg);
-            }
-            50% {
-              transform: translateY(-20px) rotate(5deg);
-            }
-          }
-        `}</style>
       </div>
+      <Script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js" />
     </div>
   );
 }

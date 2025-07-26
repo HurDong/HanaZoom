@@ -18,11 +18,11 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MouseFollower } from "@/components/mouse-follower";
 import { useState } from "react";
-import { setTokens } from "../utils/auth";
+import { setLoginData } from "../utils/auth";
 import Swal from "sweetalert2";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import NavBar from "@/app/components/Navbar";
-import { API_ENDPOINTS } from "../config/api";
+import { api, API_ENDPOINTS, ApiResponse } from "@/app/config/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -78,57 +78,42 @@ export default function LoginPage() {
     }
 
     try {
-      const response = await fetch(API_ENDPOINTS.login, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+      const { data } = await api.post<
+        ApiResponse<{
+          id: string;
+          name: string;
+          email: string;
+          address: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          accessToken: string;
+          refreshToken: string;
+        }>
+      >(API_ENDPOINTS.login, formData);
+
+      await setLoginData(data.data.accessToken, data.data.refreshToken, {
+        id: data.data.id,
+        name: data.data.name,
+        email: data.data.email,
+        address: data.data.address,
+        latitude: data.data.latitude,
+        longitude: data.data.longitude,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        let errorMessage = "로그인에 실패했습니다.";
-
-        // 서버에서 받은 에러 메시지 처리
-        if (errorData.message) {
-          errorMessage = errorData.message;
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
-
-      // 토큰 저장
-      setTokens(data.accessToken, data.refreshToken);
-
-      // 로그인 성공 시 성공 알림
       await Swal.fire({
-        title: "환영합니다! 🎉",
+        title: "환영합니다!",
         text: "로그인에 성공했습니다.",
         icon: "success",
-        confirmButtonText: "시작하기",
-        confirmButtonColor: "#10b981",
-        background: "#ffffff",
-        color: "#1f2937",
-        customClass: {
-          popup: "dark:bg-gray-900 dark:text-white",
-          title: "dark:text-white",
-          htmlContainer: "dark:text-gray-300",
-          confirmButton: "dark:bg-green-600 dark:hover:bg-green-700",
-        },
+        timer: 1500,
+        showConfirmButton: false,
       });
 
-      // 메인 페이지로 이동
       router.push("/");
     } catch (error) {
-      console.error("로그인 실패:", error);
       showErrorAlert(
-        error instanceof Error ? error.message : "로그인에 실패했습니다."
+        error instanceof Error
+          ? error.message
+          : "알 수 없는 오류가 발생했습니다."
       );
     }
   };

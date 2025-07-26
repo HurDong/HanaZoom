@@ -1,294 +1,1300 @@
--- 데이터베이스 생성
-CREATE DATABASE IF NOT EXISTS hanazoom;
-USE hanazoom;
+-- 개발 환경 초기화를 위해 기존 테이블이 있다면 삭제합니다.
+DROP TABLE IF EXISTS `regions`;
 
--- 1. 지역 테이블 (regions)
-CREATE TABLE regions (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL COMMENT '지역명',
-    type ENUM('CITY', 'DISTRICT', 'NEIGHBORHOOD') NOT NULL COMMENT '지역 타입',
-    parent_id BIGINT NULL COMMENT '상위 지역 ID',
-    latitude DECIMAL(10, 8) NULL COMMENT '위도',
-    longitude DECIMAL(11, 8) NULL COMMENT '경도',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+-- `regions` 테이블을 생성합니다.
+-- JPA 엔티티와 일관성을 맞추고, 데이터베이스 레벨에서 생성/수정 시간을 자동으로 기록하도록 설정합니다.
+CREATE TABLE `regions` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(100) NOT NULL,
+    `type` VARCHAR(20) NOT NULL,
+    `parent_id` BIGINT,
+    `latitude` DECIMAL(10, 8),
+    `longitude` DECIMAL(11, 8),
+    `created_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+    `updated_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (`id`),
+    INDEX `idx_parent_id` (`parent_id`) -- 추후 부모 ID 기반 검색 성능을 위해 인덱스를 추가합니다.
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-    INDEX idx_parent_id (parent_id),
-    INDEX idx_type (type),
-    INDEX idx_name (name)
-);
+-- 데이터베이스 연결 및 이후 모든 통신에 사용할 문자 인코딩을 UTF-8로 설정합니다.
+SET NAMES 'utf8mb4';
 
--- 2. 주식 테이블 (stocks)
-CREATE TABLE stocks (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    symbol VARCHAR(20) NOT NULL UNIQUE COMMENT '종목코드 (예: 005930)',
-    name VARCHAR(100) NOT NULL COMMENT '종목명 (예: 삼성전자)',
-    market VARCHAR(20) NOT NULL COMMENT '시장 (KOSPI, KOSDAQ, KONEX)',
-    sector VARCHAR(50) NULL COMMENT '섹터 (전자, 화학, 서비스업 등)',
-    emoji VARCHAR(10) NULL COMMENT '종목 이모지',
+-- This data is based on https://github.com/vuski/admdongkor
+-- Filtered for: 서울특별시, 경기도, 인천광역시
+START TRANSACTION;
 
-    -- 실시간 정보 (API에서 업데이트)
-    current_price DECIMAL(15, 2) NULL COMMENT '현재가',
-    price_change DECIMAL(15, 2) NULL COMMENT '전일 대비 변동가',
-    price_change_percent DECIMAL(5, 2) NULL COMMENT '전일 대비 변동률 (%)',
-    volume BIGINT NULL COMMENT '거래량',
-    market_cap BIGINT NULL COMMENT '시가총액',
-    high_price DECIMAL(15, 2) NULL COMMENT '고가',
-    low_price DECIMAL(15, 2) NULL COMMENT '저가',
-    open_price DECIMAL(15, 2) NULL COMMENT '시가',
+-- Inserting CITIES
 
-    -- 메타 정보
-    is_active BOOLEAN DEFAULT TRUE COMMENT '활성화 여부',
-    last_updated TIMESTAMP NULL COMMENT '마지막 업데이트 시간',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1, '경기도', 'CITY', NULL, 37.46490746, 127.04160260);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (2, '서울특별시', 'CITY', NULL, 37.55177939, 126.99040614);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (3, '인천광역시', 'CITY', NULL, 37.50666054, 126.55382198);
 
-    INDEX idx_symbol (symbol),
-    INDEX idx_market (market),
-    INDEX idx_sector (sector),
-    INDEX idx_active (is_active),
-    INDEX idx_last_updated (last_updated)
-);
+-- Inserting DISTRICTS
 
--- 3. 회원 테이블 (members)
-CREATE TABLE members (
-    id BINARY(16) PRIMARY KEY COMMENT 'UUID',
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    phone VARCHAR(20) NOT NULL,
-    region_id BIGINT NULL COMMENT '관심 지역 ID',
-    terms_agreed BOOLEAN NOT NULL DEFAULT FALSE,
-    privacy_agreed BOOLEAN NOT NULL DEFAULT FALSE,
-    marketing_agreed BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_login_at TIMESTAMP NULL,
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (4, '가평군', 'DISTRICT', 1, 37.80313763, 127.44130172);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (5, '고양시덕양구', 'DISTRICT', 1, 37.64226576, 126.85878281);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (6, '고양시일산동구', 'DISTRICT', 1, 37.66551892, 126.78834697);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (7, '고양시일산서구', 'DISTRICT', 1, 37.68389939, 126.75481807);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (8, '과천시', 'DISTRICT', 1, 37.42957736, 126.99766829);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (9, '광명시', 'DISTRICT', 1, 37.46555867, 126.86613369);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (10, '광주시', 'DISTRICT', 1, 37.39741997, 127.26069963);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (11, '구리시', 'DISTRICT', 1, 37.60142644, 127.13603175);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (12, '군포시', 'DISTRICT', 1, 37.35375439, 126.93060166);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (13, '김포시', 'DISTRICT', 1, 37.65248449, 126.65759923);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (14, '남양주시', 'DISTRICT', 1, 37.65169677, 127.21084081);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (15, '동두천시', 'DISTRICT', 1, 37.90931083, 127.06320104);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (16, '부천시소사구', 'DISTRICT', 1, 37.47542685, 126.79307954);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (17, '부천시오정구', 'DISTRICT', 1, 37.52776784, 126.79976344);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (18, '부천시원미구', 'DISTRICT', 1, 37.49748400, 126.77765670);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (19, '성남시분당구', 'DISTRICT', 1, 37.37901777, 127.11835674);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (20, '성남시수정구', 'DISTRICT', 1, 37.44675636, 127.13273415);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (21, '성남시중원구', 'DISTRICT', 1, 37.43988711, 127.16068724);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (22, '수원시권선구', 'DISTRICT', 1, 37.26061991, 126.98943872);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (23, '수원시영통구', 'DISTRICT', 1, 37.26316441, 127.05744779);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (24, '수원시장안구', 'DISTRICT', 1, 37.30332582, 127.00083433);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (25, '수원시팔달구', 'DISTRICT', 1, 37.27842374, 127.01642201);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (26, '시흥시', 'DISTRICT', 1, 37.38153831, 126.77067353);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (27, '안산시단원구', 'DISTRICT', 1, 37.32143086, 126.78984855);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (28, '안산시상록구', 'DISTRICT', 1, 37.31120648, 126.86262496);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (29, '안성시', 'DISTRICT', 1, 37.03106846, 127.28372165);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (30, '안양시동안구', 'DISTRICT', 1, 37.39120630, 126.95650769);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (31, '안양시만안구', 'DISTRICT', 1, 37.39907326, 126.91548587);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (32, '양주시', 'DISTRICT', 1, 37.82014217, 127.03445248);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (33, '양평군', 'DISTRICT', 1, 37.50577974, 127.54994131);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (34, '여주시', 'DISTRICT', 1, 37.30948309, 127.60590529);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (35, '연천군', 'DISTRICT', 1, 38.07176755, 127.01265636);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (36, '오산시', 'DISTRICT', 1, 37.15623051, 127.06130516);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (37, '용인시기흥구', 'DISTRICT', 1, 37.27131497, 127.12162372);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (38, '용인시수지구', 'DISTRICT', 1, 37.32351632, 127.08660925);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (39, '용인시처인구', 'DISTRICT', 1, 37.22060230, 127.23240568);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (40, '의왕시', 'DISTRICT', 1, 37.36406904, 126.98235225);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (41, '의정부시', 'DISTRICT', 1, 37.73595132, 127.06022114);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (42, '이천시', 'DISTRICT', 1, 37.23102470, 127.46970631);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (43, '파주시', 'DISTRICT', 1, 37.79113163, 126.78473320);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (44, '평택시', 'DISTRICT', 1, 37.03048310, 127.04596249);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (45, '포천시', 'DISTRICT', 1, 37.93977789, 127.23420793);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (46, '하남시', 'DISTRICT', 1, 37.53227722, 127.19305360);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (47, '화성시', 'DISTRICT', 1, 37.18892865, 126.96406978);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (48, '강남구', 'DISTRICT', 2, 37.49875462, 127.05840818);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (49, '강동구', 'DISTRICT', 2, 37.54634167, 127.14496074);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (50, '강북구', 'DISTRICT', 2, 37.63167552, 127.02208922);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (51, '강서구', 'DISTRICT', 2, 37.55365124, 126.84095993);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (52, '관악구', 'DISTRICT', 2, 37.47696310, 126.94005504);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (53, '광진구', 'DISTRICT', 2, 37.54767450, 127.08366470);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (54, '구로구', 'DISTRICT', 2, 37.49376231, 126.86315435);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (55, '금천구', 'DISTRICT', 2, 37.46052727, 126.90416368);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (56, '노원구', 'DISTRICT', 2, 37.64933791, 127.06895675);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (57, '도봉구', 'DISTRICT', 2, 37.65783267, 127.03653074);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (58, '동대문구', 'DISTRICT', 2, 37.58342910, 127.05627699);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (59, '동작구', 'DISTRICT', 2, 37.49612294, 126.94924141);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (60, '마포구', 'DISTRICT', 2, 37.55391727, 126.92591209);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (61, '서대문구', 'DISTRICT', 2, 37.57797585, 126.93848345);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (62, '서초구', 'DISTRICT', 2, 37.48793040, 127.01105624);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (63, '성동구', 'DISTRICT', 2, 37.55312975, 127.03826850);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (64, '성북구', 'DISTRICT', 2, 37.60340148, 127.02510784);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (65, '송파구', 'DISTRICT', 2, 37.50414676, 127.11766267);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (66, '양천구', 'DISTRICT', 2, 37.52616914, 126.85452624);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (67, '영등포구', 'DISTRICT', 2, 37.51243921, 126.90565578);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (68, '용산구', 'DISTRICT', 2, 37.53569300, 126.97630997);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (69, '은평구', 'DISTRICT', 2, 37.60625062, 126.91840966);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (70, '종로구', 'DISTRICT', 2, 37.58152561, 126.99032305);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (71, '중구', 'DISTRICT', 2, 37.56019240, 127.00059183);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (72, '중랑구', 'DISTRICT', 2, 37.59564039, 127.08938444);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (73, '강화군', 'DISTRICT', 3, 37.71541220, 126.40159300);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (74, '계양구', 'DISTRICT', 3, 37.54283183, 126.72894709);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (75, '남동구', 'DISTRICT', 3, 37.44566339, 126.72267486);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (76, '동구', 'DISTRICT', 3, 37.47950844, 126.64031533);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (77, '미추홀구', 'DISTRICT', 3, 37.45448333, 126.66814644);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (78, '부평구', 'DISTRICT', 3, 37.49694315, 126.72094577);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (79, '서구', 'DISTRICT', 3, 37.54230558, 126.66840960);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (80, '연수구', 'DISTRICT', 3, 37.40953620, 126.66181435);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (81, '옹진군', 'DISTRICT', 3, 37.51025310, 125.74861152);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (82, '중구', 'DISTRICT', 3, 37.46966818, 126.57676188);
 
-    INDEX idx_email (email),
-    INDEX idx_region_id (region_id)
-);
+-- Inserting NEIGHBORHOODS
 
--- 4. 지역별 주식 관심도 테이블 (region_stocks)
-CREATE TABLE region_stocks (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    region_id BIGINT NOT NULL COMMENT '지역 ID',
-    stock_id BIGINT NOT NULL COMMENT '주식 ID',
-    data_date DATE NOT NULL COMMENT '데이터 기준일',
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (83, '가평읍', 'NEIGHBORHOOD', 4, 37.82229665, 127.52523226);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (84, '북면', 'NEIGHBORHOOD', 4, 37.94801967, 127.50377839);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (85, '상면', 'NEIGHBORHOOD', 4, 37.79677094, 127.32877984);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (86, '설악면', 'NEIGHBORHOOD', 4, 37.66513806, 127.49964606);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (87, '조종면', 'NEIGHBORHOOD', 4, 37.86559270, 127.36649050);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (88, '청평면', 'NEIGHBORHOOD', 4, 37.72100778, 127.42388329);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (89, '고양동', 'NEIGHBORHOOD', 5, 37.70894862, 126.90329277);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (90, '관산동', 'NEIGHBORHOOD', 5, 37.70748561, 126.86650511);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (91, '능곡동', 'NEIGHBORHOOD', 5, 37.63239208, 126.80228176);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (92, '대덕동', 'NEIGHBORHOOD', 5, 37.59067119, 126.85845850);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (93, '삼송1동', 'NEIGHBORHOOD', 5, 37.66478559, 126.90275613);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (94, '삼송2동', 'NEIGHBORHOOD', 5, 37.65141812, 126.87545345);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (95, '성사1동', 'NEIGHBORHOOD', 5, 37.65898312, 126.84791592);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (96, '성사2동', 'NEIGHBORHOOD', 5, 37.65034913, 126.83918273);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (97, '원신동', 'NEIGHBORHOOD', 5, 37.66959116, 126.86373203);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (98, '주교동', 'NEIGHBORHOOD', 5, 37.65978736, 126.82631253);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (99, '창릉동', 'NEIGHBORHOOD', 5, 37.63011870, 126.89277730);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (100, '행신1동', 'NEIGHBORHOOD', 5, 37.62165782, 126.83339439);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (101, '행신2동', 'NEIGHBORHOOD', 5, 37.60948047, 126.83788874);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (102, '행신3동', 'NEIGHBORHOOD', 5, 37.62541420, 126.83980869);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (103, '행신4동', 'NEIGHBORHOOD', 5, 37.62053577, 126.84792355);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (104, '행주동', 'NEIGHBORHOOD', 5, 37.61102241, 126.82268723);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (105, '화전동', 'NEIGHBORHOOD', 5, 37.60510752, 126.88667730);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (106, '화정1동', 'NEIGHBORHOOD', 5, 37.64237289, 126.83501700);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (107, '화정2동', 'NEIGHBORHOOD', 5, 37.63312266, 126.83917579);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (108, '효자동', 'NEIGHBORHOOD', 5, 37.66011848, 126.95523663);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (109, '흥도동', 'NEIGHBORHOOD', 5, 37.63421815, 126.85796137);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (110, '고봉동', 'NEIGHBORHOOD', 6, 37.70444850, 126.81429733);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (111, '마두1동', 'NEIGHBORHOOD', 6, 37.66228573, 126.78217425);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (112, '마두2동', 'NEIGHBORHOOD', 6, 37.65187057, 126.78191552);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (113, '백석1동', 'NEIGHBORHOOD', 6, 37.64708488, 126.79198151);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (114, '백석2동', 'NEIGHBORHOOD', 6, 37.64098617, 126.78371024);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (115, '식사동', 'NEIGHBORHOOD', 6, 37.67827114, 126.81525459);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (116, '장항1동', 'NEIGHBORHOOD', 6, 37.63970907, 126.77246666);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (117, '장항2동', 'NEIGHBORHOOD', 6, 37.65797262, 126.76768179);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (118, '정발산동', 'NEIGHBORHOOD', 6, 37.67001923, 126.77634425);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (119, '중산1동', 'NEIGHBORHOOD', 6, 37.69160591, 126.78336245);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (120, '중산2동', 'NEIGHBORHOOD', 6, 37.68031503, 126.78608162);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (121, '풍산동', 'NEIGHBORHOOD', 6, 37.66165814, 126.80489338);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (122, '가좌동', 'NEIGHBORHOOD', 7, 37.68675669, 126.69968706);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (123, '대화동', 'NEIGHBORHOOD', 7, 37.67611572, 126.74530190);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (124, '덕이동', 'NEIGHBORHOOD', 7, 37.69577377, 126.74800200);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (125, '송포동', 'NEIGHBORHOOD', 7, 37.67457386, 126.73531456);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (126, '일산1동', 'NEIGHBORHOOD', 7, 37.68958999, 126.76717541);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (127, '일산2동', 'NEIGHBORHOOD', 7, 37.68933815, 126.77681649);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (128, '일산3동', 'NEIGHBORHOOD', 7, 37.67973374, 126.76883955);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (129, '주엽1동', 'NEIGHBORHOOD', 7, 37.66682900, 126.76622785);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (130, '주엽2동', 'NEIGHBORHOOD', 7, 37.67052765, 126.75715272);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (131, '탄현1동', 'NEIGHBORHOOD', 7, 37.69321270, 126.76726466);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (132, '탄현2동', 'NEIGHBORHOOD', 7, 37.70044206, 126.77121657);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (133, '갈현동', 'NEIGHBORHOOD', 8, 37.41983136, 126.97813317);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (134, '과천동', 'NEIGHBORHOOD', 8, 37.44783183, 127.01819505);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (135, '문원동', 'NEIGHBORHOOD', 8, 37.42894503, 127.02511127);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (136, '별양동', 'NEIGHBORHOOD', 8, 37.42756620, 126.99829947);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (137, '부림동', 'NEIGHBORHOOD', 8, 37.43522882, 126.99880900);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (138, '원문동', 'NEIGHBORHOOD', 8, 37.41004356, 126.98666091);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (139, '중앙동', 'NEIGHBORHOOD', 8, 37.43759472, 126.97846918);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (140, '광명1동', 'NEIGHBORHOOD', 9, 37.48816450, 126.86226148);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (141, '광명2동', 'NEIGHBORHOOD', 9, 37.48200656, 126.85909287);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (142, '광명3동', 'NEIGHBORHOOD', 9, 37.48086361, 126.85520471);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (143, '광명4동', 'NEIGHBORHOOD', 9, 37.47782986, 126.85461533);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (144, '광명5동', 'NEIGHBORHOOD', 9, 37.47699487, 126.84869918);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (145, '광명6동', 'NEIGHBORHOOD', 9, 37.46951896, 126.84037641);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (146, '광명7동', 'NEIGHBORHOOD', 9, 37.46630810, 126.85050828);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (147, '소하1동', 'NEIGHBORHOOD', 9, 37.44388554, 126.88832873);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (148, '소하2동', 'NEIGHBORHOOD', 9, 37.43668891, 126.87718460);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (149, '일직동', 'NEIGHBORHOOD', 9, 37.42273358, 126.88512959);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (150, '철산1동', 'NEIGHBORHOOD', 9, 37.48914310, 126.86829004);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (151, '철산2동', 'NEIGHBORHOOD', 9, 37.48123696, 126.86612980);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (152, '철산3동', 'NEIGHBORHOOD', 9, 37.47632920, 126.86960751);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (153, '철산4동', 'NEIGHBORHOOD', 9, 37.47280501, 126.86392966);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (154, '하안1동', 'NEIGHBORHOOD', 9, 37.46182070, 126.86896286);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (155, '하안2동', 'NEIGHBORHOOD', 9, 37.46531868, 126.87160377);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (156, '하안3동', 'NEIGHBORHOOD', 9, 37.46102041, 126.88595597);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (157, '하안4동', 'NEIGHBORHOOD', 9, 37.46689941, 126.88133559);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (158, '학온동', 'NEIGHBORHOOD', 9, 37.42604673, 126.85932373);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (159, '경안동', 'NEIGHBORHOOD', 10, 37.40523103, 127.25089298);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (160, '곤지암읍', 'NEIGHBORHOOD', 10, 37.36100795, 127.37761307);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (161, '광남1동', 'NEIGHBORHOOD', 10, 37.39719480, 127.21255308);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (162, '광남2동', 'NEIGHBORHOOD', 10, 37.38471877, 127.23093145);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (163, '남종면', 'NEIGHBORHOOD', 10, 37.49549357, 127.31558532);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (164, '남한산성면', 'NEIGHBORHOOD', 10, 37.45753137, 127.24197729);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (165, '능평동', 'NEIGHBORHOOD', 10, 37.34889370, 127.16432967);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (166, '도척면', 'NEIGHBORHOOD', 10, 37.30119908, 127.31849282);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (167, '송정동', 'NEIGHBORHOOD', 10, 37.42431614, 127.26562842);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (168, '신현동', 'NEIGHBORHOOD', 10, 37.36449499, 127.16113775);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (169, '쌍령동', 'NEIGHBORHOOD', 10, 37.40294687, 127.27266378);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (170, '오포1동', 'NEIGHBORHOOD', 10, 37.35594868, 127.21578229);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (171, '오포2동', 'NEIGHBORHOOD', 10, 37.36099727, 127.25967051);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (172, '초월읍', 'NEIGHBORHOOD', 10, 37.40376863, 127.31204315);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (173, '탄벌동', 'NEIGHBORHOOD', 10, 37.43300315, 127.23184287);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (174, '퇴촌면', 'NEIGHBORHOOD', 10, 37.46197354, 127.34004956);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (175, '갈매동', 'NEIGHBORHOOD', 11, 37.62909746, 127.11347688);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (176, '교문1동', 'NEIGHBORHOOD', 11, 37.58012074, 127.11482240);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (177, '교문2동', 'NEIGHBORHOOD', 11, 37.58628662, 127.13547057);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (178, '동구동', 'NEIGHBORHOOD', 11, 37.63036728, 127.14001584);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (179, '수택1동', 'NEIGHBORHOOD', 11, 37.59811292, 127.14888784);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (180, '수택2동', 'NEIGHBORHOOD', 11, 37.59338096, 127.14624998);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (181, '수택3동', 'NEIGHBORHOOD', 11, 37.58747950, 127.15435144);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (182, '인창동', 'NEIGHBORHOOD', 11, 37.60656608, 127.13497902);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (183, '광정동', 'NEIGHBORHOOD', 12, 37.36507139, 126.92634988);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (184, '군포1동', 'NEIGHBORHOOD', 12, 37.35378659, 126.95109600);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (185, '군포2동', 'NEIGHBORHOOD', 12, 37.34036396, 126.93580272);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (186, '궁내동', 'NEIGHBORHOOD', 12, 37.36484034, 126.91693965);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (187, '금정동', 'NEIGHBORHOOD', 12, 37.36761048, 126.94591398);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (188, '대야동', 'NEIGHBORHOOD', 12, 37.33391890, 126.90122662);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (189, '산본1동', 'NEIGHBORHOOD', 12, 37.37420379, 126.94016990);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (190, '산본2동', 'NEIGHBORHOOD', 12, 37.37021005, 126.93267752);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (191, '송부동', 'NEIGHBORHOOD', 12, 37.31773617, 126.93035591);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (192, '수리동', 'NEIGHBORHOOD', 12, 37.34811401, 126.91858322);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (193, '오금동', 'NEIGHBORHOOD', 12, 37.34996822, 126.92897885);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (194, '재궁동', 'NEIGHBORHOOD', 12, 37.35922881, 126.93912568);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (195, '고촌읍', 'NEIGHBORHOOD', 13, 37.60595379, 126.76068252);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (196, '구래동', 'NEIGHBORHOOD', 13, 37.64807674, 126.63088137);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (197, '김포본동', 'NEIGHBORHOOD', 13, 37.63220566, 126.70770724);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (198, '대곶면', 'NEIGHBORHOOD', 13, 37.64658845, 126.57753302);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (199, '마산동', 'NEIGHBORHOOD', 13, 37.64042964, 126.64478384);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (200, '사우동', 'NEIGHBORHOOD', 13, 37.62111975, 126.72850917);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (201, '양촌읍', 'NEIGHBORHOOD', 13, 37.64217647, 126.62194974);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (202, '운양동', 'NEIGHBORHOOD', 13, 37.64980321, 126.68915297);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (203, '월곶면', 'NEIGHBORHOOD', 13, 37.74092386, 126.55083593);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (204, '장기동', 'NEIGHBORHOOD', 13, 37.63777584, 126.67940897);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (205, '장기본동', 'NEIGHBORHOOD', 13, 37.64659169, 126.66283730);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (206, '통진읍', 'NEIGHBORHOOD', 13, 37.69078127, 126.60124941);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (207, '풍무동', 'NEIGHBORHOOD', 13, 37.60700644, 126.71575916);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (208, '하성면', 'NEIGHBORHOOD', 13, 37.72535003, 126.63509856);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (209, '금곡동', 'NEIGHBORHOOD', 14, 37.63063622, 127.20744736);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (210, '다산1동', 'NEIGHBORHOOD', 14, 37.62331862, 127.15756590);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (211, '다산2동', 'NEIGHBORHOOD', 14, 37.59906619, 127.17168344);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (212, '별내동', 'NEIGHBORHOOD', 14, 37.66698798, 127.11549326);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (213, '별내면', 'NEIGHBORHOOD', 14, 37.70700193, 127.12660683);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (214, '수동면', 'NEIGHBORHOOD', 14, 37.72376871, 127.29730423);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (215, '양정동', 'NEIGHBORHOOD', 14, 37.61249593, 127.18952183);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (216, '오남읍', 'NEIGHBORHOOD', 14, 37.69754384, 127.23869833);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (217, '와부읍', 'NEIGHBORHOOD', 14, 37.59429465, 127.25753262);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (218, '조안면', 'NEIGHBORHOOD', 14, 37.57125095, 127.29250076);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (219, '진건읍', 'NEIGHBORHOOD', 14, 37.65290025, 127.17887047);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (220, '진접읍', 'NEIGHBORHOOD', 14, 37.72805873, 127.20031985);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (221, '퇴계원읍', 'NEIGHBORHOOD', 14, 37.65244132, 127.14254296);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (222, '평내동', 'NEIGHBORHOOD', 14, 37.64651986, 127.23439207);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (223, '호평동', 'NEIGHBORHOOD', 14, 37.66401966, 127.25295927);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (224, '화도읍', 'NEIGHBORHOOD', 14, 37.65684347, 127.31001371);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (225, '보산동', 'NEIGHBORHOOD', 15, 37.92484745, 127.07700612);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (226, '불현동', 'NEIGHBORHOOD', 15, 37.89455542, 127.09983375);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (227, '상패동', 'NEIGHBORHOOD', 15, 37.90832931, 127.03798719);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (228, '생연1동', 'NEIGHBORHOOD', 15, 37.90958533, 127.06805922);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (229, '생연2동', 'NEIGHBORHOOD', 15, 37.90090411, 127.04878757);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (230, '소요동', 'NEIGHBORHOOD', 15, 37.94547867, 127.05661093);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (231, '송내동', 'NEIGHBORHOOD', 15, 37.88211265, 127.06441781);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (232, '중앙동', 'NEIGHBORHOOD', 15, 37.90867370, 127.05290573);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (233, '괴안동', 'NEIGHBORHOOD', 16, 37.47723343, 126.80828843);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (234, '범박동', 'NEIGHBORHOOD', 16, 37.46922019, 126.80747515);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (235, '소사본1동', 'NEIGHBORHOOD', 16, 37.47180624, 126.80247744);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (236, '소사본동', 'NEIGHBORHOOD', 16, 37.47413685, 126.79252853);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (237, '송내1동', 'NEIGHBORHOOD', 16, 37.48337938, 126.75507573);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (238, '송내2동', 'NEIGHBORHOOD', 16, 37.47696564, 126.76851065);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (239, '심곡본1동', 'NEIGHBORHOOD', 16, 37.47657476, 126.77591528);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (240, '심곡본동', 'NEIGHBORHOOD', 16, 37.47635275, 126.78287346);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (241, '역곡3동', 'NEIGHBORHOOD', 16, 37.48138981, 126.81620060);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (242, '옥길동', 'NEIGHBORHOOD', 16, 37.46720942, 126.82145013);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (243, '고강1동', 'NEIGHBORHOOD', 17, 37.53135342, 126.81135723);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (244, '고강본동', 'NEIGHBORHOOD', 17, 37.52769314, 126.82312764);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (245, '성곡동', 'NEIGHBORHOOD', 17, 37.51601312, 126.81035658);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (246, '신흥동', 'NEIGHBORHOOD', 17, 37.52340824, 126.77147147);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (247, '오정동', 'NEIGHBORHOOD', 17, 37.53830771, 126.77917683);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (248, '원종1동', 'NEIGHBORHOOD', 17, 37.53088058, 126.80440720);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (249, '원종2동', 'NEIGHBORHOOD', 17, 37.52671866, 126.79844712);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (250, '도당동', 'NEIGHBORHOOD', 18, 37.51291672, 126.78766976);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (251, '상1동', 'NEIGHBORHOOD', 18, 37.49161402, 126.75067612);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (252, '상2동', 'NEIGHBORHOOD', 18, 37.49833920, 126.74691001);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (253, '상3동', 'NEIGHBORHOOD', 18, 37.51322015, 126.75158750);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (254, '상동', 'NEIGHBORHOOD', 18, 37.49144355, 126.76149106);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (255, '소사동', 'NEIGHBORHOOD', 18, 37.48630490, 126.79509023);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (256, '심곡1동', 'NEIGHBORHOOD', 18, 37.49381916, 126.78210155);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (257, '심곡2동', 'NEIGHBORHOOD', 18, 37.48661502, 126.78674071);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (258, '심곡3동', 'NEIGHBORHOOD', 18, 37.48970335, 126.77451569);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (259, '약대동', 'NEIGHBORHOOD', 18, 37.51329891, 126.76966512);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (260, '역곡1동', 'NEIGHBORHOOD', 18, 37.49332448, 126.80917239);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (261, '역곡2동', 'NEIGHBORHOOD', 18, 37.48840194, 126.80168778);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (262, '원미1동', 'NEIGHBORHOOD', 18, 37.49655088, 126.79506305);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (263, '원미2동', 'NEIGHBORHOOD', 18, 37.48934789, 126.79163505);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (264, '중1동', 'NEIGHBORHOOD', 18, 37.49860824, 126.76735500);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (265, '중2동', 'NEIGHBORHOOD', 18, 37.49548986, 126.77474821);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (266, '중3동', 'NEIGHBORHOOD', 18, 37.50769263, 126.77308426);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (267, '중4동', 'NEIGHBORHOOD', 18, 37.51063462, 126.76366115);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (268, '중동', 'NEIGHBORHOOD', 18, 37.49153128, 126.76734261);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (269, '춘의동', 'NEIGHBORHOOD', 18, 37.50082311, 126.80293676);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (270, '구미1동', 'NEIGHBORHOOD', 19, 37.35025028, 127.09455664);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (271, '구미동', 'NEIGHBORHOOD', 19, 37.34189105, 127.12054136);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (272, '금곡동', 'NEIGHBORHOOD', 19, 37.35950184, 127.10038055);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (273, '백현동', 'NEIGHBORHOOD', 19, 37.39050837, 127.10970823);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (274, '분당동', 'NEIGHBORHOOD', 19, 37.37108918, 127.14570638);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (275, '삼평동', 'NEIGHBORHOOD', 19, 37.40283617, 127.11016101);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (276, '서현1동', 'NEIGHBORHOOD', 19, 37.38471867, 127.15247306);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (277, '서현2동', 'NEIGHBORHOOD', 19, 37.37462985, 127.13953030);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (278, '수내1동', 'NEIGHBORHOOD', 19, 37.37836231, 127.11811433);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (279, '수내2동', 'NEIGHBORHOOD', 19, 37.37535656, 127.12232071);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (280, '수내3동', 'NEIGHBORHOOD', 19, 37.36343024, 127.13094729);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (281, '야탑1동', 'NEIGHBORHOOD', 19, 37.41225090, 127.12442970);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (282, '야탑2동', 'NEIGHBORHOOD', 19, 37.40815272, 127.12991273);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (283, '야탑3동', 'NEIGHBORHOOD', 19, 37.40466281, 127.14704634);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (284, '운중동', 'NEIGHBORHOOD', 19, 37.38012434, 127.05608280);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (285, '이매1동', 'NEIGHBORHOOD', 19, 37.39440322, 127.13217931);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (286, '이매2동', 'NEIGHBORHOOD', 19, 37.39793955, 127.12198735);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (287, '정자1동', 'NEIGHBORHOOD', 19, 37.36718989, 127.10640804);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (288, '정자2동', 'NEIGHBORHOOD', 19, 37.36852887, 127.11691500);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (289, '정자3동', 'NEIGHBORHOOD', 19, 37.35800161, 127.12267267);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (290, '정자동', 'NEIGHBORHOOD', 19, 37.36652428, 127.11233464);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (291, '판교동', 'NEIGHBORHOOD', 19, 37.38803810, 127.08943977);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (292, '고등동', 'NEIGHBORHOOD', 20, 37.42951152, 127.08397939);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (293, '단대동', 'NEIGHBORHOOD', 20, 37.45359581, 127.15590075);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (294, '복정동', 'NEIGHBORHOOD', 20, 37.45838928, 127.12880137);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (295, '산성동', 'NEIGHBORHOOD', 20, 37.45904960, 127.15281585);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (296, '수진1동', 'NEIGHBORHOOD', 20, 37.43790790, 127.13766853);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (297, '수진2동', 'NEIGHBORHOOD', 20, 37.43714487, 127.12289348);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (298, '시흥동', 'NEIGHBORHOOD', 20, 37.41389788, 127.08361602);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (299, '신촌동', 'NEIGHBORHOOD', 20, 37.45209623, 127.10604352);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (300, '신흥1동', 'NEIGHBORHOOD', 20, 37.44029383, 127.14063538);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (301, '신흥2동', 'NEIGHBORHOOD', 20, 37.45026336, 127.15080396);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (302, '신흥3동', 'NEIGHBORHOOD', 20, 37.44225586, 127.14699458);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (303, '양지동', 'NEIGHBORHOOD', 20, 37.46287801, 127.16624964);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (304, '위례동', 'NEIGHBORHOOD', 20, 37.46620633, 127.15053901);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (305, '태평1동', 'NEIGHBORHOOD', 20, 37.44625008, 127.12221412);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (306, '태평2동', 'NEIGHBORHOOD', 20, 37.44980833, 127.13579619);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (307, '태평3동', 'NEIGHBORHOOD', 20, 37.44571705, 127.13120602);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (308, '태평4동', 'NEIGHBORHOOD', 20, 37.44959225, 127.14032270);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (309, '금광1동', 'NEIGHBORHOOD', 21, 37.44432571, 127.16716195);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (310, '금광2동', 'NEIGHBORHOOD', 21, 37.44971728, 127.16999582);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (311, '도촌동', 'NEIGHBORHOOD', 21, 37.42058426, 127.15734477);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (312, '상대원1동', 'NEIGHBORHOOD', 21, 37.43810292, 127.17857069);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (313, '상대원2동', 'NEIGHBORHOOD', 21, 37.43592919, 127.15784681);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (314, '상대원3동', 'NEIGHBORHOOD', 21, 37.43852310, 127.16196827);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (315, '성남동', 'NEIGHBORHOOD', 21, 37.43049564, 127.13257073);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (316, '은행1동', 'NEIGHBORHOOD', 21, 37.45246876, 127.16896240);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (317, '은행2동', 'NEIGHBORHOOD', 21, 37.46255478, 127.17544887);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (318, '중앙동', 'NEIGHBORHOOD', 21, 37.43917712, 127.15345951);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (319, '하대원동', 'NEIGHBORHOOD', 21, 37.42687946, 127.14422983);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (320, '곡선동', 'NEIGHBORHOOD', 22, 37.23702075, 127.02421697);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (321, '구운동', 'NEIGHBORHOOD', 22, 37.28262583, 126.96908204);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (322, '권선1동', 'NEIGHBORHOOD', 22, 37.25915535, 127.02787309);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (323, '권선2동', 'NEIGHBORHOOD', 22, 37.24186839, 127.02443455);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (324, '금곡동', 'NEIGHBORHOOD', 22, 37.27363987, 126.94159495);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (325, '서둔동', 'NEIGHBORHOOD', 22, 37.26831439, 126.98127296);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (326, '세류1동', 'NEIGHBORHOOD', 22, 37.25969099, 127.00455710);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (327, '세류2동', 'NEIGHBORHOOD', 22, 37.24748743, 127.00807568);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (328, '세류3동', 'NEIGHBORHOOD', 22, 37.25874657, 127.01498738);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (329, '입북동', 'NEIGHBORHOOD', 22, 37.28931359, 126.94865155);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (330, '평동', 'NEIGHBORHOOD', 22, 37.24680985, 126.97870119);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (331, '호매실동', 'NEIGHBORHOOD', 22, 37.26276589, 126.94981720);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (332, '광교1동', 'NEIGHBORHOOD', 23, 37.30262369, 127.04950310);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (333, '광교2동', 'NEIGHBORHOOD', 23, 37.28714185, 127.07566054);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (334, '망포1동', 'NEIGHBORHOOD', 23, 37.23846985, 127.05890756);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (335, '망포2동', 'NEIGHBORHOOD', 23, 37.23857282, 127.04921973);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (336, '매탄1동', 'NEIGHBORHOOD', 23, 37.27137842, 127.03995725);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (337, '매탄2동', 'NEIGHBORHOOD', 23, 37.26997624, 127.05138972);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (338, '매탄3동', 'NEIGHBORHOOD', 23, 37.25265959, 127.04974756);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (339, '매탄4동', 'NEIGHBORHOOD', 23, 37.26534848, 127.05212582);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (340, '영통1동', 'NEIGHBORHOOD', 23, 37.26082171, 127.07668557);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (341, '영통2동', 'NEIGHBORHOOD', 23, 37.24811863, 127.05558666);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (342, '영통3동', 'NEIGHBORHOOD', 23, 37.25008837, 127.07203156);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (343, '원천동', 'NEIGHBORHOOD', 23, 37.27277321, 127.05855844);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (344, '송죽동', 'NEIGHBORHOOD', 24, 37.30486268, 127.00436581);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (345, '연무동', 'NEIGHBORHOOD', 24, 37.32003567, 127.02120324);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (346, '영화동', 'NEIGHBORHOOD', 24, 37.29025900, 127.01645917);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (347, '율천동', 'NEIGHBORHOOD', 24, 37.29803166, 126.97389058);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (348, '정자1동', 'NEIGHBORHOOD', 24, 37.30372619, 126.99216101);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (349, '정자2동', 'NEIGHBORHOOD', 24, 37.29207352, 126.99429698);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (350, '정자3동', 'NEIGHBORHOOD', 24, 37.29808683, 126.98341204);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (351, '조원1동', 'NEIGHBORHOOD', 24, 37.30264690, 127.01701000);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (352, '조원2동', 'NEIGHBORHOOD', 24, 37.30678585, 127.01548696);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (353, '파장동', 'NEIGHBORHOOD', 24, 37.31674995, 126.99005748);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (354, '고등동', 'NEIGHBORHOOD', 25, 37.27496610, 127.00502495);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (355, '매교동', 'NEIGHBORHOOD', 25, 37.26943904, 127.01578037);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (356, '매산동', 'NEIGHBORHOOD', 25, 37.26989306, 127.00666243);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (357, '우만1동', 'NEIGHBORHOOD', 25, 37.28814313, 127.03184990);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (358, '우만2동', 'NEIGHBORHOOD', 25, 37.28098854, 127.03845542);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (359, '인계동', 'NEIGHBORHOOD', 25, 37.27221201, 127.03007593);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (360, '지동', 'NEIGHBORHOOD', 25, 37.27969515, 127.02673164);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (361, '행궁동', 'NEIGHBORHOOD', 25, 37.28355049, 127.01660132);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (362, '화서1동', 'NEIGHBORHOOD', 25, 37.28107180, 127.00332139);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (363, '화서2동', 'NEIGHBORHOOD', 25, 37.28427807, 126.98971677);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (364, '거북섬동', 'NEIGHBORHOOD', 26, 37.32075461, 126.69541814);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (365, '과림동', 'NEIGHBORHOOD', 26, 37.43212522, 126.83353393);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (366, '군자동', 'NEIGHBORHOOD', 26, 37.35460800, 126.78144214);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (367, '능곡동', 'NEIGHBORHOOD', 26, 37.36539056, 126.80712116);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (368, '대야동', 'NEIGHBORHOOD', 26, 37.45505191, 126.79870147);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (369, '매화동', 'NEIGHBORHOOD', 26, 37.40616418, 126.82192982);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (370, '목감동', 'NEIGHBORHOOD', 26, 37.38189740, 126.84691953);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (371, '배곧1동', 'NEIGHBORHOOD', 26, 37.37613218, 126.73347108);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (372, '배곧2동', 'NEIGHBORHOOD', 26, 37.36113312, 126.71312415);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (373, '신천동', 'NEIGHBORHOOD', 26, 37.43624161, 126.78613814);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (374, '신현동', 'NEIGHBORHOOD', 26, 37.41162254, 126.77730373);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (375, '연성동', 'NEIGHBORHOOD', 26, 37.38660726, 126.80673281);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (376, '월곶동', 'NEIGHBORHOOD', 26, 37.38392095, 126.75899179);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (377, '은행동', 'NEIGHBORHOOD', 26, 37.43081282, 126.80449054);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (378, '장곡동', 'NEIGHBORHOOD', 26, 37.38317234, 126.78536412);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (379, '정왕1동', 'NEIGHBORHOOD', 26, 37.33302672, 126.74258104);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (380, '정왕2동', 'NEIGHBORHOOD', 26, 37.34657590, 126.72901338);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (381, '정왕3동', 'NEIGHBORHOOD', 26, 37.34722796, 126.70282776);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (382, '정왕4동', 'NEIGHBORHOOD', 26, 37.36223359, 126.73296271);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (383, '정왕본동', 'NEIGHBORHOOD', 26, 37.35606729, 126.75540313);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (384, '고잔동', 'NEIGHBORHOOD', 27, 37.32633003, 126.82615221);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (385, '대부동', 'NEIGHBORHOOD', 27, 37.21657197, 126.57083705);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (386, '백운동', 'NEIGHBORHOOD', 27, 37.32592994, 126.79864151);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (387, '선부1동', 'NEIGHBORHOOD', 27, 37.33204454, 126.80629875);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (388, '선부2동', 'NEIGHBORHOOD', 27, 37.34590242, 126.79890808);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (389, '선부3동', 'NEIGHBORHOOD', 27, 37.35182562, 126.82487869);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (390, '신길동', 'NEIGHBORHOOD', 27, 37.33231080, 126.77333777);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (391, '와동', 'NEIGHBORHOOD', 27, 37.34052778, 126.82968335);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (392, '원곡동', 'NEIGHBORHOOD', 27, 37.33070110, 126.79225423);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (393, '중앙동', 'NEIGHBORHOOD', 27, 37.32649449, 126.83696267);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (394, '초지동', 'NEIGHBORHOOD', 27, 37.31972080, 126.78608944);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (395, '호수동', 'NEIGHBORHOOD', 27, 37.30881085, 126.83413890);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (396, '반월동', 'NEIGHBORHOOD', 28, 37.30471143, 126.90879129);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (397, '본오1동', 'NEIGHBORHOOD', 28, 37.28452728, 126.87167778);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (398, '본오2동', 'NEIGHBORHOOD', 28, 37.29543140, 126.87181953);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (399, '본오3동', 'NEIGHBORHOOD', 28, 37.30037032, 126.86759066);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (400, '부곡동', 'NEIGHBORHOOD', 28, 37.33347251, 126.86861505);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (401, '사동', 'NEIGHBORHOOD', 28, 37.29888736, 126.84910616);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (402, '사이동', 'NEIGHBORHOOD', 28, 37.28759088, 126.84479077);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (403, '성포동', 'NEIGHBORHOOD', 28, 37.32208873, 126.84841049);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (404, '안산동', 'NEIGHBORHOOD', 28, 37.35396585, 126.87158010);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (405, '월피동', 'NEIGHBORHOOD', 28, 37.34391181, 126.84942929);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (406, '이동', 'NEIGHBORHOOD', 28, 37.30902210, 126.85501715);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (407, '일동', 'NEIGHBORHOOD', 28, 37.31347149, 126.87051954);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (408, '해양동', 'NEIGHBORHOOD', 28, 37.29823309, 126.83677662);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (409, '고삼면', 'NEIGHBORHOOD', 29, 37.09594598, 127.27424844);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (410, '공도읍', 'NEIGHBORHOOD', 29, 36.99435709, 127.16956924);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (411, '금광면', 'NEIGHBORHOOD', 29, 36.98552264, 127.34387128);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (412, '대덕면', 'NEIGHBORHOOD', 29, 37.03124834, 127.23322857);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (413, '미양면', 'NEIGHBORHOOD', 29, 36.97205595, 127.21614906);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (414, '보개면', 'NEIGHBORHOOD', 29, 37.05272394, 127.31192604);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (415, '삼죽면', 'NEIGHBORHOOD', 29, 37.07025198, 127.37160393);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (416, '서운면', 'NEIGHBORHOOD', 29, 36.93591930, 127.26101525);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (417, '안성1동', 'NEIGHBORHOOD', 29, 37.00541284, 127.28204932);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (418, '안성2동', 'NEIGHBORHOOD', 29, 36.99568448, 127.26082888);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (419, '안성3동', 'NEIGHBORHOOD', 29, 37.02384786, 127.26512554);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (420, '양성면', 'NEIGHBORHOOD', 29, 37.08659909, 127.22405637);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (421, '원곡면', 'NEIGHBORHOOD', 29, 37.05886608, 127.14962665);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (422, '일죽면', 'NEIGHBORHOOD', 29, 37.10268209, 127.46752312);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (423, '죽산면', 'NEIGHBORHOOD', 29, 37.05490929, 127.42500312);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (424, '갈산동', 'NEIGHBORHOOD', 30, 37.37878612, 126.96580564);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (425, '관양동', 'NEIGHBORHOOD', 30, 37.40854980, 126.96343665);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (426, '귀인동', 'NEIGHBORHOOD', 30, 37.38352624, 126.96901161);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (427, '달안동', 'NEIGHBORHOOD', 30, 37.39477431, 126.94988190);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (428, '범계동', 'NEIGHBORHOOD', 30, 37.38756492, 126.95186628);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (429, '부림동', 'NEIGHBORHOOD', 30, 37.39861991, 126.95844195);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (430, '부흥동', 'NEIGHBORHOOD', 30, 37.39404525, 126.94641489);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (431, '비산1동', 'NEIGHBORHOOD', 30, 37.40433177, 126.93628164);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (432, '비산2동', 'NEIGHBORHOOD', 30, 37.39698833, 126.93904983);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (433, '비산3동', 'NEIGHBORHOOD', 30, 37.41741516, 126.95077021);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (434, '신촌동', 'NEIGHBORHOOD', 30, 37.38017503, 126.95624784);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (435, '인덕원동', 'NEIGHBORHOOD', 30, 37.39957762, 126.97111076);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (436, '평안동', 'NEIGHBORHOOD', 30, 37.39218893, 126.96442668);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (437, '평촌동', 'NEIGHBORHOOD', 30, 37.39290378, 126.97670182);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (438, '호계1동', 'NEIGHBORHOOD', 30, 37.37141105, 126.95453895);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (439, '호계2동', 'NEIGHBORHOOD', 30, 37.38205919, 126.94518222);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (440, '호계3동', 'NEIGHBORHOOD', 30, 37.36758968, 126.96146191);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (441, '박달1동', 'NEIGHBORHOOD', 31, 37.40289293, 126.90902786);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (442, '박달2동', 'NEIGHBORHOOD', 31, 37.40029584, 126.88873104);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (443, '석수1동', 'NEIGHBORHOOD', 31, 37.42909288, 126.92028715);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (444, '석수2동', 'NEIGHBORHOOD', 31, 37.42187523, 126.89955464);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (445, '안양1동', 'NEIGHBORHOOD', 31, 37.39985749, 126.92406268);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (446, '안양2동', 'NEIGHBORHOOD', 31, 37.41205952, 126.92293756);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (447, '안양3동', 'NEIGHBORHOOD', 31, 37.39656770, 126.91214092);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (448, '안양4동', 'NEIGHBORHOOD', 31, 37.39592777, 126.91858277);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (449, '안양5동', 'NEIGHBORHOOD', 31, 37.39262197, 126.92260450);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (450, '안양6동', 'NEIGHBORHOOD', 31, 37.38393399, 126.92180385);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (451, '안양7동', 'NEIGHBORHOOD', 31, 37.38451672, 126.93863799);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (452, '안양8동', 'NEIGHBORHOOD', 31, 37.37944771, 126.93310613);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (453, '안양9동', 'NEIGHBORHOOD', 31, 37.37838729, 126.90782201);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (454, '충훈동', 'NEIGHBORHOOD', 31, 37.40954860, 126.89750308);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (455, '광적면', 'NEIGHBORHOOD', 32, 37.82992404, 126.96063641);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (456, '남면', 'NEIGHBORHOOD', 32, 37.89216335, 126.98105405);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (457, '백석읍', 'NEIGHBORHOOD', 32, 37.79102266, 126.98423305);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (458, '양주1동', 'NEIGHBORHOOD', 32, 37.78845594, 127.03674797);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (459, '양주2동', 'NEIGHBORHOOD', 32, 37.79481683, 127.08111466);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (460, '옥정1동', 'NEIGHBORHOOD', 32, 37.83580269, 127.09817742);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (461, '옥정2동', 'NEIGHBORHOOD', 32, 37.81624604, 127.08886577);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (462, '은현면', 'NEIGHBORHOOD', 32, 37.87264607, 127.02112493);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (463, '장흥면', 'NEIGHBORHOOD', 32, 37.71365706, 126.96912077);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (464, '회천1동', 'NEIGHBORHOOD', 32, 37.85207009, 127.07089252);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (465, '회천2동', 'NEIGHBORHOOD', 32, 37.82583568, 127.05161225);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (466, '회천3동', 'NEIGHBORHOOD', 32, 37.82906564, 127.06984992);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (467, '강상면', 'NEIGHBORHOOD', 33, 37.45322620, 127.46111878);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (468, '강하면', 'NEIGHBORHOOD', 33, 37.46283570, 127.40543385);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (469, '개군면', 'NEIGHBORHOOD', 33, 37.43466597, 127.54857531);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (470, '단월면', 'NEIGHBORHOOD', 33, 37.57637411, 127.63804244);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (471, '서종면', 'NEIGHBORHOOD', 33, 37.61181198, 127.40810201);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (472, '양동면', 'NEIGHBORHOOD', 33, 37.44374270, 127.73868012);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (473, '양서면', 'NEIGHBORHOOD', 33, 37.53696712, 127.37121298);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (474, '양평읍', 'NEIGHBORHOOD', 33, 37.49000587, 127.52028965);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (475, '옥천면', 'NEIGHBORHOOD', 33, 37.55267077, 127.48908746);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (476, '용문면', 'NEIGHBORHOOD', 33, 37.50951798, 127.59604239);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (477, '지평면', 'NEIGHBORHOOD', 33, 37.44727726, 127.65530536);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (478, '청운면', 'NEIGHBORHOOD', 33, 37.55026117, 127.76740539);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (479, '가남읍', 'NEIGHBORHOOD', 34, 37.20658985, 127.58289090);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (480, '강천면', 'NEIGHBORHOOD', 34, 37.30283191, 127.73064503);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (481, '금사면', 'NEIGHBORHOOD', 34, 37.39175026, 127.49353388);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (482, '대신면', 'NEIGHBORHOOD', 34, 37.38204687, 127.60800687);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (483, '북내면', 'NEIGHBORHOOD', 34, 37.35869966, 127.69013412);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (484, '산북면', 'NEIGHBORHOOD', 34, 37.41483893, 127.45493021);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (485, '세종대왕면', 'NEIGHBORHOOD', 34, 37.28280697, 127.58083635);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (486, '여흥동', 'NEIGHBORHOOD', 34, 37.25007818, 127.64103423);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (487, '오학동', 'NEIGHBORHOOD', 34, 37.32145121, 127.65343242);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (488, '점동면', 'NEIGHBORHOOD', 34, 37.17919827, 127.69774106);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (489, '중앙동', 'NEIGHBORHOOD', 34, 37.27544662, 127.61692775);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (490, '흥천면', 'NEIGHBORHOOD', 34, 37.34805830, 127.52075064);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (491, '군남면', 'NEIGHBORHOOD', 35, 38.07172503, 127.04376993);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (492, '미산면', 'NEIGHBORHOOD', 35, 38.03520653, 126.97408727);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (493, '백학면', 'NEIGHBORHOOD', 35, 38.03524366, 126.91821247);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (494, '신서면', 'NEIGHBORHOOD', 35, 38.18757967, 127.11085523);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (495, '연천읍', 'NEIGHBORHOOD', 35, 38.10124646, 127.10993205);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (496, '왕징면', 'NEIGHBORHOOD', 35, 38.08266394, 126.95263453);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (497, '장남면', 'NEIGHBORHOOD', 35, 38.00037599, 126.85046562);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (498, '전곡읍', 'NEIGHBORHOOD', 35, 38.00885740, 127.05035562);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (499, '중면', 'NEIGHBORHOOD', 35, 38.17720369, 127.01351558);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (500, '청산면', 'NEIGHBORHOOD', 35, 38.01757315, 127.10273530);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (501, '남촌동', 'NEIGHBORHOOD', 36, 37.15239641, 127.05033242);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (502, '대원1동', 'NEIGHBORHOOD', 36, 37.13254769, 127.07151726);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (503, '대원2동', 'NEIGHBORHOOD', 36, 37.13621248, 127.09138942);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (504, '세마동', 'NEIGHBORHOOD', 36, 37.18839490, 127.03298498);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (505, '신장1동', 'NEIGHBORHOOD', 36, 37.17092983, 127.04880653);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (506, '신장2동', 'NEIGHBORHOOD', 36, 37.17213104, 127.06797235);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (507, '중앙동', 'NEIGHBORHOOD', 36, 37.15401572, 127.08593663);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (508, '초평동', 'NEIGHBORHOOD', 36, 37.14321602, 127.04150171);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (509, '구갈동', 'NEIGHBORHOOD', 37, 37.27456226, 127.12190010);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (510, '구성동', 'NEIGHBORHOOD', 37, 37.29442054, 127.13979101);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (511, '기흥동', 'NEIGHBORHOOD', 37, 37.22909800, 127.11024463);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (512, '동백1동', 'NEIGHBORHOOD', 37, 37.28880402, 127.16416666);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (513, '동백2동', 'NEIGHBORHOOD', 37, 37.26391311, 127.16031722);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (514, '동백3동', 'NEIGHBORHOOD', 37, 37.27669823, 127.14634021);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (515, '마북동', 'NEIGHBORHOOD', 37, 37.30876511, 127.12862861);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (516, '보라동', 'NEIGHBORHOOD', 37, 37.24598139, 127.12894063);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (517, '보정동', 'NEIGHBORHOOD', 37, 37.30853453, 127.10613300);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (518, '상갈동', 'NEIGHBORHOOD', 37, 37.26644931, 127.11271502);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (519, '상하동', 'NEIGHBORHOOD', 37, 37.26143925, 127.14411838);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (520, '서농동', 'NEIGHBORHOOD', 37, 37.23405632, 127.08135946);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (521, '신갈동', 'NEIGHBORHOOD', 37, 37.28453664, 127.10414331);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (522, '영덕1동', 'NEIGHBORHOOD', 37, 37.27569374, 127.08408792);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (523, '영덕2동', 'NEIGHBORHOOD', 37, 37.25677212, 127.09146960);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (524, '동천동', 'NEIGHBORHOOD', 38, 37.35380772, 127.05853193);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (525, '상현1동', 'NEIGHBORHOOD', 38, 37.30742060, 127.07734491);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (526, '상현2동', 'NEIGHBORHOOD', 38, 37.30536852, 127.08755692);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (527, '상현3동', 'NEIGHBORHOOD', 38, 37.30398368, 127.06749943);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (528, '성복동', 'NEIGHBORHOOD', 38, 37.31758035, 127.06421653);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (529, '신봉동', 'NEIGHBORHOOD', 38, 37.33224501, 127.05542017);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (530, '죽전1동', 'NEIGHBORHOOD', 38, 37.33302588, 127.12351381);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (531, '죽전2동', 'NEIGHBORHOOD', 38, 37.33099598, 127.10873470);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (532, '죽전3동', 'NEIGHBORHOOD', 38, 37.32453404, 127.13170714);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (533, '풍덕천1동', 'NEIGHBORHOOD', 38, 37.32834469, 127.09250986);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (534, '풍덕천2동', 'NEIGHBORHOOD', 38, 37.32137305, 127.08566638);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (535, '남사읍', 'NEIGHBORHOOD', 39, 37.14046448, 127.16205827);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (536, '동부동', 'NEIGHBORHOOD', 39, 37.20628439, 127.24341869);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (537, '모현읍', 'NEIGHBORHOOD', 39, 37.32915841, 127.21857156);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (538, '백암면', 'NEIGHBORHOOD', 39, 37.14491040, 127.37613064);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (539, '삼가동', 'NEIGHBORHOOD', 39, 37.24177006, 127.16459505);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (540, '양지면', 'NEIGHBORHOOD', 39, 37.24456830, 127.28262885);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (541, '역북동', 'NEIGHBORHOOD', 39, 37.23998058, 127.18446479);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (542, '원삼면', 'NEIGHBORHOOD', 39, 37.16216670, 127.31224588);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (543, '유림동', 'NEIGHBORHOOD', 39, 37.25498103, 127.21616039);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (544, '이동읍', 'NEIGHBORHOOD', 39, 37.16458386, 127.20792721);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (545, '중앙동', 'NEIGHBORHOOD', 39, 37.22604632, 127.20426641);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (546, '포곡읍', 'NEIGHBORHOOD', 39, 37.29231304, 127.21640044);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (547, '고천동', 'NEIGHBORHOOD', 40, 37.34368220, 126.99239392);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (548, '내손1동', 'NEIGHBORHOOD', 40, 37.37526067, 126.97477483);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (549, '내손2동', 'NEIGHBORHOOD', 40, 37.38840175, 126.98253581);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (550, '부곡동', 'NEIGHBORHOOD', 40, 37.32100591, 126.94810109);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (551, '오전동', 'NEIGHBORHOOD', 40, 37.36271405, 126.97783009);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (552, '청계동', 'NEIGHBORHOOD', 40, 37.39334965, 127.01847779);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (553, '가능동', 'NEIGHBORHOOD', 41, 37.75252588, 127.02187487);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (554, '고산동', 'NEIGHBORHOOD', 41, 37.72364839, 127.10429682);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (555, '녹양동', 'NEIGHBORHOOD', 41, 37.76031506, 127.03249646);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (556, '송산1동', 'NEIGHBORHOOD', 41, 37.73211093, 127.08044765);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (557, '송산2동', 'NEIGHBORHOOD', 41, 37.73990282, 127.09372505);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (558, '송산3동', 'NEIGHBORHOOD', 41, 37.75448545, 127.11610811);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (559, '신곡1동', 'NEIGHBORHOOD', 41, 37.73029160, 127.06445758);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (560, '신곡2동', 'NEIGHBORHOOD', 41, 37.74641914, 127.07122868);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (561, '의정부1동', 'NEIGHBORHOOD', 41, 37.73972517, 127.04837975);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (562, '의정부2동', 'NEIGHBORHOOD', 41, 37.73793030, 127.04021883);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (563, '자금동', 'NEIGHBORHOOD', 41, 37.76094701, 127.08527110);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (564, '장암동', 'NEIGHBORHOOD', 41, 37.70316358, 127.05941105);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (565, '호원1동', 'NEIGHBORHOOD', 41, 37.70407079, 127.03584426);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (566, '호원2동', 'NEIGHBORHOOD', 41, 37.72142252, 127.02952506);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (567, '흥선동', 'NEIGHBORHOOD', 41, 37.73231115, 127.02003188);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (568, '관고동', 'NEIGHBORHOOD', 42, 37.29321129, 127.42316189);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (569, '대월면', 'NEIGHBORHOOD', 42, 37.20621196, 127.49735667);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (570, '마장면', 'NEIGHBORHOOD', 42, 37.25064361, 127.36949271);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (571, '모가면', 'NEIGHBORHOOD', 42, 37.17559786, 127.46398441);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (572, '백사면', 'NEIGHBORHOOD', 42, 37.32390653, 127.49070914);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (573, '부발읍', 'NEIGHBORHOOD', 42, 37.27559306, 127.50342603);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (574, '설성면', 'NEIGHBORHOOD', 42, 37.13759077, 127.52122559);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (575, '신둔면', 'NEIGHBORHOOD', 42, 37.31320012, 127.40311684);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (576, '율면', 'NEIGHBORHOOD', 42, 37.07872365, 127.54733057);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (577, '장호원읍', 'NEIGHBORHOOD', 42, 37.14020628, 127.59634153);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (578, '중리동', 'NEIGHBORHOOD', 42, 37.24117022, 127.44985871);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (579, '증포동', 'NEIGHBORHOOD', 42, 37.29134888, 127.45498163);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (580, '창전동', 'NEIGHBORHOOD', 42, 37.28418607, 127.44288306);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (581, '호법면', 'NEIGHBORHOOD', 42, 37.22275551, 127.41201958);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (582, '광탄면', 'NEIGHBORHOOD', 43, 37.77150621, 126.88143412);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (583, '교하동', 'NEIGHBORHOOD', 43, 37.73686690, 126.72208572);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (584, '금촌1동', 'NEIGHBORHOOD', 43, 37.76228683, 126.78429350);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (585, '금촌2동', 'NEIGHBORHOOD', 43, 37.75056933, 126.77732602);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (586, '금촌3동', 'NEIGHBORHOOD', 43, 37.77724644, 126.75197574);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (587, '문산읍', 'NEIGHBORHOOD', 43, 37.86801023, 126.79143043);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (588, '법원읍', 'NEIGHBORHOOD', 43, 37.86708382, 126.88656553);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (589, '운정1동', 'NEIGHBORHOOD', 43, 37.72996171, 126.75433663);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (590, '운정2동', 'NEIGHBORHOOD', 43, 37.72790839, 126.74292250);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (591, '운정3동', 'NEIGHBORHOOD', 43, 37.71088506, 126.74858339);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (592, '운정4동', 'NEIGHBORHOOD', 43, 37.72646973, 126.77643371);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (593, '운정5동', 'NEIGHBORHOOD', 43, 37.73488495, 126.72283681);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (594, '운정6동', 'NEIGHBORHOOD', 43, 37.71312635, 126.72062472);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (595, '월롱면', 'NEIGHBORHOOD', 43, 37.79710390, 126.79373588);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (596, '장단면', 'NEIGHBORHOOD', 43, 37.90749954, 126.71638485);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (597, '적성면', 'NEIGHBORHOOD', 43, 37.96017127, 126.92410991);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (598, '조리읍', 'NEIGHBORHOOD', 43, 37.75247320, 126.81863980);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (599, '탄현면', 'NEIGHBORHOOD', 43, 37.79353341, 126.72085633);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (600, '파주읍', 'NEIGHBORHOOD', 43, 37.82582101, 126.81314354);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (601, '파평면', 'NEIGHBORHOOD', 43, 37.90922423, 126.84694488);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (602, '고덕동', 'NEIGHBORHOOD', 44, 37.04815208, 127.03618259);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (603, '고덕면', 'NEIGHBORHOOD', 44, 37.03935262, 127.01974762);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (604, '동삭동', 'NEIGHBORHOOD', 44, 37.01739749, 127.10262618);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (605, '비전1동', 'NEIGHBORHOOD', 44, 37.01297334, 127.12235009);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (606, '비전2동', 'NEIGHBORHOOD', 44, 36.98889042, 127.12014513);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (607, '서정동', 'NEIGHBORHOOD', 44, 37.07181636, 127.05050140);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (608, '서탄면', 'NEIGHBORHOOD', 44, 37.10140270, 127.02398802);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (609, '세교동', 'NEIGHBORHOOD', 44, 37.01109763, 127.07494896);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (610, '송북동', 'NEIGHBORHOOD', 44, 37.07935950, 127.08021628);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (611, '송탄동', 'NEIGHBORHOOD', 44, 37.04989987, 127.09335362);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (612, '신장1동', 'NEIGHBORHOOD', 44, 37.08825303, 127.04799835);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (613, '신장2동', 'NEIGHBORHOOD', 44, 37.07617073, 127.05170907);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (614, '신평동', 'NEIGHBORHOOD', 44, 36.98123100, 127.11151524);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (615, '안중읍', 'NEIGHBORHOOD', 44, 36.99472656, 126.93343444);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (616, '오성면', 'NEIGHBORHOOD', 44, 37.01120945, 126.98471702);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (617, '용이동', 'NEIGHBORHOOD', 44, 37.00180718, 127.14374559);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (618, '원평동', 'NEIGHBORHOOD', 44, 36.99077853, 127.07141787);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (619, '중앙동', 'NEIGHBORHOOD', 44, 37.05238144, 127.06974919);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (620, '지산동', 'NEIGHBORHOOD', 44, 37.07467887, 127.06157728);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (621, '진위면', 'NEIGHBORHOOD', 44, 37.11545895, 127.08624577);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (622, '청북읍', 'NEIGHBORHOOD', 44, 37.04082355, 126.93918916);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (623, '통복동', 'NEIGHBORHOOD', 44, 37.00059254, 127.08725099);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (624, '팽성읍', 'NEIGHBORHOOD', 44, 36.96728902, 127.05275107);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (625, '포승읍', 'NEIGHBORHOOD', 44, 36.99005291, 126.86177082);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (626, '현덕면', 'NEIGHBORHOOD', 44, 36.95628166, 126.92193040);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (627, '가산면', 'NEIGHBORHOOD', 45, 37.83352113, 127.19822511);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (628, '관인면', 'NEIGHBORHOOD', 45, 38.13534666, 127.23255654);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (629, '군내면', 'NEIGHBORHOOD', 45, 37.87297393, 127.23516425);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (630, '내촌면', 'NEIGHBORHOOD', 45, 37.79626404, 127.22980364);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (631, '선단동', 'NEIGHBORHOOD', 45, 37.85706322, 127.15422578);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (632, '소흘읍', 'NEIGHBORHOOD', 45, 37.79195789, 127.15459255);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (633, '신북면', 'NEIGHBORHOOD', 45, 37.95071911, 127.18446330);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (634, '영북면', 'NEIGHBORHOOD', 45, 38.07418579, 127.28644447);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (635, '영중면', 'NEIGHBORHOOD', 45, 38.00454594, 127.24884180);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (636, '이동면', 'NEIGHBORHOOD', 45, 38.06191995, 127.38281111);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (637, '일동면', 'NEIGHBORHOOD', 45, 37.97533797, 127.31893171);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (638, '창수면', 'NEIGHBORHOOD', 45, 38.01659112, 127.18873556);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (639, '포천동', 'NEIGHBORHOOD', 45, 37.89177939, 127.18191980);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (640, '화현면', 'NEIGHBORHOOD', 45, 37.89468434, 127.28219534);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (641, '감북동', 'NEIGHBORHOOD', 46, 37.52032309, 127.16163688);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (642, '감일동', 'NEIGHBORHOOD', 46, 37.49967866, 127.15909003);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (643, '덕풍1동', 'NEIGHBORHOOD', 46, 37.53426504, 127.19829102);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (644, '덕풍2동', 'NEIGHBORHOOD', 46, 37.54174033, 127.19875002);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (645, '덕풍3동', 'NEIGHBORHOOD', 46, 37.54576701, 127.20379497);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (646, '미사1동', 'NEIGHBORHOOD', 46, 37.56534717, 127.19666049);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (647, '미사2동', 'NEIGHBORHOOD', 46, 37.58295870, 127.18721756);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (648, '미사3동', 'NEIGHBORHOOD', 46, 37.54859147, 127.19110412);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (649, '신장1동', 'NEIGHBORHOOD', 46, 37.53972693, 127.20638017);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (650, '신장2동', 'NEIGHBORHOOD', 46, 37.54627927, 127.22204444);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (651, '위례동', 'NEIGHBORHOOD', 46, 37.47879054, 127.16522116);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (652, '천현동', 'NEIGHBORHOOD', 46, 37.50875010, 127.24415795);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (653, '초이동', 'NEIGHBORHOOD', 46, 37.53356301, 127.17319215);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (654, '춘궁동', 'NEIGHBORHOOD', 46, 37.50609975, 127.19520944);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (655, '기배동', 'NEIGHBORHOOD', 47, 37.22538540, 126.98271498);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (656, '남양읍', 'NEIGHBORHOOD', 47, 37.22285891, 126.82013540);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (657, '동탄1동', 'NEIGHBORHOOD', 47, 37.20939054, 127.07606282);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (658, '동탄2동', 'NEIGHBORHOOD', 47, 37.19222828, 127.07609997);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (659, '동탄3동', 'NEIGHBORHOOD', 47, 37.20740213, 127.05542003);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (660, '동탄4동', 'NEIGHBORHOOD', 47, 37.19282769, 127.11508205);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (661, '동탄5동', 'NEIGHBORHOOD', 47, 37.20981245, 127.12260650);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (662, '동탄6동', 'NEIGHBORHOOD', 47, 37.18309000, 127.08782476);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (663, '동탄7동', 'NEIGHBORHOOD', 47, 37.16961928, 127.11839747);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (664, '동탄8동', 'NEIGHBORHOOD', 47, 37.15556000, 127.11338537);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (665, '동탄9동', 'NEIGHBORHOOD', 47, 37.18110259, 127.13858118);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (666, '마도면', 'NEIGHBORHOOD', 47, 37.19686217, 126.75876807);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (667, '매송면', 'NEIGHBORHOOD', 47, 37.25795862, 126.90857754);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (668, '반월동', 'NEIGHBORHOOD', 47, 37.22921865, 127.06108970);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (669, '병점1동', 'NEIGHBORHOOD', 47, 37.20228882, 127.03746227);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (670, '병점2동', 'NEIGHBORHOOD', 47, 37.21060257, 127.04795056);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (671, '봉담읍', 'NEIGHBORHOOD', 47, 37.20053062, 126.94240050);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (672, '비봉면', 'NEIGHBORHOOD', 47, 37.23765756, 126.86772716);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (673, '새솔동', 'NEIGHBORHOOD', 47, 37.27556409, 126.82682624);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (674, '서신면', 'NEIGHBORHOOD', 47, 37.16657907, 126.67201771);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (675, '송산면', 'NEIGHBORHOOD', 47, 37.22855080, 126.70490195);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (676, '양감면', 'NEIGHBORHOOD', 47, 37.09187818, 126.96065591);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (677, '우정읍', 'NEIGHBORHOOD', 47, 37.08789013, 126.76425539);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (678, '장안면', 'NEIGHBORHOOD', 47, 37.09374160, 126.83545276);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (679, '정남면', 'NEIGHBORHOOD', 47, 37.15948220, 126.99454510);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (680, '진안동', 'NEIGHBORHOOD', 47, 37.21559027, 127.04261954);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (681, '팔탄면', 'NEIGHBORHOOD', 47, 37.15115140, 126.88140116);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (682, '향남읍', 'NEIGHBORHOOD', 47, 37.11598109, 126.93696005);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (683, '화산동', 'NEIGHBORHOOD', 47, 37.20812585, 127.00810136);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (684, '개포1동', 'NEIGHBORHOOD', 48, 37.48022947, 127.06726263);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (685, '개포2동', 'NEIGHBORHOOD', 48, 37.48792791, 127.06752107);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (686, '개포3동', 'NEIGHBORHOOD', 48, 37.49470837, 127.07708162);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (687, '개포4동', 'NEIGHBORHOOD', 48, 37.47632373, 127.05205899);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (688, '논현1동', 'NEIGHBORHOOD', 48, 37.51385504, 127.02745939);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (689, '논현2동', 'NEIGHBORHOOD', 48, 37.51710837, 127.03466623);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (690, '대치1동', 'NEIGHBORHOOD', 48, 37.49217001, 127.05767185);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (691, '대치2동', 'NEIGHBORHOOD', 48, 37.49917606, 127.07019806);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (692, '대치4동', 'NEIGHBORHOOD', 48, 37.50101953, 127.05499069);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (693, '도곡1동', 'NEIGHBORHOOD', 48, 37.48762669, 127.04398112);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (694, '도곡2동', 'NEIGHBORHOOD', 48, 37.48711470, 127.04887170);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (695, '삼성1동', 'NEIGHBORHOOD', 48, 37.51670712, 127.05928362);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (696, '삼성2동', 'NEIGHBORHOOD', 48, 37.51001499, 127.04894639);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (697, '세곡동', 'NEIGHBORHOOD', 48, 37.47030403, 127.10577479);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (698, '수서동', 'NEIGHBORHOOD', 48, 37.48562225, 127.10086462);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (699, '신사동', 'NEIGHBORHOOD', 48, 37.52608291, 127.02261228);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (700, '압구정동', 'NEIGHBORHOOD', 48, 37.52662149, 127.03346122);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (701, '역삼1동', 'NEIGHBORHOOD', 48, 37.50398709, 127.04126079);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (702, '역삼2동', 'NEIGHBORHOOD', 48, 37.49928228, 127.04562611);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (703, '일원1동', 'NEIGHBORHOOD', 48, 37.49329881, 127.09065240);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (704, '일원본동', 'NEIGHBORHOOD', 48, 37.47967304, 127.08415522);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (705, '청담동', 'NEIGHBORHOOD', 48, 37.52374783, 127.05057918);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (706, '강일동', 'NEIGHBORHOOD', 49, 37.56883945, 127.17641893);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (707, '고덕1동', 'NEIGHBORHOOD', 49, 37.56288090, 127.15067535);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (708, '고덕2동', 'NEIGHBORHOOD', 49, 37.56485289, 127.16231373);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (709, '길동', 'NEIGHBORHOOD', 49, 37.53958536, 127.14480510);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (710, '둔촌1동', 'NEIGHBORHOOD', 49, 37.52161774, 127.14399328);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (711, '둔촌2동', 'NEIGHBORHOOD', 49, 37.53055547, 127.14889586);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (712, '명일1동', 'NEIGHBORHOOD', 49, 37.54928788, 127.14405602);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (713, '명일2동', 'NEIGHBORHOOD', 49, 37.54700171, 127.15725534);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (714, '상일제1동', 'NEIGHBORHOOD', 49, 37.55056751, 127.16622740);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (715, '상일제2동', 'NEIGHBORHOOD', 49, 37.55105757, 127.17730033);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (716, '성내1동', 'NEIGHBORHOOD', 49, 37.53129441, 127.12675599);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (717, '성내2동', 'NEIGHBORHOOD', 49, 37.53367423, 127.12752157);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (718, '성내3동', 'NEIGHBORHOOD', 49, 37.52963300, 127.13492959);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (719, '암사1동', 'NEIGHBORHOOD', 49, 37.55111788, 127.13781151);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (720, '암사2동', 'NEIGHBORHOOD', 49, 37.55895544, 127.12391132);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (721, '암사3동', 'NEIGHBORHOOD', 49, 37.55960042, 127.13700332);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (722, '천호1동', 'NEIGHBORHOOD', 49, 37.54589260, 127.13758791);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (723, '천호2동', 'NEIGHBORHOOD', 49, 37.54326062, 127.12326758);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (724, '천호3동', 'NEIGHBORHOOD', 49, 37.54081672, 127.13352388);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (725, '미아동', 'NEIGHBORHOOD', 50, 37.62803253, 127.02824113);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (726, '번1동', 'NEIGHBORHOOD', 50, 37.63743142, 127.03370415);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (727, '번2동', 'NEIGHBORHOOD', 50, 37.62937238, 127.03517083);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (728, '번3동', 'NEIGHBORHOOD', 50, 37.62234010, 127.04005267);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (729, '삼각산동', 'NEIGHBORHOOD', 50, 37.61700578, 127.01799351);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (730, '삼양동', 'NEIGHBORHOOD', 50, 37.62307901, 127.01364009);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (731, '송중동', 'NEIGHBORHOOD', 50, 37.61848835, 127.03544326);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (732, '송천동', 'NEIGHBORHOOD', 50, 37.61972084, 127.02329339);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (733, '수유1동', 'NEIGHBORHOOD', 50, 37.63026261, 127.00835367);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (734, '수유2동', 'NEIGHBORHOOD', 50, 37.64674692, 127.01952333);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (735, '수유3동', 'NEIGHBORHOOD', 50, 37.64090816, 127.02373172);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (736, '우이동', 'NEIGHBORHOOD', 50, 37.66113327, 126.99976469);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (737, '인수동', 'NEIGHBORHOOD', 50, 37.63726034, 127.00824747);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (738, '가양1동', 'NEIGHBORHOOD', 51, 37.56968276, 126.83246465);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (739, '가양2동', 'NEIGHBORHOOD', 51, 37.56734624, 126.85264313);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (740, '가양3동', 'NEIGHBORHOOD', 51, 37.56180440, 126.86211206);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (741, '공항동', 'NEIGHBORHOOD', 51, 37.55440356, 126.79742213);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (742, '등촌1동', 'NEIGHBORHOOD', 51, 37.55460210, 126.86297800);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (743, '등촌2동', 'NEIGHBORHOOD', 51, 37.54416845, 126.85909676);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (744, '등촌3동', 'NEIGHBORHOOD', 51, 37.56215444, 126.84325843);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (745, '발산1동', 'NEIGHBORHOOD', 51, 37.54956514, 126.82406774);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (746, '방화1동', 'NEIGHBORHOOD', 51, 37.57094975, 126.81414939);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (747, '방화2동', 'NEIGHBORHOOD', 51, 37.58419178, 126.80497840);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (748, '방화3동', 'NEIGHBORHOOD', 51, 37.57911357, 126.81457631);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (749, '염창동', 'NEIGHBORHOOD', 51, 37.55222661, 126.87194449);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (750, '우장산동', 'NEIGHBORHOOD', 51, 37.54697633, 126.84125222);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (751, '화곡1동', 'NEIGHBORHOOD', 51, 37.53403030, 126.84335890);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (752, '화곡2동', 'NEIGHBORHOOD', 51, 37.53230690, 126.85320916);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (753, '화곡3동', 'NEIGHBORHOOD', 51, 37.54461545, 126.83384625);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (754, '화곡4동', 'NEIGHBORHOOD', 51, 37.53880107, 126.85756666);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (755, '화곡6동', 'NEIGHBORHOOD', 51, 37.54989426, 126.85161726);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (756, '화곡8동', 'NEIGHBORHOOD', 51, 37.53361013, 126.84909147);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (757, '화곡본동', 'NEIGHBORHOOD', 51, 37.54258166, 126.84956512);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (758, '낙성대동', 'NEIGHBORHOOD', 52, 37.46780128, 126.96182987);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (759, '난곡동', 'NEIGHBORHOOD', 52, 37.46982001, 126.92188848);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (760, '난향동', 'NEIGHBORHOOD', 52, 37.46160273, 126.91883208);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (761, '남현동', 'NEIGHBORHOOD', 52, 37.46463912, 126.97558197);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (762, '대학동', 'NEIGHBORHOOD', 52, 37.45556855, 126.95110379);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (763, '미성동', 'NEIGHBORHOOD', 52, 37.47428028, 126.91347587);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (764, '보라매동', 'NEIGHBORHOOD', 52, 37.49161664, 126.93240704);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (765, '삼성동', 'NEIGHBORHOOD', 52, 37.46254936, 126.92860915);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (766, '서림동', 'NEIGHBORHOOD', 52, 37.47350202, 126.94046757);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (767, '서원동', 'NEIGHBORHOOD', 52, 37.48071252, 126.93593308);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (768, '성현동', 'NEIGHBORHOOD', 52, 37.48965116, 126.95207304);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (769, '신림동', 'NEIGHBORHOOD', 52, 37.48725166, 126.92485086);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (770, '신사동', 'NEIGHBORHOOD', 52, 37.48679300, 126.92080255);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (771, '신원동', 'NEIGHBORHOOD', 52, 37.47857228, 126.92698371);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (772, '은천동', 'NEIGHBORHOOD', 52, 37.48838322, 126.94183356);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (773, '인헌동', 'NEIGHBORHOOD', 52, 37.47172448, 126.96544663);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (774, '조원동', 'NEIGHBORHOOD', 52, 37.48347993, 126.90756071);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (775, '중앙동', 'NEIGHBORHOOD', 52, 37.48346520, 126.95195911);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (776, '청룡동', 'NEIGHBORHOOD', 52, 37.47648561, 126.94481188);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (777, '청림동', 'NEIGHBORHOOD', 52, 37.49010731, 126.95905314);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (778, '행운동', 'NEIGHBORHOOD', 52, 37.47821868, 126.96565183);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (779, '광장동', 'NEIGHBORHOOD', 53, 37.54900236, 127.10439240);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (780, '구의1동', 'NEIGHBORHOOD', 53, 37.54271990, 127.08304839);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (781, '구의2동', 'NEIGHBORHOOD', 53, 37.55101366, 127.09498368);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (782, '구의3동', 'NEIGHBORHOOD', 53, 37.53668390, 127.09372047);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (783, '군자동', 'NEIGHBORHOOD', 53, 37.55298508, 127.07578921);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (784, '능동', 'NEIGHBORHOOD', 53, 37.55090497, 127.08139427);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (785, '자양1동', 'NEIGHBORHOOD', 53, 37.53517229, 127.08091816);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (786, '자양2동', 'NEIGHBORHOOD', 53, 37.53060883, 127.08413389);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (787, '자양3동', 'NEIGHBORHOOD', 53, 37.53360248, 127.07263790);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (788, '자양4동', 'NEIGHBORHOOD', 53, 37.53382075, 127.06530030);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (789, '중곡1동', 'NEIGHBORHOOD', 53, 37.56069173, 127.07828446);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (790, '중곡2동', 'NEIGHBORHOOD', 53, 37.55776176, 127.08433500);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (791, '중곡3동', 'NEIGHBORHOOD', 53, 37.56810692, 127.08349536);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (792, '중곡4동', 'NEIGHBORHOOD', 53, 37.56877652, 127.09416291);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (793, '화양동', 'NEIGHBORHOOD', 53, 37.54326627, 127.07837402);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (794, '가리봉동', 'NEIGHBORHOOD', 54, 37.48156050, 126.88947416);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (795, '개봉1동', 'NEIGHBORHOOD', 54, 37.49938127, 126.85156377);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (796, '개봉2동', 'NEIGHBORHOOD', 54, 37.49319699, 126.85755655);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (797, '개봉3동', 'NEIGHBORHOOD', 54, 37.48617599, 126.85289492);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (798, '고척1동', 'NEIGHBORHOOD', 54, 37.50123715, 126.86138335);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (799, '고척2동', 'NEIGHBORHOOD', 54, 37.50471525, 126.85449934);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (800, '구로1동', 'NEIGHBORHOOD', 54, 37.49382901, 126.87678553);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (801, '구로2동', 'NEIGHBORHOOD', 54, 37.49667057, 126.88093526);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (802, '구로3동', 'NEIGHBORHOOD', 54, 37.48469576, 126.89406029);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (803, '구로4동', 'NEIGHBORHOOD', 54, 37.48987592, 126.88824684);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (804, '구로5동', 'NEIGHBORHOOD', 54, 37.50169756, 126.88734984);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (805, '수궁동', 'NEIGHBORHOOD', 54, 37.49764474, 126.82779705);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (806, '신도림동', 'NEIGHBORHOOD', 54, 37.50829818, 126.88540899);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (807, '오류1동', 'NEIGHBORHOOD', 54, 37.49782608, 126.84078714);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (808, '오류2동', 'NEIGHBORHOOD', 54, 37.48265953, 126.83881311);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (809, '항동', 'NEIGHBORHOOD', 54, 37.48073244, 126.82291345);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (810, '가산동', 'NEIGHBORHOOD', 55, 37.47771923, 126.88545530);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (811, '독산1동', 'NEIGHBORHOOD', 55, 37.46310849, 126.89244483);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (812, '독산2동', 'NEIGHBORHOOD', 55, 37.46428946, 126.90390217);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (813, '독산3동', 'NEIGHBORHOOD', 55, 37.47600780, 126.90744900);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (814, '독산4동', 'NEIGHBORHOOD', 55, 37.46854360, 126.90571863);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (815, '시흥1동', 'NEIGHBORHOOD', 55, 37.45286093, 126.90048325);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (816, '시흥2동', 'NEIGHBORHOOD', 55, 37.45205699, 126.91816829);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (817, '시흥3동', 'NEIGHBORHOOD', 55, 37.43966534, 126.90527350);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (818, '시흥4동', 'NEIGHBORHOOD', 55, 37.46067832, 126.91005457);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (819, '시흥5동', 'NEIGHBORHOOD', 55, 37.45034252, 126.91268724);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (820, '공릉1동', 'NEIGHBORHOOD', 56, 37.62432932, 127.07539260);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (821, '공릉2동', 'NEIGHBORHOOD', 56, 37.62903157, 127.09111355);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (822, '상계10동', 'NEIGHBORHOOD', 56, 37.66116046, 127.06133417);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (823, '상계1동', 'NEIGHBORHOOD', 56, 37.68477251, 127.06596494);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (824, '상계2동', 'NEIGHBORHOOD', 56, 37.65550311, 127.06718243);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (825, '상계3·4동', 'NEIGHBORHOOD', 56, 37.67533936, 127.08283519);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (826, '상계5동', 'NEIGHBORHOOD', 56, 37.66521736, 127.07049495);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (827, '상계6·7동', 'NEIGHBORHOOD', 56, 37.64843505, 127.05997575);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (828, '상계8동', 'NEIGHBORHOOD', 56, 37.66583202, 127.05197050);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (829, '상계9동', 'NEIGHBORHOOD', 56, 37.66612569, 127.06354758);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (830, '월계1동', 'NEIGHBORHOOD', 56, 37.61996549, 127.06108675);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (831, '월계2동', 'NEIGHBORHOOD', 56, 37.63684140, 127.05058027);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (832, '월계3동', 'NEIGHBORHOOD', 56, 37.62679879, 127.06339438);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (833, '중계1동', 'NEIGHBORHOOD', 56, 37.65151507, 127.07379295);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (834, '중계2·3동', 'NEIGHBORHOOD', 56, 37.64450537, 127.06399693);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (835, '중계4동', 'NEIGHBORHOOD', 56, 37.66054748, 127.08165157);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (836, '중계본동', 'NEIGHBORHOOD', 56, 37.64687962, 127.08612919);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (837, '하계1동', 'NEIGHBORHOOD', 56, 37.64030222, 127.07633911);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (838, '하계2동', 'NEIGHBORHOOD', 56, 37.63431835, 127.06339539);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (839, '도봉1동', 'NEIGHBORHOOD', 57, 37.68894439, 127.02580115);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (840, '도봉2동', 'NEIGHBORHOOD', 57, 37.68407677, 127.04893168);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (841, '방학1동', 'NEIGHBORHOOD', 57, 37.66518543, 127.04216126);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (842, '방학2동', 'NEIGHBORHOOD', 57, 37.66737207, 127.03431643);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (843, '방학3동', 'NEIGHBORHOOD', 57, 37.66246813, 127.02428128);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (844, '쌍문1동', 'NEIGHBORHOOD', 57, 37.65242899, 127.01923923);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (845, '쌍문2동', 'NEIGHBORHOOD', 57, 37.65715020, 127.03690406);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (846, '쌍문3동', 'NEIGHBORHOOD', 57, 37.64568576, 127.02886779);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (847, '쌍문4동', 'NEIGHBORHOOD', 57, 37.65611758, 127.03062770);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (848, '창1동', 'NEIGHBORHOOD', 57, 37.64703978, 127.04495364);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (849, '창2동', 'NEIGHBORHOOD', 57, 37.64036163, 127.03515791);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (850, '창3동', 'NEIGHBORHOOD', 57, 37.63798150, 127.04350389);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (851, '창4동', 'NEIGHBORHOOD', 57, 37.64959319, 127.05198845);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (852, '창5동', 'NEIGHBORHOOD', 57, 37.65525195, 127.04469586);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (853, '답십리1동', 'NEIGHBORHOOD', 58, 37.57299332, 127.05184674);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (854, '답십리2동', 'NEIGHBORHOOD', 58, 37.57102193, 127.06201579);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (855, '용신동', 'NEIGHBORHOOD', 58, 37.57647192, 127.03469539);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (856, '이문1동', 'NEIGHBORHOOD', 58, 37.59625420, 127.06010591);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (857, '이문2동', 'NEIGHBORHOOD', 58, 37.60352420, 127.06860583);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (858, '장안1동', 'NEIGHBORHOOD', 58, 37.56718615, 127.06827816);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (859, '장안2동', 'NEIGHBORHOOD', 58, 37.57528015, 127.07242201);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (860, '전농1동', 'NEIGHBORHOOD', 58, 37.57972807, 127.05263712);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (861, '전농2동', 'NEIGHBORHOOD', 58, 37.58218746, 127.05968576);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (862, '제기동', 'NEIGHBORHOOD', 58, 37.58333783, 127.03786063);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (863, '청량리동', 'NEIGHBORHOOD', 58, 37.58763384, 127.04449339);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (864, '회기동', 'NEIGHBORHOOD', 58, 37.59523079, 127.05109556);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (865, '휘경1동', 'NEIGHBORHOOD', 58, 37.59147260, 127.06068752);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (866, '휘경2동', 'NEIGHBORHOOD', 58, 37.58568497, 127.06344810);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (867, '노량진1동', 'NEIGHBORHOOD', 59, 37.50960231, 126.94732379);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (868, '노량진2동', 'NEIGHBORHOOD', 59, 37.50891180, 126.93858969);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (869, '대방동', 'NEIGHBORHOOD', 59, 37.50466441, 126.92884896);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (870, '사당1동', 'NEIGHBORHOOD', 59, 37.47863821, 126.97590035);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (871, '사당2동', 'NEIGHBORHOOD', 59, 37.49657513, 126.97632163);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (872, '사당3동', 'NEIGHBORHOOD', 59, 37.48910609, 126.97083342);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (873, '사당4동', 'NEIGHBORHOOD', 59, 37.48035183, 126.97019499);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (874, '사당5동', 'NEIGHBORHOOD', 59, 37.48521632, 126.96556983);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (875, '상도1동', 'NEIGHBORHOOD', 59, 37.49792108, 126.95337772);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (876, '상도2동', 'NEIGHBORHOOD', 59, 37.50502659, 126.93905772);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (877, '상도3동', 'NEIGHBORHOOD', 59, 37.49921143, 126.93125132);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (878, '상도4동', 'NEIGHBORHOOD', 59, 37.49705933, 126.94306315);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (879, '신대방1동', 'NEIGHBORHOOD', 59, 37.48963549, 126.91056032);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (880, '신대방2동', 'NEIGHBORHOOD', 59, 37.49651784, 126.92446819);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (881, '흑석동', 'NEIGHBORHOOD', 59, 37.50340621, 126.96326011);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (882, '공덕동', 'NEIGHBORHOOD', 60, 37.55018610, 126.95916457);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (883, '대흥동', 'NEIGHBORHOOD', 60, 37.55139021, 126.94151997);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (884, '도화동', 'NEIGHBORHOOD', 60, 37.53750461, 126.94994556);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (885, '망원1동', 'NEIGHBORHOOD', 60, 37.55415209, 126.90183257);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (886, '망원2동', 'NEIGHBORHOOD', 60, 37.56042197, 126.90051765);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (887, '상암동', 'NEIGHBORHOOD', 60, 37.57450106, 126.88649561);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (888, '서강동', 'NEIGHBORHOOD', 60, 37.54847101, 126.92654637);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (889, '서교동', 'NEIGHBORHOOD', 60, 37.55423141, 126.92056224);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (890, '성산1동', 'NEIGHBORHOOD', 60, 37.56036194, 126.91480484);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (891, '성산2동', 'NEIGHBORHOOD', 60, 37.56850501, 126.89893735);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (892, '신수동', 'NEIGHBORHOOD', 60, 37.54777426, 126.93484456);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (893, '아현동', 'NEIGHBORHOOD', 60, 37.55206218, 126.95259356);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (894, '연남동', 'NEIGHBORHOOD', 60, 37.56285048, 126.92211652);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (895, '염리동', 'NEIGHBORHOOD', 60, 37.54889393, 126.94683582);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (896, '용강동', 'NEIGHBORHOOD', 60, 37.54303833, 126.94452908);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (897, '합정동', 'NEIGHBORHOOD', 60, 37.54833182, 126.91334721);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (898, '남가좌1동', 'NEIGHBORHOOD', 61, 37.57211855, 126.91522493);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (899, '남가좌2동', 'NEIGHBORHOOD', 61, 37.57999194, 126.92225903);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (900, '북가좌1동', 'NEIGHBORHOOD', 61, 37.57530155, 126.91036514);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (901, '북가좌2동', 'NEIGHBORHOOD', 61, 37.58178094, 126.91513615);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (902, '북아현동', 'NEIGHBORHOOD', 61, 37.55889482, 126.95595855);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (903, '신촌동', 'NEIGHBORHOOD', 61, 37.56713216, 126.94126973);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (904, '연희동', 'NEIGHBORHOOD', 61, 37.57228361, 126.93563407);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (905, '천연동', 'NEIGHBORHOOD', 61, 37.57193898, 126.95707967);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (906, '충현동', 'NEIGHBORHOOD', 61, 37.56271872, 126.96064504);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (907, '홍은1동', 'NEIGHBORHOOD', 61, 37.60093353, 126.94830509);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (908, '홍은2동', 'NEIGHBORHOOD', 61, 37.58670610, 126.93399933);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (909, '홍제1동', 'NEIGHBORHOOD', 61, 37.58358238, 126.94161047);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (910, '홍제2동', 'NEIGHBORHOOD', 61, 37.58380844, 126.95230399);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (911, '홍제3동', 'NEIGHBORHOOD', 61, 37.59447021, 126.94897715);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (912, '내곡동', 'NEIGHBORHOOD', 62, 37.45285023, 127.06983352);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (913, '반포1동', 'NEIGHBORHOOD', 62, 37.50446752, 127.01471802);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (914, '반포2동', 'NEIGHBORHOOD', 62, 37.50287039, 126.99448337);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (915, '반포3동', 'NEIGHBORHOOD', 62, 37.51279185, 127.00632474);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (916, '반포4동', 'NEIGHBORHOOD', 62, 37.49835158, 127.00006665);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (917, '반포본동', 'NEIGHBORHOOD', 62, 37.50324255, 126.98937080);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (918, '방배1동', 'NEIGHBORHOOD', 62, 37.48457335, 126.99839044);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (919, '방배2동', 'NEIGHBORHOOD', 62, 37.47094976, 126.98792828);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (920, '방배3동', 'NEIGHBORHOOD', 62, 37.47544267, 126.99831028);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (921, '방배4동', 'NEIGHBORHOOD', 62, 37.49042331, 126.99110962);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (922, '방배본동', 'NEIGHBORHOOD', 62, 37.49564656, 126.98952714);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (923, '서초1동', 'NEIGHBORHOOD', 62, 37.48465894, 127.01989687);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (924, '서초2동', 'NEIGHBORHOOD', 62, 37.48511152, 127.03018034);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (925, '서초3동', 'NEIGHBORHOOD', 62, 37.48609542, 127.00844958);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (926, '서초4동', 'NEIGHBORHOOD', 62, 37.49848138, 127.01811249);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (927, '양재1동', 'NEIGHBORHOOD', 62, 37.47257678, 127.02565625);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (928, '양재2동', 'NEIGHBORHOOD', 62, 37.44773535, 127.04445671);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (929, '잠원동', 'NEIGHBORHOOD', 62, 37.51647809, 127.01219724);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (930, '금호1가동', 'NEIGHBORHOOD', 63, 37.55349130, 127.02497891);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (931, '금호2·3가동', 'NEIGHBORHOOD', 63, 37.55244944, 127.02126315);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (932, '금호4가동', 'NEIGHBORHOOD', 63, 37.54620191, 127.02457690);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (933, '마장동', 'NEIGHBORHOOD', 63, 37.56725075, 127.04203026);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (934, '사근동', 'NEIGHBORHOOD', 63, 37.55843251, 127.04517415);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (935, '성수1가1동', 'NEIGHBORHOOD', 63, 37.54281143, 127.04262831);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (936, '성수1가2동', 'NEIGHBORHOOD', 63, 37.54899210, 127.04213692);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (937, '성수2가1동', 'NEIGHBORHOOD', 63, 37.53936091, 127.05216831);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (938, '성수2가3동', 'NEIGHBORHOOD', 63, 37.54766856, 127.05932761);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (939, '송정동', 'NEIGHBORHOOD', 63, 37.55132538, 127.06203399);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (940, '옥수동', 'NEIGHBORHOOD', 63, 37.54266858, 127.01598673);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (941, '왕십리2동', 'NEIGHBORHOOD', 63, 37.56146494, 127.02731618);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (942, '왕십리도선동', 'NEIGHBORHOOD', 63, 37.56499801, 127.03284109);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (943, '용답동', 'NEIGHBORHOOD', 63, 37.55812159, 127.05794644);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (944, '응봉동', 'NEIGHBORHOOD', 63, 37.55163969, 127.03423301);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (945, '행당1동', 'NEIGHBORHOOD', 63, 37.55927821, 127.03611056);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (946, '행당2동', 'NEIGHBORHOOD', 63, 37.55705042, 127.02981193);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (947, '길음1동', 'NEIGHBORHOOD', 64, 37.60868139, 127.02116102);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (948, '길음2동', 'NEIGHBORHOOD', 64, 37.60673049, 127.02612978);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (949, '돈암1동', 'NEIGHBORHOOD', 64, 37.59766635, 127.02454926);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (950, '돈암2동', 'NEIGHBORHOOD', 64, 37.59727890, 127.01084310);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (951, '동선동', 'NEIGHBORHOOD', 64, 37.59296982, 127.01832466);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (952, '보문동', 'NEIGHBORHOOD', 64, 37.58389080, 127.01944525);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (953, '삼선동', 'NEIGHBORHOOD', 64, 37.58779799, 127.01213517);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (954, '석관동', 'NEIGHBORHOOD', 64, 37.60814849, 127.06031557);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (955, '성북동', 'NEIGHBORHOOD', 64, 37.59514781, 126.99663886);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (956, '안암동', 'NEIGHBORHOOD', 64, 37.58905128, 127.02640019);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (957, '월곡1동', 'NEIGHBORHOOD', 64, 37.60843183, 127.03931691);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (958, '월곡2동', 'NEIGHBORHOOD', 64, 37.60525460, 127.04592741);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (959, '장위1동', 'NEIGHBORHOOD', 64, 37.61560982, 127.04640692);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (960, '장위2동', 'NEIGHBORHOOD', 64, 37.61258569, 127.05011741);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (961, '장위3동', 'NEIGHBORHOOD', 64, 37.61753474, 127.05411699);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (962, '정릉1동', 'NEIGHBORHOOD', 64, 37.60630750, 127.01561310);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (963, '정릉2동', 'NEIGHBORHOOD', 64, 37.60416685, 127.00820508);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (964, '정릉3동', 'NEIGHBORHOOD', 64, 37.61169832, 126.99500422);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (965, '정릉4동', 'NEIGHBORHOOD', 64, 37.62249072, 126.99689237);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (966, '종암동', 'NEIGHBORHOOD', 64, 37.59658626, 127.03461358);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (967, '가락1동', 'NEIGHBORHOOD', 65, 37.49572738, 127.10828447);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (968, '가락2동', 'NEIGHBORHOOD', 65, 37.49625479, 127.13002184);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (969, '가락본동', 'NEIGHBORHOOD', 65, 37.49855009, 127.12056030);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (970, '거여1동', 'NEIGHBORHOOD', 65, 37.49275547, 127.14081004);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (971, '거여2동', 'NEIGHBORHOOD', 65, 37.49082273, 127.14757371);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (972, '마천1동', 'NEIGHBORHOOD', 65, 37.49414473, 127.15597425);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (973, '마천2동', 'NEIGHBORHOOD', 65, 37.50194631, 127.15287819);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (974, '문정1동', 'NEIGHBORHOOD', 65, 37.49041202, 127.12848853);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (975, '문정2동', 'NEIGHBORHOOD', 65, 37.47750453, 127.11938714);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (976, '방이1동', 'NEIGHBORHOOD', 65, 37.50921177, 127.12239434);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (977, '방이2동', 'NEIGHBORHOOD', 65, 37.51332145, 127.11491074);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (978, '삼전동', 'NEIGHBORHOOD', 65, 37.50110294, 127.09511802);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (979, '석촌동', 'NEIGHBORHOOD', 65, 37.50379007, 127.10095402);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (980, '송파1동', 'NEIGHBORHOOD', 65, 37.50564108, 127.11179177);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (981, '송파2동', 'NEIGHBORHOOD', 65, 37.50234184, 127.11514510);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (982, '오금동', 'NEIGHBORHOOD', 65, 37.50296481, 127.13751749);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (983, '오륜동', 'NEIGHBORHOOD', 65, 37.51586216, 127.13338069);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (984, '위례동', 'NEIGHBORHOOD', 65, 37.48289078, 127.14189975);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (985, '잠실2동', 'NEIGHBORHOOD', 65, 37.51744594, 127.08123212);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (986, '잠실3동', 'NEIGHBORHOOD', 65, 37.51145369, 127.09256437);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (987, '잠실4동', 'NEIGHBORHOOD', 65, 37.52272361, 127.10630204);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (988, '잠실6동', 'NEIGHBORHOOD', 65, 37.51855996, 127.09932915);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (989, '잠실7동', 'NEIGHBORHOOD', 65, 37.50562418, 127.07463429);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (990, '잠실본동', 'NEIGHBORHOOD', 65, 37.50770965, 127.08313431);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (991, '장지동', 'NEIGHBORHOOD', 65, 37.48283144, 127.13328723);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (992, '풍납1동', 'NEIGHBORHOOD', 65, 37.53853418, 127.11734895);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (993, '풍납2동', 'NEIGHBORHOOD', 65, 37.53183479, 127.11196917);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (994, '목1동', 'NEIGHBORHOOD', 66, 37.52846578, 126.87842608);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (995, '목2동', 'NEIGHBORHOOD', 66, 37.54537815, 126.87476565);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (996, '목3동', 'NEIGHBORHOOD', 66, 37.54514134, 126.86493683);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (997, '목4동', 'NEIGHBORHOOD', 66, 37.53575291, 126.86935796);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (998, '목5동', 'NEIGHBORHOOD', 66, 37.53476850, 126.87919609);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (999, '신월1동', 'NEIGHBORHOOD', 66, 37.53081070, 126.83384104);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1000, '신월2동', 'NEIGHBORHOOD', 66, 37.52070071, 126.84773554);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1001, '신월3동', 'NEIGHBORHOOD', 66, 37.53239838, 126.82658485);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1002, '신월4동', 'NEIGHBORHOOD', 66, 37.52094289, 126.83903291);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1003, '신월5동', 'NEIGHBORHOOD', 66, 37.54265176, 126.82912395);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1004, '신월6동', 'NEIGHBORHOOD', 66, 37.51583358, 126.84220320);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1005, '신월7동', 'NEIGHBORHOOD', 66, 37.51678568, 126.82978545);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1006, '신정1동', 'NEIGHBORHOOD', 66, 37.51854540, 126.85910613);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1007, '신정2동', 'NEIGHBORHOOD', 66, 37.51915563, 126.87480740);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1008, '신정3동', 'NEIGHBORHOOD', 66, 37.51258429, 126.84068774);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1009, '신정4동', 'NEIGHBORHOOD', 66, 37.52389175, 126.85834591);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1010, '신정6동', 'NEIGHBORHOOD', 66, 37.51596954, 126.86937333);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1011, '신정7동', 'NEIGHBORHOOD', 66, 37.51126763, 126.86416230);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1012, '당산1동', 'NEIGHBORHOOD', 67, 37.52269284, 126.89825004);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1013, '당산2동', 'NEIGHBORHOOD', 67, 37.53116146, 126.90498051);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1014, '대림1동', 'NEIGHBORHOOD', 67, 37.49415270, 126.90578506);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1015, '대림2동', 'NEIGHBORHOOD', 67, 37.48804527, 126.90047154);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1016, '대림3동', 'NEIGHBORHOOD', 67, 37.50043898, 126.89904488);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1017, '도림동', 'NEIGHBORHOOD', 67, 37.50998033, 126.90361366);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1018, '문래동', 'NEIGHBORHOOD', 67, 37.51596093, 126.89550371);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1019, '신길1동', 'NEIGHBORHOOD', 67, 37.51397793, 126.91949193);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1020, '신길3동', 'NEIGHBORHOOD', 67, 37.50620237, 126.90793828);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1021, '신길4동', 'NEIGHBORHOOD', 67, 37.50534405, 126.91152778);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1022, '신길5동', 'NEIGHBORHOOD', 67, 37.50075402, 126.90481107);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1023, '신길6동', 'NEIGHBORHOOD', 67, 37.50044836, 126.91317370);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1024, '신길7동', 'NEIGHBORHOOD', 67, 37.50567463, 126.91948200);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1025, '양평1동', 'NEIGHBORHOOD', 67, 37.52500490, 126.88676353);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1026, '양평2동', 'NEIGHBORHOOD', 67, 37.54203414, 126.89158655);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1027, '여의동', 'NEIGHBORHOOD', 67, 37.52607031, 126.92319935);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1028, '영등포동', 'NEIGHBORHOOD', 67, 37.52267695, 126.90649847);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1029, '영등포본동', 'NEIGHBORHOOD', 67, 37.51328557, 126.90968192);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1030, '남영동', 'NEIGHBORHOOD', 68, 37.54623348, 126.97285852);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1031, '보광동', 'NEIGHBORHOOD', 68, 37.52701271, 127.00094527);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1032, '서빙고동', 'NEIGHBORHOOD', 68, 37.52143671, 126.98931744);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1033, '용문동', 'NEIGHBORHOOD', 68, 37.53835508, 126.96005119);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1034, '용산2가동', 'NEIGHBORHOOD', 68, 37.53767460, 126.98806475);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1035, '원효로1동', 'NEIGHBORHOOD', 68, 37.53587553, 126.96587942);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1036, '원효로2동', 'NEIGHBORHOOD', 68, 37.53472832, 126.95365345);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1037, '이촌1동', 'NEIGHBORHOOD', 68, 37.51915364, 126.97158298);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1038, '이촌2동', 'NEIGHBORHOOD', 68, 37.52390118, 126.95629866);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1039, '이태원1동', 'NEIGHBORHOOD', 68, 37.53332900, 126.99092599);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1040, '이태원2동', 'NEIGHBORHOOD', 68, 37.54069203, 126.99273496);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1041, '청파동', 'NEIGHBORHOOD', 68, 37.54895985, 126.96710533);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1042, '한강로동', 'NEIGHBORHOOD', 68, 37.52968042, 126.96575183);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1043, '한남동', 'NEIGHBORHOOD', 68, 37.53991509, 127.00429272);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1044, '효창동', 'NEIGHBORHOOD', 68, 37.54204022, 126.96147073);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1045, '후암동', 'NEIGHBORHOOD', 68, 37.55210015, 126.98002623);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1046, '갈현1동', 'NEIGHBORHOOD', 69, 37.62481959, 126.91722436);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1047, '갈현2동', 'NEIGHBORHOOD', 69, 37.61686209, 126.91097591);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1048, '구산동', 'NEIGHBORHOOD', 69, 37.61179096, 126.90844265);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1049, '녹번동', 'NEIGHBORHOOD', 69, 37.60581491, 126.93942748);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1050, '대조동', 'NEIGHBORHOOD', 69, 37.61261086, 126.92455599);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1051, '불광1동', 'NEIGHBORHOOD', 69, 37.61800904, 126.93658477);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1052, '불광2동', 'NEIGHBORHOOD', 69, 37.62341433, 126.92883194);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1053, '수색동', 'NEIGHBORHOOD', 69, 37.58604638, 126.89435163);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1054, '신사1동', 'NEIGHBORHOOD', 69, 37.60006594, 126.90782815);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1055, '신사2동', 'NEIGHBORHOOD', 69, 37.59228280, 126.90536956);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1056, '역촌동', 'NEIGHBORHOOD', 69, 37.60470617, 126.91148253);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1057, '응암1동', 'NEIGHBORHOOD', 69, 37.59802717, 126.92760889);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1058, '응암2동', 'NEIGHBORHOOD', 69, 37.59130142, 126.92388074);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1059, '응암3동', 'NEIGHBORHOOD', 69, 37.58864141, 126.91802767);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1060, '증산동', 'NEIGHBORHOOD', 69, 37.58415533, 126.90541825);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1061, '진관동', 'NEIGHBORHOOD', 69, 37.64146154, 126.93454403);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1062, '가회동', 'NEIGHBORHOOD', 70, 37.58434534, 126.98631824);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1063, '교남동', 'NEIGHBORHOOD', 70, 37.56991806, 126.96545964);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1064, '무악동', 'NEIGHBORHOOD', 70, 37.57883906, 126.95760772);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1065, '부암동', 'NEIGHBORHOOD', 70, 37.59735188, 126.96054755);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1066, '사직동', 'NEIGHBORHOOD', 70, 37.57526651, 126.96973781);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1067, '삼청동', 'NEIGHBORHOOD', 70, 37.58672784, 126.98291522);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1068, '숭인1동', 'NEIGHBORHOOD', 70, 37.57706757, 127.01711859);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1069, '숭인2동', 'NEIGHBORHOOD', 70, 37.57462596, 127.01940217);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1070, '이화동', 'NEIGHBORHOOD', 70, 37.58069650, 127.00232672);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1071, '종로1·2·3·4가동', 'NEIGHBORHOOD', 70, 37.57560314, 126.99095460);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1072, '종로5·6가동', 'NEIGHBORHOOD', 70, 37.57346759, 127.00503738);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1073, '창신1동', 'NEIGHBORHOOD', 70, 37.57119954, 127.01488147);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1074, '창신2동', 'NEIGHBORHOOD', 70, 37.57627076, 127.00997125);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1075, '창신3동', 'NEIGHBORHOOD', 70, 37.58011462, 127.01329943);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1076, '청운효자동', 'NEIGHBORHOOD', 70, 37.58528149, 126.96875675);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1077, '평창동', 'NEIGHBORHOOD', 70, 37.61163995, 126.97038380);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1078, '혜화동', 'NEIGHBORHOOD', 70, 37.58751958, 127.00077355);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1079, '광희동', 'NEIGHBORHOOD', 71, 37.56476073, 127.00286697);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1080, '다산동', 'NEIGHBORHOOD', 71, 37.55200513, 127.00679396);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1081, '동화동', 'NEIGHBORHOOD', 71, 37.56027756, 127.01881066);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1082, '명동', 'NEIGHBORHOOD', 71, 37.56224365, 126.98435562);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1083, '소공동', 'NEIGHBORHOOD', 71, 37.56465931, 126.97509986);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1084, '신당5동', 'NEIGHBORHOOD', 71, 37.56274891, 127.02295202);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1085, '신당동', 'NEIGHBORHOOD', 71, 37.56756820, 127.01386824);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1086, '약수동', 'NEIGHBORHOOD', 71, 37.55081134, 127.01076581);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1087, '을지로동', 'NEIGHBORHOOD', 71, 37.56611911, 126.99651084);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1088, '장충동', 'NEIGHBORHOOD', 71, 37.55515766, 127.00183064);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1089, '중림동', 'NEIGHBORHOOD', 71, 37.55779789, 126.96496028);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1090, '청구동', 'NEIGHBORHOOD', 71, 37.55682777, 127.01545174);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1091, '필동', 'NEIGHBORHOOD', 71, 37.55775208, 126.99414836);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1092, '황학동', 'NEIGHBORHOOD', 71, 37.56782976, 127.02076603);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1093, '회현동', 'NEIGHBORHOOD', 71, 37.55632681, 126.97969643);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1094, '망우3동', 'NEIGHBORHOOD', 72, 37.59118134, 127.10464126);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1095, '망우본동', 'NEIGHBORHOOD', 72, 37.60395252, 127.10845123);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1096, '면목2동', 'NEIGHBORHOOD', 72, 37.59062919, 127.07957422);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1097, '면목3·8동', 'NEIGHBORHOOD', 72, 37.58458957, 127.09831625);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1098, '면목4동', 'NEIGHBORHOOD', 72, 37.57112075, 127.09017085);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1099, '면목5동', 'NEIGHBORHOOD', 72, 37.58167344, 127.08022539);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1100, '면목7동', 'NEIGHBORHOOD', 72, 37.57676844, 127.09237936);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1101, '면목본동', 'NEIGHBORHOOD', 72, 37.58687270, 127.09063696);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1102, '묵1동', 'NEIGHBORHOOD', 72, 37.61261691, 127.08433258);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1103, '묵2동', 'NEIGHBORHOOD', 72, 37.61099253, 127.07511689);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1104, '상봉1동', 'NEIGHBORHOOD', 72, 37.60117170, 127.08812466);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1105, '상봉2동', 'NEIGHBORHOOD', 72, 37.59431197, 127.08357034);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1106, '신내1동', 'NEIGHBORHOOD', 72, 37.61258513, 127.10300188);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1107, '신내2동', 'NEIGHBORHOOD', 72, 37.60830310, 127.09310110);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1108, '중화1동', 'NEIGHBORHOOD', 72, 37.60355855, 127.08323858);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1109, '중화2동', 'NEIGHBORHOOD', 72, 37.59991847, 127.07526955);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1110, '강화읍', 'NEIGHBORHOOD', 73, 37.74983741, 126.48089895);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1111, '교동면', 'NEIGHBORHOOD', 73, 37.78781325, 126.26140077);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1112, '길상면', 'NEIGHBORHOOD', 73, 37.63313362, 126.49732627);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1113, '내가면', 'NEIGHBORHOOD', 73, 37.72210756, 126.40321920);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1114, '불은면', 'NEIGHBORHOOD', 73, 37.68207341, 126.48528229);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1115, '삼산면', 'NEIGHBORHOOD', 73, 37.71520208, 126.27938010);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1116, '서도면', 'NEIGHBORHOOD', 73, 37.66144516, 126.20600986);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1117, '선원면', 'NEIGHBORHOOD', 73, 37.71805342, 126.48708796);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1118, '송해면', 'NEIGHBORHOOD', 73, 37.77209201, 126.46074886);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1119, '양도면', 'NEIGHBORHOOD', 73, 37.67160875, 126.43390170);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1120, '양사면', 'NEIGHBORHOOD', 73, 37.79552159, 126.40005186);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1121, '하점면', 'NEIGHBORHOOD', 73, 37.76713421, 126.40472844);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1122, '화도면', 'NEIGHBORHOOD', 73, 37.62433614, 126.42067279);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1123, '계산1동', 'NEIGHBORHOOD', 74, 37.53986332, 126.71618043);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1124, '계산2동', 'NEIGHBORHOOD', 74, 37.54619527, 126.72221087);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1125, '계산3동', 'NEIGHBORHOOD', 74, 37.53921168, 126.73162242);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1126, '계산4동', 'NEIGHBORHOOD', 74, 37.53903001, 126.73949611);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1127, '계양1동', 'NEIGHBORHOOD', 74, 37.57187715, 126.72517420);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1128, '계양2동', 'NEIGHBORHOOD', 74, 37.54670912, 126.74304203);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1129, '계양3동', 'NEIGHBORHOOD', 74, 37.57138320, 126.76977453);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1130, '작전1동', 'NEIGHBORHOOD', 74, 37.52922194, 126.72961059);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1131, '작전2동', 'NEIGHBORHOOD', 74, 37.53108460, 126.72260856);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1132, '작전서운동', 'NEIGHBORHOOD', 74, 37.53078374, 126.74282465);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1133, '효성1동', 'NEIGHBORHOOD', 74, 37.53599401, 126.70867437);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1134, '효성2동', 'NEIGHBORHOOD', 74, 37.53262787, 126.69614632);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1135, '간석1동', 'NEIGHBORHOOD', 75, 37.46027061, 126.70270010);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1136, '간석2동', 'NEIGHBORHOOD', 75, 37.45992029, 126.70962888);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1137, '간석3동', 'NEIGHBORHOOD', 75, 37.47170585, 126.71657242);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1138, '간석4동', 'NEIGHBORHOOD', 75, 37.46880595, 126.69393746);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1139, '구월1동', 'NEIGHBORHOOD', 75, 37.44185856, 126.70831046);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1140, '구월2동', 'NEIGHBORHOOD', 75, 37.45606247, 126.71707529);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1141, '구월3동', 'NEIGHBORHOOD', 75, 37.44868939, 126.69691021);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1142, '구월4동', 'NEIGHBORHOOD', 75, 37.44896974, 126.72356257);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1143, '남촌도림동', 'NEIGHBORHOOD', 75, 37.42647586, 126.72209066);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1144, '논현1동', 'NEIGHBORHOOD', 75, 37.40863715, 126.73835223);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1145, '논현2동', 'NEIGHBORHOOD', 75, 37.41021509, 126.70952748);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1146, '논현고잔동', 'NEIGHBORHOOD', 75, 37.39939976, 126.69965645);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1147, '만수1동', 'NEIGHBORHOOD', 75, 37.45112992, 126.73015938);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1148, '만수2동', 'NEIGHBORHOOD', 75, 37.46339016, 126.73710740);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1149, '만수3동', 'NEIGHBORHOOD', 75, 37.46731638, 126.72768192);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1150, '만수4동', 'NEIGHBORHOOD', 75, 37.45905560, 126.74002338);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1151, '만수5동', 'NEIGHBORHOOD', 75, 37.45441374, 126.72777868);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1152, '만수6동', 'NEIGHBORHOOD', 75, 37.44173221, 126.74215341);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1153, '서창2동', 'NEIGHBORHOOD', 75, 37.42598628, 126.75154106);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1154, '장수서창동', 'NEIGHBORHOOD', 75, 37.44923276, 126.75872778);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1155, '금창동', 'NEIGHBORHOOD', 76, 37.47248878, 126.63966760);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1156, '만석동', 'NEIGHBORHOOD', 76, 37.48244138, 126.62342183);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1157, '송림1동', 'NEIGHBORHOOD', 76, 37.47592725, 126.63931183);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1158, '송림2동', 'NEIGHBORHOOD', 76, 37.47679858, 126.64162258);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1159, '송림3·5동', 'NEIGHBORHOOD', 76, 37.47406540, 126.65105540);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1160, '송림4동', 'NEIGHBORHOOD', 76, 37.48099266, 126.65637864);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1161, '송림6동', 'NEIGHBORHOOD', 76, 37.48324427, 126.64936620);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1162, '송현1·2동', 'NEIGHBORHOOD', 76, 37.47724059, 126.63709845);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1163, '송현3동', 'NEIGHBORHOOD', 76, 37.48747713, 126.64321927);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1164, '화수1·화평동', 'NEIGHBORHOOD', 76, 37.48040473, 126.63086108);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1165, '화수2동', 'NEIGHBORHOOD', 76, 37.48351209, 126.63146574);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1166, '관교동', 'NEIGHBORHOOD', 77, 37.44320270, 126.69259137);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1167, '도화1동', 'NEIGHBORHOOD', 77, 37.46236539, 126.66984778);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1168, '도화2·3동', 'NEIGHBORHOOD', 77, 37.47407578, 126.65546427);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1169, '문학동', 'NEIGHBORHOOD', 77, 37.43695465, 126.68532535);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1170, '숭의1·3동', 'NEIGHBORHOOD', 77, 37.46459312, 126.64568165);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1171, '숭의2동', 'NEIGHBORHOOD', 77, 37.45977013, 126.64717308);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1172, '숭의4동', 'NEIGHBORHOOD', 77, 37.46284889, 126.65850533);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1173, '용현1·4동', 'NEIGHBORHOOD', 77, 37.45247588, 126.65709969);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1174, '용현2동', 'NEIGHBORHOOD', 77, 37.45494364, 126.64620207);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1175, '용현3동', 'NEIGHBORHOOD', 77, 37.45553749, 126.65312831);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1176, '용현5동', 'NEIGHBORHOOD', 77, 37.44938781, 126.64077191);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1177, '주안1동', 'NEIGHBORHOOD', 77, 37.46233410, 126.67758825);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1178, '주안2동', 'NEIGHBORHOOD', 77, 37.45693861, 126.67007255);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1179, '주안3동', 'NEIGHBORHOOD', 77, 37.44603333, 126.67113512);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1180, '주안4동', 'NEIGHBORHOOD', 77, 37.45599179, 126.69129087);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1181, '주안5동', 'NEIGHBORHOOD', 77, 37.47142811, 126.68239149);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1182, '주안6동', 'NEIGHBORHOOD', 77, 37.45822840, 126.69341428);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1183, '주안7동', 'NEIGHBORHOOD', 77, 37.44693694, 126.67924470);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1184, '주안8동', 'NEIGHBORHOOD', 77, 37.44696341, 126.68583978);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1185, '학익1동', 'NEIGHBORHOOD', 77, 37.43917013, 126.65928351);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1186, '학익2동', 'NEIGHBORHOOD', 77, 37.44396973, 126.66902392);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1187, '갈산1동', 'NEIGHBORHOOD', 78, 37.51385156, 126.72428281);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1188, '갈산2동', 'NEIGHBORHOOD', 78, 37.51195096, 126.72571418);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1189, '부개1동', 'NEIGHBORHOOD', 78, 37.48273832, 126.73721688);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1190, '부개2동', 'NEIGHBORHOOD', 78, 37.49265775, 126.73781830);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1191, '부개3동', 'NEIGHBORHOOD', 78, 37.50256627, 126.73631378);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1192, '부평1동', 'NEIGHBORHOOD', 78, 37.49387097, 126.72392860);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1193, '부평2동', 'NEIGHBORHOOD', 78, 37.47801996, 126.72166619);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1194, '부평3동', 'NEIGHBORHOOD', 78, 37.48481740, 126.70937902);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1195, '부평4동', 'NEIGHBORHOOD', 78, 37.50066701, 126.72699794);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1196, '부평5동', 'NEIGHBORHOOD', 78, 37.49536338, 126.73030723);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1197, '부평6동', 'NEIGHBORHOOD', 78, 37.48506651, 126.72629904);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1198, '산곡1동', 'NEIGHBORHOOD', 78, 37.50298647, 126.69528744);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1199, '산곡2동', 'NEIGHBORHOOD', 78, 37.50442285, 126.70405623);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1200, '산곡3동', 'NEIGHBORHOOD', 78, 37.49199184, 126.70624929);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1201, '산곡4동', 'NEIGHBORHOOD', 78, 37.50203475, 126.71218263);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1202, '삼산1동', 'NEIGHBORHOOD', 78, 37.51916214, 126.74789338);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1203, '삼산2동', 'NEIGHBORHOOD', 78, 37.51482454, 126.74494194);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1204, '십정1동', 'NEIGHBORHOOD', 78, 37.47845810, 126.69456847);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1205, '십정2동', 'NEIGHBORHOOD', 78, 37.47365054, 126.70277904);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1206, '일신동', 'NEIGHBORHOOD', 78, 37.47447223, 126.74879413);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1207, '청천1동', 'NEIGHBORHOOD', 78, 37.51691553, 126.69109591);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1208, '청천2동', 'NEIGHBORHOOD', 78, 37.51226024, 126.71303460);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1209, '가정1동', 'NEIGHBORHOOD', 79, 37.52573732, 126.67490194);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1210, '가정2동', 'NEIGHBORHOOD', 79, 37.52836836, 126.68235986);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1211, '가정3동', 'NEIGHBORHOOD', 79, 37.51865931, 126.68097094);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1212, '가좌1동', 'NEIGHBORHOOD', 79, 37.48988545, 126.66268835);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1213, '가좌2동', 'NEIGHBORHOOD', 79, 37.49533714, 126.68748280);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1214, '가좌3동', 'NEIGHBORHOOD', 79, 37.48692192, 126.68081160);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1215, '가좌4동', 'NEIGHBORHOOD', 79, 37.48752060, 126.68963863);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1216, '검단동', 'NEIGHBORHOOD', 79, 37.61158392, 126.65649522);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1217, '검암경서동', 'NEIGHBORHOOD', 79, 37.57026585, 126.63974882);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1218, '당하동', 'NEIGHBORHOOD', 79, 37.59682537, 126.67649417);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1219, '마전동', 'NEIGHBORHOOD', 79, 37.58759453, 126.68091083);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1220, '불로대곡동', 'NEIGHBORHOOD', 79, 37.61879503, 126.67388120);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1221, '석남1동', 'NEIGHBORHOOD', 79, 37.51027427, 126.66532582);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1222, '석남2동', 'NEIGHBORHOOD', 79, 37.50467495, 126.65777713);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1223, '석남3동', 'NEIGHBORHOOD', 79, 37.50753118, 126.68422656);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1224, '신현원창동', 'NEIGHBORHOOD', 79, 37.51287155, 126.64132475);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1225, '아라동', 'NEIGHBORHOOD', 79, 37.59333447, 126.71030902);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1226, '연희동', 'NEIGHBORHOOD', 79, 37.54709625, 126.68172493);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1227, '오류왕길동', 'NEIGHBORHOOD', 79, 37.58973533, 126.63138863);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1228, '원당동', 'NEIGHBORHOOD', 79, 37.59356665, 126.69807383);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1229, '청라1동', 'NEIGHBORHOOD', 79, 37.53034439, 126.65498905);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1230, '청라2동', 'NEIGHBORHOOD', 79, 37.53507713, 126.64136674);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1231, '청라3동', 'NEIGHBORHOOD', 79, 37.53102728, 126.62052992);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1232, '동춘1동', 'NEIGHBORHOOD', 80, 37.40650717, 126.66162369);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1233, '동춘2동', 'NEIGHBORHOOD', 80, 37.39938609, 126.66970130);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1234, '동춘3동', 'NEIGHBORHOOD', 80, 37.40673188, 126.68193466);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1235, '선학동', 'NEIGHBORHOOD', 80, 37.42719964, 126.69855156);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1236, '송도1동', 'NEIGHBORHOOD', 80, 37.38732822, 126.65020864);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1237, '송도2동', 'NEIGHBORHOOD', 80, 37.40617271, 126.63981446);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1238, '송도3동', 'NEIGHBORHOOD', 80, 37.37114552, 126.65244964);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1239, '송도4동', 'NEIGHBORHOOD', 80, 37.38917295, 126.62245455);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1240, '송도5동', 'NEIGHBORHOOD', 80, 37.41556624, 126.62902499);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1241, '연수1동', 'NEIGHBORHOOD', 80, 37.42413209, 126.67778702);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1242, '연수2동', 'NEIGHBORHOOD', 80, 37.41337970, 126.68546484);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1243, '연수3동', 'NEIGHBORHOOD', 80, 37.42089266, 126.69176861);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1244, '옥련1동', 'NEIGHBORHOOD', 80, 37.42010563, 126.65099015);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1245, '옥련2동', 'NEIGHBORHOOD', 80, 37.43039149, 126.64866823);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1246, '청학동', 'NEIGHBORHOOD', 80, 37.42493107, 126.66677291);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1247, '대청면', 'NEIGHBORHOOD', 81, 37.80308672, 124.71364495);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1248, '덕적면', 'NEIGHBORHOOD', 81, 37.17272768, 126.05880810);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1249, '백령면', 'NEIGHBORHOOD', 81, 37.95294174, 124.68382169);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1250, '북도면', 'NEIGHBORHOOD', 81, 37.52933725, 126.38064958);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1251, '연평면', 'NEIGHBORHOOD', 81, 37.67375246, 125.68935171);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1252, '영흥면', 'NEIGHBORHOOD', 81, 37.24790603, 126.45699210);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1253, '자월면', 'NEIGHBORHOOD', 81, 37.19201977, 126.25701253);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1254, '개항동', 'NEIGHBORHOOD', 82, 37.47864062, 126.61864458);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1255, '도원동', 'NEIGHBORHOOD', 82, 37.46665121, 126.63994134);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1256, '동인천동', 'NEIGHBORHOOD', 82, 37.47479084, 126.62877854);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1257, '신포동', 'NEIGHBORHOOD', 82, 37.46856072, 126.62409621);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1258, '신흥동', 'NEIGHBORHOOD', 82, 37.45625390, 126.63026476);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1259, '연안동', 'NEIGHBORHOOD', 82, 37.45403206, 126.60932987);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1260, '영종1동', 'NEIGHBORHOOD', 82, 37.49328674, 126.57308054);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1261, '영종2동', 'NEIGHBORHOOD', 82, 37.48476651, 126.55868107);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1262, '영종동', 'NEIGHBORHOOD', 82, 37.50709760, 126.54333000);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1263, '용유동', 'NEIGHBORHOOD', 82, 37.41705282, 126.41168063);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1264, '운서동', 'NEIGHBORHOOD', 82, 37.46386915, 126.44905459);
+INSERT INTO regions (id, name, type, parent_id, latitude, longitude) VALUES (1265, '율목동', 'NEIGHBORHOOD', 82, 37.47101601, 126.63426047);
 
-    -- 인기도 지표
-    popularity_score DECIMAL(10, 2) NOT NULL DEFAULT 0 COMMENT '종합 인기도 점수',
-    regional_ranking INT NOT NULL COMMENT '해당 지역 내 순위',
-
-    -- 세부 통계 (인기도 점수 산정 근거)
-    post_count INT DEFAULT 0 COMMENT '게시글 수',
-    comment_count INT DEFAULT 0 COMMENT '댓글 수',
-    vote_count INT DEFAULT 0 COMMENT '투표 참여 수',
-    view_count INT DEFAULT 0 COMMENT '조회 수',
-    search_count INT DEFAULT 0 COMMENT '검색 수',
-
-    -- 외부 지표
-    news_mention_count INT DEFAULT 0 COMMENT '뉴스 언급 수',
-    trend_score DECIMAL(5, 2) DEFAULT 0 COMMENT '트렌드 점수',
-
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    -- 복합 유니크 키: 지역-주식-날짜 조합은 하나만 존재
-    UNIQUE KEY uk_region_stock_date (region_id, stock_id, data_date),
-
-    INDEX idx_region_id (region_id),
-    INDEX idx_stock_id (stock_id),
-    INDEX idx_data_date (data_date),
-    INDEX idx_popularity_score (popularity_score),
-    INDEX idx_regional_ranking (regional_ranking),
-    INDEX idx_region_date (region_id, data_date),
-    INDEX idx_region_ranking (region_id, regional_ranking)
-);
-
--- 5-1. 게시글 테이블 (posts)
-CREATE TABLE posts (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    member_id BINARY(16) NOT NULL COMMENT '작성자 ID',
-    stock_id BIGINT NOT NULL COMMENT '주식 ID',
-    title VARCHAR(200) NULL COMMENT '제목 (선택사항)',
-    content TEXT NOT NULL COMMENT '내용',
-    post_type ENUM('TEXT', 'POLL') NOT NULL DEFAULT 'TEXT' COMMENT '게시글 타입',
-    sentiment ENUM('BULLISH', 'BEARISH', 'NEUTRAL') NULL COMMENT '투자 성향',
-
-    -- 통계 정보
-    view_count INT DEFAULT 0 COMMENT '조회 수',
-    like_count INT DEFAULT 0 COMMENT '좋아요 수',
-    comment_count INT DEFAULT 0 COMMENT '댓글 수',
-
-    -- 메타 정보
-    is_deleted BOOLEAN DEFAULT FALSE COMMENT '삭제 여부',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    INDEX idx_member_id (member_id),
-    INDEX idx_stock_id (stock_id),
-    INDEX idx_post_type (post_type),
-    INDEX idx_sentiment (sentiment),
-    INDEX idx_created_at (created_at),
-    INDEX idx_like_count (like_count),
-    INDEX idx_is_deleted (is_deleted),
-    INDEX idx_stock_created (stock_id, created_at)
-);
-
--- 5-2. 투표 테이블 (polls)
-CREATE TABLE polls (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    post_id BIGINT NOT NULL COMMENT '게시글 ID',
-    question VARCHAR(500) NOT NULL COMMENT '투표 질문',
-
-    -- 투표 옵션 (간단한 상승/하락 투표)
-    option_up VARCHAR(100) DEFAULT '오를 것 같다 📈' COMMENT '상승 옵션',
-    option_down VARCHAR(100) DEFAULT '떨어질 것 같다 📉' COMMENT '하락 옵션',
-
-    -- 투표 결과
-    vote_up_count INT DEFAULT 0 COMMENT '상승 투표 수',
-    vote_down_count INT DEFAULT 0 COMMENT '하락 투표 수',
-    total_vote_count INT DEFAULT 0 COMMENT '총 투표 수',
-
-    -- 투표 기간
-    start_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '투표 시작일',
-    end_date TIMESTAMP NULL COMMENT '투표 종료일 (NULL이면 무제한)',
-
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    INDEX idx_post_id (post_id),
-    INDEX idx_end_date (end_date),
-    INDEX idx_total_vote_count (total_vote_count)
-);
-
--- 5-3. 투표 응답 테이블 (poll_responses)
-CREATE TABLE poll_responses (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    poll_id BIGINT NOT NULL COMMENT '투표 ID',
-    member_id BINARY(16) NOT NULL COMMENT '투표자 ID',
-    vote_option ENUM('UP', 'DOWN') NOT NULL COMMENT '투표 선택 (UP: 상승, DOWN: 하락)',
-
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    -- 한 투표에 한 명의 사용자는 하나의 응답만 가능
-    UNIQUE KEY uk_poll_member (poll_id, member_id),
-
-    INDEX idx_poll_id (poll_id),
-    INDEX idx_member_id (member_id),
-    INDEX idx_vote_option (vote_option),
-    INDEX idx_created_at (created_at)
-);
-
--- 5-4. 댓글 테이블 (comments)
-CREATE TABLE comments (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    post_id BIGINT NOT NULL COMMENT '게시글 ID',
-    member_id BINARY(16) NOT NULL COMMENT '작성자 ID',
-    content TEXT NOT NULL COMMENT '댓글 내용',
-
-    -- 통계 정보
-    like_count INT DEFAULT 0 COMMENT '좋아요 수',
-
-    -- 메타 정보
-    is_deleted BOOLEAN DEFAULT FALSE COMMENT '삭제 여부',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    INDEX idx_post_id (post_id),
-    INDEX idx_member_id (member_id),
-    INDEX idx_created_at (created_at),
-    INDEX idx_like_count (like_count),
-    INDEX idx_is_deleted (is_deleted)
-);
-
--- 5-5. 좋아요 테이블 (likes)
-CREATE TABLE likes (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    member_id BINARY(16) NOT NULL COMMENT '좋아요 누른 사용자 ID',
-    target_type ENUM('POST', 'COMMENT') NOT NULL COMMENT '좋아요 대상 타입',
-    target_id BIGINT NOT NULL COMMENT '대상 ID (게시글 또는 댓글)',
-
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    -- 한 사용자가 같은 대상에 중복 좋아요 방지
-    UNIQUE KEY uk_member_target (member_id, target_type, target_id),
-
-    INDEX idx_member_id (member_id),
-    INDEX idx_target (target_type, target_id),
-    INDEX idx_created_at (created_at)
-);
-
--- 5-6. 첨부파일 테이블 (attachments)
-CREATE TABLE attachments (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    post_id BIGINT NOT NULL COMMENT '게시글 ID',
-    file_name VARCHAR(255) NOT NULL COMMENT '원본 파일명',
-    file_path VARCHAR(500) NOT NULL COMMENT '저장된 파일 경로',
-    file_size BIGINT NOT NULL COMMENT '파일 크기 (바이트)',
-    file_type VARCHAR(50) NOT NULL COMMENT '파일 타입 (image/jpeg, image/png 등)',
-
-    -- 이미지 정보
-    width INT NULL COMMENT '이미지 너비',
-    height INT NULL COMMENT '이미지 높이',
-
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    INDEX idx_post_id (post_id),
-    INDEX idx_file_type (file_type),
-    INDEX idx_created_at (created_at)
-);
-
--- 초기 데이터 삽입
-
--- 지역 데이터
-INSERT INTO regions (name, type, parent_id, latitude, longitude) VALUES
--- 시 레벨
-('서울특별시', 'CITY', NULL, 37.5665, 126.9780),
-('인천광역시', 'CITY', NULL, 37.4563, 126.7052),
-('경기도', 'CITY', NULL, 37.4138, 127.5183);
-
--- 구 레벨 (서울시)
-INSERT INTO regions (name, type, parent_id, latitude, longitude) VALUES
-('강남구', 'DISTRICT', 1, 37.5172, 127.0473),
-('서초구', 'DISTRICT', 1, 37.4837, 127.0324),
-('종로구', 'DISTRICT', 1, 37.5735, 126.9788),
-('중구', 'DISTRICT', 1, 37.5640, 126.9979);
-
--- 구 레벨 (인천시)
-INSERT INTO regions (name, type, parent_id, latitude, longitude) VALUES
-('남동구', 'DISTRICT', 2, 37.4468, 126.7317),
-('부평구', 'DISTRICT', 2, 37.5073, 126.7218),
-('연수구', 'DISTRICT', 2, 37.4096, 126.6784);
-
--- 시 레벨 (광명시)
-INSERT INTO regions (name, type, parent_id, latitude, longitude) VALUES
-('광명시', 'DISTRICT', 3, 37.4781, 126.8644);
-
--- 동 레벨 (강남구 예시)
-INSERT INTO regions (name, type, parent_id, latitude, longitude) VALUES
-('삼성동', 'NEIGHBORHOOD', 4, 37.5145, 127.0597),
-('역삼동', 'NEIGHBORHOOD', 4, 37.5000, 127.0366),
-('대치동', 'NEIGHBORHOOD', 4, 37.4951, 127.0619);
-
--- 주식 데이터
-INSERT INTO stocks (symbol, name, market, sector, emoji, current_price, price_change, price_change_percent, volume, market_cap, is_active) VALUES
-('005930', '삼성전자', 'KOSPI', '전자', '📱', 71500.00, 1500.00, 2.14, 12345678, 4270000000000000, TRUE),
-('035420', 'NAVER', 'KOSPI', '서비스업', '🔍', 185000.00, -2300.00, -1.23, 1234567, 30400000000000, TRUE),
-('035720', '카카오', 'KOSPI', '서비스업', '💬', 52300.00, 2100.00, 4.18, 3456789, 23200000000000, TRUE),
-('000660', 'SK하이닉스', 'KOSPI', '전자', '💾', 128000.00, 2300.00, 1.83, 2345678, 93100000000000, TRUE),
-('051910', 'LG화학', 'KOSPI', '화학', '🧪', 425000.00, -2100.00, -0.49, 345678, 30000000000000, TRUE);
-
--- 지역별 주식 인기도 데이터 (예시)
-INSERT INTO region_stocks (region_id, stock_id, data_date, popularity_score, regional_ranking, post_count, comment_count, vote_count, view_count) VALUES
--- 강남구 2024-01-15 기준 인기 주식
-(4, 1, '2024-01-15', 95.50, 1, 25, 48, 120, 2500),  -- 강남구 - 삼성전자 (1위)
-(4, 2, '2024-01-15', 87.20, 2, 18, 35, 95, 1800),   -- 강남구 - NAVER (2위)
-(4, 3, '2024-01-15', 78.90, 3, 22, 41, 110, 2200),  -- 강남구 - 카카오 (3위)
-(4, 4, '2024-01-15', 72.15, 4, 15, 28, 75, 1500),   -- 강남구 - SK하이닉스 (4위)
-(4, 5, '2024-01-15', 68.30, 5, 12, 22, 60, 1200),   -- 강남구 - LG화학 (5위)
-
--- 서초구 2024-01-15 기준 인기 주식
-(5, 2, '2024-01-15', 92.80, 1, 30, 55, 140, 2800),  -- 서초구 - NAVER (1위)
-(5, 1, '2024-01-15', 88.70, 2, 20, 38, 100, 2000),  -- 서초구 - 삼성전자 (2위)
-(5, 3, '2024-01-15', 81.40, 3, 25, 45, 115, 2300);  -- 서초구 - 카카오 (3위) 
+COMMIT;

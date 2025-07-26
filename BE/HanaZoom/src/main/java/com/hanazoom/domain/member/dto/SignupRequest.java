@@ -22,9 +22,11 @@ public class SignupRequest {
     @Pattern(regexp = "^01(?:0|1|[6-9])-(?:\\d{3}|\\d{4})-\\d{4}$", message = "전화번호 형식이 올바르지 않습니다.")
     private String phone;
 
+    private String address;
+    private String detailAddress;
+    private String zonecode;
+
     private boolean termsAgreed;
     private boolean privacyAgreed;
     private boolean marketingAgreed;
-
-    private Long regionId; // 관심 지역 ID (선택사항)
 }
