@@ -6,4 +6,18 @@ Infra/keys/*.ppk
 .env
 .env.*
 kis_keys.json
+
+# IDE - IntelliJ
+.idea/
+.idea/**/*
+*.iml
+*.iws
+*.ipr
+modules.xml
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries
+.idea/vcs.xml
+.idea/jsLibraryMappings.xml
+
 # ... existing code ... 
