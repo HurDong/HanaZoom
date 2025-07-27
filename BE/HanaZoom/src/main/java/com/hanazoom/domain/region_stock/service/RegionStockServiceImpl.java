@@ -33,7 +33,7 @@ public class RegionStockServiceImpl implements RegionStockService {
 
     @Override
     @Transactional
-    @Scheduled(fixedRate = 600000) // 10분마다 실행
+    @Scheduled(fixedRate = 600000, initialDelay = 600000) // 서버 시작 10분 후 첫 실행, 그 후 10분마다
     public void updateRegionStocks() {
         log.info("Updating region stocks...");
         Map<Long, List<Long>> regionStockMap = readRegionStockData();
@@ -97,19 +97,41 @@ public class RegionStockServiceImpl implements RegionStockService {
 
             String line;
             while ((line = br.readLine()) != null) {
-                String[] columns = line.split(",");
-                if (columns.length >= 10) {
-                    Long regionId = Long.parseLong(columns[8]);
+                try {
+                    final String currentLine = line; // line 변수를 final로 만들기 위해 새로운 변수 생성
+                    String[] columns = currentLine.split(",");
+                    if (columns.length >= 10 && !"국장".equals(columns[2])) {
+                        continue;
+                    }
+
+                    String regionIdStr = columns[8].trim();
+                    if (regionIdStr.isEmpty()) {
+                        log.warn("Empty region ID found in line: {}", currentLine);
+                        continue;
+                    }
+
+                    Long regionId = Long.parseLong(regionIdStr);
                     String stockIdsStr = columns[9].replaceAll("[\\[\\]\"]", "");
+
                     List<Long> stockIds = Arrays.stream(stockIdsStr.split(","))
                             .map(String::trim)
-                            .map(Long::parseLong)
+                            .filter(s -> !s.isEmpty()) // 빈 문자열 필터링
+                            .map(s -> {
+                                try {
+                                    return Long.parseLong(s);
+                                } catch (NumberFormatException e) {
+                                    log.warn("Invalid stock ID found: {} in line: {}", s, currentLine);
+                                    return null;
+                                }
+                            })
+                            .filter(Objects::nonNull) // null 값 필터링
                             .collect(Collectors.toList());
 
-                    // 국내 주식만 저장 (시장이 '국장'인 경우)
-                    if ("국장".equals(columns[2])) {
+                    if (!stockIds.isEmpty()) {
                         regionStockMap.put(regionId, stockIds);
                     }
+                } catch (Exception e) {
+                    log.error("Error processing line: {}", line, e);
                 }
             }
         } catch (IOException e) {

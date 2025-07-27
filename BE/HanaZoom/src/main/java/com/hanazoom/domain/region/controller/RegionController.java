@@ -2,6 +2,7 @@ package com.hanazoom.domain.region.controller;
 
 import com.hanazoom.domain.region.dto.RegionResponse;
 import com.hanazoom.domain.region.service.RegionService;
+import com.hanazoom.global.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,8 +19,8 @@ public class RegionController {
     private final RegionService regionService;
 
     @GetMapping
-    public ResponseEntity<List<RegionResponse>> getAllRegions() {
+    public ResponseEntity<ApiResponse<List<RegionResponse>>> getAllRegions() {
         List<RegionResponse> regions = regionService.getAllRegions();
-        return ResponseEntity.ok(regions);
+        return ResponseEntity.ok(ApiResponse.success(regions));
     }
 }

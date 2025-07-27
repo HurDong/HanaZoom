@@ -6,7 +6,5 @@ import java.util.List;
 public interface RegionStockService {
     void updateRegionStocks();
 
-    void saveRegionStocks(List<RegionStock> regionStocks);
-
-    void deleteAllRegionStocks();
+    List<RegionStock> getCurrentRegionStocks();
 }
