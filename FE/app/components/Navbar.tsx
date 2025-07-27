@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { isLoggedIn, logout } from "../utils/auth";
+import { isLoggedIn, logout, useAuthStore } from "../utils/auth";
 import { MessageSquare } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useRouter } from "next/navigation";
@@ -12,27 +12,21 @@ export default function NavBar() {
   const [mounted, setMounted] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const accessToken = useAuthStore((state) => state.accessToken);
 
   useEffect(() => {
     setMounted(true);
-    const checkLoginStatus = () => {
-      const status = isLoggedIn();
-      setLoggedIn(status);
-    };
-    checkLoginStatus();
+    setLoggedIn(!!accessToken);
+  }, [accessToken]);
 
+  useEffect(() => {
     const handleScroll = () => {
       const scrollPosition = window.scrollY;
       setScrolled(scrollPosition > 50);
     };
 
     window.addEventListener("scroll", handleScroll);
-    window.addEventListener("load", checkLoginStatus);
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("load", checkLoginStatus);
-    };
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const handleLogout = async () => {
