@@ -22,7 +22,8 @@ import { setLoginData } from "../utils/auth";
 import Swal from "sweetalert2";
 import { useRouter, useSearchParams } from "next/navigation";
 import NavBar from "@/app/components/Navbar";
-import { api, API_ENDPOINTS, ApiResponse } from "@/app/config/api";
+import api from "@/app/config/api";
+import { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -78,7 +79,7 @@ export default function LoginPage() {
     }
 
     try {
-      const { data } = await api.post<
+      const response = await api.post<
         ApiResponse<{
           id: string;
           name: string;
@@ -91,13 +92,19 @@ export default function LoginPage() {
         }>
       >(API_ENDPOINTS.login, formData);
 
-      await setLoginData(data.data.accessToken, data.data.refreshToken, {
-        id: data.data.id,
-        name: data.data.name,
-        email: data.data.email,
-        address: data.data.address,
-        latitude: data.data.latitude,
-        longitude: data.data.longitude,
+      if (!response.data.success) {
+        throw new Error(response.data.message || "로그인에 실패했습니다.");
+      }
+
+      const { data } = response.data;
+
+      await setLoginData(data.accessToken, data.refreshToken, {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        address: data.address,
+        latitude: data.latitude,
+        longitude: data.longitude,
       });
 
       await Swal.fire({
@@ -109,11 +116,11 @@ export default function LoginPage() {
       });
 
       router.push("/");
-    } catch (error) {
+    } catch (error: any) {
       showErrorAlert(
-        error instanceof Error
-          ? error.message
-          : "알 수 없는 오류가 발생했습니다."
+        error.response?.data?.message ||
+          error.message ||
+          "로그인에 실패했습니다."
       );
     }
   };

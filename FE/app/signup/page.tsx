@@ -21,7 +21,8 @@ import { MouseFollower } from "@/components/mouse-follower";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/app/components/Navbar";
-import { api, API_ENDPOINTS, ApiResponse } from "@/app/config/api";
+import api from "@/app/config/api";
+import { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
 import Script from "next/script";
 
 declare global {

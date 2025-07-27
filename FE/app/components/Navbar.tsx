@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { isLoggedIn, removeTokens } from "../utils/auth";
+import { isLoggedIn, logout } from "../utils/auth";
 import { MessageSquare } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useRouter } from "next/navigation";
@@ -36,7 +36,7 @@ export default function NavBar() {
   }, []);
 
   const handleLogout = async () => {
-    await removeTokens();
+    await logout();
     setLoggedIn(false);
     router.push("/login");
   };

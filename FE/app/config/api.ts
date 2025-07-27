@@ -1,12 +1,93 @@
 import axios from "axios";
+import { getAccessToken, refreshAccessToken } from "@/app/utils/auth";
 
-// axios 인스턴스 생성
-export const api = axios.create({
-  baseURL: "http://localhost:8080/api/v1", // 백엔드 서버 주소로 변경
+const api = axios.create({
+  baseURL: "http://localhost:8080/api/v1",
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
+
+// 요청 인터셉터 설정
+api.interceptors.request.use(
+  (config) => {
+    const token = getAccessToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// 토큰 갱신 중인지 확인하는 플래그
+let isRefreshing = false;
+// 토큰 갱신을 기다리는 요청들의 큐
+let failedQueue: {
+  resolve: (value?: unknown) => void;
+  reject: (reason?: any) => void;
+}[] = [];
+
+// 토큰 갱신이 완료되면 큐에 있는 요청들을 처리
+const processQueue = (error: any = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve();
+    }
+  });
+  failedQueue = [];
+};
+
+// 응답 인터셉터 설정
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+
+    // 토큰이 만료되었을 때 (401 에러)
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // 토큰 갱신 중이면 큐에 요청을 추가
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(() => {
+            originalRequest.headers.Authorization = `Bearer ${getAccessToken()}`;
+            return api(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        await refreshAccessToken();
+        processQueue();
+        originalRequest.headers.Authorization = `Bearer ${getAccessToken()}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError);
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+export default api;
 
 // API 엔드포인트 상수
 export const API_ENDPOINTS = {
@@ -28,22 +109,7 @@ export const API_ENDPOINTS = {
 
 // 응답 타입 정의
 export interface ApiResponse<T> {
+  success: boolean;
   data: T;
   message?: string;
-  error?: string;
 }
-
-// CORS 설정을 위한 인터셉터 추가
-api.interceptors.request.use((config) => {
-  config.withCredentials = true; // 쿠키를 포함한 요청을 위해 필요
-  return config;
-});
-
-// 에러 핸들링 인터셉터
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // 여기서 401, 403 등 공통 에러 처리 가능
-    return Promise.reject(error);
-  }
-);

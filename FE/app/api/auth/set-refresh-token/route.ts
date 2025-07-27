@@ -6,7 +6,7 @@ export async function POST(request: Request) {
     const { refreshToken } = await request.json();
 
     // refreshToken을 httpOnly 쿠키로 설정
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     cookieStore.set("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

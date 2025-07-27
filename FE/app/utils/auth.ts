@@ -10,25 +10,32 @@ interface User {
   longitude: number | null;
 }
 
-interface AuthStore {
+interface AuthState {
   accessToken: string | null;
   user: User | null;
+}
+
+interface AuthActions {
   setAuth: (data: { accessToken: string; user: User }) => void;
+  updateAccessToken: (accessToken: string) => void;
   clearAuth: () => void;
 }
 
-// Zustand 스토어를 생성합니다. `persist` 미들웨어를 사용하여 localStorage에 상태를 저장합니다.
-export const useAuthStore = create(
-  persist<AuthStore>(
+type AuthStore = AuthState & AuthActions;
+
+export const useAuthStore = create<AuthStore>()(
+  persist(
     (set) => ({
       accessToken: null,
       user: null,
       setAuth: ({ accessToken, user }) => set({ accessToken, user }),
+      updateAccessToken: (accessToken) => set({ accessToken }),
       clearAuth: () => set({ accessToken: null, user: null }),
     }),
     {
-      name: "auth-storage", // localStorage에 저장될 때 사용될 키 이름
-      storage: createJSONStorage(() => localStorage), // localStorage를 사용하도록 설정
+      name: "auth-storage",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({ user: state.user }),
     }
   )
 );
@@ -48,10 +55,10 @@ export const setLoginData = async (
     longitude: user.longitude ? Number(user.longitude) : null,
   };
 
-  // accessToken과 user 정보는 Zustand store에 저장 (persist 미들웨어에 의해 localStorage에도 저장됨)
+  // accessToken과 user 정보를 Zustand store에 저장
   useAuthStore.getState().setAuth({ accessToken, user: processedUser });
 
-  // refreshToken은 httpOnly 쿠키로 저장하기 위해 서버에 요청
+  // refreshToken을 httpOnly 쿠키로 저장
   try {
     await fetch("/api/auth/set-refresh-token", {
       method: "POST",
@@ -59,9 +66,11 @@ export const setLoginData = async (
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ refreshToken }),
+      credentials: "include", // 쿠키를 포함하여 요청
     });
   } catch (error) {
     console.error("Failed to set refresh token:", error);
+    throw error; // 에러를 상위로 전파하여 적절한 처리 유도
   }
 };
 
@@ -69,36 +78,50 @@ export const getAccessToken = () => {
   return useAuthStore.getState().accessToken;
 };
 
-export const getRefreshToken = async () => {
+export const refreshAccessToken = async () => {
   try {
-    const response = await fetch("/api/auth/refresh-token");
-    if (!response.ok) return null;
+    const response = await fetch("/api/auth/refresh-token", {
+      credentials: "include", // 쿠키를 포함하여 요청
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to refresh token");
+    }
+
     const data = await response.json();
-    return data.refreshToken;
+    useAuthStore.getState().updateAccessToken(data.accessToken);
+    return data.accessToken;
   } catch (error) {
-    console.error("Failed to get refresh token:", error);
-    return null;
+    console.error("Failed to refresh access token:", error);
+    useAuthStore.getState().clearAuth();
+    window.location.href = "/login";
+    throw error;
   }
 };
 
-export const removeTokens = async () => {
-  // 메모리와 localStorage의 상태 제거
-  useAuthStore.getState().clearAuth();
-
-  // refreshToken 쿠키 제거
+export const logout = async () => {
   try {
-    await fetch("/api/auth/remove-refresh-token", {
+    // 서버에 로그아웃 요청
+    await fetch("/api/auth/logout", {
       method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
     });
   } catch (error) {
-    console.error("Failed to remove refresh token:", error);
+    console.error("Failed to logout:", error);
+  } finally {
+    // 로컬 상태 초기화
+    useAuthStore.getState().clearAuth();
+    // refreshToken 쿠키 제거
+    await fetch("/api/auth/remove-refresh-token", {
+      method: "POST",
+      credentials: "include",
+    });
   }
 };
 
 export const isLoggedIn = () => {
   return !!useAuthStore.getState().accessToken;
-};
-
-export const isLoggingOut = () => {
-  return false; // 더 이상 필요하지 않으므로 제거
 };

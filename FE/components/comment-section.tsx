@@ -1,124 +1,130 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import type { Comment } from "@/types/community"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { ThumbsUp } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
-import { ko } from "date-fns/locale"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ThumbsUp } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ko } from "date-fns/locale";
 
-interface CommentSectionProps {
-  opinionId: string
-  comments: Comment[]
+interface Comment {
+  id: number;
+  content: string;
+  createdAt: string;
+  author: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+  likeCount: number;
+  isLiked?: boolean;
 }
 
-export function CommentSection({ opinionId, comments }: CommentSectionProps) {
-  const [commentText, setCommentText] = useState("")
-  const [localComments, setLocalComments] = useState<Comment[]>(comments)
+interface CommentSectionProps {
+  postId: number;
+}
 
-  const formatDate = (dateString: string) => {
+export function CommentSection({ postId }: CommentSectionProps) {
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    // TODO: API 연동 - 댓글 목록 가져오기
+    // fetchComments(postId);
+  }, [postId]);
+
+  const handleSubmit = async () => {
+    if (!newComment.trim() || isSubmitting) return;
+
     try {
-      return formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: ko })
+      setIsSubmitting(true);
+      // TODO: API 연동 - 댓글 작성
+      // await createComment(postId, newComment);
+      setNewComment("");
     } catch (error) {
-      return "날짜 정보 없음"
+      console.error("Failed to submit comment:", error);
+    } finally {
+      setIsSubmitting(false);
     }
-  }
+  };
 
-  const handleAddComment = () => {
-    if (!commentText.trim()) return
-
-    const newComment: Comment = {
-      id: `temp-${Date.now()}`,
-      opinionId,
-      userId: "current-user",
-      userName: "나",
-      userAvatar: "/placeholder.svg?height=40&width=40",
-      content: commentText,
-      createdAt: new Date().toISOString(),
-      likes: 0,
-      isLiked: false,
+  const handleLike = async (commentId: number) => {
+    try {
+      // TODO: API 연동 - 댓글 좋아요
+      // await likeComment(commentId);
+    } catch (error) {
+      console.error("Failed to like comment:", error);
     }
-
-    setLocalComments([...localComments, newComment])
-    setCommentText("")
-  }
-
-  const handleLike = (commentId: string) => {
-    setLocalComments(
-      localComments.map((comment) => {
-        if (comment.id === commentId) {
-          const isLiked = !comment.isLiked
-          return {
-            ...comment,
-            isLiked,
-            likes: isLiked ? comment.likes + 1 : comment.likes - 1,
-          }
-        }
-        return comment
-      }),
-    )
-  }
+  };
 
   return (
-    <div className="w-full space-y-4">
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <Textarea
+          placeholder="댓글을 작성해주세요..."
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          className="min-h-[80px] resize-none"
+        />
+        <Button
+          onClick={handleSubmit}
+          disabled={!newComment.trim() || isSubmitting}
+          className="bg-green-600 hover:bg-green-700 text-white self-end"
+        >
+          {isSubmitting ? "작성 중..." : "작성"}
+        </Button>
+      </div>
+
       <div className="space-y-3">
-        {localComments.map((comment) => (
-          <div key={comment.id} className="flex gap-3">
-            <Avatar className="w-8 h-8 border border-green-200 dark:border-green-700">
-              <AvatarImage src={comment.userAvatar || "/placeholder.svg"} alt={comment.userName} />
-              <AvatarFallback className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
-                {comment.userName.substring(0, 2)}
-              </AvatarFallback>
+        {comments.map((comment) => (
+          <div
+            key={comment.id}
+            className="flex items-start gap-3 p-3 rounded-lg bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm"
+          >
+            <Avatar>
+              <AvatarImage src={comment.author.avatar} />
+              <AvatarFallback>{comment.author.name[0]}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-green-900 dark:text-green-100">{comment.userName}</span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(comment.createdAt)}</span>
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-medium text-green-900 dark:text-green-100">
+                  {comment.author.name}
+                </span>
+                <time className="text-xs text-gray-500 dark:text-gray-400">
+                  {formatDistanceToNow(new Date(comment.createdAt), {
+                    addSuffix: true,
+                    locale: ko,
+                  })}
+                </time>
               </div>
-              <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{comment.content}</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                {comment.content}
+              </p>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => handleLike(comment.id)}
-                className={`flex items-center gap-1 mt-1 h-6 px-2 ${
-                  comment.isLiked ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-400"
-                }`}
+                className={`${
+                  comment.isLiked
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-gray-500 dark:text-gray-400"
+                } hover:text-green-700 dark:hover:text-green-300`}
               >
-                <ThumbsUp className="w-3 h-3" />
-                <span className="text-xs">{comment.likes}</span>
+                <ThumbsUp className="w-4 h-4 mr-1" />
+                {comment.likeCount}
               </Button>
             </div>
           </div>
         ))}
-      </div>
 
-      <div className="flex gap-3">
-        <Avatar className="w-8 h-8 border border-green-200 dark:border-green-700">
-          <AvatarFallback className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
-            나
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 space-y-2">
-          <Textarea
-            placeholder="댓글을 입력하세요..."
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            className="min-h-[60px] border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
-          />
-          <div className="flex justify-end">
-            <Button
-              onClick={handleAddComment}
-              disabled={!commentText.trim()}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              size="sm"
-            >
-              댓글 작성
-            </Button>
-          </div>
-        </div>
+        {comments.length === 0 && (
+          <p className="text-center text-gray-500 dark:text-gray-400 py-4">
+            아직 작성된 댓글이 없습니다.
+          </p>
+        )}
       </div>
     </div>
-  )
+  );
 }
