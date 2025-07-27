@@ -1,38 +1,38 @@
 package com.hanazoom.domain.member.entity;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
-
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UuidGenerator;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import lombok.AccessLevel;
+import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UuidGenerator;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.UUID;
 
 @Entity
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "members")
-public class Member {
+@Getter
+@NoArgsConstructor
+public class Member implements UserDetails {
 
     @Id
     @UuidGenerator
-    @Column(name = "id", columnDefinition = "BINARY(16)")
+    @Column(columnDefinition = "BINARY(16)")
     private UUID id;
 
-    @Column(name = "email", nullable = false, unique = true, length = 255)
+    @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(name = "password", nullable = false, length = 255)
+    @Column(nullable = false, length = 60) // BCrypt 해시는 항상 60자
     private String password;
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(nullable = false)
     private String name;
 
     @Column(name = "phone", nullable = false, length = 20)
@@ -70,9 +70,10 @@ public class Member {
     private LocalDateTime lastLoginAt;
 
     @Builder
-    public Member(String email, String password, String name, String phone, String address, String detailAddress,
-                  String zonecode, Double latitude, Double longitude,
-                  boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed) {
+    public Member(String email, String password, String name, String phone,
+            String address, String detailAddress, String zonecode,
+            Double latitude, Double longitude,
+            boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed) {
         this.email = email;
         this.password = password;
         this.name = name;
@@ -87,13 +88,12 @@ public class Member {
         this.marketingAgreed = marketingAgreed;
     }
 
-    // 업데이트 메서드
-    public void updatePassword(String newPassword) {
-        this.password = newPassword;
-    }
-
     public void updateLastLogin() {
         this.lastLoginAt = LocalDateTime.now();
+    }
+
+    public void updatePassword(String newPassword) {
+        this.password = newPassword;
     }
 
     public void updateAddress(String address, String detailAddress, String zonecode) {
@@ -109,5 +109,35 @@ public class Member {
 
     public void updateMarketingAgreement(boolean agreed) {
         this.marketingAgreed = agreed;
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
+    }
+
+    @Override
+    public String getUsername() {
+        return email;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
     }
 }
