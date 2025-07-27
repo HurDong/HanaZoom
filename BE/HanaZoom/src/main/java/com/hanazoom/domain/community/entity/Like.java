@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "likes", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_member_target", columnNames = { "member_id", "target_type", "target_id" })
+        @UniqueConstraint(columnNames = { "member_id", "target_type", "target_id" })
 })
 public class Like {
 
