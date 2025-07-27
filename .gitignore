@@ -20,4 +20,14 @@ modules.xml
 .idea/vcs.xml
 .idea/jsLibraryMappings.xml
 
+# IDE - VSCode
+.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.history/
+
 # ... existing code ... 
