@@ -17,9 +17,7 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "region_stocks", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_region_stock_date", columnNames = { "region_id", "stock_id", "data_date" })
-})
+@Table(name = "region_stocks")
 public class RegionStock {
 
     @Id
@@ -75,11 +73,30 @@ public class RegionStock {
 
     @Builder
     public RegionStock(Region region, Stock stock, LocalDate dataDate, BigDecimal popularityScore,
-            int regionalRanking) {
+            int regionalRanking, BigDecimal trendScore) {
         this.region = region;
         this.stock = stock;
         this.dataDate = dataDate;
         this.popularityScore = popularityScore;
         this.regionalRanking = regionalRanking;
+        this.trendScore = trendScore;
+    }
+
+    /**
+     * 인기도 점수를 1 증가시킵니다.
+     */
+    public void increasePopularityScore() {
+        if (this.popularityScore == null) {
+            this.popularityScore = BigDecimal.ONE;
+        } else {
+            this.popularityScore = this.popularityScore.add(BigDecimal.ONE);
+        }
+    }
+
+    /**
+     * 지역 내 순위를 업데이트합니다.
+     */
+    public void updateRegionalRanking(int newRanking) {
+        this.regionalRanking = newRanking;
     }
 }

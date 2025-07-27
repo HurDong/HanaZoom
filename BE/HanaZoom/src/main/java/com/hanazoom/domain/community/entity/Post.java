@@ -34,13 +34,12 @@ public class Post {
     @Column(name = "title", length = 200)
     private String title;
 
-    @Lob
-    @Column(name = "content", nullable = false)
+    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "post_type", nullable = false)
-    private PostType postType;
+    private PostType postType = PostType.TEXT;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "sentiment")
@@ -67,12 +66,43 @@ public class Post {
     private LocalDateTime updatedAt;
 
     @Builder
-    public Post(Member member, Stock stock, String title, String content, PostType postType, PostSentiment sentiment) {
+    public Post(Member member, Stock stock, String title, String content,
+            PostType postType, PostSentiment sentiment) {
         this.member = member;
         this.stock = stock;
         this.title = title;
         this.content = content;
         this.postType = postType;
+        this.sentiment = sentiment;
+    }
+
+    public void incrementViewCount() {
+        this.viewCount++;
+    }
+
+    public void incrementLikeCount() {
+        this.likeCount++;
+    }
+
+    public void decrementLikeCount() {
+        this.likeCount = Math.max(0, this.likeCount - 1);
+    }
+
+    public void incrementCommentCount() {
+        this.commentCount++;
+    }
+
+    public void decrementCommentCount() {
+        this.commentCount = Math.max(0, this.commentCount - 1);
+    }
+
+    public void delete() {
+        this.isDeleted = true;
+    }
+
+    public void update(String title, String content, PostSentiment sentiment) {
+        this.title = title;
+        this.content = content;
         this.sentiment = sentiment;
     }
 }

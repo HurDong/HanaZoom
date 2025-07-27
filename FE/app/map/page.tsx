@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Compass, Layers, TrendingUp } from "lucide-react";
 import { useAuthStore } from "@/app/utils/auth";
-import { api, API_ENDPOINTS } from "@/app/config/api";
+import api from "@/app/config/api";
+import { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
 
 // 백엔드 RegionResponse DTO와 일치하는 타입 정의
 export interface Region {
@@ -58,8 +59,10 @@ export default function MapPage() {
   useEffect(() => {
     const fetchRegions = async () => {
       try {
-        const { data } = await api.get<Region[]>(API_ENDPOINTS.regions);
-        setRegions(data);
+        const { data } = await api.get<ApiResponse<Region[]>>(
+          API_ENDPOINTS.regions
+        );
+        setRegions(data.data);
       } catch (err) {
         console.error("지역 데이터를 불러오는 데 실패했습니다.", err);
         setError("지역 데이터를 불러오는 데 실패했습니다.");

@@ -30,8 +30,7 @@ public class Comment {
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
-    @Lob
-    @Column(name = "content", nullable = false)
+    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Column(name = "like_count")
@@ -52,6 +51,22 @@ public class Comment {
     public Comment(Post post, Member member, String content) {
         this.post = post;
         this.member = member;
+        this.content = content;
+    }
+
+    public void incrementLikeCount() {
+        this.likeCount++;
+    }
+
+    public void decrementLikeCount() {
+        this.likeCount = Math.max(0, this.likeCount - 1);
+    }
+
+    public void delete() {
+        this.isDeleted = true;
+    }
+
+    public void update(String content) {
         this.content = content;
     }
 }

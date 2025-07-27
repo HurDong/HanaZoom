@@ -2,6 +2,7 @@ package com.hanazoom.global.service;
 
 import com.hanazoom.global.dto.KakaoAddressResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -10,10 +11,11 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class KakaoApiService {
 
-    private final WebClient webClient;
+    @Qualifier("kakaoWebClient")
+    private final WebClient kakaoWebClient;
 
     public KakaoAddressResponse.Document getCoordinates(String address) {
-        KakaoAddressResponse response = webClient.get()
+        KakaoAddressResponse response = kakaoWebClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/v2/local/search/address.json")
                         .queryParam("query", address)
