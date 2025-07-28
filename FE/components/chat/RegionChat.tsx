@@ -43,6 +43,8 @@ interface ChatMessage {
   content: string;
   createdAt: string;
   showHeader?: boolean; // 서버에서 보내는 추가 정보
+  senderId?: string; // 현재 사용자 식별용
+  isMyMessage?: boolean; // 내가 보낸 메시지 여부
 }
 
 interface RegionChatProps {
@@ -96,6 +98,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   const isActionAllowed = useCallback((action: string) => {
     const now = Date.now();
@@ -226,6 +229,11 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
             // 사용자 목록 업데이트를 메시지 처리보다 먼저 수행
             if (Array.isArray(data.users)) {
               setOnlineUsers(data.users);
+            }
+
+            // 현재 사용자의 session ID 저장 (첫 번째 메시지에서)
+            if (data.senderId && !currentSessionId) {
+              setCurrentSessionId(data.senderId);
             }
 
             if (!receivedMessageIds.current.has(data.id)) {
@@ -609,6 +617,9 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                       ? message.showHeader
                       : true;
 
+                  // 현재 사용자의 메시지인지 확인
+                  const isMyMessage = message.isMyMessage === true;
+
                   return (
                     <motion.div
                       key={message.id}
@@ -622,6 +633,8 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                         message.messageType === "ENTER" ||
                         message.messageType === "LEAVE"
                           ? "items-center"
+                          : isMyMessage
+                          ? "items-end"
                           : "items-start"
                       }`}
                     >
@@ -630,7 +643,11 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                         message.messageType !== "WELCOME" &&
                         message.messageType !== "ENTER" &&
                         message.messageType !== "LEAVE" && (
-                          <div className="flex items-center space-x-2 text-xs mb-1">
+                          <div
+                            className={`flex items-center space-x-2 text-xs mb-1 ${
+                              isMyMessage ? "justify-end" : "justify-start"
+                            }`}
+                          >
                             <span className="font-semibold text-foreground/80">
                               {message.memberName}
                             </span>
@@ -641,8 +658,6 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                         <DropdownMenuTrigger asChild>
                           <div
                             className={`group relative flex items-end ${
-                              !showHeader && "ml-4"
-                            } ${
                               message.messageType === "SYSTEM" ||
                               message.messageType === "WELCOME" ||
                               message.messageType === "ENTER" ||
@@ -658,8 +673,10 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                                   : message.messageType === "WELCOME" ||
                                     message.messageType === "ENTER" ||
                                     message.messageType === "LEAVE"
-                                  ? "bg-muted/40 text-muted-foreground rounded-full px-4 py-1.5 text-center max-w-[90%] text-xs"
-                                  : "bg-primary/10 hover:bg-primary/15 dark:bg-primary/20 dark:hover:bg-primary/25 text-foreground rounded-2xl max-w-[85%] transition-colors cursor-pointer"
+                                  ? "bg-muted/40 text-muted-foreground rounded-full px-4 py-1.5 text-center max-w-[95%] text-xs whitespace-nowrap"
+                                  : isMyMessage
+                                  ? "bg-blue-500 text-white rounded-2xl rounded-br-md max-w-[85%] transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md"
+                                  : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl rounded-bl-md max-w-[85%] transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md"
                               }`}
                             >
                               {message.content}
@@ -668,7 +685,11 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                               message.messageType !== "WELCOME" &&
                               message.messageType !== "ENTER" &&
                               message.messageType !== "LEAVE" && (
-                                <span className="text-[10px] text-muted-foreground/60 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span
+                                  className={`text-[10px] text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity ${
+                                    isMyMessage ? "mr-2" : "ml-2"
+                                  }`}
+                                >
                                   {formatTime(message.createdAt)}
                                 </span>
                               )}

@@ -181,6 +181,8 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             msg.put("memberName", "익명" + sessionIdToNumber.get(session.getId()));
             msg.put("id", UUID.randomUUID().toString());
             msg.put("createdAt", new Date());
+            msg.put("senderId", session.getId()); // 현재 사용자 식별용
+            msg.put("isMyMessage", false); // 다른 사용자들에게는 false
 
             // 현재 참여자 목록 추가
             List<String> currentUsers = regionSessions.get(regionId).values().stream()
@@ -214,7 +216,20 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             String messageJson = objectMapper.writeValueAsString(msg);
             regionSessions.get(regionId).forEach((id, s) -> {
                 if (s.isOpen()) {
-                    sendMessageSafely(s, messageJson);
+                    // 각 사용자에게 개별적으로 메시지 전송
+                    if (id.equals(session.getId())) {
+                        // 내가 보낸 메시지
+                        Map<String, Object> myMessage = new HashMap<>(msg);
+                        myMessage.put("isMyMessage", true);
+                        try {
+                            s.sendMessage(new TextMessage(objectMapper.writeValueAsString(myMessage)));
+                        } catch (IOException e) {
+                            log.error("Failed to send message to session: {}", s.getId(), e);
+                        }
+                    } else {
+                        // 다른 사용자에게는 isMyMessage = false
+                        sendMessageSafely(s, messageJson);
+                    }
                 }
             });
         } catch (IOException e) {
