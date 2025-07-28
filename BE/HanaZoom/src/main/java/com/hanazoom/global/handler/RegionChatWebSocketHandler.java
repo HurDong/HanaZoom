@@ -89,20 +89,25 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
 
         try {
             // 수신된 메시지를 JSON 형식으로 변환
+            Map<String, String> receivedMsg = objectMapper.readValue(message.getPayload(), Map.class);
+            String content = receivedMsg.get("content");
+            if (content == null || content.trim().isEmpty()) {
+                log.warn("Empty message from session {} ignored.", sessionId);
+                return;
+            }
+
             Map<String, Object> chatMessage = new HashMap<>();
+            chatMessage.put("id", java.util.UUID.randomUUID().toString());
             chatMessage.put("type", "message");
             chatMessage.put("messageType", "CHAT");
             chatMessage.put("memberName", sessionId);
-            chatMessage.put("content", message.getPayload());
+            chatMessage.put("content", content);
             chatMessage.put("createdAt", java.time.LocalDateTime.now().toString());
 
             String jsonMessage = objectMapper.writeValueAsString(chatMessage);
 
-            // 발신자에게 에코
-            sendMessageSafely(session, jsonMessage);
-
-            // 다른 사용자들에게 브로드캐스트
-            broadcastMessage(jsonMessage, sessionId);
+            // 모든 사용자에게 브로드캐스트 (발신자 포함)
+            sessions.forEach((id, s) -> sendMessageSafely(s, jsonMessage));
         } catch (Exception e) {
             log.error("메시지 처리 실패 - 세션: {}", sessionId, e);
             closeSessionSafely(session);

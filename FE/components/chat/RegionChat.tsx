@@ -28,7 +28,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   const [newMessage, setNewMessage] = useState("");
   const [isConnected, setIsConnected] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(0);
-  const [isReconnecting, setIsReconnecting] = useState(false);
+  const isReconnecting = useRef(false);
   const ws = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
   const reconnectTimeoutId = useRef<NodeJS.Timeout | null>(null);
@@ -60,7 +60,55 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   }, []);
 
   const connectWebSocket = useCallback(
-    async (token: string) => {
+    async (token: string | null) => {
+      const handleReconnect = async () => {
+        if (
+          isUnmounting.current ||
+          isReconnecting.current ||
+          reconnectAttempts.current >= 5
+        )
+          return;
+
+        isReconnecting.current = true;
+        reconnectAttempts.current += 1;
+
+        try {
+          let token = getAccessToken();
+          if (!token) {
+            token = await refreshAccessToken();
+          }
+
+          const delay = Math.min(
+            1000 * Math.pow(2, reconnectAttempts.current - 1),
+            10000
+          );
+          console.log(
+            `${delay}ms 후 재연결 시도... (시도 ${reconnectAttempts.current}/5)`
+          );
+
+          clearReconnectTimeout();
+          reconnectTimeoutId.current = setTimeout(() => {
+            if (!isUnmounting.current) {
+              connectWebSocket(token);
+            }
+          }, delay);
+        } catch (error) {
+          if (isUnmounting.current) return;
+
+          console.error("재연결 실패:", error);
+          isReconnecting.current = false;
+
+          if (reconnectAttempts.current >= 5) {
+            router.push("/login");
+          }
+        }
+      };
+
+      if (!token) {
+        console.error("No token provided for WebSocket connection");
+        return;
+      }
+
       if (isUnmounting.current) return;
 
       if (ws.current?.readyState === WebSocket.OPEN) {
@@ -83,7 +131,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
           }
           console.log("채팅방 연결됨");
           setIsConnected(true);
-          setIsReconnecting(false);
+          isReconnecting.current = false;
           reconnectAttempts.current = 0;
           ws.current = socket;
         };
@@ -94,7 +142,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
           try {
             const data = JSON.parse(event.data);
             const newMessage: ChatMessage = {
-              id: Date.now().toString() + Math.random(),
+              id: data.id,
               type: data.type,
               messageType: data.messageType,
               memberName: data.memberName,
@@ -102,7 +150,12 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
               createdAt: data.createdAt,
             };
 
-            setMessages((prev) => [...prev, newMessage]);
+            setMessages((prev) => {
+              if (prev.some((msg) => msg.id === newMessage.id)) {
+                return prev;
+              }
+              return [...prev, newMessage];
+            });
           } catch (error) {
             console.error("메시지 파싱 오류:", error);
           }
@@ -115,10 +168,9 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
           setIsConnected(false);
           ws.current = null;
 
-          // 의도적인 연결 종료가 아닌 경우에만 재연결 시도
           if (
             !isUnmounting.current &&
-            !isReconnecting &&
+            !isReconnecting.current &&
             reconnectAttempts.current < 5
           ) {
             handleReconnect();
@@ -138,76 +190,41 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         setIsConnected(false);
       }
     },
-    [closeWebSocket, isReconnecting]
+    [closeWebSocket, router]
   );
-
-  const handleReconnect = useCallback(async () => {
-    if (
-      isUnmounting.current ||
-      isReconnecting ||
-      reconnectAttempts.current >= 5
-    )
-      return;
-
-    setIsReconnecting(true);
-    reconnectAttempts.current += 1;
-
-    try {
-      let token = getAccessToken();
-      if (!token) {
-        token = await refreshAccessToken();
-      }
-
-      // 지수 백오프를 사용한 재연결 대기
-      const delay = Math.min(
-        1000 * Math.pow(2, reconnectAttempts.current - 1),
-        10000
-      );
-      console.log(
-        `${delay}ms 후 재연결 시도... (시도 ${reconnectAttempts.current}/5)`
-      );
-
-      clearReconnectTimeout();
-      reconnectTimeoutId.current = setTimeout(() => {
-        if (!isUnmounting.current) {
-          connectWebSocket(token);
-        }
-      }, delay);
-    } catch (error) {
-      if (isUnmounting.current) return;
-
-      console.error("재연결 실패:", error);
-      setIsReconnecting(false);
-
-      if (reconnectAttempts.current >= 5) {
-        router.push("/login");
-      }
-    }
-  }, [connectWebSocket, router]);
 
   useEffect(() => {
     isUnmounting.current = false;
 
-    const token = getAccessToken();
-    if (!token) {
-      console.error("No access token found");
-      refreshAccessToken()
-        .then((newToken) => {
-          if (!isUnmounting.current) {
-            console.log("Token refreshed successfully");
-            connectWebSocket(newToken);
+    const initializeWebSocket = async () => {
+      try {
+        let token = getAccessToken();
+        if (!token) {
+          console.log("Token not found, refreshing...");
+          try {
+            token = await refreshAccessToken();
+          } catch (error) {
+            throw new Error("Failed to refresh token");
           }
-        })
-        .catch((error) => {
-          if (!isUnmounting.current) {
-            console.error("Failed to refresh token:", error);
-            router.push("/login");
-          }
-        });
-      return;
-    }
+        }
 
-    connectWebSocket(token);
+        if (!token) {
+          throw new Error("No valid token available");
+        }
+
+        if (!isUnmounting.current) {
+          console.log("Connecting with token");
+          connectWebSocket(token);
+        }
+      } catch (error) {
+        if (!isUnmounting.current) {
+          console.error("Failed to initialize WebSocket:", error);
+          router.push("/login");
+        }
+      }
+    };
+
+    initializeWebSocket();
 
     return () => {
       isUnmounting.current = true;
@@ -225,7 +242,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
       return;
     }
 
-    ws.current.send(newMessage);
+    ws.current.send(JSON.stringify({ content: newMessage }));
     setNewMessage("");
   };
 
