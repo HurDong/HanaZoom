@@ -2,8 +2,6 @@ package com.hanazoom.domain.member.service;
 
 import com.hanazoom.domain.member.dto.*;
 
-import java.util.UUID;
-
 public interface MemberService {
     void signup(SignupRequest request);
 
@@ -11,5 +9,6 @@ public interface MemberService {
 
     TokenRefreshResponse refreshToken(TokenRefreshRequest request);
 
-    void logout(UUID memberId);
+    // 사용자의 지역 ID를 조회하는 메서드 추가
+    Long getUserRegionId(String userEmail);
 }

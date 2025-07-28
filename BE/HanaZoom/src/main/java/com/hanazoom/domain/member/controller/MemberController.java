@@ -39,7 +39,7 @@ public class MemberController {
         }
     }
 
-    @PostMapping("/refresh")
+    @PostMapping("/refresh-token")
     public ResponseEntity<ApiResponse<TokenRefreshResponse>> refreshToken(
             @Valid @RequestBody TokenRefreshRequest request) {
         try {
@@ -50,17 +50,21 @@ public class MemberController {
         }
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(@RequestHeader("Authorization") String token) {
+    @GetMapping("/region")
+    public ResponseEntity<ApiResponse<Long>> getUserRegion(@RequestHeader("Authorization") String authHeader) {
         try {
-            if (token != null && token.startsWith("Bearer ")) {
-                token = token.substring(7);
-            }
-            UUID memberId = jwtUtil.getMemberIdFromToken(token);
-            memberService.logout(memberId);
-            return ResponseEntity.ok(ApiResponse.success("로그아웃되었습니다."));
+            // Bearer 토큰에서 JWT 추출
+            String token = authHeader.replace("Bearer ", "");
+
+            // JWT에서 이메일 추출
+            String email = jwtUtil.getEmailFromToken(token);
+
+            // 사용자 지역 조회
+            Long regionId = memberService.getUserRegionId(email);
+
+            return ResponseEntity.ok(ApiResponse.success(regionId));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error("지역 정보를 가져올 수 없습니다: " + e.getMessage()));
         }
     }
 }
