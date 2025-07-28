@@ -51,38 +51,59 @@ interface RegionChatProps {
 
 type WebSocketReadyState = "connecting" | "open" | "closed";
 
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY = 2000;
+const CONNECTION_TIMEOUT = 5000;
+
+// WebSocket 상태 코드에 대한 설명
+const WS_CLOSE_CODES = {
+  1000: "정상 종료",
+  1001: "서버 종료",
+  1002: "프로토콜 에러",
+  1003: "잘못된 데이터",
+  1005: "예약됨",
+  1006: "비정상 종료",
+  1007: "잘못된 메시지 형식",
+  1008: "정책 위반",
+  1009: "메시지가 너무 큼",
+  1010: "확장 기능 누락",
+  1011: "예상치 못한 서버 에러",
+  1015: "TLS 핸드셰이크 실패",
+};
+
 export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
-  const [readyState, setReadyState] = useState<WebSocketReadyState>("closed");
+  const [readyState, setReadyState] = useState<
+    "connecting" | "open" | "closed"
+  >("closed");
   const [error, setError] = useState<string | null>(null);
   const [isUserListOpen, setIsUserListOpen] = useState(false);
   const ws = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
-  const reconnectTimeoutId = useRef<NodeJS.Timeout | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const isUnmounting = useRef(false);
-  const receivedMessageIds = useRef(new Set<string>());
+  const reconnectTimeoutId = useRef<NodeJS.Timeout>();
+  const connectionTimeoutId = useRef<NodeJS.Timeout>();
   const isClosing = useRef(false);
   const lastActionTimestamp = useRef<Record<string, number>>({});
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const receivedMessageIds = useRef(new Set<string>());
   const ACTION_DEBOUNCE_MS = 2000; // 동일 액션 간 최소 간격
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const isActionAllowed = (action: string) => {
+  const isActionAllowed = useCallback((action: string) => {
     const now = Date.now();
     const lastTime = lastActionTimestamp.current[action] || 0;
-
-    if (now - lastTime >= ACTION_DEBOUNCE_MS) {
-      lastActionTimestamp.current[action] = now;
-      return true;
+    if (now - lastTime < ACTION_DEBOUNCE_MS) {
+      return false;
     }
-    return false;
-  };
+    lastActionTimestamp.current[action] = now;
+    return true;
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -92,33 +113,20 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
     scrollToBottom();
   }, [messages]);
 
-  const clearReconnectTimeout = () => {
-    if (reconnectTimeoutId.current) {
-      clearTimeout(reconnectTimeoutId.current);
-      reconnectTimeoutId.current = null;
-    }
-  };
-
   const closeWebSocket = useCallback(() => {
-    if (!ws.current || isClosing.current || !isActionAllowed("close")) {
-      return;
-    }
+    if (isClosing.current || !ws.current) return;
 
     isClosing.current = true;
     try {
-      ws.current.onopen = null;
-      ws.current.onmessage = null;
-      ws.current.onerror = null;
       ws.current.onclose = null;
-
-      if (
-        ws.current.readyState === WebSocket.OPEN ||
-        ws.current.readyState === WebSocket.CONNECTING
-      ) {
-        ws.current.close();
-      }
-    } finally {
+      ws.current.onerror = null;
+      ws.current.onmessage = null;
+      ws.current.onopen = null;
+      ws.current.close();
       ws.current = null;
+    } catch (err) {
+      console.error("Error closing WebSocket:", err);
+    } finally {
       isClosing.current = false;
       setReadyState("closed");
     }
@@ -126,192 +134,221 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
 
   const connectWebSocket = useCallback(
     async (token: string | null) => {
-      if (ws.current || !isActionAllowed("connect")) {
+      if (!token || !isActionAllowed("connect")) return;
+
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        console.log("WebSocket already connected");
         return;
       }
-
-      if (!token) {
-        console.error("No token provided for WebSocket connection");
-        return;
-      }
-
-      if (isUnmounting.current) return;
-
-      closeWebSocket();
-      clearReconnectTimeout();
 
       try {
+        closeWebSocket();
         setReadyState("connecting");
-        await new Promise((resolve) => setTimeout(resolve, 500)); // 연결 시도 전 잠시 대기
+        setError(null);
 
-        const socket = new WebSocket(
-          `ws://localhost:8080/ws/chat/region?token=${token}`
+        // Clear any existing timeouts
+        if (reconnectTimeoutId.current) {
+          clearTimeout(reconnectTimeoutId.current);
+        }
+        if (connectionTimeoutId.current) {
+          clearTimeout(connectionTimeoutId.current);
+        }
+
+        // Set connection timeout
+        connectionTimeoutId.current = setTimeout(() => {
+          if (ws.current?.readyState !== WebSocket.OPEN) {
+            console.log("WebSocket connection timeout");
+            closeWebSocket();
+            handleReconnect(token);
+          }
+        }, CONNECTION_TIMEOUT);
+
+        // Create new WebSocket connection with encoded token
+        const encodedToken = encodeURIComponent(token);
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const host =
+          window.location.hostname === "localhost"
+            ? "localhost:8080"
+            : window.location.host;
+        const wsUrl = `${protocol}//${host}/ws/chat/region?regionId=${regionId}&token=${encodedToken}`;
+
+        console.log(
+          "Connecting to WebSocket:",
+          wsUrl.replace(encodedToken, "REDACTED")
         );
-        ws.current = socket;
 
-        socket.onopen = () => {
-          if (isUnmounting.current || ws.current !== socket) return;
-          console.log("채팅방 연결됨");
+        ws.current = new WebSocket(wsUrl);
+
+        // Set binary type to support potential binary messages
+        ws.current.binaryType = "arraybuffer";
+
+        ws.current.onopen = () => {
+          console.log("WebSocket connected successfully");
           setReadyState("open");
           reconnectAttempts.current = 0;
+          if (connectionTimeoutId.current) {
+            clearTimeout(connectionTimeoutId.current);
+          }
+
+          // Send initial heartbeat
+          sendHeartbeat();
         };
 
-        socket.onmessage = (event) => {
-          if (isUnmounting.current || ws.current !== socket) return;
-
+        ws.current.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            console.log("Received message:", data); // 디버깅용 로그
 
-            if (receivedMessageIds.current.has(data.id)) {
-              return;
-            }
-            receivedMessageIds.current.add(data.id);
-
-            // 메시지 ID Set 크기 제한 (메모리 관리)
-            if (receivedMessageIds.current.size > 1000) {
-              const oldIds = Array.from(receivedMessageIds.current).slice(
-                0,
-                500
-              );
-              receivedMessageIds.current = new Set(oldIds);
+            // 사용자 목록 업데이트를 메시지 처리보다 먼저 수행
+            if (Array.isArray(data.users)) {
+              setOnlineUsers(data.users);
+              console.log("Updated users list:", data.users); // 디버깅용 로그
             }
 
-            const receivedMessage: ChatMessage = {
-              id: data.id,
-              type: data.type,
-              messageType: data.messageType,
-              memberName: data.memberName,
-              content: data.content,
-              createdAt: data.createdAt,
-            };
-
-            switch (data.type) {
-              case "WELCOME":
-                setMessages([receivedMessage]);
-                setOnlineUsers(data.users || []);
-                break;
-              case "CHAT":
-                setMessages((prev) => [...prev, receivedMessage]);
-                break;
-              case "ENTER":
-                // 입장 메시지 처리 전 잠시 대기
-                setTimeout(() => {
-                  setMessages((prev) => [...prev, receivedMessage]);
-                  setOnlineUsers((prev) =>
-                    [...prev, data.memberName].filter(
-                      (v, i, a) => a.indexOf(v) === i
-                    )
-                  );
-                }, 100);
-                break;
-              case "LEAVE":
-                // 퇴장 메시지 처리 전 잠시 대기
-                setTimeout(() => {
-                  setMessages((prev) => [...prev, receivedMessage]);
-                  setOnlineUsers((prev) =>
-                    prev.filter((user) => user !== data.memberName)
-                  );
-                }, 100);
-                break;
-              default:
-                console.warn("알 수 없는 메시지 타입:", data.type);
+            if (!receivedMessageIds.current.has(data.id)) {
+              receivedMessageIds.current.add(data.id);
+              setMessages((prev) => [...prev, data]);
             }
-          } catch (error) {
-            console.error("메시지 파싱 오류:", error);
+          } catch (err) {
+            console.error("Error parsing message:", err);
           }
         };
 
-        socket.onclose = (event) => {
-          if (isUnmounting.current || ws.current !== socket) return;
+        ws.current.onclose = (event) => {
+          const reason = WS_CLOSE_CODES[event.code] || "알 수 없는 이유";
+          console.log(
+            `WebSocket closed with code: ${event.code} (${reason}), reason: ${event.reason}`
+          );
 
-          console.log("채팅방 연결 종료", event.code, event.reason);
-          setReadyState("closed");
-          ws.current = null;
-
-          if (reconnectAttempts.current < 5 && isActionAllowed("reconnect")) {
-            reconnectAttempts.current += 1;
-            const delay = Math.min(
-              1000 * Math.pow(2, reconnectAttempts.current - 1),
-              10000
-            );
-            console.log(`${delay}ms 후 재연결 시도...`);
-            reconnectTimeoutId.current = setTimeout(() => {
-              initializeWebSocket();
-            }, delay);
-          } else {
-            setError(
-              "채팅방 연결이 종료되었습니다. 페이지를 새로고침해주세요."
-            );
+          if (!isClosing.current) {
+            if (event.code === 1006) {
+              // 비정상 종료의 경우 즉시 재연결 시도
+              handleReconnect(token);
+            } else if (event.code === 1000) {
+              // 정상 종료의 경우 재연결 시도하지 않음
+              setReadyState("closed");
+            } else {
+              // 그 외의 경우 재연결 시도
+              handleReconnect(token);
+            }
           }
         };
 
-        socket.onerror = (error) => {
-          if (isUnmounting.current || ws.current !== socket) return;
-          console.error("WebSocket 오류:", error);
-          setReadyState("closed");
+        ws.current.onerror = (event) => {
+          console.error("WebSocket error:", event);
+          console.log("Connection state:", ws.current?.readyState);
+          console.log("Region ID:", regionId);
+
+          // 연결 상태가 CONNECTING인 경우에만 재연결 시도
+          if (ws.current?.readyState === WebSocket.CONNECTING) {
+            handleReconnect(token);
+          }
         };
-      } catch (error) {
-        if (isUnmounting.current) return;
-        console.error("WebSocket 연결 실패:", error);
-        setReadyState("closed");
+      } catch (err) {
+        console.error("Error connecting to WebSocket:", err);
+        handleReconnect(token);
       }
     },
-    [closeWebSocket]
+    [regionId, isActionAllowed, closeWebSocket]
+  );
+
+  const handleReconnect = useCallback(
+    (token: string) => {
+      if (!isActionAllowed("reconnect")) return;
+
+      if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+        setError("연결에 실패했습니다. 페이지를 새로고침해주세요.");
+        return;
+      }
+
+      console.log(
+        `Reconnecting... Attempt ${
+          reconnectAttempts.current + 1
+        }/${MAX_RECONNECT_ATTEMPTS}`
+      );
+      reconnectAttempts.current += 1;
+
+      reconnectTimeoutId.current = setTimeout(() => {
+        connectWebSocket(token);
+      }, RECONNECT_DELAY * Math.min(reconnectAttempts.current, 3));
+    },
+    [connectWebSocket, isActionAllowed]
   );
 
   const initializeWebSocket = useCallback(async () => {
-    // 이미 연결되어 있거나 연결 중인 경우 중복 실행 방지
-    if (ws.current) {
-      return;
-    }
-
     try {
-      let token = getAccessToken();
+      let token = await getAccessToken();
+
       if (!token) {
-        console.log("Token not found, refreshing...");
-        token = await refreshAccessToken();
+        const refreshResult = await refreshAccessToken();
+        if (!refreshResult) {
+          setError("인증이 필요합니다.");
+          return;
+        }
+        token = await getAccessToken();
       }
-      if (!isUnmounting.current) {
-        connectWebSocket(token);
+
+      if (!token) {
+        setError("인증이 필요합니다.");
+        return;
       }
-    } catch (error) {
-      if (!isUnmounting.current) {
-        console.error("Failed to initialize WebSocket:", error);
-        setError(
-          "채팅 서버에 연결할 수 없습니다. 로그인 상태를 확인하고 페이지를 새로고침해주세요."
-        );
-      }
+
+      connectWebSocket(token);
+    } catch (err) {
+      console.error("Error initializing WebSocket:", err);
+      setError("연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   }, [connectWebSocket]);
 
   useEffect(() => {
-    isUnmounting.current = false;
-    isClosing.current = false;
+    initializeWebSocket();
 
-    // 페이지 가시성 변화 감지
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        // 페이지가 숨겨질 때 (탭 전환 등)
-        closeWebSocket();
+        // 페이지가 숨겨질 때는 연결을 유지
+        console.log("페이지 비활성화 - 연결 유지");
       } else {
-        // 페이지가 다시 보일 때
-        if (!ws.current && !isClosing.current) {
+        // 페이지가 다시 보일 때 연결 상태 확인
+        if (ws.current?.readyState !== WebSocket.OPEN) {
+          console.log("페이지 활성화 - 재연결 시도");
           initializeWebSocket();
         }
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    initializeWebSocket();
 
     return () => {
-      isUnmounting.current = true;
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      clearReconnectTimeout();
       closeWebSocket();
-      receivedMessageIds.current.clear();
+      if (reconnectTimeoutId.current) {
+        clearTimeout(reconnectTimeoutId.current);
+      }
+      if (connectionTimeoutId.current) {
+        clearTimeout(connectionTimeoutId.current);
+      }
     };
-  }, [initializeWebSocket, closeWebSocket]);
+  }, [closeWebSocket, initializeWebSocket]);
+
+  // Heartbeat mechanism
+  const heartbeatInterval = useRef<NodeJS.Timeout>();
+
+  const sendHeartbeat = useCallback(() => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type: "PING" }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (readyState === "open") {
+      heartbeatInterval.current = setInterval(sendHeartbeat, 30000);
+    }
+    return () => {
+      if (heartbeatInterval.current) {
+        clearInterval(heartbeatInterval.current);
+      }
+    };
+  }, [readyState, sendHeartbeat]);
 
   const sendMessage = () => {
     if (
@@ -503,7 +540,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                       <Badge
                         key={user}
                         variant="secondary"
-                        className="text-xs bg-background hover:bg-accent transition-colors"
+                        className="text-xs bg-gradient-to-r from-blue-500/20 to-purple-500/20 hover:from-blue-500/30 hover:to-purple-500/30 border border-blue-500/30 text-blue-700 dark:text-blue-300 font-medium"
                       >
                         {user}
                       </Badge>
