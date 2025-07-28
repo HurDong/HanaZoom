@@ -37,10 +37,14 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
     private final Object sessionLock = new Object();
     private final Set<String> closingSessionIds = Collections.synchronizedSet(new HashSet<>());
     private final Map<String, Long> lastActionTimestamp = new ConcurrentHashMap<>();
-    private static final long ACTION_THROTTLE_MS = 2000;
+    private static final long ACTION_THROTTLE_MS = 500;
 
     private final Map<Integer, String> numberToSessionId = new ConcurrentHashMap<>();
     private final Map<String, Integer> sessionIdToNumber = new ConcurrentHashMap<>();
+
+    // 지역별 마지막 채팅 메시지 정보 추적
+    private final Map<String, String> regionLastChatMember = new ConcurrentHashMap<>();
+    private final Map<String, Long> regionLastChatTime = new ConcurrentHashMap<>();
 
     private boolean isActionAllowed(String sessionId, String action) {
         long currentTime = System.currentTimeMillis();
@@ -137,17 +141,38 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String regionId = session.getUri().getQuery().split("regionId=")[1].split("&")[0];
 
-        if (!isActionAllowed(session.getId(), "message")) {
-            return;
-        }
-
         try {
             Map<String, Object> msg = objectMapper.readValue(message.getPayload(), Map.class);
+
+            // 타이핑 상태 메시지 처리
+            if ("TYPING".equals(msg.get("type"))) {
+                // 타이핑 메시지는 throttling 적용하지 않음
+                // 타이핑 상태를 다른 사용자들에게 전송
+                Map<String, Object> typingMessage = new HashMap<>();
+                typingMessage.put("type", "TYPING");
+                typingMessage.put("messageType", "TYPING");
+                typingMessage.put("memberName", "익명" + sessionIdToNumber.get(session.getId()));
+                typingMessage.put("id", UUID.randomUUID().toString());
+                typingMessage.put("createdAt", new Date());
+                typingMessage.put("isTyping", msg.get("isTyping"));
+
+                String typingMessageJson = objectMapper.writeValueAsString(typingMessage);
+                regionSessions.get(regionId).forEach((id, s) -> {
+                    if (!id.equals(session.getId()) && s.isOpen()) {
+                        sendMessageSafely(s, typingMessageJson);
+                    }
+                });
+                return;
+            }
+
+            // 일반 채팅 메시지에만 throttling 적용 (0.5초)
+            if (!isActionAllowed(session.getId(), "message")) {
+                return;
+            }
 
             // 빈 메시지 검증
             String content = (String) msg.get("content");
             if (content == null || content.trim().isEmpty()) {
-                log.warn("Received empty message from session: {}", session.getId());
                 return;
             }
 
@@ -162,6 +187,29 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
                     .map(s -> "익명" + sessionIdToNumber.get(s.getId()))
                     .collect(Collectors.toList());
             msg.put("users", currentUsers);
+
+            // showHeader 계산 (채팅 메시지만 고려)
+            boolean showHeader = true;
+            String currentMemberName = "익명" + sessionIdToNumber.get(session.getId());
+            long currentTime = System.currentTimeMillis();
+
+            if (regionLastChatMember.containsKey(regionId)) {
+                String lastMember = regionLastChatMember.get(regionId);
+                Long lastTime = regionLastChatTime.get(regionId);
+
+                // 같은 사용자의 연속 메시지이고 5분 이내인 경우 헤더 숨김
+                if (lastMember.equals(currentMemberName) &&
+                        lastTime != null &&
+                        currentTime - lastTime < 300000) {
+                    showHeader = false;
+                }
+            }
+
+            // 현재 메시지 정보 업데이트
+            regionLastChatMember.put(regionId, currentMemberName);
+            regionLastChatTime.put(regionId, currentTime);
+
+            msg.put("showHeader", showHeader);
 
             String messageJson = objectMapper.writeValueAsString(msg);
             regionSessions.get(regionId).forEach((id, s) -> {

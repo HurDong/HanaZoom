@@ -42,6 +42,7 @@ interface ChatMessage {
   memberName: string;
   content: string;
   createdAt: string;
+  showHeader?: boolean; // 서버에서 보내는 추가 정보
 }
 
 interface RegionChatProps {
@@ -94,6 +95,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   const [isTyping, setIsTyping] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
 
   const isActionAllowed = useCallback((action: string) => {
     const now = Date.now();
@@ -183,7 +185,6 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         ws.current.binaryType = "arraybuffer";
 
         ws.current.onopen = () => {
-          console.log("WebSocket connected successfully");
           setReadyState("open");
           reconnectAttempts.current = 0;
           if (connectionTimeoutId.current) {
@@ -197,24 +198,34 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         ws.current.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log("Received message:", data); // 디버깅용 로그
 
-            // 빈 메시지나 불필요한 메시지 필터링
-            if (!data || !data.content || data.content.trim() === "") {
-              console.log("Filtered out empty message:", data);
+            // 타이핑 상태 메시지 처리 (content가 없어도 처리)
+            if (data.type === "TYPING") {
+              if (data.isTyping) {
+                setTypingUsers((prev) => new Set(prev).add(data.memberName));
+              } else {
+                setTypingUsers((prev) => {
+                  const newSet = new Set(prev);
+                  newSet.delete(data.memberName);
+                  return newSet;
+                });
+              }
               return;
             }
 
             // heartbeat 메시지 필터링
             if (data.type === "PING" || data.type === "PONG") {
-              console.log("Filtered out heartbeat message:", data);
+              return;
+            }
+
+            // 빈 메시지나 불필요한 메시지 필터링 (타이핑 메시지 제외)
+            if (!data || !data.content || data.content.trim() === "") {
               return;
             }
 
             // 사용자 목록 업데이트를 메시지 처리보다 먼저 수행
             if (Array.isArray(data.users)) {
               setOnlineUsers(data.users);
-              console.log("Updated users list:", data.users); // 디버깅용 로그
             }
 
             if (!receivedMessageIds.current.has(data.id)) {
@@ -339,6 +350,9 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
       if (connectionTimeoutId.current) {
         clearTimeout(connectionTimeoutId.current);
       }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
     };
   }, [closeWebSocket, initializeWebSocket]);
 
@@ -369,6 +383,14 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
       ws.current.readyState !== WebSocket.OPEN
     ) {
       return;
+    }
+
+    // 타이핑 상태 초기화
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type: "TYPING", isTyping: false }));
     }
 
     ws.current.send(JSON.stringify({ content: newMessage }));
@@ -411,12 +433,19 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   };
 
   const handleTyping = () => {
-    setIsTyping(true);
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      // 타이핑 시작 메시지 전송
+      ws.current.send(JSON.stringify({ type: "TYPING", isTyping: true }));
+    }
+
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
     typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
+      // 타이핑 종료 메시지 전송
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        ws.current.send(JSON.stringify({ type: "TYPING", isTyping: false }));
+      }
     }, 1000);
   };
 
@@ -574,14 +603,11 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                   (message) => message.content && message.content.trim() !== ""
                 )
                 .map((message, index) => {
-                  const isSameUser =
-                    index > 0 &&
-                    messages[index - 1].memberName === message.memberName;
+                  // 서버에서 보낸 showHeader 정보 사용
                   const showHeader =
-                    !isSameUser ||
-                    new Date(message.createdAt).getTime() -
-                      new Date(messages[index - 1].createdAt).getTime() >
-                      300000;
+                    message.showHeader !== undefined
+                      ? message.showHeader
+                      : true;
 
                   return (
                     <motion.div
@@ -675,9 +701,9 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
             <div ref={messagesEndRef} />
           </div>
 
-          {isTyping && (
+          {typingUsers.size > 0 && (
             <div className="text-xs text-muted-foreground mb-2 ml-2">
-              누군가 입력하고 있습니다...
+              {Array.from(typingUsers).join(", ")}님이 입력하고 있습니다...
             </div>
           )}
 
