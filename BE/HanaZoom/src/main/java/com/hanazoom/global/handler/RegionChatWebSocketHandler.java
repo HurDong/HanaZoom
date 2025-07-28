@@ -143,6 +143,14 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
 
         try {
             Map<String, Object> msg = objectMapper.readValue(message.getPayload(), Map.class);
+
+            // 빈 메시지 검증
+            String content = (String) msg.get("content");
+            if (content == null || content.trim().isEmpty()) {
+                log.warn("Received empty message from session: {}", session.getId());
+                return;
+            }
+
             msg.put("type", "CHAT");
             msg.put("messageType", "CHAT");
             msg.put("memberName", "익명" + sessionIdToNumber.get(session.getId()));

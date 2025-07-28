@@ -56,7 +56,7 @@ const RECONNECT_DELAY = 2000;
 const CONNECTION_TIMEOUT = 5000;
 
 // WebSocket 상태 코드에 대한 설명
-const WS_CLOSE_CODES = {
+const WS_CLOSE_CODES: Record<number, string> = {
   1000: "정상 종료",
   1001: "서버 종료",
   1002: "프로토콜 에러",
@@ -83,8 +83,8 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   const [isUserListOpen, setIsUserListOpen] = useState(false);
   const ws = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
-  const reconnectTimeoutId = useRef<NodeJS.Timeout>();
-  const connectionTimeoutId = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutId = useRef<NodeJS.Timeout | undefined>(undefined);
+  const connectionTimeoutId = useRef<NodeJS.Timeout | undefined>(undefined);
   const isClosing = useRef(false);
   const lastActionTimestamp = useRef<Record<string, number>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -93,7 +93,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const isActionAllowed = useCallback((action: string) => {
     const now = Date.now();
@@ -198,6 +198,18 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
           try {
             const data = JSON.parse(event.data);
             console.log("Received message:", data); // 디버깅용 로그
+
+            // 빈 메시지나 불필요한 메시지 필터링
+            if (!data || !data.content || data.content.trim() === "") {
+              console.log("Filtered out empty message:", data);
+              return;
+            }
+
+            // heartbeat 메시지 필터링
+            if (data.type === "PING" || data.type === "PONG") {
+              console.log("Filtered out heartbeat message:", data);
+              return;
+            }
 
             // 사용자 목록 업데이트를 메시지 처리보다 먼저 수행
             if (Array.isArray(data.users)) {
@@ -331,7 +343,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   }, [closeWebSocket, initializeWebSocket]);
 
   // Heartbeat mechanism
-  const heartbeatInterval = useRef<NodeJS.Timeout>();
+  const heartbeatInterval = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const sendHeartbeat = useCallback(() => {
     if (ws.current?.readyState === WebSocket.OPEN) {
@@ -557,92 +569,108 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         <CardContent className="flex-1 flex flex-col p-4 min-h-[400px]">
           <div className="flex-1 overflow-y-auto space-y-3 mb-4 p-2 bg-background/50 rounded-lg">
             <AnimatePresence>
-              {messages.map((message, index) => {
-                const isSameUser =
-                  index > 0 &&
-                  messages[index - 1].memberName === message.memberName;
-                const showHeader =
-                  !isSameUser ||
-                  new Date(message.createdAt).getTime() -
-                    new Date(messages[index - 1].createdAt).getTime() >
-                    300000;
+              {messages
+                .filter(
+                  (message) => message.content && message.content.trim() !== ""
+                )
+                .map((message, index) => {
+                  const isSameUser =
+                    index > 0 &&
+                    messages[index - 1].memberName === message.memberName;
+                  const showHeader =
+                    !isSameUser ||
+                    new Date(message.createdAt).getTime() -
+                      new Date(messages[index - 1].createdAt).getTime() >
+                      300000;
 
-                return (
-                  <motion.div
-                    key={message.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className={`flex flex-col ${
-                      message.messageType === "SYSTEM" ||
-                      message.messageType === "WELCOME" ||
-                      message.messageType === "ENTER" ||
-                      message.messageType === "LEAVE"
-                        ? "items-center"
-                        : "items-start"
-                    }`}
-                  >
-                    {showHeader &&
-                      message.messageType !== "SYSTEM" &&
-                      message.messageType !== "WELCOME" &&
-                      message.messageType !== "ENTER" &&
-                      message.messageType !== "LEAVE" && (
-                        <div className="flex items-center space-x-2 text-xs mb-1">
-                          <span className="font-semibold text-foreground/80">
-                            {message.memberName}
-                          </span>
-                        </div>
-                      )}
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <div
-                          className={`group relative flex items-end ${
-                            !showHeader && "ml-4"
-                          }`}
-                        >
-                          <div
-                            className={`text-sm p-3 break-words ${
-                              message.messageType === "SYSTEM"
-                                ? "bg-muted/60 text-muted-foreground rounded-full px-4 py-1.5 text-center max-w-[90%] text-xs"
-                                : message.messageType === "WELCOME" ||
-                                  message.messageType === "ENTER" ||
-                                  message.messageType === "LEAVE"
-                                ? "bg-muted/40 text-muted-foreground rounded-full px-4 py-1.5 text-center max-w-[90%] text-xs"
-                                : "bg-primary/10 hover:bg-primary/15 dark:bg-primary/20 dark:hover:bg-primary/25 text-foreground rounded-2xl max-w-[85%] transition-colors cursor-pointer"
-                            }`}
-                          >
-                            {message.content}
-                          </div>
-                          <span className="text-[10px] text-muted-foreground/60 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {formatTime(message.createdAt)}
-                          </span>
-                        </div>
-                      </DropdownMenuTrigger>
-                      {message.messageType !== "SYSTEM" &&
+                  return (
+                    <motion.div
+                      key={message.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className={`flex flex-col ${
+                        message.messageType === "SYSTEM" ||
+                        message.messageType === "WELCOME" ||
+                        message.messageType === "ENTER" ||
+                        message.messageType === "LEAVE"
+                          ? "items-center"
+                          : "items-start"
+                      }`}
+                    >
+                      {showHeader &&
+                        message.messageType !== "SYSTEM" &&
                         message.messageType !== "WELCOME" &&
                         message.messageType !== "ENTER" &&
                         message.messageType !== "LEAVE" && (
-                          <DropdownMenuContent>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                navigator.clipboard.writeText(message.content)
-                              }
-                            >
-                              복사하기
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => setSelectedMessage(message.id)}
-                            >
-                              답장하기
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
+                          <div className="flex items-center space-x-2 text-xs mb-1">
+                            <span className="font-semibold text-foreground/80">
+                              {message.memberName}
+                            </span>
+                          </div>
                         )}
-                    </DropdownMenu>
-                  </motion.div>
-                );
-              })}
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <div
+                            className={`group relative flex items-end ${
+                              !showHeader && "ml-4"
+                            } ${
+                              message.messageType === "SYSTEM" ||
+                              message.messageType === "WELCOME" ||
+                              message.messageType === "ENTER" ||
+                              message.messageType === "LEAVE"
+                                ? "justify-center"
+                                : ""
+                            }`}
+                          >
+                            <div
+                              className={`text-sm p-3 break-words ${
+                                message.messageType === "SYSTEM"
+                                  ? "bg-muted/60 text-muted-foreground rounded-full px-4 py-1.5 text-center max-w-[90%] text-xs"
+                                  : message.messageType === "WELCOME" ||
+                                    message.messageType === "ENTER" ||
+                                    message.messageType === "LEAVE"
+                                  ? "bg-muted/40 text-muted-foreground rounded-full px-4 py-1.5 text-center max-w-[90%] text-xs"
+                                  : "bg-primary/10 hover:bg-primary/15 dark:bg-primary/20 dark:hover:bg-primary/25 text-foreground rounded-2xl max-w-[85%] transition-colors cursor-pointer"
+                              }`}
+                            >
+                              {message.content}
+                            </div>
+                            {message.messageType !== "SYSTEM" &&
+                              message.messageType !== "WELCOME" &&
+                              message.messageType !== "ENTER" &&
+                              message.messageType !== "LEAVE" && (
+                                <span className="text-[10px] text-muted-foreground/60 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {formatTime(message.createdAt)}
+                                </span>
+                              )}
+                          </div>
+                        </DropdownMenuTrigger>
+                        {message.messageType !== "SYSTEM" &&
+                          message.messageType !== "WELCOME" &&
+                          message.messageType !== "ENTER" &&
+                          message.messageType !== "LEAVE" && (
+                            <DropdownMenuContent>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  navigator.clipboard.writeText(message.content)
+                                }
+                              >
+                                복사하기
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setSelectedMessage(message.id)}
+                              >
+                                답장하기
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          )}
+                      </DropdownMenu>
+                    </motion.div>
+                  );
+                })}
             </AnimatePresence>
             <div ref={messagesEndRef} />
           </div>
