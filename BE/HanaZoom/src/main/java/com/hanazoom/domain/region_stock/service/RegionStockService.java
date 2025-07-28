@@ -1,10 +1,11 @@
 package com.hanazoom.domain.region_stock.service;
 
-import com.hanazoom.domain.region_stock.entity.RegionStock;
-import java.util.List;
+import com.hanazoom.domain.region_stock.dto.RegionStatsResponse;
 
 public interface RegionStockService {
+    RegionStatsResponse getRegionStats(Long regionId);
+
     void updateRegionStocks();
 
-    List<RegionStock> getCurrentRegionStocks();
+    void getCurrentRegionStocks();
 }

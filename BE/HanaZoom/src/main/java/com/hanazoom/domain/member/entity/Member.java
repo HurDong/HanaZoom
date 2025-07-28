@@ -53,6 +53,9 @@ public class Member implements UserDetails {
     @Column(name = "longitude")
     private Double longitude;
 
+    @Column(name = "region_id")
+    private Long regionId;
+
     @Column(name = "terms_agreed", nullable = false)
     private boolean termsAgreed;
 
@@ -72,7 +75,7 @@ public class Member implements UserDetails {
     @Builder
     public Member(String email, String password, String name, String phone,
             String address, String detailAddress, String zonecode,
-            Double latitude, Double longitude,
+            Double latitude, Double longitude, Long regionId,
             boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed) {
         this.email = email;
         this.password = password;
@@ -83,6 +86,7 @@ public class Member implements UserDetails {
         this.zonecode = zonecode;
         this.latitude = latitude;
         this.longitude = longitude;
+        this.regionId = regionId;
         this.termsAgreed = termsAgreed;
         this.privacyAgreed = privacyAgreed;
         this.marketingAgreed = marketingAgreed;
@@ -109,6 +113,10 @@ public class Member implements UserDetails {
 
     public void updateMarketingAgreement(boolean agreed) {
         this.marketingAgreed = agreed;
+    }
+
+    public void updateRegion(Long regionId) {
+        this.regionId = regionId;
     }
 
     @Override
