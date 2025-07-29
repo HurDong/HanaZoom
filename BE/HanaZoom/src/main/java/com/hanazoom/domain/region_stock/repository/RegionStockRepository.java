@@ -25,6 +25,12 @@ public interface RegionStockRepository extends JpaRepository<RegionStock, Long> 
 
         Optional<RegionStock> findByRegionAndStock(Region region, Stock stock);
 
+        // 특정 지역의 모든 RegionStock 조회
+        List<RegionStock> findByRegion_Id(Long regionId);
+
+        // 여러 지역의 모든 RegionStock 조회 (배치 처리용)
+        List<RegionStock> findByRegion_IdIn(List<Long> regionIds);
+
         // 특정 지역의 특정 날짜 데이터 조회
         List<RegionStock> findByRegion_IdAndDataDate(Long regionId, LocalDate date);
 
@@ -37,6 +43,20 @@ public interface RegionStockRepository extends JpaRepository<RegionStock, Long> 
                         @Param("regionId") Long regionId,
                         @Param("date") LocalDate date,
                         Pageable pageable);
+
+        // 특정 지역의 최신 날짜 데이터 중 인기도 상위 N개 조회
+        @Query("SELECT rs FROM RegionStock rs " +
+                        "WHERE rs.region.id = :regionId " +
+                        "AND rs.dataDate = (SELECT MAX(rs2.dataDate) FROM RegionStock rs2 WHERE rs2.region.id = :regionId) "
+                        +
+                        "ORDER BY rs.popularityScore DESC")
+        List<RegionStock> findTopByRegionIdOrderByPopularityScoreDesc(
+                        @Param("regionId") Long regionId,
+                        Pageable pageable);
+
+        // 특정 지역의 최신 데이터 날짜 조회
+        @Query("SELECT MAX(rs.dataDate) FROM RegionStock rs WHERE rs.region.id = :regionId")
+        LocalDate findLatestDataDateByRegionId(@Param("regionId") Long regionId);
 
         // 특정 지역의 특정 날짜 통계 집계
         @Query("SELECT COALESCE(SUM(rs.postCount), 0) as postCount, " +
