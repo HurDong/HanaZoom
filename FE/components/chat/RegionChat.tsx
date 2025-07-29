@@ -34,6 +34,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { motion, AnimatePresence } from "framer-motion";
+import EmojiPicker from "./EmojiPicker";
+import StockMention from "./StockMention";
 
 interface ChatMessage {
   id: string;
@@ -99,6 +101,9 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [showMention, setShowMention] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionPosition, setMentionPosition] = useState(0);
 
   const isActionAllowed = useCallback((action: string) => {
     const now = Date.now();
@@ -427,6 +432,41 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
     }
   };
 
+  const renderMessageContent = (content: string) => {
+    // @멘션을 클릭 가능한 링크로 변환
+    const mentionRegex = /@([가-힣a-zA-Z0-9]+)/g;
+    const parts = content.split(mentionRegex);
+
+    return parts.map((part, index) => {
+      if (index % 2 === 1) {
+        // 멘션 부분 - 주식명으로 검색하여 심볼 찾기
+        return (
+          <button
+            key={index}
+            onClick={() => {
+              // 주식명으로 검색하여 심볼 찾기
+              fetch(`/api/v1/stocks/search?query=${encodeURIComponent(part)}`)
+                .then((response) => response.json())
+                .then((data) => {
+                  if (data.data && data.data.length > 0) {
+                    const stock = data.data[0];
+                    router.push(`/community/${stock.symbol}`);
+                  }
+                })
+                .catch((error) => {
+                  console.error("주식 검색 실패:", error);
+                });
+            }}
+            className="inline-flex items-center px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors cursor-pointer"
+          >
+            @{part}
+          </button>
+        );
+      }
+      return part;
+    });
+  };
+
   const getMessageTypeColor = (messageType: string) => {
     switch (messageType) {
       case "ENTER":
@@ -455,6 +495,54 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         ws.current.send(JSON.stringify({ type: "TYPING", isTyping: false }));
       }
     }, 1000);
+  };
+
+  const handleEmojiSelect = (emoji: string) => {
+    setNewMessage((prev) => prev + emoji);
+    // 이모지 추가 후 타이핑 상태 업데이트
+    handleTyping();
+  };
+
+  const handleMentionSelect = (stock: {
+    symbol: string;
+    name: string;
+    emoji: string;
+  }) => {
+    const beforeMention = newMessage.substring(0, mentionPosition);
+    const afterMention = newMessage.substring(
+      mentionPosition + mentionQuery.length + 1
+    );
+    const mentionText = `@${stock.name}`;
+
+    setNewMessage(beforeMention + mentionText + afterMention);
+    setShowMention(false);
+    setMentionQuery("");
+    setMentionPosition(0);
+
+    // 멘션 추가 후 타이핑 상태 업데이트
+    handleTyping();
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNewMessage(value);
+
+    // @ 멘션 감지
+    const lastAtSymbol = value.lastIndexOf("@");
+    if (lastAtSymbol !== -1) {
+      const query = value.substring(lastAtSymbol + 1);
+      if (query.length > 0 && !query.includes(" ")) {
+        setShowMention(true);
+        setMentionQuery(query);
+        setMentionPosition(lastAtSymbol);
+      } else {
+        setShowMention(false);
+      }
+    } else {
+      setShowMention(false);
+    }
+
+    handleTyping();
   };
 
   if (error) {
@@ -679,7 +767,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                                   : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl rounded-bl-md max-w-[85%] transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md"
                               }`}
                             >
-                              {message.content}
+                              {renderMessageContent(message.content)}
                             </div>
                             {message.messageType !== "SYSTEM" &&
                               message.messageType !== "WELCOME" &&
@@ -704,11 +792,13 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                                 onClick={() =>
                                   navigator.clipboard.writeText(message.content)
                                 }
+                                className="cursor-pointer"
                               >
                                 복사하기
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => setSelectedMessage(message.id)}
+                                className="cursor-pointer"
                               >
                                 답장하기
                               </DropdownMenuItem>
@@ -729,16 +819,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
           )}
 
           <div className="flex items-center space-x-2 shrink-0 pt-3 border-t">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 shrink-0"
-              onClick={() => {
-                /* TODO: Add emoji picker */
-              }}
-            >
-              <Smile className="h-5 w-5 text-muted-foreground" />
-            </Button>
+            <EmojiPicker onEmojiSelect={handleEmojiSelect} />
             <Button
               variant="ghost"
               size="icon"
@@ -776,14 +857,20 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                   </Button>
                 </div>
               )}
+
+              {showMention && (
+                <StockMention
+                  query={mentionQuery}
+                  onSelect={handleMentionSelect}
+                  onClose={() => setShowMention(false)}
+                />
+              )}
+
               <Input
                 value={newMessage}
-                onChange={(e) => {
-                  setNewMessage(e.target.value);
-                  handleTyping();
-                }}
+                onChange={handleInputChange}
                 onKeyPress={handleKeyPress}
-                placeholder="메시지를 입력하세요..."
+                placeholder="메시지를 입력하세요... (@로 주식 검색)"
                 disabled={readyState !== "open"}
                 className="pr-20 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
               />
