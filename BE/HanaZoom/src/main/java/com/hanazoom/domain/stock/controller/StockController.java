@@ -32,4 +32,10 @@ public class StockController {
         List<StockTickerDto> tickers = stockService.getStockTickers();
         return ResponseEntity.ok(ApiResponse.success(tickers));
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<StockTickerDto>>> searchStocks(@RequestParam String query) {
+        List<StockTickerDto> stocks = stockService.searchStocks(query);
+        return ResponseEntity.ok(ApiResponse.success(stocks));
+    }
 }
