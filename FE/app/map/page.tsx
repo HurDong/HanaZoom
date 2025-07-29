@@ -95,11 +95,9 @@ export default function MapPage() {
 
   // 상위 주식 정보를 가져오는 함수
   const fetchTopStocks = async (regionId: number) => {
-    console.log("API 요청 시작 - regionId:", regionId); // 디버깅용 로그
     setLoadingStocks(true);
     try {
       const response = await getTopStocksByRegion(regionId);
-      console.log("API 응답:", response); // 디버깅용 로그
       setTopStocks(response.data);
     } catch (err) {
       console.error("상위 주식 정보를 가져오는 데 실패했습니다.", err);
@@ -110,7 +108,6 @@ export default function MapPage() {
   };
 
   const handleMarkerClick = (region: Region) => {
-    console.log("마커 클릭:", region); // 디버깅용 로그
     setCenter({ lat: region.latitude, lng: region.longitude });
     setSelectedRegion(region);
 
@@ -118,7 +115,6 @@ export default function MapPage() {
     if (region.type === "DISTRICT") setZoomLevel(4);
 
     // 상위 주식 정보 가져오기
-    console.log("요청할 region_id:", region.id); // 디버깅용 로그
     fetchTopStocks(region.id);
   };
 

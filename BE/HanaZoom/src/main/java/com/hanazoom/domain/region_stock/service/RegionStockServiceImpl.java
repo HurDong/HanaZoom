@@ -54,8 +54,6 @@ public class RegionStockServiceImpl implements RegionStockService {
         private void updateCache() {
                 LocalDate today = LocalDate.now();
                 if (lastCacheUpdate == null || !lastCacheUpdate.equals(today)) {
-                        log.debug("캐시 업데이트 시작...");
-
                         // 모든 지역의 기존 주식 정보를 한 번에 조회
                         List<RegionStock> allExistingStocks = regionStockRepository.findAll();
 
@@ -68,7 +66,6 @@ public class RegionStockServiceImpl implements RegionStockService {
                         }
 
                         lastCacheUpdate = today;
-                        log.debug("캐시 업데이트 완료 - {}개 지역", existingStockCache.size());
                 }
         }
 
@@ -76,8 +73,6 @@ public class RegionStockServiceImpl implements RegionStockService {
         private void updateCsvCache() {
                 LocalDate today = LocalDate.now();
                 if (lastCsvCacheUpdate == null || !lastCsvCacheUpdate.equals(today)) {
-                        log.debug("CSV 캐시 업데이트 시작...");
-
                         try {
                                 Resource resource = new ClassPathResource(
                                                 "data/region/recommended_stocks_by_region.csv");
@@ -132,7 +127,6 @@ public class RegionStockServiceImpl implements RegionStockService {
 
                                 reader.close();
                                 lastCsvCacheUpdate = today;
-                                log.debug("CSV 캐시 업데이트 완료 - {}개 지역", csvDataCache.size());
 
                         } catch (IOException e) {
                                 log.error("CSV 캐시 업데이트 실패", e);
@@ -227,20 +221,15 @@ public class RegionStockServiceImpl implements RegionStockService {
 
         @Override
         public List<StockTickerDto> getTopStocksByRegion(Long regionId, int limit) {
-                log.info("지역별 상위 주식 조회 시작 - regionId: {}, limit: {}", regionId, limit);
-
                 // 1. 지역 존재 여부 확인
                 Region region = regionRepository.findById(regionId)
                                 .orElseThrow(() -> new IllegalArgumentException("지역을 찾을 수 없습니다."));
-                log.info("지역 정보 확인 - name: {}, type: {}", region.getName(), region.getType());
 
                 // 2. 해당 지역의 최신 날짜 데이터 중 인기도 점수 순으로 상위 주식 조회
                 List<RegionStock> topRegionStocks = regionStockRepository
                                 .findTopByRegionIdOrderByPopularityScoreDesc(
                                                 regionId,
                                                 PageRequest.of(0, limit));
-
-                log.info("조회된 RegionStock 개수: {}", topRegionStocks.size());
 
                 // 3. StockTickerDto로 변환 (실제 데이터만 사용)
                 List<StockTickerDto> result = topRegionStocks.stream()
@@ -253,7 +242,6 @@ public class RegionStockServiceImpl implements RegionStockService {
                                                 .build())
                                 .collect(Collectors.toList());
 
-                log.info("반환할 주식 개수: {}", result.size());
                 return result;
         }
 
