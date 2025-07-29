@@ -205,7 +205,7 @@ export default function StockMapLanding() {
             <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
               <button
                 onClick={scrollToFeatures}
-                className="flex flex-col items-center text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 transition-colors"
+                className="flex flex-col items-center text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 transition-colors cursor-pointer"
               >
                 <span className="text-sm mb-1">더 알아보기</span>
                 <ChevronDown className="w-6 h-6" />

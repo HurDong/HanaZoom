@@ -319,7 +319,7 @@ export default function SignupPage() {
                     <Button
                       type="button"
                       onClick={handleAddressSearch}
-                      className="bg-green-500 hover:bg-green-600 text-white"
+                      className="bg-green-500 hover:bg-green-600 text-white cursor-pointer"
                     >
                       주소 검색
                     </Button>
@@ -367,7 +367,7 @@ export default function SignupPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-green-500 hover:text-green-600 dark:hover:text-green-400"
+                    className="absolute right-3 top-3 text-green-500 hover:text-green-600 dark:hover:text-green-400 cursor-pointer"
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />

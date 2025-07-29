@@ -234,14 +234,14 @@ export default function RegionDiscussionPage() {
             <TabsList className="grid w-full grid-cols-2 bg-green-100 dark:bg-green-900/50">
               <TabsTrigger
                 value="chat"
-                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800"
+                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 cursor-pointer"
               >
                 <MessageSquare className="w-4 h-4 mr-2" />
                 실시간 채팅
               </TabsTrigger>
               <TabsTrigger
                 value="info"
-                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800"
+                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 cursor-pointer"
               >
                 <TrendingUp className="w-4 h-4 mr-2" />
                 투자 정보

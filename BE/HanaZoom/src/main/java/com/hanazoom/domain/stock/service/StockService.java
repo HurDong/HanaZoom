@@ -8,4 +8,6 @@ public interface StockService {
     Stock getStockBySymbol(String symbol);
 
     List<StockTickerDto> getStockTickers();
+
+    List<StockTickerDto> searchStocks(String query);
 }
