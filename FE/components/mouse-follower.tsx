@@ -182,7 +182,8 @@ export function MouseFollower() {
         /* 버튼과 링크에서는 포인터 커서 표시 */
         button,
         [role="button"],
-        a {
+        a,
+        .cursor-pointer {
           cursor: pointer !important;
         }
 

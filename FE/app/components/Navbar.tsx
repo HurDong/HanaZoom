@@ -71,7 +71,7 @@ export default function NavBar() {
         {loggedIn ? (
           <button
             onClick={handleLogout}
-            className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors"
+            className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors cursor-pointer"
           >
             로그아웃
           </button>

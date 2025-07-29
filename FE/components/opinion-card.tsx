@@ -124,7 +124,7 @@ export function OpinionCard({
               post.isLiked
                 ? "text-green-600 dark:text-green-400"
                 : "text-gray-500 dark:text-gray-400"
-            } hover:text-green-700 dark:hover:text-green-300`}
+            } hover:text-green-700 dark:hover:text-green-300 cursor-pointer`}
           >
             <ThumbsUp className="w-4 h-4 mr-1" />
             {post.likeCount}
@@ -133,7 +133,7 @@ export function OpinionCard({
             variant="ghost"
             size="sm"
             onClick={() => setShowComments(!showComments)}
-            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
           >
             <MessageSquare className="w-4 h-4 mr-1" />
             {post.commentCount}
@@ -142,7 +142,7 @@ export function OpinionCard({
             variant="ghost"
             size="sm"
             onClick={onShare}
-            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
           >
             <Share2 className="w-4 h-4 mr-1" />
             공유

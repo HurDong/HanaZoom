@@ -110,7 +110,7 @@ export function CommentSection({ postId }: CommentSectionProps) {
                   comment.isLiked
                     ? "text-green-600 dark:text-green-400"
                     : "text-gray-500 dark:text-gray-400"
-                } hover:text-green-700 dark:hover:text-green-300`}
+                } hover:text-green-700 dark:hover:text-green-300 cursor-pointer`}
               >
                 <ThumbsUp className="w-4 h-4 mr-1" />
                 {comment.likeCount}
