@@ -9,10 +9,10 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> {
-    
+
     // 지역별 최근 메시지 조회 (페이징)
     Page<ChatMessage> findByRegionIdOrderByCreatedAtDesc(Long regionId, Pageable pageable);
-    
+
     // 지역별 최근 N개 메시지 조회
     List<ChatMessage> findTop50ByRegionIdOrderByCreatedAtDesc(Long regionId);
 }
