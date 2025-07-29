@@ -33,3 +33,8 @@ export const searchStocks = async (query: string) => {
   });
   return response.data;
 };
+
+export const getTopStocksByRegion = async (regionId: number) => {
+  const response = await api.get(`/regions/${regionId}/top-stocks`);
+  return response.data;
+};
