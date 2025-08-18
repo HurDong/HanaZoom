@@ -13,6 +13,7 @@ import api from "@/app/config/api";
 import { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
 import { getTopStocksByRegion } from "@/lib/api/stock";
 import { MouseFollower } from "@/components/mouse-follower";
+import { useRouter } from "next/navigation";
 
 // 백엔드 RegionResponse DTO와 일치하는 타입 정의
 export interface Region {
@@ -42,6 +43,7 @@ export default function MapPage() {
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const [topStocks, setTopStocks] = useState<TopStock[]>([]);
   const [loadingStocks, setLoadingStocks] = useState(false);
+  const router = useRouter();
 
   // kakao map script 로딩 상태를 관리합니다.
   useKakaoLoader({
@@ -116,6 +118,11 @@ export default function MapPage() {
 
     // 상위 주식 정보 가져오기
     fetchTopStocks(region.id);
+  };
+
+  // 종목 클릭 시 해당 종목의 게시판으로 이동
+  const handleStockClick = (stock: TopStock) => {
+    router.push(`/community/${stock.symbol}`);
   };
 
   if (error) {
@@ -205,7 +212,8 @@ export default function MapPage() {
                     {topStocks.map((stock, index) => (
                       <div
                         key={stock.symbol}
-                        className="flex justify-between items-center p-3 rounded-lg bg-green-100/50 dark:bg-green-900/30 border border-green-200/50 dark:border-green-800/50"
+                        className="flex justify-between items-center p-3 rounded-lg bg-green-100/50 dark:bg-green-900/30 border border-green-200/50 dark:border-green-800/50 cursor-pointer hover:bg-green-200/50 dark:hover:bg-green-800/30 transition-colors duration-200"
+                        onClick={() => handleStockClick(stock)}
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-lg">{stock.emoji}</span>
