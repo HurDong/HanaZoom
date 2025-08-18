@@ -7,10 +7,12 @@ import NavBar from "@/app/components/Navbar";
 import { StockTicker } from "@/components/stock-ticker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
-import { Compass, Layers, TrendingUp } from "lucide-react";
+import { Compass, Layers, TrendingUp, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/app/utils/auth";
 import api from "@/app/config/api";
 import { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
+import { getTopStocksByRegion } from "@/lib/api/stock";
+import { MouseFollower } from "@/components/mouse-follower";
 
 // 백엔드 RegionResponse DTO와 일치하는 타입 정의
 export interface Region {
@@ -22,12 +24,24 @@ export interface Region {
   longitude: number;
 }
 
+// 상위 주식 정보 타입
+interface TopStock {
+  symbol: string;
+  name: string;
+  price: string;
+  change: string;
+  emoji: string;
+}
+
 const KAKAO_MAP_API_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY;
 
 export default function MapPage() {
   const user = useAuthStore((state) => state.user);
   const [regions, setRegions] = useState<Region[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
+  const [topStocks, setTopStocks] = useState<TopStock[]>([]);
+  const [loadingStocks, setLoadingStocks] = useState(false);
 
   // kakao map script 로딩 상태를 관리합니다.
   useKakaoLoader({
@@ -79,10 +93,29 @@ export default function MapPage() {
     return regions.filter((r) => r.type === "NEIGHBORHOOD");
   }, [regions, zoomLevel]);
 
+  // 상위 주식 정보를 가져오는 함수
+  const fetchTopStocks = async (regionId: number) => {
+    setLoadingStocks(true);
+    try {
+      const response = await getTopStocksByRegion(regionId);
+      setTopStocks(response.data);
+    } catch (err) {
+      console.error("상위 주식 정보를 가져오는 데 실패했습니다.", err);
+      setTopStocks([]);
+    } finally {
+      setLoadingStocks(false);
+    }
+  };
+
   const handleMarkerClick = (region: Region) => {
     setCenter({ lat: region.latitude, lng: region.longitude });
+    setSelectedRegion(region);
+
     if (region.type === "CITY") setZoomLevel(7);
     if (region.type === "DISTRICT") setZoomLevel(4);
+
+    // 상위 주식 정보 가져오기
+    fetchTopStocks(region.id);
   };
 
   if (error) {
@@ -93,6 +126,7 @@ export default function MapPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 overflow-hidden relative transition-colors duration-500">
+      <MouseFollower />
       <div className="fixed top-0 left-0 right-0 z-[100]">
         <NavBar />
       </div>
@@ -101,16 +135,16 @@ export default function MapPage() {
       </div>
 
       <main className="relative z-10 pt-36">
-        <div className="container mx-auto px-4 py-4 h-[calc(100vh-10rem)] flex gap-4">
+        <div className="w-full px-6 py-4 h-[calc(100vh-10rem)] flex gap-6">
           {/* 지도 컨트롤 사이드 패널 */}
-          <Card className="w-1/4 hidden md:flex flex-col bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-green-200 dark:border-green-800">
+          <Card className="w-80 hidden md:flex flex-col bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-green-200 dark:border-green-800">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-green-900 dark:text-green-100">
                 <Compass className="w-6 h-6" />
                 <span>지도 제어</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-grow overflow-y-auto space-y-4">
+            <CardContent className="flex-grow overflow-y-auto space-y-4 max-h-[calc(100vh-16rem)]">
               <div className="space-y-2">
                 <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-300">
                   <Layers className="w-5 h-5" />
@@ -152,24 +186,70 @@ export default function MapPage() {
               <div className="space-y-4 pt-4 border-t border-green-200/50 dark:border-green-800/50">
                 <h4 className="font-bold text-lg flex items-center gap-2 text-green-800 dark:text-green-200">
                   <TrendingUp className="w-5 h-5" />
-                  <span>현재 지역 인기 종목 (예시)</span>
+                  <span>
+                    {selectedRegion
+                      ? `${selectedRegion.name} 인기 종목`
+                      : "지역을 선택하세요"}
+                  </span>
                 </h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-2 rounded-lg bg-green-100/50 dark:bg-green-900/30">
-                    <span>삼성전자</span>
-                    <span className="font-bold text-blue-600">82,000원</span>
+
+                {loadingStocks ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-green-600" />
+                    <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                      주식 정보를 불러오는 중...
+                    </span>
                   </div>
-                  <div className="flex justify-between items-center p-2 rounded-lg bg-green-100/50 dark:bg-green-900/30">
-                    <span>SK하이닉스</span>
-                    <span className="font-bold text-red-600">220,000원</span>
+                ) : selectedRegion && topStocks.length > 0 ? (
+                  <div className="space-y-3">
+                    {topStocks.map((stock, index) => (
+                      <div
+                        key={stock.symbol}
+                        className="flex justify-between items-center p-3 rounded-lg bg-green-100/50 dark:bg-green-900/30 border border-green-200/50 dark:border-green-800/50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{stock.emoji}</span>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-sm">
+                              {stock.name}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {stock.symbol}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-sm">{stock.price}</div>
+                          <div
+                            className={`text-xs ${
+                              stock.change.startsWith("-")
+                                ? "text-red-600"
+                                : "text-blue-600"
+                            }`}
+                          >
+                            {stock.change}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
+                ) : selectedRegion ? (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">해당 지역의 주식 정보가 없습니다.</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">지도를 클릭하여 지역을 선택하세요</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
           {/* 지도 영역 */}
-          <div className="w-full md:w-3/4 h-full rounded-lg overflow-hidden shadow-2xl border-4 border-white/50 dark:border-gray-800/50 flex items-center justify-center bg-green-50/50 dark:bg-green-950/50">
+          <div className="flex-1 h-full rounded-lg overflow-hidden shadow-2xl border-4 border-white/50 dark:border-gray-800/50 flex items-center justify-center bg-green-50/50 dark:bg-green-950/50">
             <Map
               center={center}
               style={{ width: "100%", height: "100%" }}
