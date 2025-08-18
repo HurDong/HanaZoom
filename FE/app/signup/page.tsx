@@ -18,6 +18,7 @@ import { MapPin, Mail, Lock, Eye, EyeOff, User, Phone } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MouseFollower } from "@/components/mouse-follower";
+import { StockTicker } from "@/components/stock-ticker";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/app/components/Navbar";
@@ -191,7 +192,12 @@ export default function SignupPage() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950">
       <MouseFollower />
       <NavBar />
-      <div className="flex items-center justify-center p-4 relative overflow-hidden min-h-[calc(100vh-4rem)]">
+
+      <div className="fixed top-16 left-0 right-0 z-[60]">
+        <StockTicker />
+      </div>
+
+      <div className="flex items-center justify-center p-4 relative overflow-hidden min-h-[calc(100vh-4rem)] pt-28">
         {/* 배경 장식 요소들 */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="floating-symbol absolute top-20 left-10 text-green-500 dark:text-green-400 text-2xl animate-bounce">

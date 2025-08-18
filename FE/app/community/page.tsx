@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { MessageSquare, TrendingUp, TrendingDown, MapPin } from "lucide-react";
 import NavBar from "@/app/components/Navbar";
 import { MouseFollower } from "@/components/mouse-follower";
+import { StockTicker } from "@/components/stock-ticker";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { mockStocks } from "@/data/mock-stocks";
 
@@ -90,7 +91,11 @@ export default function CommunityPage() {
       <MouseFollower />
       <NavBar />
 
-      <main className="container mx-auto px-4 py-8">
+      <div className="fixed top-16 left-0 right-0 z-[60]">
+        <StockTicker />
+      </div>
+
+      <main className="container mx-auto px-4 py-8 pt-28">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-green-900 dark:text-green-100 mb-2">
             HanaZoom 커뮤니티

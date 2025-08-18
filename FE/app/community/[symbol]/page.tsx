@@ -10,6 +10,7 @@ import NavBar from "@/app/components/Navbar";
 import { OpinionForm } from "@/components/opinion-form";
 import { OpinionCard } from "@/components/opinion-card";
 import { StockInfoCard } from "@/components/stock-info-card";
+import { StockTicker } from "@/components/stock-ticker";
 import { getStock } from "@/lib/api/stock";
 import {
   getPosts,
@@ -140,7 +141,11 @@ export default function StockDiscussionPage() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 transition-colors duration-500">
       <NavBar />
 
-      <main className="container mx-auto px-4 py-8">
+      <div className="fixed top-16 left-0 right-0 z-[60]">
+        <StockTicker />
+      </div>
+
+      <main className="container mx-auto px-4 py-8 pt-28">
         {/* 주식 정보 카드 */}
         <StockInfoCard stock={stock} className="mb-8" />
 
