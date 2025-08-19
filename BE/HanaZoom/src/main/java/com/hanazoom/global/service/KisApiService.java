@@ -156,4 +156,106 @@ public class KisApiService {
         }
         return kisConfig.getApprovalKey();
     }
+
+    /**
+     * 국내주식 현재가 시세 조회
+     * 
+     * @param stockCode 주식 종목코드 (6자리)
+     * @return 현재가 정보 JSON 응답
+     */
+    public String getCurrentStockPrice(String stockCode) {
+        if (!isAccessTokenValid()) {
+            log.warn("Access token is not valid. Issuing new token.");
+            issueAccessToken();
+        }
+
+        try {
+            String response = webClient.get()
+                    .uri("https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/quotations/inquire-price"
+                            +
+                            "?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=" + stockCode)
+                    .header("authorization", "Bearer " + kisConfig.getAccessToken())
+                    .header("appkey", kisConfig.getAppKey())
+                    .header("appsecret", kisConfig.getAppSecret())
+                    .header("tr_id", "FHKST01010100") // 거래ID (국내주식현재가)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            log.info("Successfully fetched current price for stock: {}", stockCode);
+            return response;
+
+        } catch (Exception e) {
+            log.error("Failed to fetch current stock price for code: {}", stockCode, e);
+            throw new RuntimeException("주식 현재가 조회 실패: " + stockCode, e);
+        }
+    }
+
+    /**
+     * 종목 기본 정보 조회
+     * 
+     * @param stockCode 주식 종목코드 (6자리)
+     * @return 종목 기본 정보 JSON 응답
+     */
+    public String getStockBasicInfo(String stockCode) {
+        if (!isAccessTokenValid()) {
+            log.warn("Access token is not valid. Issuing new token.");
+            issueAccessToken();
+        }
+
+        try {
+            String response = webClient.get()
+                    .uri("https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/quotations/search-stock-info"
+                            +
+                            "?PRDT_TYPE_CD=300&PDNO=" + stockCode)
+                    .header("authorization", "Bearer " + kisConfig.getAccessToken())
+                    .header("appkey", kisConfig.getAppKey())
+                    .header("appsecret", kisConfig.getAppSecret())
+                    .header("tr_id", "CTPF1002R") // 거래ID (종목정보조회)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            log.info("Successfully fetched basic info for stock: {}", stockCode);
+            return response;
+
+        } catch (Exception e) {
+            log.error("Failed to fetch basic stock info for code: {}", stockCode, e);
+            throw new RuntimeException("종목 기본 정보 조회 실패: " + stockCode, e);
+        }
+    }
+
+    /**
+     * 주식 호가창 정보 조회
+     * 
+     * @param stockCode 주식 종목코드 (6자리)
+     * @return 호가창 정보 JSON 응답
+     */
+    public String getOrderBook(String stockCode) {
+        if (!isAccessTokenValid()) {
+            log.warn("Access token is not valid. Issuing new token.");
+            issueAccessToken();
+        }
+
+        try {
+            String response = webClient.get()
+                    .uri("https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/quotations/inquire-asking-price-exp-ccn"
+                            +
+                            "?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=" + stockCode)
+                    .header("authorization", "Bearer " + kisConfig.getAccessToken())
+                    .header("appkey", kisConfig.getAppKey())
+                    .header("appsecret", kisConfig.getAppSecret())
+                    .header("tr_id", "FHKST01010200") // 거래ID (국내주식호가)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            log.info("Successfully fetched order book for stock: {}", stockCode);
+            return response;
+
+        } catch (Exception e) {
+            log.error("Failed to fetch order book for code: {}", stockCode, e);
+            throw new RuntimeException("호가창 정보 조회 실패: " + stockCode, e);
+        }
+    }
 }
