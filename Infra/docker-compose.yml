@@ -38,12 +38,12 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6380:6379" # 포트 변경: 6379 → 6380
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis1234!}
+      - "16379:6379"
+    command: redis-server --appendonly yes --requirepass redis1234!
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis1234!}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "redis1234!", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
