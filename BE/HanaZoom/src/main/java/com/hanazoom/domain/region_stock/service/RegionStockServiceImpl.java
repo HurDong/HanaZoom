@@ -74,9 +74,17 @@ public class RegionStockServiceImpl implements RegionStockService {
         private void updateCsvCache() {
                 LocalDate today = LocalDate.now();
                 if (lastCsvCacheUpdate == null || !lastCsvCacheUpdate.equals(today)) {
+                        log.info("CSV 캐시 업데이트 시작 - 날짜: {}", today);
                         try {
                                 Resource resource = new ClassPathResource(
                                                 "data/region/recommended_stocks_by_region.csv");
+                                log.info("CSV 파일 경로: data/region/recommended_stocks_by_region.csv");
+                                
+                                if (!resource.exists()) {
+                                        log.error("CSV 파일이 존재하지 않습니다: data/region/recommended_stocks_by_region.csv");
+                                        return;
+                                }
+                                
                                 BufferedReader reader = new BufferedReader(
                                                 new InputStreamReader(resource.getInputStream(),
                                                                 StandardCharsets.UTF_8));
@@ -84,16 +92,21 @@ public class RegionStockServiceImpl implements RegionStockService {
                                 String line;
                                 boolean isFirstLine = true;
                                 csvDataCache.clear();
+                                int processedLines = 0;
+                                int validRegions = 0;
 
                                 while ((line = reader.readLine()) != null) {
+                                        processedLines++;
                                         if (isFirstLine) {
                                                 isFirstLine = false;
                                                 continue;
                                         }
 
                                         String[] columns = line.split(",");
-                                        if (columns.length < 10)
+                                        if (columns.length < 10) {
+                                                log.debug("컬럼 수 부족: {} (필요: 10, 실제: {})", line, columns.length);
                                                 continue;
+                                        }
 
                                         String regionIdStr = columns[8];
                                         String stockIdsStr = "";
@@ -120,18 +133,28 @@ public class RegionStockServiceImpl implements RegionStockService {
 
                                                 if (!stockIds.isEmpty()) {
                                                         csvDataCache.put(regionId, stockIds);
+                                                        validRegions++;
+                                                        log.debug("지역 ID: {}, 주식 수: {}", regionId, stockIds.size());
+                                                } else {
+                                                        log.debug("지역 ID: {}에 주식이 없음", regionId);
                                                 }
                                         } catch (NumberFormatException e) {
+                                                log.debug("지역 ID 파싱 실패: '{}'", regionIdStr);
                                                 continue;
                                         }
                                 }
 
                                 reader.close();
                                 lastCsvCacheUpdate = today;
+                                
+                                log.info("CSV 캐시 업데이트 완료 - 처리된 라인: {}, 유효한 지역: {}, 캐시된 지역 수: {}", 
+                                        processedLines, validRegions, csvDataCache.size());
 
                         } catch (IOException e) {
                                 log.error("CSV 캐시 업데이트 실패", e);
                         }
+                } else {
+                        log.debug("CSV 캐시가 최신 상태입니다. 마지막 업데이트: {}", lastCsvCacheUpdate);
                 }
         }
 
@@ -180,7 +203,7 @@ public class RegionStockServiceImpl implements RegionStockService {
         @Transactional
         @Scheduled(initialDelay = 10000, fixedRate = 600000) // 서버 시작 10초 후 첫 실행, 이후 10분마다
         public void updateRegionStocks() {
-                log.info("지역별 주식 인기도 업데이트 시작...");
+                log.info("=== 지역별 주식 인기도 업데이트 시작 ===");
 
                 try {
                         // CSV 캐시 업데이트
@@ -207,10 +230,10 @@ public class RegionStockServiceImpl implements RegionStockService {
                                 updatePopularityScoresBatch(regionStockMap);
                         }
 
-                        // 상위 지역 집계 (읍/면/동 -> 구/군 -> 시/도)
+                        // 상위 지역 집계 (읍/면/동 -> 구/군 -> 시/도) - 로그 최소화
                         aggregateRegionStocksUpwards(LocalDate.now());
 
-                        log.info("지역별 주식 인기도 업데이트 완료");
+                        log.info("=== 지역별 주식 인기도 업데이트 완료 ===");
 
                 } catch (Exception e) {
                         log.error("지역별 주식 인기도 업데이트 실패", e);
@@ -229,19 +252,16 @@ public class RegionStockServiceImpl implements RegionStockService {
          * 2) DISTRICT -> CITY 집계
          */
         private void aggregateRegionStocksUpwards(LocalDate targetDate) {
-                log.info("=== 상위 지역 집계 시작: targetDate={}", targetDate);
+                // 부모(시/군/구) 집계 로그는 출력하지 않음
                 try {
                         // 1) 구/군 단위 집계: 하위 읍/면/동 자식들의 데이터를 모읍니다
                         List<Region> allRegions = regionRepository.findAll();
-                        log.info("전체 지역 개수: {}", allRegions.size());
-
                         Map<Long, Region> regionIdToRegion = allRegions.stream()
                                         .collect(Collectors.toMap(Region::getId, r -> r));
 
                         List<Region> districts = allRegions.stream()
                                         .filter(r -> r.getType() == RegionType.DISTRICT)
                                         .collect(Collectors.toList());
-                        log.info("구/군 단위 지역 개수: {}", districts.size());
 
                         for (Region district : districts) {
                                 List<Region> neighborhoods = allRegions.stream()
@@ -251,9 +271,7 @@ public class RegionStockServiceImpl implements RegionStockService {
                                                                 && r.getParent().getId().equals(district.getId())
                                                                 && r.getType() == RegionType.NEIGHBORHOOD)
                                                 .collect(Collectors.toList());
-                                log.info("구/군 '{}'의 하위 읍/면/동 개수: {}", district.getName(), neighborhoods.size());
                                 if (neighborhoods.isEmpty()) {
-                                        log.warn("구/군 '{}'에 하위 읍/면/동이 없습니다.", district.getName());
                                         continue;
                                 }
                                 aggregateForParentFromChildren(district, neighborhoods, targetDate);
@@ -263,7 +281,6 @@ public class RegionStockServiceImpl implements RegionStockService {
                         List<Region> cities = allRegions.stream()
                                         .filter(r -> r.getType() == RegionType.CITY)
                                         .collect(Collectors.toList());
-                        log.info("시/도 단위 지역 개수: {}", cities.size());
 
                         for (Region city : cities) {
                                 List<Region> childDistricts = allRegions.stream()
@@ -273,14 +290,11 @@ public class RegionStockServiceImpl implements RegionStockService {
                                                                 && r.getParent().getId().equals(city.getId())
                                                                 && r.getType() == RegionType.DISTRICT)
                                                 .collect(Collectors.toList());
-                                log.info("시/도 '{}'의 하위 구/군 개수: {}", city.getName(), childDistricts.size());
                                 if (childDistricts.isEmpty()) {
-                                        log.warn("시/도 '{}'에 하위 구/군이 없습니다.", city.getName());
                                         continue;
                                 }
                                 aggregateForParentFromChildren(city, childDistricts, targetDate);
                         }
-                        log.info("=== 상위 지역 집계 완료");
                 } catch (Exception e) {
                         log.error("상위 지역 집계 실패", e);
                 }
@@ -291,19 +305,13 @@ public class RegionStockServiceImpl implements RegionStockService {
          */
         private void aggregateForParentFromChildren(Region parentRegion, List<Region> childRegions,
                         LocalDate targetDate) {
-                log.info("=== 집계 시작: 부모지역={}({}), 자식지역개수={}, 날짜={}",
-                                parentRegion.getName(), parentRegion.getType(), childRegions.size(), targetDate);
-
+                // 부모(시/군/구) 집계 단계의 상세 로그는 출력하지 않습니다.
                 List<Long> childIds = childRegions.stream().map(Region::getId).collect(Collectors.toList());
-                log.info("자식 지역 IDs: {}", childIds);
 
                 // 자식 지역들의 해당 날짜 데이터 조회
                 List<RegionStock> childStocks = regionStockRepository.findByRegion_IdInAndDataDate(childIds,
                                 targetDate);
-                log.info("자식 지역들의 주식 데이터 개수: {}", childStocks.size());
-
                 if (childStocks.isEmpty()) {
-                        log.warn("부모 지역 '{}'의 자식 지역들에 주식 데이터가 없습니다.", parentRegion.getName());
                         return;
                 }
 
@@ -319,17 +327,8 @@ public class RegionStockServiceImpl implements RegionStockService {
                         stockIdToPopularity.put(stockId, current.add(add));
                 }
 
-                log.info("집계된 종목 개수: {}", stockIdToPopularity.size());
-                log.info("집계된 종목들: {}", stockIdToPopularity.entrySet().stream()
-                                .map(entry -> {
-                                        Stock stock = stockIdToStock.get(entry.getKey());
-                                        return String.format("%s(%.2f)", stock.getName(), entry.getValue());
-                                })
-                                .collect(Collectors.joining(", ")));
-
                 // 부모 지역의 기존 해당 날짜 데이터 제거 후 재생성
                 regionStockRepository.deleteByRegionIdAndDataDate(parentRegion.getId(), targetDate);
-                log.info("부모 지역 '{}'의 기존 데이터 삭제 완료", parentRegion.getName());
 
                 List<RegionStock> toSave = new ArrayList<>();
                 for (Map.Entry<Long, BigDecimal> entry : stockIdToPopularity.entrySet()) {
@@ -350,9 +349,6 @@ public class RegionStockServiceImpl implements RegionStockService {
 
                 if (!toSave.isEmpty()) {
                         regionStockRepository.saveAll(toSave);
-                        log.info("부모 지역 '{}'에 {}개 종목 데이터 저장 완료", parentRegion.getName(), toSave.size());
-                } else {
-                        log.warn("부모 지역 '{}'에 저장할 데이터가 없습니다.", parentRegion.getName());
                 }
         }
 
@@ -540,30 +536,34 @@ public class RegionStockServiceImpl implements RegionStockService {
                         Map<Long, Stock> stocks = stockRepository.findAllById(allStockIds).stream()
                                         .collect(Collectors.toMap(Stock::getId, stock -> stock));
 
-                        // 기존 RegionStock 데이터를 한 번에 조회
-                        List<RegionStock> existingStocks = regionStockRepository
-                                        .findByRegion_IdIn(new ArrayList<>(allRegionIds));
-                        Map<String, RegionStock> existingStockMap = existingStocks.stream()
+                        // 오늘 날짜 기준의 기존 RegionStock만 조회 (중복 방지)
+                        LocalDate today = LocalDate.now();
+                        
+                        List<RegionStock> existingStocksToday = regionStockRepository
+                                        .findByRegion_IdInAndDataDate(new ArrayList<>(allRegionIds), today);
+                        
+                        Map<String, RegionStock> existingStockMap = existingStocksToday.stream()
                                         .collect(Collectors.toMap(
                                                         rs -> rs.getRegion().getId() + "_" + rs.getStock().getId(),
                                                         rs -> rs));
 
                         // 새로운 RegionStock 생성 및 기존 데이터 업데이트
                         List<RegionStock> toSave = new ArrayList<>();
-                        LocalDate today = LocalDate.now();
 
                         for (Map.Entry<Long, List<Long>> entry : regionStockMap.entrySet()) {
                                 Long regionId = entry.getKey();
                                 List<Long> stockIds = entry.getValue();
 
                                 Region region = regions.get(regionId);
-                                if (region == null)
+                                if (region == null) {
                                         continue;
+                                }
 
                                 for (Long stockId : stockIds) {
                                         Stock stock = stocks.get(stockId);
-                                        if (stock == null)
+                                        if (stock == null) {
                                                 continue;
+                                        }
 
                                         String key = regionId + "_" + stockId;
                                         RegionStock regionStock = existingStockMap.get(key);
@@ -588,7 +588,9 @@ public class RegionStockServiceImpl implements RegionStockService {
                         }
 
                         // 배치 저장
-                        regionStockRepository.saveAll(toSave);
+                        if (!toSave.isEmpty()) {
+                                regionStockRepository.saveAll(toSave);
+                        }
 
                 } catch (Exception e) {
                         log.error("배치 인기도 업데이트 실패", e);
