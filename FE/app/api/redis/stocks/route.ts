@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Redis from "ioredis";
 
+export const runtime = "nodejs";
+
 // Redis 클라이언트 설정
 const redis = new Redis({
   host: process.env.REDIS_HOST || "localhost",
