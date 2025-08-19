@@ -7,7 +7,21 @@ import NavBar from "@/app/components/Navbar";
 import { StockTicker } from "@/components/stock-ticker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
-import { Compass, Layers, TrendingUp, Loader2, GitBranch } from "lucide-react";
+import {
+  Compass,
+  Layers,
+  TrendingUp,
+  Loader2,
+  ExternalLink,
+  Heart,
+  BarChart3,
+  X,
+  Star,
+  Flame,
+  Award,
+  Crown,
+  Sparkles,
+} from "lucide-react";
 import { useAuthStore } from "@/app/utils/auth";
 import api from "@/app/config/api";
 import { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
@@ -15,10 +29,7 @@ import { getTopStocksByRegion } from "@/lib/api/stock";
 import { MouseFollower } from "@/components/mouse-follower";
 import { useRouter } from "next/navigation";
 import { useMapBounds } from "@/app/hooks/useMapBounds";
-import { useMarkerPool } from "@/app/hooks/useMarkerPool";
-import { useFPSMonitor } from "@/app/hooks/useFPSMonitor";
-import { filterMarkersByLOD, PerformanceMonitor } from "@/app/utils/lodUtils";
-import { ClusteredMarkers } from "@/app/components/ClusteredMarkers";
+import { filterMarkersByLOD } from "@/app/utils/lodUtils";
 
 // 백엔드 RegionResponse DTO와 일치하는 타입 정의
 export interface Region {
@@ -37,6 +48,9 @@ interface TopStock {
   price: string;
   change: string;
   emoji: string;
+  sector: string; // 섹터 정보 (required로 변경)
+  currentPrice?: number; // 현재가 (숫자)
+  rank?: number; // 지역 내 순위
 }
 
 const KAKAO_MAP_API_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY;
@@ -49,31 +63,20 @@ export default function MapPage() {
   const [topStocks, setTopStocks] = useState<TopStock[]>([]);
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [selectedStock, setSelectedStock] = useState<TopStock | null>(null);
   const router = useRouter();
 
   // LOD 최적화 hooks
   const { viewport, updateBounds, isPointInBounds } = useMapBounds();
-  const { acquireMarker, releaseAllMarkers, getPoolStats, cleanupPool } =
-    useMarkerPool(200);
-  const { fps, avgFps } = useFPSMonitor(process.env.NODE_ENV === "development");
 
   // 디바운싱을 위한 ref
   const zoomTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [debouncedZoomLevel, setDebouncedZoomLevel] = useState(9);
-  const [renderStats, setRenderStats] = useState({
-    visible: 0,
-    total: 0,
-    renderTime: 0,
-  });
-
-  // 클러스터링 설정
-  const [useClusteringEnabled, setUseClusteringEnabled] = useState(true);
-  const shouldUseClusteringBasedOnZoom = debouncedZoomLevel >= 6; // 줌 레벨 6 이상에서 클러스터링
 
   // kakao map script 로딩 상태를 관리합니다.
   useKakaoLoader({
     appkey: KAKAO_MAP_API_KEY!,
-    libraries: ["clusterer", "services"],
+    libraries: ["services"],
   });
 
   // 사용자 위치로 이동하는 함수
@@ -130,31 +133,18 @@ export default function MapPage() {
     }, 150); // 150ms 딜레이
   }, []);
 
-  // 컴포넌트 언마운트 시 타임아웃 클리어 및 마커 풀 정리
+  // 컴포넌트 언마운트 시 타임아웃 클리어
   useEffect(() => {
-    // 주기적으로 마커 풀 정리 (30초마다)
-    const poolCleanupInterval = setInterval(() => {
-      const cleaned = cleanupPool();
-      if (cleaned > 0 && process.env.NODE_ENV === "development") {
-        console.log(`Cleaned up ${cleaned} inactive markers from pool`);
-      }
-    }, 30000);
-
     return () => {
       if (zoomTimeoutRef.current) {
         clearTimeout(zoomTimeoutRef.current);
       }
-      clearInterval(poolCleanupInterval);
-      releaseAllMarkers();
     };
-  }, [cleanupPool, releaseAllMarkers]);
+  }, []);
 
   // LOD 기반 마커 필터링
   const visibleMarkers = useMemo(() => {
-    PerformanceMonitor.start("marker-filtering");
-
     if (!regions || regions.length === 0 || !viewport) {
-      PerformanceMonitor.end("marker-filtering");
       return [];
     }
 
@@ -166,15 +156,6 @@ export default function MapPage() {
       isPointInBounds
     );
 
-    const renderTime = PerformanceMonitor.end("marker-filtering");
-
-    // 성능 통계 업데이트
-    setRenderStats({
-      visible: filtered.length,
-      total: regions.length,
-      renderTime: Math.round(renderTime * 100) / 100,
-    });
-
     return filtered;
   }, [regions, debouncedZoomLevel, viewport, isPointInBounds]);
 
@@ -183,6 +164,8 @@ export default function MapPage() {
     setLoadingStocks(true);
     try {
       const response = await getTopStocksByRegion(regionId);
+      console.log("🔍 받아온 주식 데이터:", response.data);
+      console.log("🔍 첫 번째 주식 섹터:", response.data[0]?.sector);
       setTopStocks(response.data);
     } catch (err) {
       console.error("상위 주식 정보를 가져오는 데 실패했습니다.", err);
@@ -198,57 +181,72 @@ export default function MapPage() {
       setCenter({ lat: region.latitude, lng: region.longitude });
       setSelectedRegion(region);
 
-      if (region.type === "CITY") setZoomLevel(7);
-      if (region.type === "DISTRICT") setZoomLevel(4);
+      let newZoomLevel: number;
+      if (region.type === "CITY") {
+        newZoomLevel = 7;
+      } else if (region.type === "DISTRICT") {
+        newZoomLevel = 4;
+      } else {
+        newZoomLevel = zoomLevel; // 기본값 유지
+      }
+
+      // 줌 레벨과 디바운싱된 줌 레벨 모두 즉시 업데이트
+      setZoomLevel(newZoomLevel);
+      setDebouncedZoomLevel(newZoomLevel);
+
+      // 기존 타임아웃이 있다면 클리어 (마커 클릭은 즉시 적용)
+      if (zoomTimeoutRef.current) {
+        clearTimeout(zoomTimeoutRef.current);
+        zoomTimeoutRef.current = null;
+      }
 
       // 상위 주식 정보 가져오기
       fetchTopStocks(region.id);
     },
-    [fetchTopStocks]
+    [fetchTopStocks, zoomLevel]
   );
 
-  // 클러스터링 사용 여부 결정
-  const useClusteringNow =
-    useClusteringEnabled && shouldUseClusteringBasedOnZoom;
-
-  // LOD 기반 마커 렌더링 최적화 (클러스터링 미사용 시)
+  // LOD 기반 마커 렌더링
   const renderedMarkers = useMemo(() => {
-    if (useClusteringNow) return []; // 클러스터링 사용 시 빈 배열 반환
-
-    PerformanceMonitor.start("marker-rendering");
-
-    const markers = visibleMarkers.map((region) => {
-      const markerElement = acquireMarker(region, (r) => (
-        <RegionMarker
-          key={r.id}
-          region={r}
-          onClick={handleMarkerClick}
-          isVisible={true} // LOD 필터링으로 이미 가시성 결정됨
-        />
-      ));
-
-      return markerElement;
-    });
-
-    const renderTime = PerformanceMonitor.end("marker-rendering");
-
-    // 비활성 마커는 풀에서 정리
-    if (visibleMarkers.length === 0) {
-      releaseAllMarkers();
-    }
+    const markers = visibleMarkers.map((region) => (
+      <RegionMarker
+        key={region.id}
+        region={region}
+        onClick={handleMarkerClick}
+        isVisible={true} // LOD 필터링으로 이미 가시성 결정됨
+      />
+    ));
 
     return markers;
-  }, [
-    visibleMarkers,
-    handleMarkerClick,
-    acquireMarker,
-    releaseAllMarkers,
-    useClusteringNow,
-  ]);
+  }, [visibleMarkers, handleMarkerClick]);
 
-  // 종목 클릭 시 해당 종목의 게시판으로 이동
+  // 종목 클릭 시 상세 정보 표시
   const handleStockClick = (stock: TopStock) => {
+    console.log("📊 선택된 종목 정보:", stock);
+    console.log("📊 선택된 종목 섹터:", stock.sector);
+    setSelectedStock(stock);
+  };
+
+  // 종목 상세 정보 닫기
+  const handleCloseStockDetail = () => {
+    setSelectedStock(null);
+  };
+
+  // 커뮤니티로 이동
+  const handleGoToCommunity = (stock: TopStock) => {
     router.push(`/community/${stock.symbol}`);
+  };
+
+  // 찜하기 기능 (추후 구현)
+  const handleToggleFavorite = (stock: TopStock) => {
+    // TODO: 찜하기 API 호출
+    console.log("찜하기:", stock.symbol);
+  };
+
+  // 차트 보기 (추후 구현)
+  const handleViewChart = (stock: TopStock) => {
+    // TODO: 차트 모달 또는 페이지로 이동
+    console.log("차트 보기:", stock.symbol);
   };
 
   if (error) {
@@ -332,76 +330,9 @@ export default function MapPage() {
                 </div>
               </div>
 
-              {/* 클러스터링 설정 */}
-              <div className="space-y-2 pt-4 border-t border-green-200/50 dark:border-green-800/50">
-                <h4 className="font-semibold text-sm text-green-800 dark:text-green-200 flex items-center gap-2">
-                  <GitBranch className="w-4 h-4" />
-                  마커 클러스터링
-                </h4>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600 dark:text-gray-400">
-                    자동 그룹핑{" "}
-                    {shouldUseClusteringBasedOnZoom ? "(활성)" : "(비활성)"}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setUseClusteringEnabled(!useClusteringEnabled)
-                    }
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      useClusteringEnabled ? "bg-green-600" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                        useClusteringEnabled ? "translate-x-5" : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {useClusteringNow
-                    ? "🔗 클러스터링 활성"
-                    : "📍 개별 마커 표시"}
-                </div>
-              </div>
-
-              {/* LOD 최적화 정보 */}
-              <div className="space-y-2 pt-4 border-t border-green-200/50 dark:border-green-800/50">
-                <h4 className="font-semibold text-sm text-green-800 dark:text-green-200">
-                  📊 렌더링 최적화
-                </h4>
-                <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                  <div className="flex justify-between">
-                    <span>표시 중 마커:</span>
-                    <span className="font-medium">{renderStats.visible}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>전체 마커:</span>
-                    <span className="font-medium">{renderStats.total}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>렌더링 효율:</span>
-                    <span className="font-medium text-green-600 dark:text-green-400">
-                      {renderStats.total > 0
-                        ? Math.round(
-                            (renderStats.visible / renderStats.total) * 100
-                          )
-                        : 0}
-                      %
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>풀 사용률:</span>
-                    <span className="font-medium text-blue-600 dark:text-blue-400">
-                      {Math.round(getPoolStats().utilizationRate)}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-
               <div className="space-y-4 pt-4 border-t border-green-200/50 dark:border-green-800/50">
                 <h4 className="font-bold text-lg flex items-center gap-2 text-green-800 dark:text-green-200">
-                  <TrendingUp className="w-5 h-5" />
+                  <Flame className="w-5 h-5" />
                   <span>
                     {selectedRegion
                       ? `${selectedRegion.name} 인기 종목`
@@ -409,6 +340,7 @@ export default function MapPage() {
                   </span>
                 </h4>
 
+                {/* 항상 종목 리스트 먼저 표시 */}
                 {loadingStocks ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="w-6 h-6 animate-spin text-green-600" />
@@ -418,37 +350,224 @@ export default function MapPage() {
                   </div>
                 ) : selectedRegion && topStocks.length > 0 ? (
                   <div className="space-y-3">
-                    {topStocks.map((stock, index) => (
-                      <div
-                        key={stock.symbol}
-                        className="flex justify-between items-center p-3 rounded-lg bg-green-100/50 dark:bg-green-900/30 border border-green-200/50 dark:border-green-800/50 cursor-pointer hover:bg-green-200/50 dark:hover:bg-green-800/30 transition-colors duration-200"
-                        onClick={() => handleStockClick(stock)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">{stock.emoji}</span>
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-sm">
-                              {stock.name}
-                            </span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {stock.symbol}
-                            </span>
+                    {topStocks.map((stock, index) => {
+                      const isSelected = selectedStock?.symbol === stock.symbol;
+                      const rankIcons = [Crown, Award, Star];
+                      const RankIcon = rankIcons[index] || Star;
+
+                      return (
+                        <div
+                          key={stock.symbol}
+                          className={`relative overflow-hidden rounded-xl transition-all duration-300 cursor-pointer ${
+                            isSelected
+                              ? "bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900 dark:to-emerald-900 border-2 border-green-500 shadow-lg scale-[1.02]"
+                              : "bg-gradient-to-r from-white to-green-50 dark:from-gray-800 dark:to-green-950 border border-green-200/50 dark:border-green-800/30 hover:border-green-400 dark:hover:border-green-600 hover:shadow-md hover:scale-[1.01]"
+                          }`}
+                          onClick={() => handleStockClick(stock)}
+                        >
+                          {/* 순위 배지 */}
+                          <div className="absolute top-2 left-2">
+                            <div
+                              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${
+                                index === 0
+                                  ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                                  : index === 1
+                                  ? "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                                  : "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+                              }`}
+                            >
+                              <RankIcon className="w-3 h-3" />
+                              {index + 1}위
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-bold text-sm">{stock.price}</div>
+
+                          {/* 글로우 효과 */}
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-gradient-to-r from-green-400/20 via-emerald-400/20 to-green-400/20 animate-pulse pointer-events-none"></div>
+                          )}
+
+                          <div className="flex justify-between items-center p-4 pt-10">
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <span className="text-2xl">{stock.emoji}</span>
+                                {index === 0 && (
+                                  <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-yellow-500 animate-pulse" />
+                                )}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-bold text-base text-gray-900 dark:text-gray-100">
+                                  {stock.name}
+                                </span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                  {stock.symbol}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <div className="font-bold text-lg text-gray-900 dark:text-gray-100">
+                                {stock.price}
+                              </div>
+                              <div
+                                className={`text-sm font-semibold ${
+                                  stock.change.startsWith("-")
+                                    ? "text-red-500 dark:text-red-400"
+                                    : "text-blue-500 dark:text-blue-400"
+                                }`}
+                              >
+                                {stock.change}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 호버 시 화살표 */}
                           <div
-                            className={`text-xs ${
-                              stock.change.startsWith("-")
-                                ? "text-red-600"
-                                : "text-blue-600"
+                            className={`absolute right-3 top-1/2 transform -translate-y-1/2 transition-all duration-200 ${
+                              isSelected
+                                ? "opacity-100 translate-x-0"
+                                : "opacity-0 translate-x-2"
                             }`}
                           >
-                            {stock.change}
+                            <div className="w-2 h-2 border-r-2 border-b-2 border-green-600 rotate-45"></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* 선택된 종목 상세 정보 */}
+                    {selectedStock && (
+                      <div className="mt-6 p-1 bg-gradient-to-r from-green-400 to-emerald-400 rounded-xl">
+                        <div className="bg-white dark:bg-gray-900 rounded-xl p-5 space-y-4">
+                          {/* 헤더 */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <span className="text-3xl">
+                                  {selectedStock.emoji}
+                                </span>
+                                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                                  <TrendingUp className="w-3 h-3 text-white" />
+                                </div>
+                              </div>
+                              <div>
+                                <h3 className="font-bold text-xl text-gray-900 dark:text-gray-100">
+                                  {selectedStock.name}
+                                </h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
+                                  {selectedStock.symbol}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={handleCloseStockDetail}
+                              className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
+                            >
+                              <X className="w-5 h-5 text-gray-500" />
+                            </button>
+                          </div>
+
+                          {/* 가격 정보 - 개선된 디자인 */}
+                          <div className="relative p-6 rounded-xl bg-gradient-to-br from-green-50 via-emerald-50 to-green-100 dark:from-green-900 dark:via-emerald-900 dark:to-green-800 border border-green-200 dark:border-green-700 overflow-hidden">
+                            <div className="absolute top-2 right-2">
+                              <Sparkles className="w-5 h-5 text-green-500 opacity-60" />
+                            </div>
+                            <div className="text-center relative z-10">
+                              <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                                {selectedStock.price}
+                              </div>
+                              <div
+                                className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-base font-bold ${
+                                  selectedStock.change.startsWith("-")
+                                    ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                                    : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                                }`}
+                              >
+                                <TrendingUp
+                                  className={`w-4 h-4 ${
+                                    selectedStock.change.startsWith("-")
+                                      ? "rotate-180"
+                                      : ""
+                                  }`}
+                                />
+                                {selectedStock.change}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 요약 정보 - 개선된 디자인 */}
+                          <div className="grid grid-cols-1 gap-3">
+                            <div className="p-4 rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900 dark:to-indigo-900 border border-purple-200 dark:border-purple-700">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-800 rounded-full flex items-center justify-center">
+                                    <BarChart3 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                  </div>
+                                  <span className="font-medium text-purple-800 dark:text-purple-200">
+                                    섹터
+                                  </span>
+                                </div>
+                                <span className="font-bold text-purple-900 dark:text-purple-100">
+                                  {selectedStock.sector}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="p-4 rounded-lg bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900 dark:to-yellow-900 border border-orange-200 dark:border-orange-700">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 bg-orange-100 dark:bg-orange-800 rounded-full flex items-center justify-center">
+                                    <Award className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                  </div>
+                                  <span className="font-medium text-orange-800 dark:text-orange-200">
+                                    지역 순위
+                                  </span>
+                                </div>
+                                <span className="font-bold text-orange-900 dark:text-orange-100">
+                                  {selectedStock.rank
+                                    ? `${selectedStock.rank}위`
+                                    : `상위 ${
+                                        topStocks.findIndex(
+                                          (s) =>
+                                            s.symbol === selectedStock.symbol
+                                        ) + 1
+                                      }위`}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 액션 버튼들 - 개선된 디자인 */}
+                          <div className="space-y-3">
+                            <button
+                              onClick={() => handleGoToCommunity(selectedStock)}
+                              className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] text-base whitespace-nowrap"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              커뮤니티
+                            </button>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <button
+                                onClick={() =>
+                                  handleToggleFavorite(selectedStock)
+                                }
+                                className="flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-pink-200 dark:border-pink-700 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-900 dark:to-rose-900 hover:from-pink-100 hover:to-rose-100 dark:hover:from-pink-800 dark:hover:to-rose-800 text-pink-700 dark:text-pink-300 font-semibold transition-all duration-200 hover:scale-[1.02] whitespace-nowrap"
+                              >
+                                <Heart className="w-4 h-4" />찜
+                              </button>
+
+                              <button
+                                onClick={() => handleViewChart(selectedStock)}
+                                className="flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-blue-200 dark:border-blue-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-800 dark:hover:to-indigo-800 text-blue-700 dark:text-blue-300 font-semibold transition-all duration-200 hover:scale-[1.02] whitespace-nowrap"
+                              >
+                                <BarChart3 className="w-4 h-4" />
+                                차트
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    ))}
+                    )}
                   </div>
                 ) : selectedRegion ? (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -480,45 +599,7 @@ export default function MapPage() {
               onTileLoaded={(map: kakao.maps.Map) => updateBounds(map)}
             >
               {renderedMarkers}
-              {useClusteringNow && (
-                <ClusteredMarkers
-                  markers={visibleMarkers}
-                  onMarkerClick={handleMarkerClick}
-                  minClusterSize={3}
-                  gridSize={debouncedZoomLevel >= 8 ? 80 : 60}
-                />
-              )}
             </Map>
-
-            {/* LOD 성능 통계 표시 */}
-            {process.env.NODE_ENV === "development" && (
-              <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs p-2 rounded backdrop-blur-sm">
-                <div className="font-semibold text-green-400 mb-1">
-                  🚀 LOD 성능 통계
-                </div>
-                <div>
-                  가시 마커: {renderStats.visible}/{renderStats.total}
-                </div>
-                <div>필터링 시간: {renderStats.renderTime}ms</div>
-                <div>
-                  풀 사용률: {Math.round(getPoolStats().utilizationRate)}%
-                </div>
-                <div>클러스터링: {useClusteringNow ? "ON" : "OFF"}</div>
-                <div>
-                  FPS: {fps} (평균: {avgFps})
-                </div>
-                <div>줌 레벨: {zoomLevel}</div>
-                <div className="text-xs text-gray-400 mt-1">
-                  성능 향상:{" "}
-                  {renderStats.total > 0
-                    ? Math.round(
-                        (1 - renderStats.visible / renderStats.total) * 100
-                      )
-                    : 0}
-                  %
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </main>

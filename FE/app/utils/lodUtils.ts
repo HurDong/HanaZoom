@@ -23,40 +23,34 @@ export function getMinimumDistanceForZoom(zoomLevel: number): number {
   return 0; // 모든 마커 표시
 }
 
-// LOD 기반 마커 필터링
+// LOD 기반 마커 필터링 (단순화)
 export function filterMarkersByLOD(
   markers: Region[],
   zoomLevel: number,
   centerLat: number,
   centerLng: number,
-  isInBounds: (lat: number, lng: number) => boolean
+  isInBounds: (lat: number, lng: number, padding?: number) => boolean
 ): Region[] {
-  // 1. 가시 영역 내 마커만 필터링
+  // 1. 가시 영역 내 마커만 필터링 (패딩 포함)
   let visibleMarkers = markers.filter(marker => 
-    isInBounds(marker.latitude, marker.longitude)
+    isInBounds(marker.latitude, marker.longitude, 0.3) // 30% 패딩
   );
 
-  // 2. 줌 레벨에 따른 타입 필터링
+  // 2. 줌 레벨에 따른 타입 필터링만 적용 (거리 필터링 제거)
   const typeFilter = getMarkerTypeFilter(zoomLevel);
   visibleMarkers = visibleMarkers.filter(marker => typeFilter(marker.type));
-
-  // 3. 거리 기반 필터링 (중요한 마커는 우선순위 유지)
-  const minDistance = getMinimumDistanceForZoom(zoomLevel);
-  if (minDistance > 0) {
-    visibleMarkers = filterByDistance(visibleMarkers, minDistance, centerLat, centerLng);
-  }
 
   return visibleMarkers;
 }
 
-// 줌 레벨에 따른 마커 타입 필터
+// 줌 레벨에 따른 마커 타입 필터 (원래 로직 복원)
 function getMarkerTypeFilter(zoomLevel: number): (type: string) => boolean {
   if (zoomLevel > 8) {
     return (type: string) => type === "CITY";
   } else if (zoomLevel > 5) {
-    return (type: string) => type === "DISTRICT" || type === "CITY";
+    return (type: string) => type === "DISTRICT";
   } else {
-    return () => true; // 모든 타입 표시
+    return (type: string) => type === "NEIGHBORHOOD";
   }
 }
 

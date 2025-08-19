@@ -34,15 +34,18 @@ export function useMapBounds() {
   }, []);
 
   const isPointInBounds = useCallback(
-    (lat: number, lng: number): boolean => {
+    (lat: number, lng: number, padding: number = 0.2): boolean => {
       if (!viewport) return true; // 초기 상태에서는 모든 마커 표시
       
       const { bounds } = viewport;
+      const latPadding = (bounds.north - bounds.south) * padding;
+      const lngPadding = (bounds.east - bounds.west) * padding;
+      
       return (
-        lat <= bounds.north &&
-        lat >= bounds.south &&
-        lng <= bounds.east &&
-        lng >= bounds.west
+        lat <= bounds.north + latPadding &&
+        lat >= bounds.south - latPadding &&
+        lng <= bounds.east + lngPadding &&
+        lng >= bounds.west - lngPadding
       );
     },
     [viewport]
