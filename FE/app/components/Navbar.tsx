@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { isLoggedIn, logout, useAuthStore } from "../utils/auth";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, TrendingUp } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useRouter } from "next/navigation";
 
@@ -67,6 +67,13 @@ export default function NavBar() {
           className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors"
         >
           커뮤니티
+        </Link>
+        <Link
+          href="/stocks"
+          className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors flex items-center gap-1"
+        >
+          <TrendingUp className="w-4 h-4" />
+          WTS
         </Link>
         {loggedIn ? (
           <button

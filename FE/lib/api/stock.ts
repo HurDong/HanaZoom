@@ -1,4 +1,4 @@
-import api from "@/app/config/api";
+import api, { API_ENDPOINTS } from "@/app/config/api";
 
 export interface Stock {
   symbol: string;
@@ -11,6 +11,49 @@ export interface Stock {
   priceChangePercent: number | null;
   volume: number | null;
   marketCap: number | null;
+}
+
+// WTS 관련 타입 정의
+export interface StockPriceData {
+  stockCode: string;
+  stockName: string;
+  currentPrice: string;
+  changePrice: string;
+  changeRate: string;
+  changeSign: string;
+  openPrice: string;
+  highPrice: string;
+  lowPrice: string;
+  volume: string;
+  marketCap: string;
+  previousClose: string;
+  updatedTime: string;
+  changeStatus: string;
+  positiveChange: boolean;
+  negativeChange: boolean;
+}
+
+export interface OrderBookItem {
+  price: string;
+  quantity: string;
+  rank: number;
+  priceAsLong: number;
+  quantityAsLong: number;
+}
+
+export interface OrderBookData {
+  stockCode: string;
+  stockName: string;
+  currentPrice: string;
+  updatedTime: string;
+  askOrders: OrderBookItem[];
+  bidOrders: OrderBookItem[];
+  totalAskQuantity: string;
+  totalBidQuantity: string;
+  imbalanceRatio: number;
+  spread: number;
+  sellDominant: boolean;
+  buyDominant: boolean;
 }
 
 export const getStock = async (symbol: string): Promise<Stock> => {
@@ -36,5 +79,67 @@ export const searchStocks = async (query: string) => {
 
 export const getTopStocksByRegion = async (regionId: number) => {
   const response = await api.get(`/regions/${regionId}/top-stocks`);
+  return response.data;
+};
+
+// WTS 관련 API 함수들
+export const getStockRealTimePrice = async (
+  stockCode: string
+): Promise<StockPriceData> => {
+  const response = await api.get<{ success: boolean; data: StockPriceData }>(
+    `${API_ENDPOINTS.stockRealtime}/${stockCode}`
+  );
+
+  if (!response.data.success) {
+    throw new Error(
+      response.data.message || "실시간 가격 조회에 실패했습니다."
+    );
+  }
+
+  return response.data.data;
+};
+
+export const getStockOrderBook = async (
+  stockCode: string
+): Promise<OrderBookData> => {
+  const response = await api.get<{ success: boolean; data: OrderBookData }>(
+    `${API_ENDPOINTS.stockOrderbook}/${stockCode}`
+  );
+
+  if (!response.data.success) {
+    throw new Error(
+      response.data.message || "호가창 정보 조회에 실패했습니다."
+    );
+  }
+
+  return response.data.data;
+};
+
+// 여러 종목의 실시간 정보를 한번에 가져오는 함수 (나중에 배치 API 구현 시 사용)
+export const getMultipleStockPrices = async (
+  stockCodes: string[]
+): Promise<StockPriceData[]> => {
+  const promises = stockCodes.map((code) => getStockRealTimePrice(code));
+  const results = await Promise.allSettled(promises);
+
+  return results
+    .filter(
+      (result): result is PromiseFulfilledResult<StockPriceData> =>
+        result.status === "fulfilled"
+    )
+    .map((result) => result.value);
+};
+
+// 종목 코드 유효성 검증 함수
+export const validateStockCode = (stockCode: string): boolean => {
+  // 한국 주식 종목코드는 6자리 숫자
+  return /^\d{6}$/.test(stockCode);
+};
+
+// 종목 검색 함수 (기존 것을 WTS용으로 확장)
+export const searchStocksWTS = async (query: string) => {
+  const response = await api.get(API_ENDPOINTS.stockSearch, {
+    params: { query },
+  });
   return response.data;
 };

@@ -1,53 +1,103 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { TrendingUp, TrendingDown } from "lucide-react";
-import api from "@/app/config/api";
-import { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
+import { useEffect, useState } from "react";
+import { TrendingUp, TrendingDown, Wifi, WifiOff } from "lucide-react";
+import type { StockPriceData } from "@/lib/api/stock";
+import { useStockWebSocket } from "@/hooks/useStockWebSocket";
 
 interface StockTicker {
   symbol: string;
   name: string;
   price: string;
   change: string;
+  changeRate: string;
   emoji: string;
 }
+
+// 티커에 표시할 주요 종목들과 이모지
+const TICKER_STOCKS = [
+  { code: "005930", name: "삼성전자", emoji: "📱" },
+  { code: "000660", name: "SK하이닉스", emoji: "💻" },
+  { code: "035420", name: "NAVER", emoji: "🔍" },
+  { code: "035720", name: "카카오", emoji: "💬" },
+  { code: "005380", name: "현대자동차", emoji: "🚗" },
+  { code: "051910", name: "LG화학", emoji: "🧪" },
+  { code: "207940", name: "삼성바이오", emoji: "🧬" },
+  { code: "068270", name: "셀트리온", emoji: "💊" },
+  { code: "323410", name: "카카오뱅크", emoji: "🏦" },
+  { code: "373220", name: "LG에너지", emoji: "🔋" },
+];
 
 export function StockTicker() {
   const [stocks, setStocks] = useState<StockTicker[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const fetchStockData = useCallback(async () => {
-    try {
-      const { data } = await api.get<ApiResponse<StockTicker[]>>(
-        API_ENDPOINTS.stockTicker
-      );
-      const newStocks = data?.data || [];
+  // 웹소켓으로 실시간 주식 데이터 수신
+  const {
+    connected: wsConnected,
+    stockData: wsStockData,
+    lastUpdate,
+    getStockDataMap,
+  } = useStockWebSocket({
+    stockCodes: TICKER_STOCKS.map((stock) => stock.code),
+    onStockUpdate: (data) => {
+      console.log("📈 티커 실시간 데이터:", data.stockCode, data.currentPrice);
+      updateStockDisplay();
+    },
+    autoReconnect: true,
+    reconnectInterval: 3000,
+  });
 
-      // 데이터가 실제로 변경되었을 때만 업데이트
-      if (JSON.stringify(stocks) !== JSON.stringify(newStocks)) {
-        setIsUpdating(true);
-        // 페이드 아웃 후 데이터 업데이트
-        setTimeout(() => {
-          setStocks(newStocks);
-          setIsUpdating(false);
-        }, 300);
-      }
-    } catch (error) {
-      console.error("Failed to fetch stock data:", error);
-      if (stocks.length === 0) {
-        setStocks([]);
-      }
-    }
-  }, [stocks]);
+  // 웹소켓 데이터를 티커 형태로 변환
+  const updateStockDisplay = () => {
+    const stockDataMap = getStockDataMap();
 
+    if (stockDataMap.size === 0) return;
+
+    setIsUpdating(true);
+
+    // 페이드 아웃 후 데이터 업데이트
+    setTimeout(() => {
+      const newStocks: StockTicker[] = TICKER_STOCKS.map((tickerStock) => {
+        const stockData = stockDataMap.get(tickerStock.code);
+        if (!stockData) return null;
+
+        // 등락률 앞에 + 또는 - 기호 추가
+        const changePrefix =
+          stockData.changeSign === "2" || stockData.changeSign === "1"
+            ? "+"
+            : "";
+        const change =
+          stockData.changePrice === "0"
+            ? "0.00%"
+            : `${changePrefix}${stockData.changeRate}%`;
+
+        return {
+          symbol: tickerStock.code,
+          name: tickerStock.name,
+          price: stockData.currentPrice,
+          change: change,
+          changeRate: stockData.changeRate,
+          emoji: tickerStock.emoji,
+        };
+      }).filter((stock): stock is StockTicker => stock !== null);
+
+      setStocks(newStocks);
+      setIsUpdating(false);
+    }, 300);
+  };
+
+  // 컴포넌트 마운트 및 데이터 변경 시 업데이트
   useEffect(() => {
     setIsMounted(true);
-    fetchStockData();
-    const interval = setInterval(fetchStockData, 5000);
-    return () => clearInterval(interval);
-  }, [fetchStockData]);
+  }, []);
+
+  useEffect(() => {
+    if (wsConnected && getStockDataMap().size > 0) {
+      updateStockDisplay();
+    }
+  }, [wsConnected, lastUpdate]);
 
   const formatPrice = (price: string) => {
     return new Intl.NumberFormat("ko-KR").format(Number(price));
@@ -74,16 +124,20 @@ export function StockTicker() {
           ₩{formatPrice(stock.price)}
         </span>
         <div className="flex items-center space-x-1">
-          {getChangeNumber(stock.change) >= 0 ? (
+          {getChangeNumber(stock.change) > 0 ? (
             <TrendingUp className="w-3 h-3 text-green-300" />
-          ) : (
+          ) : getChangeNumber(stock.change) < 0 ? (
             <TrendingDown className="w-3 h-3 text-red-300" />
+          ) : (
+            <div className="w-3 h-3" />
           )}
           <span
             className={`text-xs font-medium ${
-              getChangeNumber(stock.change) >= 0
+              getChangeNumber(stock.change) > 0
                 ? "text-green-300"
-                : "text-red-300"
+                : getChangeNumber(stock.change) < 0
+                ? "text-red-300"
+                : "text-gray-300"
             }`}
           >
             {stock.change}
@@ -106,11 +160,23 @@ export function StockTicker() {
     );
   }
 
+  if (!wsConnected) {
+    return (
+      <div className="w-full bg-gradient-to-r from-red-600 via-red-500 to-red-600 dark:from-red-700 dark:via-red-600 dark:to-red-700 text-white py-3 overflow-hidden relative shadow-lg">
+        <div className="flex items-center justify-center gap-2">
+          <WifiOff className="w-4 h-4" />
+          <span>실시간 연결이 끊어졌습니다. 재연결 중...</span>
+        </div>
+      </div>
+    );
+  }
+
   if (stocks.length === 0) {
     return (
-      <div className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-green-600 dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-3 overflow-hidden relative shadow-lg">
-        <div className="flex items-center justify-center">
-          <span>주식 데이터를 불러올 수 없습니다.</span>
+      <div className="w-full bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 dark:from-yellow-700 dark:via-yellow-600 dark:to-yellow-700 text-white py-3 overflow-hidden relative shadow-lg">
+        <div className="flex items-center justify-center gap-2">
+          <Wifi className="w-4 h-4 animate-pulse" />
+          <span>실시간 주식 데이터 로딩 중...</span>
         </div>
       </div>
     );
@@ -118,6 +184,7 @@ export function StockTicker() {
 
   return (
     <div className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-green-600 dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-3 overflow-hidden relative shadow-lg">
+      {/* 배경 패턴 */}
       <div className="absolute inset-0 opacity-20">
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
         <div
@@ -129,6 +196,13 @@ export function StockTicker() {
         ></div>
       </div>
 
+      {/* 연결 상태 표시 */}
+      <div className="absolute top-1 right-2 flex items-center gap-1 text-xs opacity-80">
+        <Wifi className="w-3 h-3 animate-pulse" />
+        <span>실시간</span>
+      </div>
+
+      {/* 스크롤링 티커 */}
       <div
         className={`relative w-[200%] flex transition-opacity duration-300 ${
           isUpdating ? "opacity-0" : "opacity-100"

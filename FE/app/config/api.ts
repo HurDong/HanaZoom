@@ -102,6 +102,9 @@ export const API_ENDPOINTS = {
 
   // Stocks
   stockTicker: "/stocks/ticker",
+  stockSearch: "/stocks/search",
+  stockRealtime: "/stocks/realtime",
+  stockOrderbook: "/stocks/orderbook",
 
   // Health Check
   health: "/health",
