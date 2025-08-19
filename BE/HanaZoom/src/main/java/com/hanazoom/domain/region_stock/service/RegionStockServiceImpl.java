@@ -383,16 +383,29 @@ public class RegionStockServiceImpl implements RegionStockService {
 
                 // 3. StockTickerDto로 변환 (실제 데이터만 사용)
                 List<StockTickerDto> result = topRegionStocks.stream()
-                                .map(rs -> StockTickerDto.builder()
-                                                .symbol(rs.getStock().getSymbol())
-                                                .name(rs.getStock().getName())
-                                                .price(String.valueOf(rs.getStock().getCurrentPrice()))
-                                                .change(String.format("%.2f%%", rs.getStock().getPriceChangePercent()))
-                                                .emoji(rs.getStock().getEmoji())
-                                                .build())
+                                .map(rs -> {
+                                        String sector = rs.getStock().getSector() != null ? rs.getStock().getSector()
+                                                        : "기타";
+                                        log.debug("Stock: {}, Sector: {} (원본: {})", rs.getStock().getName(), sector,
+                                                        rs.getStock().getSector());
+
+                                        return StockTickerDto.builder()
+                                                        .symbol(rs.getStock().getSymbol())
+                                                        .name(rs.getStock().getName())
+                                                        .price(String.valueOf(rs.getStock().getCurrentPrice()))
+                                                        .change(String.format("%.2f%%",
+                                                                        rs.getStock().getPriceChangePercent()))
+                                                        .emoji(rs.getStock().getEmoji())
+                                                        .sector(sector)
+                                                        .build();
+                                })
                                 .collect(Collectors.toList());
 
                 log.info("반환할 StockTickerDto 개수: {}", result.size());
+                log.info("첫 번째 종목 정보: symbol={}, name={}, sector={}",
+                                result.isEmpty() ? "없음" : result.get(0).getSymbol(),
+                                result.isEmpty() ? "없음" : result.get(0).getName(),
+                                result.isEmpty() ? "없음" : result.get(0).getSector());
                 return result;
         }
 

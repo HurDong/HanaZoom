@@ -11,4 +11,5 @@ public class StockTickerDto {
     private String price;
     private String change;
     private String emoji;
+    private String sector;
 }

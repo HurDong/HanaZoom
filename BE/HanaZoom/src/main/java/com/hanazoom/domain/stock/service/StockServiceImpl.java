@@ -13,41 +13,43 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class StockServiceImpl implements StockService {
 
-    private final StockRepository stockRepository;
+        private final StockRepository stockRepository;
 
-    @Override
-    @Transactional(readOnly = true)
-    public Stock getStockBySymbol(String symbol) {
-        return stockRepository.findBySymbol(symbol)
-                .orElseThrow(() -> new IllegalArgumentException("주식을 찾을 수 없습니다."));
-    }
+        @Override
+        @Transactional(readOnly = true)
+        public Stock getStockBySymbol(String symbol) {
+                return stockRepository.findBySymbol(symbol)
+                                .orElseThrow(() -> new IllegalArgumentException("주식을 찾을 수 없습니다."));
+        }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<StockTickerDto> getStockTickers() {
-        return stockRepository.findAll().stream()
-                .map(stock -> StockTickerDto.builder()
-                        .symbol(stock.getSymbol())
-                        .name(stock.getName())
-                        .price(String.valueOf(stock.getCurrentPrice()))
-                        .change(String.format("%.2f%%", stock.getPriceChangePercent()))
-                        .emoji(stock.getEmoji())
-                        .build())
-                .collect(Collectors.toList());
-    }
+        @Override
+        @Transactional(readOnly = true)
+        public List<StockTickerDto> getStockTickers() {
+                return stockRepository.findAll().stream()
+                                .map(stock -> StockTickerDto.builder()
+                                                .symbol(stock.getSymbol())
+                                                .name(stock.getName())
+                                                .price(String.valueOf(stock.getCurrentPrice()))
+                                                .change(String.format("%.2f%%", stock.getPriceChangePercent()))
+                                                .emoji(stock.getEmoji())
+                                                .sector(stock.getSector() != null ? stock.getSector() : "기타")
+                                                .build())
+                                .collect(Collectors.toList());
+        }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<StockTickerDto> searchStocks(String query) {
-        return stockRepository.findByNameContainingOrSymbolContaining(query, query).stream()
-                .limit(10)
-                .map(stock -> StockTickerDto.builder()
-                        .symbol(stock.getSymbol())
-                        .name(stock.getName())
-                        .price(String.valueOf(stock.getCurrentPrice()))
-                        .change(String.format("%.2f%%", stock.getPriceChangePercent()))
-                        .emoji(stock.getEmoji())
-                        .build())
-                .collect(Collectors.toList());
-    }
+        @Override
+        @Transactional(readOnly = true)
+        public List<StockTickerDto> searchStocks(String query) {
+                return stockRepository.findByNameContainingOrSymbolContaining(query, query).stream()
+                                .limit(10)
+                                .map(stock -> StockTickerDto.builder()
+                                                .symbol(stock.getSymbol())
+                                                .name(stock.getName())
+                                                .price(String.valueOf(stock.getCurrentPrice()))
+                                                .change(String.format("%.2f%%", stock.getPriceChangePercent()))
+                                                .emoji(stock.getEmoji())
+                                                .sector(stock.getSector() != null ? stock.getSector() : "기타")
+                                                .build())
+                                .collect(Collectors.toList());
+        }
 }
