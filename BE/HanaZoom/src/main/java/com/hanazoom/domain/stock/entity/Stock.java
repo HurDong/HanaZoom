@@ -3,6 +3,7 @@ package com.hanazoom.domain.stock.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "stocks")
 @Getter
+@Setter
 @NoArgsConstructor
 public class Stock {
     @Id
@@ -56,6 +58,9 @@ public class Stock {
 
     @Column(name = "open_price")
     private BigDecimal openPrice;
+
+    @Column(name = "logo_url")
+    private String logoUrl;
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
