@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
 export function useFPSMonitor(active: boolean = false) {
   const [fps, setFps] = useState(0);
@@ -34,8 +34,8 @@ export function useFPSMonitor(active: boolean = false) {
 
         // 평균 FPS 계산
         const avgFps = Math.round(
-          fpsHistory.current.reduce((sum, fps) => sum + fps, 0) / 
-          fpsHistory.current.length
+          fpsHistory.current.reduce((sum, fps) => sum + fps, 0) /
+            fpsHistory.current.length
         );
         setAvgFps(avgFps);
 

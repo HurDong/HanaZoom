@@ -53,14 +53,19 @@ export default function MapPage() {
 
   // LOD 최적화 hooks
   const { viewport, updateBounds, isPointInBounds } = useMapBounds();
-  const { acquireMarker, releaseAllMarkers, getPoolStats, cleanupPool } = useMarkerPool(200);
-  const { fps, avgFps } = useFPSMonitor(process.env.NODE_ENV === 'development');
+  const { acquireMarker, releaseAllMarkers, getPoolStats, cleanupPool } =
+    useMarkerPool(200);
+  const { fps, avgFps } = useFPSMonitor(process.env.NODE_ENV === "development");
 
   // 디바운싱을 위한 ref
   const zoomTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [debouncedZoomLevel, setDebouncedZoomLevel] = useState(9);
-  const [renderStats, setRenderStats] = useState({ visible: 0, total: 0, renderTime: 0 });
-  
+  const [renderStats, setRenderStats] = useState({
+    visible: 0,
+    total: 0,
+    renderTime: 0,
+  });
+
   // 클러스터링 설정
   const [useClusteringEnabled, setUseClusteringEnabled] = useState(true);
   const shouldUseClusteringBasedOnZoom = debouncedZoomLevel >= 6; // 줌 레벨 6 이상에서 클러스터링
@@ -130,7 +135,7 @@ export default function MapPage() {
     // 주기적으로 마커 풀 정리 (30초마다)
     const poolCleanupInterval = setInterval(() => {
       const cleaned = cleanupPool();
-      if (cleaned > 0 && process.env.NODE_ENV === 'development') {
+      if (cleaned > 0 && process.env.NODE_ENV === "development") {
         console.log(`Cleaned up ${cleaned} inactive markers from pool`);
       }
     }, 30000);
@@ -146,10 +151,10 @@ export default function MapPage() {
 
   // LOD 기반 마커 필터링
   const visibleMarkers = useMemo(() => {
-    PerformanceMonitor.start('marker-filtering');
-    
+    PerformanceMonitor.start("marker-filtering");
+
     if (!regions || regions.length === 0 || !viewport) {
-      PerformanceMonitor.end('marker-filtering');
+      PerformanceMonitor.end("marker-filtering");
       return [];
     }
 
@@ -161,13 +166,13 @@ export default function MapPage() {
       isPointInBounds
     );
 
-    const renderTime = PerformanceMonitor.end('marker-filtering');
-    
+    const renderTime = PerformanceMonitor.end("marker-filtering");
+
     // 성능 통계 업데이트
     setRenderStats({
       visible: filtered.length,
       total: regions.length,
-      renderTime: Math.round(renderTime * 100) / 100
+      renderTime: Math.round(renderTime * 100) / 100,
     });
 
     return filtered;
@@ -203,14 +208,15 @@ export default function MapPage() {
   );
 
   // 클러스터링 사용 여부 결정
-  const useClusteringNow = useClusteringEnabled && shouldUseClusteringBasedOnZoom;
+  const useClusteringNow =
+    useClusteringEnabled && shouldUseClusteringBasedOnZoom;
 
   // LOD 기반 마커 렌더링 최적화 (클러스터링 미사용 시)
   const renderedMarkers = useMemo(() => {
     if (useClusteringNow) return []; // 클러스터링 사용 시 빈 배열 반환
-    
-    PerformanceMonitor.start('marker-rendering');
-    
+
+    PerformanceMonitor.start("marker-rendering");
+
     const markers = visibleMarkers.map((region) => {
       const markerElement = acquireMarker(region, (r) => (
         <RegionMarker
@@ -220,19 +226,25 @@ export default function MapPage() {
           isVisible={true} // LOD 필터링으로 이미 가시성 결정됨
         />
       ));
-      
+
       return markerElement;
     });
 
-    const renderTime = PerformanceMonitor.end('marker-rendering');
-    
+    const renderTime = PerformanceMonitor.end("marker-rendering");
+
     // 비활성 마커는 풀에서 정리
     if (visibleMarkers.length === 0) {
       releaseAllMarkers();
     }
 
     return markers;
-  }, [visibleMarkers, handleMarkerClick, acquireMarker, releaseAllMarkers, useClusteringNow]);
+  }, [
+    visibleMarkers,
+    handleMarkerClick,
+    acquireMarker,
+    releaseAllMarkers,
+    useClusteringNow,
+  ]);
 
   // 종목 클릭 시 해당 종목의 게시판으로 이동
   const handleStockClick = (stock: TopStock) => {
@@ -328,23 +340,28 @@ export default function MapPage() {
                 </h4>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-600 dark:text-gray-400">
-                    자동 그룹핑 {shouldUseClusteringBasedOnZoom ? '(활성)' : '(비활성)'}
+                    자동 그룹핑{" "}
+                    {shouldUseClusteringBasedOnZoom ? "(활성)" : "(비활성)"}
                   </span>
                   <button
-                    onClick={() => setUseClusteringEnabled(!useClusteringEnabled)}
+                    onClick={() =>
+                      setUseClusteringEnabled(!useClusteringEnabled)
+                    }
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      useClusteringEnabled ? 'bg-green-600' : 'bg-gray-300'
+                      useClusteringEnabled ? "bg-green-600" : "bg-gray-300"
                     }`}
                   >
                     <span
                       className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                        useClusteringEnabled ? 'translate-x-5' : 'translate-x-1'
+                        useClusteringEnabled ? "translate-x-5" : "translate-x-1"
                       }`}
                     />
                   </button>
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {useClusteringNow ? '🔗 클러스터링 활성' : '📍 개별 마커 표시'}
+                  {useClusteringNow
+                    ? "🔗 클러스터링 활성"
+                    : "📍 개별 마커 표시"}
                 </div>
               </div>
 
@@ -365,7 +382,12 @@ export default function MapPage() {
                   <div className="flex justify-between">
                     <span>렌더링 효율:</span>
                     <span className="font-medium text-green-600 dark:text-green-400">
-                      {renderStats.total > 0 ? Math.round((renderStats.visible / renderStats.total) * 100) : 0}%
+                      {renderStats.total > 0
+                        ? Math.round(
+                            (renderStats.visible / renderStats.total) * 100
+                          )
+                        : 0}
+                      %
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -459,7 +481,7 @@ export default function MapPage() {
             >
               {renderedMarkers}
               {useClusteringNow && (
-                <ClusteredMarkers 
+                <ClusteredMarkers
                   markers={visibleMarkers}
                   onMarkerClick={handleMarkerClick}
                   minClusterSize={3}
@@ -467,19 +489,33 @@ export default function MapPage() {
                 />
               )}
             </Map>
-            
+
             {/* LOD 성능 통계 표시 */}
-            {process.env.NODE_ENV === 'development' && (
+            {process.env.NODE_ENV === "development" && (
               <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs p-2 rounded backdrop-blur-sm">
-                <div className="font-semibold text-green-400 mb-1">🚀 LOD 성능 통계</div>
-                <div>가시 마커: {renderStats.visible}/{renderStats.total}</div>
+                <div className="font-semibold text-green-400 mb-1">
+                  🚀 LOD 성능 통계
+                </div>
+                <div>
+                  가시 마커: {renderStats.visible}/{renderStats.total}
+                </div>
                 <div>필터링 시간: {renderStats.renderTime}ms</div>
-                <div>풀 사용률: {Math.round(getPoolStats().utilizationRate)}%</div>
-                <div>클러스터링: {useClusteringNow ? 'ON' : 'OFF'}</div>
-                <div>FPS: {fps} (평균: {avgFps})</div>
+                <div>
+                  풀 사용률: {Math.round(getPoolStats().utilizationRate)}%
+                </div>
+                <div>클러스터링: {useClusteringNow ? "ON" : "OFF"}</div>
+                <div>
+                  FPS: {fps} (평균: {avgFps})
+                </div>
                 <div>줌 레벨: {zoomLevel}</div>
                 <div className="text-xs text-gray-400 mt-1">
-                  성능 향상: {renderStats.total > 0 ? Math.round((1 - renderStats.visible / renderStats.total) * 100) : 0}%
+                  성능 향상:{" "}
+                  {renderStats.total > 0
+                    ? Math.round(
+                        (1 - renderStats.visible / renderStats.total) * 100
+                      )
+                    : 0}
+                  %
                 </div>
               </div>
             )}
