@@ -28,6 +28,9 @@ public class StockPriceResponse {
     private String marketCap; // 시가총액
     private String previousClose; // 전일종가
     private String updatedTime; // 갱신시간
+    private boolean isMarketOpen; // 장 운영시간 여부
+    private boolean isAfterMarketClose; // 장종료 후 여부
+    private String marketStatus; // 시장 상태 메시지
 
     /**
      * 전일대비구분을 기반으로 상승/하락 상태 반환

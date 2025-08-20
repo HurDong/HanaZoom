@@ -5,6 +5,7 @@ import com.hanazoom.domain.stock.dto.StockPriceResponse;
 import com.hanazoom.domain.stock.service.StockChartService;
 import com.hanazoom.global.config.KisConfig;
 import com.hanazoom.global.service.KisApiService;
+import com.hanazoom.global.util.MarketTimeUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
@@ -36,6 +37,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
     private final StockChartService stockChartService;
+    private final MarketTimeUtils marketTimeUtils;
 
     // KIS 웹소켓 연결용
     private WebSocketSession kisWebSocketSession;
@@ -97,7 +99,8 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
         // 구독 정리
         stockSubscriptions.values().forEach(sessions -> sessions.remove(session));
 
-        log.info("❌ 클라이언트 웹소켓 연결 종료: {} (총 {}개 연결), 상태: {}, 코드: {}, 이유: {}", session.getId(), clientSessions.size(), status, status.getCode(), status.getReason());
+        log.info("❌ 클라이언트 웹소켓 연결 종료: {} (총 {}개 연결), 상태: {}, 코드: {}, 이유: {}", session.getId(), clientSessions.size(),
+                status, status.getCode(), status.getReason());
     }
 
     @Override
@@ -117,7 +120,8 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                     codes.add(stockCode);
 
                     // 이미 해당 세션이 구독 중인지 확인
-                    Set<WebSocketSession> subscribers = stockSubscriptions.computeIfAbsent(stockCode, k -> ConcurrentHashMap.newKeySet());
+                    Set<WebSocketSession> subscribers = stockSubscriptions.computeIfAbsent(stockCode,
+                            k -> ConcurrentHashMap.newKeySet());
                     if (!subscribers.contains(session)) {
                         subscribers.add(session);
                         log.debug("📡 새로운 구독 추가: {} -> {}", stockCode, session.getId());
@@ -134,7 +138,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                 // 구독 성공 응답
                 sendToClient(session, createMessage("SUBSCRIBED", "구독이 완료되었습니다.", Map.of("stockCodes", codes)));
 
-                                // Redis에서 현재 캐시된 데이터 즉시 전송
+                // Redis에서 현재 캐시된 데이터 즉시 전송
                 sendCachedDataToClient(session, codes);
             }
         } catch (Exception e) {
@@ -292,12 +296,14 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
             log.info("✅ KIS 웹소켓 연결 성공");
 
             // 기본 종목들 구독 (프론트엔드 티커와 동일)
-            List<String> defaultStocks = Arrays.asList("005930", "000660", "035420", "035720", "005380", "051910", "207940", "068270", "323410", "373220");
+            List<String> defaultStocks = Arrays.asList("005930", "000660", "035420", "035720", "005380", "051910",
+                    "207940", "068270", "323410", "373220");
             subscribeToDefaultStocks(session, defaultStocks);
         }
 
         @Override
-        protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) throws Exception {
+        protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message)
+                throws Exception {
             String receivedMessage = message.getPayload();
             log.debug("📨 KIS로부터 수신: {}", receivedMessage);
 
@@ -308,12 +314,14 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
         }
 
         @Override
-        public void handleTransportError(@NonNull WebSocketSession session, @NonNull Throwable exception) throws Exception {
+        public void handleTransportError(@NonNull WebSocketSession session, @NonNull Throwable exception)
+                throws Exception {
             log.error("❌ KIS 웹소켓 전송 오류", exception);
         }
 
         @Override
-        public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) throws Exception {
+        public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status)
+                throws Exception {
             log.warn("❌ KIS 웹소켓 연결 종료: {}", status);
             kisWebSocketSession = null;
 
@@ -351,34 +359,66 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                         log.debug("📊 파싱된 데이터 필드 수: {}", dataParts.length);
 
                         if (dataParts.length >= 15) {
-                                                        String stockCode = dataParts[0].trim();        // 종목코드
-                            // String timeStamp = dataParts[1].trim();        // 시간
-                            String currentPrice = dataParts[2].trim();     // 현재가
-                            String changeSign = dataParts[3].trim();       // 등락구분 (5=하락, 2=상승, 3=보합)
-                            String changePrice = dataParts[4].trim();      // 전일대비
-                            String changeRate = dataParts[5].trim();       // 등락률
-                            
+                            String stockCode = dataParts[0].trim(); // 종목코드
+                            // String timeStamp = dataParts[1].trim(); // 시간
+                            String currentPrice = dataParts[2].trim(); // 현재가
+                            String changeSign = dataParts[3].trim(); // 등락구분 (5=하락, 2=상승, 3=보합)
+                            String changePrice = dataParts[4].trim(); // 전일대비
+                            String changeRate = dataParts[5].trim(); // 등락률
+
                             // 전일대비가 음수인 경우 KIS에서 이미 -가 붙어있음
                             // 전일대비율도 마찬가지로 이미 -가 붙어있음
                             // String weightedAvgPrice = dataParts[6].trim(); // 가중평균가
-                            String openPrice = dataParts[7].trim();        // 시가
-                            String highPrice = dataParts[8].trim();        // 고가
-                            String lowPrice = dataParts[9].trim();         // 저가
-                            String previousClose = dataParts[10].trim();   // 전일종가
-                            // String bidPrice = dataParts[11].trim();        // 매수호가
-                            String volume = dataParts[13].trim();          // 누적거래량
-                            // String volumeAmount = dataParts[14].trim();    // 누적거래대금
+                            String openPrice = dataParts[7].trim(); // 시가
+                            String highPrice = dataParts[8].trim(); // 고가
+                            String lowPrice = dataParts[9].trim(); // 저가
+                            String previousClose = dataParts[10].trim(); // 전일종가
+                            // String bidPrice = dataParts[11].trim(); // 매수호가
+                            String volume = dataParts[13].trim(); // 누적거래량
+                            // String volumeAmount = dataParts[14].trim(); // 누적거래대금
 
                             // 등락구분 변환 (KIS: 5=하락, 2=상승, 3=보합 → 우리 시스템: 4=하락, 2=상승, 3=보합)
                             String normalizedChangeSign = normalizeChangeSign(changeSign);
 
-                            log.debug("📈 파싱 결과: 종목={}, 현재가={}, 등락률={}%, 구분={} -> {}", stockCode, currentPrice, changeRate, changeSign, normalizedChangeSign);
+                            log.debug("📈 파싱 결과: 종목={}, 현재가={}, 등락률={}%, 구분={} -> {}", stockCode, currentPrice,
+                                    changeRate, changeSign, normalizedChangeSign);
 
                             // 종목명은 별도 저장소에서 조회 (DB 또는 캐시)
                             String stockName = getStockNameFromCache(stockCode);
 
+                            // 시장 운영 상태 확인
+                            MarketTimeUtils.MarketTimeInfo marketInfo = marketTimeUtils.getMarketTimeInfo();
+                            boolean isMarketOpen = marketInfo.isMarketOpen();
+                            boolean isAfterMarketClose = marketInfo.isMarketClosed() &&
+                                    !marketInfo.getMarketStatus().equals(MarketTimeUtils.MarketStatus.CLOSED_WEEKEND) &&
+                                    !marketInfo.getMarketStatus().equals(MarketTimeUtils.MarketStatus.CLOSED_HOLIDAY);
+
+                            // 장종료 후에는 현재가가 종가를 의미함
+                            String displayCurrentPrice = currentPrice;
+                            if (isAfterMarketClose) {
+                                log.debug("시장 종료 후 - 종가({})를 현재가로 전송: {}", displayCurrentPrice, stockCode);
+                            }
+
                             // StockPriceResponse 객체 생성
-                            StockPriceResponse stockData = StockPriceResponse.builder().stockCode(stockCode).stockName(stockName).currentPrice(currentPrice).changePrice(changePrice).changeRate(changeRate).changeSign(normalizedChangeSign).volume(volume).openPrice(openPrice).highPrice(highPrice).lowPrice(lowPrice).previousClose(previousClose).marketCap(calculateMarketCap(stockCode, currentPrice)).updatedTime(String.valueOf(System.currentTimeMillis())).build();
+                            StockPriceResponse stockData = StockPriceResponse.builder()
+                                    .stockCode(stockCode)
+                                    .stockName(stockName)
+                                    .currentPrice(displayCurrentPrice)
+                                    .changePrice(changePrice)
+                                    .changeRate(changeRate)
+                                    .changeSign(normalizedChangeSign)
+                                    .volume(volume)
+                                    .openPrice(openPrice)
+                                    .highPrice(highPrice)
+                                    .lowPrice(lowPrice)
+                                    .previousClose(previousClose)
+                                    .marketCap(calculateMarketCap(stockCode, currentPrice))
+                                    .updatedTime(String.valueOf(System.currentTimeMillis()))
+                                    // 새로 추가된 필드들
+                                    .isMarketOpen(isMarketOpen)
+                                    .isAfterMarketClose(isAfterMarketClose)
+                                    .marketStatus(marketInfo.getStatusMessage())
+                                    .build();
 
                             // Redis에 캐시
                             String key = "stock:realtime:" + stockCode;
@@ -488,32 +528,27 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                 case "005930":
                     return 5969782550L; // 삼성전자
                 case "000660":
-                    return 731883151L;  // SK하이닉스
+                    return 731883151L; // SK하이닉스
                 case "035420":
-                    return 16570000L;   // NAVER
+                    return 16570000L; // NAVER
                 case "035720":
-                    return 434265829L;  // 카카오
+                    return 434265829L; // 카카오
                 case "005380":
                     return 3284956600L; // 현대자동차
                 case "051910":
-                    return 365206200L;  // LG화학
+                    return 365206200L; // LG화학
                 case "207940":
-                    return 119548400L;  // 삼성바이오로직스
+                    return 119548400L; // 삼성바이오로직스
                 case "068270":
-                    return 865306600L;  // 셀트리온
+                    return 865306600L; // 셀트리온
                 case "323410":
                     return 2627039200L; // 카카오뱅크
                 case "373220":
-                    return 685074950L;  // LG에너지솔루션
+                    return 685074950L; // LG에너지솔루션
                 default:
                     return 100000000L; // 기본값
             }
         }
-
-
-
-
-
 
     }
 }

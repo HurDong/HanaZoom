@@ -7,6 +7,7 @@ import com.hanazoom.domain.stock.dto.StockTickerDto;
 import com.hanazoom.domain.stock.entity.Stock;
 import com.hanazoom.domain.stock.repository.StockRepository;
 import com.hanazoom.global.service.KisApiService;
+import com.hanazoom.global.util.MarketTimeUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
@@ -23,6 +24,7 @@ public class StockServiceImpl implements StockService {
 
         private final StockRepository stockRepository;
         private final KisApiService kisApiService;
+        private final MarketTimeUtils marketTimeUtils;
 
         @Override
         @Transactional(readOnly = true)
@@ -39,16 +41,26 @@ public class StockServiceImpl implements StockService {
                                                 // 기존 필드명
                                                 .symbol(stock.getSymbol())
                                                 .name(stock.getName())
-                                                .price(stock.getCurrentPrice() != null ? stock.getCurrentPrice().toString() : "0")
-                                                .change(stock.getPriceChangePercent() != null ? stock.getPriceChangePercent().toString() : "0")
+                                                .price(stock.getCurrentPrice() != null
+                                                                ? stock.getCurrentPrice().toString()
+                                                                : "0")
+                                                .change(stock.getPriceChangePercent() != null
+                                                                ? stock.getPriceChangePercent().toString()
+                                                                : "0")
                                                 .logoUrl(stock.getLogoUrl())
                                                 .sector(stock.getSector() != null ? stock.getSector() : "기타")
                                                 // 프론트엔드에서 기대하는 필드명
                                                 .stockCode(stock.getSymbol())
                                                 .stockName(stock.getName())
-                                                .currentPrice(stock.getCurrentPrice() != null ? stock.getCurrentPrice().toString() : "0")
-                                                .priceChange(stock.getPriceChange() != null ? stock.getPriceChange().toString() : "0")
-                                                .changeRate(stock.getPriceChangePercent() != null ? stock.getPriceChangePercent().toString() : "0")
+                                                .currentPrice(stock.getCurrentPrice() != null
+                                                                ? stock.getCurrentPrice().toString()
+                                                                : "0")
+                                                .priceChange(stock.getPriceChange() != null
+                                                                ? stock.getPriceChange().toString()
+                                                                : "0")
+                                                .changeRate(stock.getPriceChangePercent() != null
+                                                                ? stock.getPriceChangePercent().toString()
+                                                                : "0")
                                                 .build())
                                 .collect(Collectors.toList());
         }
@@ -62,16 +74,26 @@ public class StockServiceImpl implements StockService {
                                                 // 기존 필드명
                                                 .symbol(stock.getSymbol())
                                                 .name(stock.getName())
-                                                .price(stock.getCurrentPrice() != null ? stock.getCurrentPrice().toString() : "0")
-                                                .change(stock.getPriceChangePercent() != null ? stock.getPriceChangePercent().toString() : "0")
+                                                .price(stock.getCurrentPrice() != null
+                                                                ? stock.getCurrentPrice().toString()
+                                                                : "0")
+                                                .change(stock.getPriceChangePercent() != null
+                                                                ? stock.getPriceChangePercent().toString()
+                                                                : "0")
                                                 .logoUrl(stock.getLogoUrl())
                                                 .sector(stock.getSector() != null ? stock.getSector() : "기타")
                                                 // 프론트엔드에서 기대하는 필드명
                                                 .stockCode(stock.getSymbol())
                                                 .stockName(stock.getName())
-                                                .currentPrice(stock.getCurrentPrice() != null ? stock.getCurrentPrice().toString() : "0")
-                                                .priceChange(stock.getPriceChange() != null ? stock.getPriceChange().toString() : "0")
-                                                .changeRate(stock.getPriceChangePercent() != null ? stock.getPriceChangePercent().toString() : "0")
+                                                .currentPrice(stock.getCurrentPrice() != null
+                                                                ? stock.getCurrentPrice().toString()
+                                                                : "0")
+                                                .priceChange(stock.getPriceChange() != null
+                                                                ? stock.getPriceChange().toString()
+                                                                : "0")
+                                                .changeRate(stock.getPriceChangePercent() != null
+                                                                ? stock.getPriceChangePercent().toString()
+                                                                : "0")
                                                 .build())
                                 .collect(Collectors.toList());
         }
@@ -91,10 +113,32 @@ public class StockServiceImpl implements StockService {
 
                         JSONObject output = jsonResponse.getJSONObject("output");
 
+                        // 시장 운영 상태 확인
+                        MarketTimeUtils.MarketTimeInfo marketInfo = marketTimeUtils.getMarketTimeInfo();
+                        boolean isMarketOpen = marketInfo.isMarketOpen();
+                        boolean isAfterMarketClose = marketInfo.isMarketClosed() &&
+                                        !marketInfo.getMarketStatus()
+                                                        .equals(MarketTimeUtils.MarketStatus.CLOSED_WEEKEND)
+                                        &&
+                                        !marketInfo.getMarketStatus()
+                                                        .equals(MarketTimeUtils.MarketStatus.CLOSED_HOLIDAY);
+
+                        // 원본 현재가와 전일종가
+                        String originalCurrentPrice = output.optString("stck_prpr", "0");
+                        String previousClose = output.optString("stck_sdpr", "0");
+
+                        // 장종료 후에는 종가(전일종가가 아닌 당일 종가)를 현재가로 사용
+                        // KIS API에서 장종료 후에는 stck_prpr이 당일 종가를 나타냄
+                        String displayCurrentPrice = originalCurrentPrice;
+
+                        if (isAfterMarketClose) {
+                                log.info("시장 종료 후 - 종가({})를 현재가로 표시: {}", displayCurrentPrice, stockCode);
+                        }
+
                         return StockPriceResponse.builder()
                                         .stockCode(stockCode)
                                         .stockName(output.optString("hts_kor_isnm", "")) // 종목명
-                                        .currentPrice(output.optString("stck_prpr", "0")) // 현재가
+                                        .currentPrice(displayCurrentPrice) // 장종료 시 종가 표시
                                         .changePrice(output.optString("prdy_vrss", "0")) // 전일대비
                                         .changeRate(output.optString("prdy_ctrt", "0")) // 전일대비율
                                         .changeSign(output.optString("prdy_vrss_sign", "3")) // 전일대비구분
@@ -104,8 +148,12 @@ public class StockServiceImpl implements StockService {
                                         .volume(output.optString("acml_vol", "0")) // 누적거래량
                                         .volumeRatio(output.optString("vol_tnrt", "0")) // 거래량회전율
                                         .marketCap(output.optString("hts_avls", "0")) // 시가총액
-                                        .previousClose(output.optString("stck_sdpr", "0")) // 전일종가
+                                        .previousClose(previousClose) // 전일종가
                                         .updatedTime(output.optString("stck_cntg_hour", "")) // 연속시간
+                                        // 추가된 필드들
+                                        .isMarketOpen(isMarketOpen)
+                                        .isAfterMarketClose(isAfterMarketClose)
+                                        .marketStatus(marketInfo.getStatusMessage())
                                         .build();
 
                 } catch (Exception e) {
