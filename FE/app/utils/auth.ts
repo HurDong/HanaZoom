@@ -122,9 +122,24 @@ export const logout = async () => {
       method: "POST",
       credentials: "include",
     });
+    // 로그인 상태 유지 설정도 정리
+    clearLoginPreferences();
   }
 };
 
 export const isLoggedIn = () => {
   return !!useAuthStore.getState().accessToken;
+};
+
+export const shouldKeepLoggedIn = () => {
+  return localStorage.getItem("keepLoggedIn") === "true";
+};
+
+export const getSavedLoginEmail = () => {
+  return localStorage.getItem("loginEmail");
+};
+
+export const clearLoginPreferences = () => {
+  localStorage.removeItem("keepLoggedIn");
+  localStorage.removeItem("loginEmail");
 };
