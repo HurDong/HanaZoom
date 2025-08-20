@@ -74,7 +74,7 @@ CREATE TABLE stocks (
     name VARCHAR(100) NOT NULL COMMENT '종목명 (예: 삼성전자)',
     market VARCHAR(20) NOT NULL COMMENT '시장 (KOSPI, KOSDAQ, KONEX)',
     sector VARCHAR(50) NULL COMMENT '섹터 (전자, 화학, 서비스업 등)',
-    emoji VARCHAR(10) NULL COMMENT '종목 이모지',
+    logo_url VARCHAR(500) NULL COMMENT '종목 로고 URL',
 
     -- 실시간 정보 (API에서 업데이트)
     current_price DECIMAL(15, 2) NULL COMMENT '현재가',
@@ -103,12 +103,12 @@ CREATE TABLE stocks (
 ### 데이터 예시
 
 ```sql
-INSERT INTO stocks (symbol, name, market, sector, emoji, current_price, price_change, price_change_percent, volume, market_cap, is_active) VALUES
-('005930', '삼성전자', 'KOSPI', '전자', '📱', 71500.00, 1500.00, 2.14, 12345678, 4270000000000000, TRUE),
-('035420', 'NAVER', 'KOSPI', '서비스업', '🔍', 185000.00, -2300.00, -1.23, 1234567, 30400000000000, TRUE),
-('035720', '카카오', 'KOSPI', '서비스업', '💬', 52300.00, 2100.00, 4.18, 3456789, 23200000000000, TRUE),
-('000660', 'SK하이닉스', 'KOSPI', '전자', '💾', 128000.00, 2300.00, 1.83, 2345678, 93100000000000, TRUE),
-('051910', 'LG화학', 'KOSPI', '화학', '🧪', 425000.00, -2100.00, -0.49, 345678, 30000000000000, TRUE);
+INSERT INTO stocks (symbol, name, market, sector, logo_url, current_price, price_change, price_change_percent, volume, market_cap, is_active) VALUES
+('005930', '삼성전자', 'KOSPI', '전자', 'https://file.alphasquare.co.kr/media/images/stock_logo/kr/005930.png', 71500.00, 1500.00, 2.14, 12345678, 4270000000000000, TRUE),
+('035420', 'NAVER', 'KOSPI', '서비스업', 'https://file.alphasquare.co.kr/media/images/stock_logo/kr/035420.png', 185000.00, -2300.00, -1.23, 1234567, 30400000000000, TRUE),
+('035720', '카카오', 'KOSPI', '서비스업', 'https://file.alphasquare.co.kr/media/images/stock_logo/kr/035720.png', 52300.00, 2100.00, 4.18, 3456789, 23200000000000, TRUE),
+('000660', 'SK하이닉스', 'KOSPI', '전자', 'https://file.alphasquare.co.kr/media/images/stock_logo/kr/000660.png', 128000.00, 2300.00, 1.83, 2345678, 93100000000000, TRUE),
+('051910', 'LG화학', 'KOSPI', '화학', 'https://file.alphasquare.co.kr/media/images/stock_logo/kr/051910.png', 425000.00, -2100.00, -0.49, 345678, 30000000000000, TRUE);
 ```
 
 ### 특징
