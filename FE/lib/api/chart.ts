@@ -31,11 +31,13 @@ export const getChartData = async (
   limit: number = 100
 ): Promise<CandleData[]> => {
   const response = await api.get<ChartApiResponse>(
-    `/api/v1/stocks/chart/${stockCode}?timeframe=${timeframe}&limit=${limit}`
+    `/stocks/chart/${stockCode}?timeframe=${timeframe}&limit=${limit}`
   );
 
   if (!response.data.success) {
-    throw new Error(response.data.message || "차트 데이터 조회에 실패했습니다.");
+    throw new Error(
+      response.data.message || "차트 데이터 조회에 실패했습니다."
+    );
   }
 
   return response.data.data;
@@ -48,9 +50,11 @@ export const getCurrentCandle = async (
   stockCode: string,
   timeframe: string = "1D"
 ): Promise<CandleData> => {
-  const response = await api.get<{ success: boolean; data: CandleData; message: string }>(
-    `/api/v1/stocks/chart/${stockCode}/current?timeframe=${timeframe}`
-  );
+  const response = await api.get<{
+    success: boolean;
+    data: CandleData;
+    message: string;
+  }>(`/stocks/chart/${stockCode}/current?timeframe=${timeframe}`);
 
   if (!response.data.success) {
     throw new Error(response.data.message || "현재 캔들 조회에 실패했습니다.");
@@ -63,12 +67,16 @@ export const getCurrentCandle = async (
  * 지원하는 시간봉 목록 조회
  */
 export const getSupportedTimeframes = async (): Promise<string[]> => {
-  const response = await api.get<{ success: boolean; data: string[]; message: string }>(
-    "/api/v1/stocks/chart/timeframes"
-  );
+  const response = await api.get<{
+    success: boolean;
+    data: string[];
+    message: string;
+  }>("/stocks/chart/timeframes");
 
   if (!response.data.success) {
-    throw new Error(response.data.message || "시간봉 목록 조회에 실패했습니다.");
+    throw new Error(
+      response.data.message || "시간봉 목록 조회에 실패했습니다."
+    );
   }
 
   return response.data.data;
@@ -82,7 +90,9 @@ export const formatCandleForChart = (candle: CandleData) => {
     time: new Date(candle.timestamp).toLocaleTimeString("ko-KR", {
       hour: "2-digit",
       minute: "2-digit",
-      ...(candle.timeframe.includes("M") || candle.timeframe.includes("H") ? { second: "2-digit" } : {}),
+      ...(candle.timeframe.includes("M") || candle.timeframe.includes("H")
+        ? { second: "2-digit" }
+        : {}),
     }),
     timestamp: candle.timestamp,
     open: parseFloat(candle.openPrice),

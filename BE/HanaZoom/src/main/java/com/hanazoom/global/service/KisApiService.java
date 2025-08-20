@@ -228,15 +228,40 @@ public class KisApiService {
     /**
      * 국내주식 일봉차트 조회
      * 
-     * @param stockCode 주식 종목코드 (6자리)
-     * @param period 조회기간 (D=일, W=주, M=월)
+     * @param stockCode   주식 종목코드 (6자리)
+     * @param period      조회기간 (D=일, W=주, M=월)
      * @param adjustPrice 수정주가 반영여부 (0=수정주가반영안함, 1=수정주가반영)
      * @return 차트 데이터 JSON 응답
      */
     public String getDailyChartData(String stockCode, String period, String adjustPrice) {
+        return getDailyChartDataWithDateRange(stockCode, period, adjustPrice, null, null);
+    }
+
+    /**
+     * 국내주식 일봉차트 조회 (날짜 범위 지정)
+     * 
+     * @param stockCode   주식 종목코드
+     * @param period      조회기간 (D=일, W=주, M=월)
+     * @param adjustPrice 수정주가 반영여부
+     * @param startDate   시작일 (YYYYMMDD, null이면 기본값)
+     * @param endDate     종료일 (YYYYMMDD, null이면 오늘)
+     * @return 차트 데이터 JSON 응답
+     */
+    public String getDailyChartDataWithDateRange(String stockCode, String period, String adjustPrice, String startDate,
+            String endDate) {
         if (!isAccessTokenValid()) {
             log.warn("Access token is not valid. Issuing new token.");
             issueAccessToken();
+        }
+
+        // 날짜 설정 - 기본값: 3년치 데이터
+        if (endDate == null) {
+            endDate = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+        }
+        if (startDate == null) {
+            // 3년 전 날짜 (약 1000 영업일)
+            startDate = java.time.LocalDate.now().minusYears(3)
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
         }
 
         try {
@@ -244,8 +269,8 @@ public class KisApiService {
                     .uri("https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice"
                             + "?FID_COND_MRKT_DIV_CODE=J"
                             + "&FID_INPUT_ISCD=" + stockCode
-                            + "&FID_INPUT_DATE_1=" // 시작일 (YYYYMMDD)
-                            + "&FID_INPUT_DATE_2=" // 종료일 (YYYYMMDD) 
+                            + "&FID_INPUT_DATE_1=" + startDate // 시작일 (YYYYMMDD)
+                            + "&FID_INPUT_DATE_2=" + endDate // 종료일 (YYYYMMDD)
                             + "&FID_PERIOD_DIV_CODE=" + period
                             + "&FID_ORG_ADJ_PRC=" + adjustPrice)
                     .header("authorization", "Bearer " + kisConfig.getAccessToken())
@@ -256,7 +281,7 @@ public class KisApiService {
                     .bodyToMono(String.class)
                     .block();
 
-            log.info("Successfully fetched daily chart data for stock: {}", stockCode);
+            log.info("Successfully fetched daily chart data for stock: {} ({} ~ {})", stockCode, startDate, endDate);
             return response;
 
         } catch (Exception e) {
@@ -268,8 +293,8 @@ public class KisApiService {
     /**
      * 국내주식 분봉차트 조회
      * 
-     * @param stockCode 주식 종목코드 (6자리)
-     * @param timeframe 분봉구분 (01=1분, 05=5분, 15=15분, 30=30분, 60=60분)
+     * @param stockCode   주식 종목코드 (6자리)
+     * @param timeframe   분봉구분 (01=1분, 05=5분, 15=15분, 30=30분, 60=60분)
      * @param adjustPrice 수정주가 반영여부
      * @return 분봉 차트 데이터 JSON 응답
      */

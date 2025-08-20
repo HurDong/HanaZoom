@@ -31,6 +31,10 @@ export interface StockPriceData {
   changeStatus: string;
   positiveChange: boolean;
   negativeChange: boolean;
+  // 장 운영 상태 관련 필드
+  isMarketOpen: boolean;
+  isAfterMarketClose: boolean;
+  marketStatus: string;
 }
 
 export interface OrderBookItem {
