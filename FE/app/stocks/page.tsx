@@ -19,6 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import type { StockPriceData } from "@/lib/api/stock";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
+import { StockTicker } from "@/components/stock-ticker";
+import { MouseFollower } from "@/components/mouse-follower";
 
 // 한국 주요 종목들
 const POPULAR_STOCKS = [
@@ -244,6 +246,9 @@ export default function StocksPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950">
+      {/* 마우스 따라다니는 아이콘들 */}
+      <MouseFollower />
+
       {/* 배경 패턴 */}
       <div className="absolute inset-0 pointer-events-none opacity-10 dark:opacity-5">
         <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:20px_20px]"></div>
@@ -273,7 +278,12 @@ export default function StocksPage() {
         <NavBar />
       </div>
 
-      <main className="relative z-10 pt-20 pb-8">
+      {/* StockTicker 추가 */}
+      <div className="fixed top-16 left-0 right-0 z-[60]">
+        <StockTicker />
+      </div>
+
+      <main className="relative z-10 pt-28 pb-8">
         <div className="container mx-auto px-4 max-w-6xl">
           {/* 헤더 섹션 */}
           <div className="text-center mb-8">

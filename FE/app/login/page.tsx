@@ -18,8 +18,8 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MouseFollower } from "@/components/mouse-follower";
 import { StockTicker } from "@/components/stock-ticker";
-import { useState } from "react";
-import { setLoginData } from "../utils/auth";
+import { useState, useEffect } from "react";
+import { setLoginData, useAuthStore } from "../utils/auth";
 import Swal from "sweetalert2";
 import { useRouter, useSearchParams } from "next/navigation";
 import NavBar from "@/app/components/Navbar";
@@ -28,11 +28,31 @@ import { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { accessToken } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+  const [keepLoggedIn, setKeepLoggedIn] = useState(false);
+
+  // 이미 로그인된 사용자는 홈페이지로 리다이렉트
+  useEffect(() => {
+    if (accessToken) {
+      router.replace("/");
+    }
+  }, [accessToken, router]);
+
+  // 페이지 로드 시 이전 로그인 상태 유지 설정 복원
+  useEffect(() => {
+    const savedKeepLoggedIn = localStorage.getItem("keepLoggedIn");
+    const savedEmail = localStorage.getItem("loginEmail");
+
+    if (savedKeepLoggedIn === "true" && savedEmail) {
+      setKeepLoggedIn(true);
+      setFormData((prev) => ({ ...prev, email: savedEmail }));
+    }
+  }, []);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+$/;
@@ -108,14 +128,16 @@ export default function LoginPage() {
         longitude: data.longitude,
       });
 
-      await Swal.fire({
-        title: "환영합니다!",
-        text: "로그인에 성공했습니다.",
-        icon: "success",
-        timer: 1500,
-        showConfirmButton: false,
-      });
+      // 로그인 상태 유지 설정을 localStorage에 저장
+      if (keepLoggedIn) {
+        localStorage.setItem("keepLoggedIn", "true");
+        localStorage.setItem("loginEmail", formData.email);
+      } else {
+        localStorage.removeItem("keepLoggedIn");
+        localStorage.removeItem("loginEmail");
+      }
 
+      // 로그인 성공 후 바로 메인화면으로 이동
       router.push("/");
     } catch (error: any) {
       showErrorAlert(
@@ -230,6 +252,8 @@ export default function LoginPage() {
                 <label className="flex items-center space-x-2 text-green-700 dark:text-green-300">
                   <input
                     type="checkbox"
+                    checked={keepLoggedIn}
+                    onChange={(e) => setKeepLoggedIn(e.target.checked)}
                     className="rounded border-green-300 text-green-600 focus:ring-green-500"
                   />
                   <span>로그인 상태 유지</span>

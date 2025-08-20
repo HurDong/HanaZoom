@@ -21,6 +21,7 @@ import { MouseFollower } from "@/components/mouse-follower";
 import { StockTicker } from "@/components/stock-ticker";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/app/utils/auth";
 import NavBar from "@/app/components/Navbar";
 import api from "@/app/config/api";
 import { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
@@ -34,6 +35,7 @@ declare global {
 
 export default function SignupPage() {
   const router = useRouter();
+  const { accessToken } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -53,6 +55,13 @@ export default function SignupPage() {
     marketing: false,
   });
   const [error, setError] = useState("");
+
+  // 이미 로그인된 사용자는 홈페이지로 리다이렉트
+  useEffect(() => {
+    if (accessToken) {
+      router.replace("/");
+    }
+  }, [accessToken, router]);
 
   const handleSocialSignup = (provider: string) => {
     // OAuth 2.0 회원가입 로직 구현 예정
@@ -187,6 +196,20 @@ export default function SignupPage() {
   const handleAgreementChange = (field: string, checked: boolean) => {
     setAgreements((prev) => ({ ...prev, [field]: checked }));
   };
+
+  // 이미 로그인된 사용자는 로딩 화면 표시
+  if (accessToken) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-500 mx-auto mb-4"></div>
+          <p className="text-green-600 dark:text-green-400">
+            이미 로그인되어 있습니다...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950">
