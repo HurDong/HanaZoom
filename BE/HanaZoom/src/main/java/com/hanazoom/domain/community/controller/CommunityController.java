@@ -135,7 +135,37 @@ public class CommunityController {
 
         Post post = postService.getPost(postId);
         Comment comment = commentService.createComment(post, member, request.getContent());
-        return ResponseEntity.ok(ApiResponse.success(CommentResponse.from(comment, false)));
+        boolean isLiked = commentService.isLikedByMember(comment.getId(), member);
+        return ResponseEntity.ok(ApiResponse.success(CommentResponse.from(comment, isLiked)));
+    }
+
+    // 대댓글 생성
+    @PostMapping("/comments/{parentCommentId}/replies")
+    public ResponseEntity<ApiResponse<CommentResponse>> createReply(
+            @PathVariable Long parentCommentId,
+            @RequestBody CommentRequest request,
+            @AuthenticationPrincipal Member member) {
+
+        Comment reply = commentService.createReply(parentCommentId, member, request.getContent());
+        boolean isLiked = commentService.isLikedByMember(reply.getId(), member);
+        return ResponseEntity.ok(ApiResponse.success(CommentResponse.from(reply, isLiked)));
+    }
+
+    // 특정 댓글의 대댓글 목록 조회
+    @GetMapping("/comments/{commentId}/replies")
+    public ResponseEntity<ApiResponse<java.util.List<CommentResponse>>> getRepliesByComment(
+            @PathVariable Long commentId,
+            @AuthenticationPrincipal Member member) {
+
+        java.util.List<Comment> replies = commentService.getRepliesByParentComment(commentId);
+        java.util.List<CommentResponse> replyResponses = replies.stream()
+                .map(reply -> {
+                    boolean isLiked = member != null && commentService.isLikedByMember(reply.getId(), member);
+                    return CommentResponse.from(reply, isLiked);
+                })
+                .collect(java.util.stream.Collectors.toList());
+
+        return ResponseEntity.ok(ApiResponse.success(replyResponses));
     }
 
     // 댓글 수정

@@ -39,6 +39,15 @@ public class Comment {
     @Column(name = "is_deleted")
     private boolean isDeleted = false;
 
+    // 대댓글을 위한 부모 댓글 참조
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_comment_id")
+    private Comment parentComment;
+
+    // 댓글 깊이 (0: 최상위 댓글, 1: 대댓글)
+    @Column(name = "depth")
+    private int depth = 0;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -48,10 +57,12 @@ public class Comment {
     private LocalDateTime updatedAt;
 
     @Builder
-    public Comment(Post post, Member member, String content) {
+    public Comment(Post post, Member member, String content, Comment parentComment, int depth) {
         this.post = post;
         this.member = member;
         this.content = content;
+        this.parentComment = parentComment;
+        this.depth = depth;
     }
 
     public void incrementLikeCount() {
