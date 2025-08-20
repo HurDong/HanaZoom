@@ -26,7 +26,12 @@ import {
   ReferenceLine,
 } from "recharts";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
-import { getChartData, getCurrentCandle, formatCandleForChart, type CandleData } from "@/lib/api/chart";
+import {
+  getChartData,
+  getCurrentCandle,
+  formatCandleForChart,
+  type CandleData,
+} from "@/lib/api/chart";
 import type { StockPriceData } from "@/lib/api/stock";
 
 interface CandlestickChartProps {
@@ -83,27 +88,40 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       setLoading(true);
       setError(null);
 
-      // 과거 캔들 데이터 조회
-      const pastCandles = await getChartData(stockCode, timeframe, 50);
-      
-      // 현재 캔들 데이터 조회
-      const currentCandle = await getCurrentCandle(stockCode, timeframe);
+      // 과거 캔들 데이터 조회 - 더 많은 데이터 요청
+      const dataLimit =
+        timeframe === "1D" ? 1000 : timeframe === "1W" ? 200 : 100; // 일봉: 3년, 주봉: 4년, 기타: 기본값
+      const pastCandles = await getChartData(stockCode, timeframe, dataLimit);
+
+      // 현재 캔들 데이터 조회 - 임시 비활성화 (Redis 직렬화 문제)
+      // let currentCandle = null;
+      // try {
+      //   currentCandle = await getCurrentCandle(stockCode, timeframe);
+      // } catch (currentError) {
+      //   console.warn("현재 캔들 조회 실패, 과거 데이터만 표시:", currentError);
+      // }
 
       // 차트 데이터 포맷 변환
       const formattedData = pastCandles.map(formatCandleForChart);
-      const formattedCurrent = formatCandleForChart(currentCandle);
 
-      // 현재 캔들이 완성되지 않았으면 추가
-      if (!currentCandle.isComplete) {
-        formattedData.push(formattedCurrent);
-        currentCandleRef.current = formattedCurrent;
-      }
+      // 현재 캔들이 있고 완성되지 않았으면 추가
+      // if (currentCandle && !currentCandle.isComplete) {
+      //   const formattedCurrent = formatCandleForChart(currentCandle);
+      //   formattedData.push(formattedCurrent);
+      //   currentCandleRef.current = formattedCurrent;
+      // }
 
       setChartData(formattedData);
-
+      console.log(
+        "✅ 기본 차트 데이터 로드 완료:",
+        formattedData.length,
+        "개 캔들"
+      );
     } catch (err) {
       console.error("차트 데이터 로드 실패:", err);
-      setError(err instanceof Error ? err.message : "차트 데이터를 불러올 수 없습니다.");
+      setError(
+        err instanceof Error ? err.message : "차트 데이터를 불러올 수 없습니다."
+      );
     } finally {
       setLoading(false);
     }
@@ -116,22 +134,23 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const currentPrice = parseFloat(stockData.currentPrice);
     const volume = parseFloat(stockData.volume);
 
-    setChartData(prevData => {
+    setChartData((prevData) => {
       const newData = [...prevData];
       const lastIndex = newData.length - 1;
 
       if (lastIndex >= 0 && !newData[lastIndex].isComplete) {
         // 현재 진행 중인 캔들 업데이트
         const currentCandle = { ...newData[lastIndex] };
-        
+
         currentCandle.close = currentPrice;
         currentCandle.high = Math.max(currentCandle.high, currentPrice);
         currentCandle.low = Math.min(currentCandle.low, currentPrice);
         currentCandle.volume = volume;
         currentCandle.change = currentPrice - currentCandle.open;
-        currentCandle.changePercent = ((currentPrice - currentCandle.open) / currentCandle.open) * 100;
+        currentCandle.changePercent =
+          ((currentPrice - currentCandle.open) / currentCandle.open) * 100;
         currentCandle.timestamp = parseInt(stockData.updatedTime);
-        
+
         newData[lastIndex] = currentCandle;
         currentCandleRef.current = currentCandle;
       }
@@ -160,26 +179,26 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const { open, high, low, close } = payload;
     const isUp = close >= open;
     const color = isUp ? "#ef4444" : "#3b82f6";
-    
+
     const bodyHeight = Math.abs(close - open);
     const bodyY = Math.min(open, close);
-    
+
     return (
       <g>
         {/* 심지 (고가-저가) */}
         <line
           x1={x + width / 2}
-          y1={y + (high - Math.max(open, close)) * height / (high - low)}
+          y1={y + ((high - Math.max(open, close)) * height) / (high - low)}
           x2={x + width / 2}
-          y2={y + (high - Math.min(open, close)) * height / (high - low)}
+          y2={y + ((high - Math.min(open, close)) * height) / (high - low)}
           stroke={color}
           strokeWidth={1}
         />
-        
+
         {/* 몸통 (시가-종가) */}
         <rect
           x={x + width * 0.2}
-          y={y + (high - Math.max(open, close)) * height / (high - low)}
+          y={y + ((high - Math.max(open, close)) * height) / (high - low)}
           width={width * 0.6}
           height={(bodyHeight * height) / (high - low)}
           fill={isUp ? color : "white"}
@@ -200,14 +219,44 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
             {label}
           </p>
           <div className="space-y-1 text-xs">
-            <p>시가: <span className="font-semibold">{data.open.toLocaleString()}원</span></p>
-            <p>고가: <span className="font-semibold text-red-600">{data.high.toLocaleString()}원</span></p>
-            <p>저가: <span className="font-semibold text-blue-600">{data.low.toLocaleString()}원</span></p>
-            <p>종가: <span className="font-semibold">{data.close.toLocaleString()}원</span></p>
-            <p className={`font-semibold ${data.change >= 0 ? "text-red-600" : "text-blue-600"}`}>
-              전일대비: {data.change >= 0 ? "+" : ""}{data.change.toFixed(0)}원 ({data.changePercent.toFixed(2)}%)
+            <p>
+              시가:{" "}
+              <span className="font-semibold">
+                {data.open.toLocaleString()}원
+              </span>
             </p>
-            <p>거래량: <span className="font-semibold">{data.volume.toLocaleString()}주</span></p>
+            <p>
+              고가:{" "}
+              <span className="font-semibold text-red-600">
+                {data.high.toLocaleString()}원
+              </span>
+            </p>
+            <p>
+              저가:{" "}
+              <span className="font-semibold text-blue-600">
+                {data.low.toLocaleString()}원
+              </span>
+            </p>
+            <p>
+              종가:{" "}
+              <span className="font-semibold">
+                {data.close.toLocaleString()}원
+              </span>
+            </p>
+            <p
+              className={`font-semibold ${
+                data.change >= 0 ? "text-red-600" : "text-blue-600"
+              }`}
+            >
+              전일대비: {data.change >= 0 ? "+" : ""}
+              {data.change.toFixed(0)}원 ({data.changePercent.toFixed(2)}%)
+            </p>
+            <p>
+              거래량:{" "}
+              <span className="font-semibold">
+                {data.volume.toLocaleString()}주
+              </span>
+            </p>
             {!data.isComplete && <p className="text-yellow-600">진행중</p>}
           </div>
         </div>
@@ -258,7 +307,9 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
               {wsConnected ? (
                 <>
                   <Wifi className="w-3 h-3 text-green-500" />
-                  <span className="text-xs text-green-600 dark:text-green-400">실시간</span>
+                  <span className="text-xs text-green-600 dark:text-green-400">
+                    실시간
+                  </span>
                 </>
               ) : (
                 <>
@@ -275,7 +326,12 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
             <Badge variant="outline" className="text-xs">
               {chartData.length}개 캔들
             </Badge>
-            <Button variant="ghost" size="sm" className="p-1" onClick={loadChartData}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-1"
+              onClick={loadChartData}
+            >
               <RefreshCw className="w-4 h-4" />
             </Button>
           </div>
@@ -307,22 +363,29 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         <div className="relative h-80 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
           {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-600" />
-                <XAxis 
-                  dataKey="time" 
+              <ComposedChart
+                data={chartData}
+                margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#e5e7eb"
+                  className="dark:stroke-gray-600"
+                />
+                <XAxis
+                  dataKey="time"
                   tick={{ fontSize: 10 }}
                   stroke="#6b7280"
                   interval="preserveStartEnd"
                 />
-                <YAxis 
-                  domain={['dataMin - 100', 'dataMax + 100']}
+                <YAxis
+                  domain={["dataMin - 100", "dataMax + 100"]}
                   tick={{ fontSize: 10 }}
                   stroke="#6b7280"
                   tickFormatter={(value) => `${value.toLocaleString()}`}
                 />
                 <Tooltip content={<CustomTooltip />} />
-                
+
                 {/* 고가-저가 라인 */}
                 {chartData.map((entry, index) => (
                   <Line
@@ -334,9 +397,9 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
                     activeDot={false}
                   />
                 ))}
-                
+
                 {/* 캔들스틱 몸통 */}
-                <Bar 
+                <Bar
                   dataKey={(entry) => Math.abs(entry.close - entry.open)}
                   fill={(entry) => getCandleColor(entry)}
                 />
@@ -365,13 +428,16 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
           <div className="text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400">시간봉</p>
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              {timeframes.find(tf => tf.value === timeframe)?.label || timeframe}
+              {timeframes.find((tf) => tf.value === timeframe)?.label ||
+                timeframe}
             </p>
           </div>
           <div className="text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400">업데이트</p>
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              {lastUpdate > 0 ? `${Math.floor((Date.now() - lastUpdate) / 1000)}초 전` : "-"}
+              {lastUpdate > 0
+                ? `${Math.floor((Date.now() - lastUpdate) / 1000)}초 전`
+                : "-"}
             </p>
           </div>
         </div>
@@ -382,9 +448,12 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
             <div className="flex items-start gap-2">
               <div className="w-2 h-2 bg-green-400 rounded-full mt-1.5 animate-pulse" />
               <div className="text-xs text-green-800 dark:text-green-200">
-                <span className="font-semibold">과거 데이터 + 실시간 업데이트</span>
+                <span className="font-semibold">
+                  과거 데이터 + 실시간 업데이트
+                </span>
                 <br />
-                {timeframes.find(tf => tf.value === timeframe)?.label} 캔들차트가 실시간으로 업데이트됩니다.
+                {timeframes.find((tf) => tf.value === timeframe)?.label}{" "}
+                캔들차트가 실시간으로 업데이트됩니다.
               </div>
             </div>
           </div>

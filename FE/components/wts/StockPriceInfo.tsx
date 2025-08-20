@@ -77,11 +77,31 @@ export function StockPriceInfo({ stockData }: StockPriceInfoProps) {
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-bold text-green-800 dark:text-green-200">
-            실시간 현재가
+            {stockData.isAfterMarketClose ? "종가" : "실시간 현재가"}
           </CardTitle>
-          <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-            <Activity className="w-3 h-3" />
-            <span>실시간</span>
+          <div className="flex items-center gap-1 text-xs">
+            {stockData.isMarketOpen ? (
+              <>
+                <Activity className="w-3 h-3 text-green-600 dark:text-green-400" />
+                <span className="text-green-600 dark:text-green-400">
+                  실시간
+                </span>
+              </>
+            ) : stockData.isAfterMarketClose ? (
+              <>
+                <Clock className="w-3 h-3 text-orange-600 dark:text-orange-400" />
+                <span className="text-orange-600 dark:text-orange-400">
+                  {stockData.marketStatus}
+                </span>
+              </>
+            ) : (
+              <>
+                <Clock className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                <span className="text-gray-600 dark:text-gray-400">
+                  {stockData.marketStatus}
+                </span>
+              </>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -94,7 +114,9 @@ export function StockPriceInfo({ stockData }: StockPriceInfoProps) {
           )}`}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium opacity-80">현재가</span>
+            <span className="text-sm font-medium opacity-80">
+              {stockData.isAfterMarketClose ? "종가" : "현재가"}
+            </span>
             <Badge className={getBadgeVariant(stockData.changeSign)}>
               {stockData.changeStatus}
             </Badge>

@@ -38,7 +38,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6380:6379" # 포트 변경: 6379 → 6380
+      - "16380:6379" # 포트 변경: 6379 → 6380
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis1234!}
     volumes:
       - redis_data:/data
