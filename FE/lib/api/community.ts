@@ -40,6 +40,8 @@ export interface Comment {
     avatar?: string;
   };
   createdAt: string;
+  parentCommentId?: number;
+  depth: number;
 }
 
 export interface CreateCommentRequest {
@@ -143,4 +145,21 @@ export const likeComment = async (commentId: number): Promise<void> => {
 
 export const unlikeComment = async (commentId: number): Promise<void> => {
   await api.delete(`/community/comments/${commentId}/like`);
+};
+
+// Replies (대댓글)
+export const getReplies = async (commentId: number): Promise<Comment[]> => {
+  const response = await api.get(`/community/comments/${commentId}/replies`);
+  return response.data.data;
+};
+
+export const createReply = async (
+  parentCommentId: number,
+  data: CreateCommentRequest
+): Promise<Comment> => {
+  const response = await api.post(
+    `/community/comments/${parentCommentId}/replies`,
+    data
+  );
+  return response.data.data;
 };
