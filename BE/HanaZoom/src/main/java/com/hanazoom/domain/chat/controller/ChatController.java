@@ -2,6 +2,7 @@ package com.hanazoom.domain.chat.controller;
 
 import com.hanazoom.global.dto.ApiResponse;
 import com.hanazoom.domain.member.service.MemberService;
+import com.hanazoom.domain.region.service.RegionService;
 import com.hanazoom.global.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class ChatController {
 
     private final MemberService memberService;
+    private final RegionService regionService;
     private final JwtUtil jwtUtil;
 
     @GetMapping("/region-info")
@@ -41,8 +43,12 @@ public class ChatController {
                 return ResponseEntity.badRequest().body(ApiResponse.error("지역 정보를 찾을 수 없습니다."));
             }
 
-            RegionChatInfo info = new RegionChatInfo(regionId, "지역 " + regionId + "번 채팅방");
-            log.info("지역 정보 반환: regionId={}, roomName={}", regionId, info.roomName);
+            // 지역 이름 가져오기
+            String regionName = regionService.getFullRegionName(regionId);
+            String roomName = regionName != null ? regionName + " 채팅방" : "지역 " + regionId + "번 채팅방";
+
+            RegionChatInfo info = new RegionChatInfo(regionId, roomName);
+            log.info("지역 정보 반환: regionId={}, regionName={}, roomName={}", regionId, regionName, info.roomName);
 
             return ResponseEntity.ok(ApiResponse.success(info));
         } catch (Exception e) {
