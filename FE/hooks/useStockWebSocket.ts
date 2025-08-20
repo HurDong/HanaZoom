@@ -56,11 +56,39 @@ export function useStockWebSocket({
       const wsUrl = `${protocol}//${host}${port}/ws/stocks`;
 
       console.log("🔄 웹소켓 연결 시도:", wsUrl);
+      console.log("🔄 연결 환경:", { 
+        protocol, 
+        host, 
+        port, 
+        NODE_ENV: process.env.NODE_ENV,
+        fullUrl: wsUrl,
+        windowLocation: window.location.href
+      });
+
+      // 웹소켓 지원 여부 확인
+      if (!window.WebSocket) {
+        throw new Error("이 브라우저는 웹소켓을 지원하지 않습니다.");
+      }
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
+      // 연결 시간 제한 설정 (10초)
+      const connectionTimeout = setTimeout(() => {
+        if (ws.readyState === WebSocket.CONNECTING) {
+          console.log("⏰ 웹소켓 연결 시간 초과");
+          ws.close();
+          setState((prev) => ({
+            ...prev,
+            connected: false,
+            connecting: false,
+            error: "연결 시간이 초과되었습니다. 서버가 실행 중인지 확인해주세요.",
+          }));
+        }
+      }, 10000);
+
       ws.onopen = () => {
+        clearTimeout(connectionTimeout);
         console.log("✅ 웹소켓 연결 성공");
         setState((prev) => ({
           ...prev,
@@ -86,9 +114,11 @@ export function useStockWebSocket({
             case "SUBSCRIBED":
               console.log("📡 구독 완료:", message.data?.stockCodes);
               if (message.data?.stockCodes) {
+                // 서버에서 확인된 구독 코드들만 추가
                 message.data.stockCodes.forEach((code: string) => {
                   subscribedCodesRef.current.add(code);
                 });
+                console.log("📡 현재 구독 중인 종목:", [...subscribedCodesRef.current]);
               }
               break;
 
@@ -98,6 +128,7 @@ export function useStockWebSocket({
                 message.data.stockCodes.forEach((code: string) => {
                   subscribedCodesRef.current.delete(code);
                 });
+                console.log("📴 현재 구독 중인 종목:", [...subscribedCodesRef.current]);
               }
               break;
 
@@ -142,23 +173,36 @@ export function useStockWebSocket({
       };
 
       ws.onerror = (error) => {
-        console.error("🔴 웹소켓 오류:", error);
+        clearTimeout(connectionTimeout);
+        console.error("🔴 웹소켓 오류:", {
+          error,
+          readyState: ws.readyState,
+          url: wsUrl,
+          timestamp: new Date().toISOString()
+        });
         setState((prev) => ({
           ...prev,
           connected: false,
           connecting: false,
-          error: "웹소켓 연결 오류",
+          error: `웹소켓 연결 오류: ${wsUrl}`,
         }));
       };
 
       ws.onclose = (event) => {
-        console.log("📴 웹소켓 연결 종료:", event.code, event.reason);
+        clearTimeout(connectionTimeout);
+        console.log("📴 웹소켓 연결 종료:", {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          url: wsUrl,
+          timestamp: new Date().toISOString()
+        });
 
         setState((prev) => ({
           ...prev,
           connected: false,
           connecting: false,
-          error: event.wasClean ? null : "연결이 예기치 않게 종료되었습니다",
+          error: event.wasClean ? null : `연결이 예기치 않게 종료되었습니다 (${event.code}: ${event.reason})`,
         }));
 
         subscribedCodesRef.current.clear();
@@ -174,17 +218,20 @@ export function useStockWebSocket({
         }
       };
     } catch (error) {
-      console.error("🔴 웹소켓 생성 오류:", error);
+      console.error("🔴 웹소켓 생성 오류:", {
+        error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      });
       setState((prev) => ({
         ...prev,
         connected: false,
         connecting: false,
-        error: "웹소켓 생성 실패",
+        error: `웹소켓 생성 실패: ${error instanceof Error ? error.message : String(error)}`,
       }));
     }
   }, [
-    stockCodes,
-    onStockUpdate,
     autoReconnect,
     reconnectInterval,
     state.connecting,
@@ -239,6 +286,7 @@ export function useStockWebSocket({
 
       if (success) {
         console.log("📡 종목 구독 요청:", uniqueCodes);
+        // 구독 상태는 서버 응답(SUBSCRIBED)에서만 업데이트
       }
 
       return success;
@@ -260,6 +308,7 @@ export function useStockWebSocket({
 
       if (success) {
         console.log("📴 종목 구독 해제:", validCodes);
+        // 구독 해제 상태는 서버 응답(UNSUBSCRIBED)에서만 업데이트
       }
 
       return success;
@@ -284,19 +333,40 @@ export function useStockWebSocket({
   // 종목 코드 변경시 재구독
   useEffect(() => {
     if (state.connected && stockCodes.length > 0) {
-      // 기존 구독 해제
-      if (subscribedCodesRef.current.size > 0) {
-        unsubscribe([...subscribedCodesRef.current]);
-      }
-
-      // 새로운 구독
-      setTimeout(() => {
-        if (state.connected) {
-          subscribe(stockCodes);
+      // 현재 구독 중인 코드와 요청된 코드 비교
+      const currentCodes = new Set(subscribedCodesRef.current);
+      const requestedCodes = new Set(stockCodes);
+      
+      // 차이가 있을 때만 재구독
+      const hasDifference = 
+        currentCodes.size !== requestedCodes.size ||
+        [...currentCodes].some(code => !requestedCodes.has(code)) ||
+        [...requestedCodes].some(code => !currentCodes.has(code));
+      
+      if (hasDifference) {
+        console.log("📡 종목 구독 변경 감지:", {
+          current: [...currentCodes],
+          requested: [...requestedCodes]
+        });
+        
+        // 기존 구독 해제 (필요한 경우에만)
+        const codesToUnsubscribe = [...currentCodes].filter(code => !requestedCodes.has(code));
+        if (codesToUnsubscribe.length > 0) {
+          unsubscribe(codesToUnsubscribe);
         }
-      }, 100);
+
+        // 새로운 구독 (필요한 경우에만)
+        const codesToSubscribe = [...requestedCodes].filter(code => !currentCodes.has(code));
+        if (codesToSubscribe.length > 0) {
+          setTimeout(() => {
+            if (state.connected) {
+              subscribe(codesToSubscribe);
+            }
+          }, 100);
+        }
+      }
     }
-  }, [stockCodes, state.connected, subscribe, unsubscribe]);
+  }, [stockCodes, state.connected]);
 
   // 주기적 하트비트 (30초마다)
   useEffect(() => {

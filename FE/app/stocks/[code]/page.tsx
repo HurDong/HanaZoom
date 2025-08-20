@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { StockPriceInfo } from "@/components/wts/StockPriceInfo";
 import { OrderBookDisplay } from "@/components/wts/OrderBookDisplay";
 import { StockChart } from "@/components/wts/StockChart";
+import { CandlestickChart } from "@/components/wts/CandlestickChart";
 import {
   getStockOrderBook,
   validateStockCode,
@@ -35,6 +36,8 @@ export default function StockDetailPage() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [chartType, setChartType] = useState<"realtime" | "candle">("candle");
 
   // 웹소켓으로 실시간 주식 데이터 수신
   const {
@@ -82,7 +85,11 @@ export default function StockDetailPage() {
           : "호가창 데이터를 불러올 수 없습니다."
       );
     } finally {
-      setLoading(false);
+      // 웹소켓이 연결되어 있다면 로딩 상태는 웹소켓 상태로 관리
+      if (!wsConnected) {
+        setLoading(false);
+      }
+      setInitialLoad(false);
     }
   };
 
@@ -92,6 +99,33 @@ export default function StockDetailPage() {
       fetchOrderBookData();
     }
   }, [stockCode]);
+
+  // 웹소켓 연결 상태에 따른 페이지 상태 관리
+  useEffect(() => {
+    if (wsConnected) {
+      // 웹소켓이 연결되면 에러 상태 해제
+      setError(null);
+      setInitialLoad(false);
+      
+      if (stockData) {
+        // 데이터가 있으면 로딩도 완료
+        setLoading(false);
+      }
+    } else if (!wsConnected && !wsConnecting && !initialLoad) {
+      // 웹소켓 연결이 끊어진 경우 (초기 로딩이 아닌 경우)
+      setError(wsError || "웹소켓 연결이 끊어졌습니다.");
+      setLoading(false);
+    }
+  }, [wsConnected, wsConnecting, stockData, wsError, initialLoad]);
+
+  // 주식 데이터 수신 시 로딩 완료
+  useEffect(() => {
+    if (stockData && wsConnected) {
+      setLoading(false);
+      setError(null);
+      console.log("📈 주식 데이터 수신 완료:", stockData.stockCode);
+    }
+  }, [stockData, wsConnected]);
 
   // 주기적으로 호가창 데이터만 업데이트 (10초마다)
   useEffect(() => {
@@ -108,9 +142,11 @@ export default function StockDetailPage() {
   const handleRetry = () => {
     setLoading(true);
     setError(null);
+    setInitialLoad(false);
 
     // 웹소켓 재연결
     if (!wsConnected) {
+      console.log("🔄 웹소켓 수동 재연결 시도");
       wsConnect();
     }
 
@@ -148,7 +184,7 @@ export default function StockDetailPage() {
     }
   };
 
-  if (loading) {
+  if (loading || (initialLoad && wsConnecting)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950">
         <div className="fixed top-0 left-0 right-0 z-[100]">
@@ -194,7 +230,7 @@ export default function StockDetailPage() {
     );
   }
 
-  if (error || (!stockData && !wsConnecting)) {
+  if (error && !wsConnected && !wsConnecting) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950">
         <div className="fixed top-0 left-0 right-0 z-[100]">
@@ -366,7 +402,36 @@ export default function StockDetailPage() {
 
             {/* 가운데: 차트 */}
             <div className="lg:col-span-1 space-y-6">
-              <StockChart stockCode={stockCode} />
+              {/* 차트 타입 선택 */}
+              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-4">
+                <button
+                  onClick={() => setChartType("candle")}
+                  className={`flex-1 px-3 py-2 rounded transition-all text-sm font-medium ${
+                    chartType === "candle"
+                      ? "bg-green-600 text-white shadow-sm"
+                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  📊 캔들차트 (과거+실시간)
+                </button>
+                <button
+                  onClick={() => setChartType("realtime")}
+                  className={`flex-1 px-3 py-2 rounded transition-all text-sm font-medium ${
+                    chartType === "realtime"
+                      ? "bg-green-600 text-white shadow-sm"
+                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  ⚡ 실시간 틱
+                </button>
+              </div>
+
+              {/* 선택된 차트 표시 */}
+              {chartType === "candle" ? (
+                <CandlestickChart stockCode={stockCode} />
+              ) : (
+                <StockChart stockCode={stockCode} />
+              )}
             </div>
 
             {/* 오른쪽: 호가창 */}

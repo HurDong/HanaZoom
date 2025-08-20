@@ -11,7 +11,8 @@ interface StockTicker {
   price: string;
   change: string;
   changeRate: string;
-  emoji: string;
+  logoUrl?: string;
+  emoji?: string; // 임시로 유지
 }
 
 // 티커에 표시할 주요 종목들과 이모지

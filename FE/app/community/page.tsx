@@ -12,15 +12,16 @@ import NavBar from "@/app/components/Navbar";
 import { MouseFollower } from "@/components/mouse-follower";
 import { StockTicker } from "@/components/stock-ticker";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { mockStocks } from "@/data/mock-stocks";
+import api from "@/app/config/api";
 
 interface Stock {
   symbol: string;
   name: string;
-  price: number;
-  change: number;
-  changePercent: number;
-  emoji?: string;
+  price?: number;
+  change?: number;
+  changePercent?: number;
+  logoUrl?: string;
+  emoji?: string; // fallback용
 }
 
 interface UserRegionInfo {
@@ -32,21 +33,54 @@ export default function CommunityPage() {
   const [activeTab, setActiveTab] = useState("stocks");
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredStocks, setFilteredStocks] = useState<Stock[]>([]);
+  const [allStocks, setAllStocks] = useState<Stock[]>([]);
   const [userRegion, setUserRegion] = useState<UserRegionInfo | null>(null);
   const [isLoadingRegion, setIsLoadingRegion] = useState(false);
+  const [isLoadingStocks, setIsLoadingStocks] = useState(false);
+
+  // 백엔드에서 종목 데이터 가져오기
+  const fetchStocks = async () => {
+    try {
+      setIsLoadingStocks(true);
+      const response = await api.get("/stocks/ticker");
+      if (response.data && response.data.success) {
+        const stocks = response.data.data.map((stock: any) => ({
+          symbol: stock.symbol || stock.stockCode || "",
+          name: stock.name || stock.stockName || "종목명 없음",
+          price: stock.price ? parseInt(stock.price) : (stock.currentPrice ? parseInt(stock.currentPrice) : undefined),
+          change: stock.priceChange ? parseInt(stock.priceChange) : undefined,
+          changePercent: stock.changeRate ? parseFloat(stock.changeRate) : (stock.change ? parseFloat(stock.change) : undefined),
+          logoUrl: stock.logoUrl,
+          emoji: stock.emoji || "📈", // fallback
+        }));
+        setAllStocks(stocks);
+      }
+    } catch (error) {
+      console.error("종목 데이터 가져오기 실패:", error);
+      // 에러 시 빈 배열로 설정
+      setAllStocks([]);
+    } finally {
+      setIsLoadingStocks(false);
+    }
+  };
+
+  // 컴포넌트 마운트 시 종목 데이터 가져오기
+  useEffect(() => {
+    fetchStocks();
+  }, []);
 
   useEffect(() => {
     if (activeTab === "stocks") {
       setFilteredStocks(
-        mockStocks.filter((stock) => {
+        allStocks.filter((stock) => {
           const matchesSearch =
-            stock.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            stock.symbol.includes(searchTerm);
+            (stock.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+            (stock.symbol || "").includes(searchTerm);
           return matchesSearch;
         })
       );
     }
-  }, [searchTerm, activeTab]);
+  }, [searchTerm, activeTab, allStocks]);
 
   useEffect(() => {
     const fetchUserRegion = async () => {
@@ -150,15 +184,43 @@ export default function CommunityPage() {
 
         {/* 종목별 토론방 목록 */}
         {activeTab === "stocks" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredStocks.map((stock) => (
+          <div>
+            {isLoadingStocks ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600 mb-4 mx-auto"></div>
+                <p className="text-lg text-green-700 dark:text-green-300">
+                  종목 정보를 불러오는 중...
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredStocks.map((stock) => (
               <Link href={`/community/${stock.symbol}`} key={stock.symbol}>
                 <Card className="hover:shadow-lg transition-shadow duration-300">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-2">
-                        {stock.emoji && (
+                        {stock.logoUrl ? (
+                          <img 
+                            src={stock.logoUrl} 
+                            alt={stock.name}
+                            className="w-8 h-8 rounded-full object-contain"
+                            onError={(e) => {
+                              // 로고 로드 실패시 이모지로 대체
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              const parent = (e.target as HTMLImageElement).parentElement;
+                              if (parent && stock.emoji) {
+                                const span = document.createElement('span');
+                                span.className = 'text-2xl';
+                                span.textContent = stock.emoji;
+                                parent.appendChild(span);
+                              }
+                            }}
+                          />
+                        ) : stock.emoji ? (
                           <span className="text-2xl">{stock.emoji}</span>
+                        ) : (
+                          <span className="text-2xl">📈</span>
                         )}
                         <div>
                           <h3 className="text-xl font-bold text-green-800 dark:text-green-200">
@@ -169,27 +231,29 @@ export default function CommunityPage() {
                           </p>
                         </div>
                       </div>
-                      <div
-                        className={`flex items-center px-3 py-1 rounded-full ${
-                          stock.change >= 0
-                            ? "bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400"
-                            : "bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400"
-                        }`}
-                      >
-                        {stock.change >= 0 ? (
-                          <TrendingUp className="w-4 h-4 mr-1" />
-                        ) : (
-                          <TrendingDown className="w-4 h-4 mr-1" />
-                        )}
-                        <span className="font-bold">
-                          {stock.change >= 0 ? "+" : ""}
-                          {stock.changePercent.toFixed(2)}%
-                        </span>
-                      </div>
+                      {stock.changePercent !== undefined && (
+                        <div
+                          className={`flex items-center px-3 py-1 rounded-full ${
+                            stock.change && stock.change >= 0
+                              ? "bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400"
+                              : "bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400"
+                          }`}
+                        >
+                          {stock.change && stock.change >= 0 ? (
+                            <TrendingUp className="w-4 h-4 mr-1" />
+                          ) : (
+                            <TrendingDown className="w-4 h-4 mr-1" />
+                          )}
+                          <span className="font-bold">
+                            {stock.change && stock.change >= 0 ? "+" : ""}
+                            {stock.changePercent.toFixed(2)}%
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex justify-between items-center mt-4">
                       <span className="text-xl font-bold text-green-800 dark:text-green-200">
-                        ₩{stock.price.toLocaleString()}
+                        {stock.price ? `₩${stock.price.toLocaleString()}` : "가격 정보 없음"}
                       </span>
                       <Button
                         variant="ghost"
@@ -203,7 +267,9 @@ export default function CommunityPage() {
                   </CardContent>
                 </Card>
               </Link>
-            ))}
+                            ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -260,7 +326,7 @@ export default function CommunityPage() {
           </div>
         )}
 
-        {((activeTab === "stocks" && filteredStocks.length === 0) ||
+        {((activeTab === "stocks" && filteredStocks.length === 0 && !isLoadingStocks) ||
           (activeTab === "regions" && !userRegion && !isLoadingRegion)) && (
           <div className="text-center py-12">
             <p className="text-gray-500 dark:text-gray-400">

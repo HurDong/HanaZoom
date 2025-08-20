@@ -47,7 +47,8 @@ interface TopStock {
   name: string;
   price: string;
   change: string;
-  emoji: string;
+  logoUrl?: string;
+  emoji?: string; // 임시로 유지
   sector: string; // 섹터 정보 (required로 변경)
   currentPrice?: number; // 현재가 (숫자)
   rank?: number; // 지역 내 순위
@@ -389,7 +390,26 @@ export default function MapPage() {
                           <div className="flex justify-between items-center p-4 pt-10">
                             <div className="flex items-center gap-3">
                               <div className="relative">
-                                <span className="text-2xl">{stock.emoji}</span>
+                                {stock.logoUrl ? (
+                                  <img 
+                                    src={stock.logoUrl} 
+                                    alt={stock.name}
+                                    className="w-8 h-8 rounded-full object-contain"
+                                    onError={(e) => {
+                                      // 로고 로드 실패시 이모지로 대체
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      const parent = (e.target as HTMLImageElement).parentElement;
+                                      if (parent && stock.emoji) {
+                                        const span = document.createElement('span');
+                                        span.className = 'text-2xl';
+                                        span.textContent = stock.emoji;
+                                        parent.appendChild(span);
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <span className="text-2xl">{stock.emoji || '📈'}</span>
+                                )}
                                 {index === 0 && (
                                   <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-yellow-500 animate-pulse" />
                                 )}
@@ -442,9 +462,26 @@ export default function MapPage() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <div className="relative">
-                                <span className="text-3xl">
-                                  {selectedStock.emoji}
-                                </span>
+                                {selectedStock.logoUrl ? (
+                                  <img 
+                                    src={selectedStock.logoUrl} 
+                                    alt={selectedStock.name}
+                                    className="w-12 h-12 rounded-full object-contain"
+                                    onError={(e) => {
+                                      // 로고 로드 실패시 이모지로 대체
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      const parent = (e.target as HTMLImageElement).parentElement;
+                                      if (parent && selectedStock.emoji) {
+                                        const span = document.createElement('span');
+                                        span.className = 'text-3xl';
+                                        span.textContent = selectedStock.emoji;
+                                        parent.appendChild(span);
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <span className="text-3xl">{selectedStock.emoji || '📈'}</span>
+                                )}
                                 <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
                                   <TrendingUp className="w-3 h-3 text-white" />
                                 </div>

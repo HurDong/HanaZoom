@@ -5,7 +5,7 @@ export interface Stock {
   name: string;
   market: string;
   sector: string;
-  emoji: string;
+  logoUrl: string;
   currentPrice: number | null;
   priceChange: number | null;
   priceChangePercent: number | null;
