@@ -10,14 +10,12 @@ import { useRouter } from "next/navigation";
 export default function NavBar() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const accessToken = useAuthStore((state) => state.accessToken);
+  const { accessToken } = useAuthStore();
 
   useEffect(() => {
     setMounted(true);
-    setLoggedIn(!!accessToken);
-  }, [accessToken]);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -31,7 +29,6 @@ export default function NavBar() {
 
   const handleLogout = async () => {
     await logout();
-    setLoggedIn(false);
     router.push("/login");
   };
 
@@ -41,7 +38,7 @@ export default function NavBar() {
 
   return (
     <header
-      className={`w-full px-4 lg:px-6 h-16 flex items-center backdrop-blur-sm transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 w-full px-4 lg:px-6 h-16 flex items-center backdrop-blur-sm transition-all duration-300 ${
         scrolled
           ? "bg-white/90 dark:bg-gray-900/90 border-b border-green-200 dark:border-green-800 shadow-lg"
           : "bg-transparent"
@@ -75,7 +72,7 @@ export default function NavBar() {
           <TrendingUp className="w-4 h-4" />
           WTS
         </Link>
-        {loggedIn ? (
+        {accessToken ? (
           <button
             onClick={handleLogout}
             className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors cursor-pointer"
