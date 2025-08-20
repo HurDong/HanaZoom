@@ -178,7 +178,7 @@ public class RegionStockServiceImpl implements RegionStockService {
 
         @Override
         @Transactional
-        @Scheduled(initialDelay = 10000, fixedRate = 600000) // 서버 시작 10초 후 첫 실행, 이후 10분마다
+        @Scheduled(initialDelay = 3000, fixedRate = 600000) // 서버 시작 3초 후 첫 실행, 이후 10분마다
         public void updateRegionStocks() {
                 log.info("지역별 주식 인기도 업데이트 시작...");
 
@@ -395,7 +395,7 @@ public class RegionStockServiceImpl implements RegionStockService {
                                                         .price(String.valueOf(rs.getStock().getCurrentPrice()))
                                                         .change(String.format("%.2f%%",
                                                                         rs.getStock().getPriceChangePercent()))
-                                                        .emoji(rs.getStock().getEmoji())
+                                                        .logoUrl(rs.getStock().getLogoUrl())
                                                         .sector(sector)
                                                         .build();
                                 })

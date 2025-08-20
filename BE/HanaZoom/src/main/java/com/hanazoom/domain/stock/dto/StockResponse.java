@@ -13,7 +13,7 @@ public class StockResponse {
     private String name;
     private String market;
     private String sector;
-    private String emoji;
+    private String logoUrl;
     private BigDecimal currentPrice;
     private BigDecimal priceChange;
     private BigDecimal priceChangePercent;
@@ -26,7 +26,7 @@ public class StockResponse {
                 .name(stock.getName())
                 .market(stock.getMarket())
                 .sector(stock.getSector())
-                .emoji(stock.getEmoji())
+                .logoUrl(stock.getLogoUrl())
                 .currentPrice(stock.getCurrentPrice())
                 .priceChange(stock.getPriceChange())
                 .priceChangePercent(stock.getPriceChangePercent())

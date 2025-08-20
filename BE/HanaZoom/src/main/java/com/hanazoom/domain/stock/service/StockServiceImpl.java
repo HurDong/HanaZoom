@@ -36,12 +36,19 @@ public class StockServiceImpl implements StockService {
         public List<StockTickerDto> getStockTickers() {
                 return stockRepository.findAll().stream()
                                 .map(stock -> StockTickerDto.builder()
+                                                // 기존 필드명
                                                 .symbol(stock.getSymbol())
                                                 .name(stock.getName())
-                                                .price(String.valueOf(stock.getCurrentPrice()))
-                                                .change(String.format("%.2f%%", stock.getPriceChangePercent()))
-                                                .emoji(stock.getEmoji())
+                                                .price(stock.getCurrentPrice() != null ? stock.getCurrentPrice().toString() : "0")
+                                                .change(stock.getPriceChangePercent() != null ? stock.getPriceChangePercent().toString() : "0")
+                                                .logoUrl(stock.getLogoUrl())
                                                 .sector(stock.getSector() != null ? stock.getSector() : "기타")
+                                                // 프론트엔드에서 기대하는 필드명
+                                                .stockCode(stock.getSymbol())
+                                                .stockName(stock.getName())
+                                                .currentPrice(stock.getCurrentPrice() != null ? stock.getCurrentPrice().toString() : "0")
+                                                .priceChange(stock.getPriceChange() != null ? stock.getPriceChange().toString() : "0")
+                                                .changeRate(stock.getPriceChangePercent() != null ? stock.getPriceChangePercent().toString() : "0")
                                                 .build())
                                 .collect(Collectors.toList());
         }
@@ -52,12 +59,19 @@ public class StockServiceImpl implements StockService {
                 return stockRepository.findByNameContainingOrSymbolContaining(query, query).stream()
                                 .limit(10)
                                 .map(stock -> StockTickerDto.builder()
+                                                // 기존 필드명
                                                 .symbol(stock.getSymbol())
                                                 .name(stock.getName())
-                                                .price(String.valueOf(stock.getCurrentPrice()))
-                                                .change(String.format("%.2f%%", stock.getPriceChangePercent()))
-                                                .emoji(stock.getEmoji())
+                                                .price(stock.getCurrentPrice() != null ? stock.getCurrentPrice().toString() : "0")
+                                                .change(stock.getPriceChangePercent() != null ? stock.getPriceChangePercent().toString() : "0")
+                                                .logoUrl(stock.getLogoUrl())
                                                 .sector(stock.getSector() != null ? stock.getSector() : "기타")
+                                                // 프론트엔드에서 기대하는 필드명
+                                                .stockCode(stock.getSymbol())
+                                                .stockName(stock.getName())
+                                                .currentPrice(stock.getCurrentPrice() != null ? stock.getCurrentPrice().toString() : "0")
+                                                .priceChange(stock.getPriceChange() != null ? stock.getPriceChange().toString() : "0")
+                                                .changeRate(stock.getPriceChangePercent() != null ? stock.getPriceChangePercent().toString() : "0")
                                                 .build())
                                 .collect(Collectors.toList());
         }

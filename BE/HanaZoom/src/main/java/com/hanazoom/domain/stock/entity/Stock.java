@@ -32,8 +32,7 @@ public class Stock {
     @Column
     private String sector;
 
-    @Column
-    private String emoji;
+
 
     @Column(name = "current_price")
     private BigDecimal currentPrice;
@@ -62,7 +61,7 @@ public class Stock {
     @Column(name = "logo_url")
     private String logoUrl;
 
-    @Column(name = "is_active", nullable = false)
+    @Column(name = "is_active", nullable = true)
     private Boolean isActive = true;
 
     @Column(name = "last_updated")

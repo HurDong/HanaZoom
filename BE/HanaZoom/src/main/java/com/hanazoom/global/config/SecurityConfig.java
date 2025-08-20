@@ -37,7 +37,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:3001"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
@@ -68,6 +68,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/api/v1/regions/**").permitAll()
                         .requestMatchers("/api/v1/stocks/**").permitAll()
+                        .requestMatchers("/api/v1/websocket/**").permitAll()
+                        .requestMatchers("/api/v1/stocks/chart/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/community/**").permitAll()
                         .requestMatchers("/error").permitAll()
