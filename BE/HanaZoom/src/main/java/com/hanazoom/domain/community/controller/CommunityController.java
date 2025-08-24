@@ -225,4 +225,25 @@ public class CommunityController {
         });
         return ResponseEntity.ok(ApiResponse.success(CommentListResponse.from(commentResponses)));
     }
+
+    // 투표하기
+    @PostMapping("/posts/{postId}/vote")
+    public ResponseEntity<ApiResponse<Void>> voteOnPost(
+            @PathVariable Long postId,
+            @RequestBody VoteRequest request,
+            @AuthenticationPrincipal Member member) {
+
+        postService.voteOnPost(postId, member, request.getOptionId());
+        return ResponseEntity.ok(ApiResponse.success("투표가 완료되었습니다."));
+    }
+
+    // 투표 결과 조회
+    @GetMapping("/posts/{postId}/vote-results")
+    public ResponseEntity<ApiResponse<VoteResultsResponse>> getVoteResults(
+            @PathVariable Long postId,
+            @AuthenticationPrincipal Member member) {
+
+        VoteResultsResponse results = postService.getVoteResults(postId, member);
+        return ResponseEntity.ok(ApiResponse.success(results));
+    }
 }

@@ -23,23 +23,16 @@ public class ChatController {
     public ResponseEntity<ApiResponse<RegionChatInfo>> getRegionChatInfo(
             @RequestHeader("Authorization") String authHeader) {
         try {
-            log.info("지역 정보 조회 요청 - Authorization: {}",
-                    authHeader.substring(0, Math.min(20, authHeader.length())) + "...");
-
             // Bearer 토큰에서 JWT 추출
             String token = authHeader.replace("Bearer ", "");
-            log.info("토큰 추출 완료");
 
             // JWT에서 이메일 추출
             String email = jwtUtil.getEmailFromToken(token);
-            log.info("이메일 추출 완료: {}", email);
 
             // 사용자 지역 조회
             Long regionId = memberService.getUserRegionId(email);
-            log.info("사용자 {}의 지역 ID: {}", email, regionId);
 
             if (regionId == null) {
-                log.warn("사용자 {}의 지역 정보를 찾을 수 없음", email);
                 return ResponseEntity.badRequest().body(ApiResponse.error("지역 정보를 찾을 수 없습니다."));
             }
 
@@ -48,7 +41,6 @@ public class ChatController {
             String roomName = regionName != null ? regionName + " 채팅방" : "지역 " + regionId + "번 채팅방";
 
             RegionChatInfo info = new RegionChatInfo(regionId, roomName);
-            log.info("지역 정보 반환: regionId={}, regionName={}, roomName={}", regionId, regionName, info.roomName);
 
             return ResponseEntity.ok(ApiResponse.success(info));
         } catch (Exception e) {

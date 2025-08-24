@@ -233,7 +233,6 @@ public class RegionStockServiceImpl implements RegionStockService {
                 try {
                         // 1) 구/군 단위 집계: 하위 읍/면/동 자식들의 데이터를 모읍니다
                         List<Region> allRegions = regionRepository.findAll();
-                        log.info("전체 지역 개수: {}", allRegions.size());
 
                         Map<Long, Region> regionIdToRegion = allRegions.stream()
                                         .collect(Collectors.toMap(Region::getId, r -> r));
@@ -241,7 +240,6 @@ public class RegionStockServiceImpl implements RegionStockService {
                         List<Region> districts = allRegions.stream()
                                         .filter(r -> r.getType() == RegionType.DISTRICT)
                                         .collect(Collectors.toList());
-                        log.info("구/군 단위 지역 개수: {}", districts.size());
 
                         for (Region district : districts) {
                                 List<Region> neighborhoods = allRegions.stream()
@@ -251,7 +249,7 @@ public class RegionStockServiceImpl implements RegionStockService {
                                                                 && r.getParent().getId().equals(district.getId())
                                                                 && r.getType() == RegionType.NEIGHBORHOOD)
                                                 .collect(Collectors.toList());
-                                log.info("구/군 '{}'의 하위 읍/면/동 개수: {}", district.getName(), neighborhoods.size());
+
                                 if (neighborhoods.isEmpty()) {
                                         log.warn("구/군 '{}'에 하위 읍/면/동이 없습니다.", district.getName());
                                         continue;
@@ -263,7 +261,6 @@ public class RegionStockServiceImpl implements RegionStockService {
                         List<Region> cities = allRegions.stream()
                                         .filter(r -> r.getType() == RegionType.CITY)
                                         .collect(Collectors.toList());
-                        log.info("시/도 단위 지역 개수: {}", cities.size());
 
                         for (Region city : cities) {
                                 List<Region> childDistricts = allRegions.stream()
@@ -273,7 +270,7 @@ public class RegionStockServiceImpl implements RegionStockService {
                                                                 && r.getParent().getId().equals(city.getId())
                                                                 && r.getType() == RegionType.DISTRICT)
                                                 .collect(Collectors.toList());
-                                log.info("시/도 '{}'의 하위 구/군 개수: {}", city.getName(), childDistricts.size());
+
                                 if (childDistricts.isEmpty()) {
                                         log.warn("시/도 '{}'에 하위 구/군이 없습니다.", city.getName());
                                         continue;
@@ -291,16 +288,12 @@ public class RegionStockServiceImpl implements RegionStockService {
          */
         private void aggregateForParentFromChildren(Region parentRegion, List<Region> childRegions,
                         LocalDate targetDate) {
-                log.info("=== 집계 시작: 부모지역={}({}), 자식지역개수={}, 날짜={}",
-                                parentRegion.getName(), parentRegion.getType(), childRegions.size(), targetDate);
 
                 List<Long> childIds = childRegions.stream().map(Region::getId).collect(Collectors.toList());
-                log.info("자식 지역 IDs: {}", childIds);
 
                 // 자식 지역들의 해당 날짜 데이터 조회
                 List<RegionStock> childStocks = regionStockRepository.findByRegion_IdInAndDataDate(childIds,
                                 targetDate);
-                log.info("자식 지역들의 주식 데이터 개수: {}", childStocks.size());
 
                 if (childStocks.isEmpty()) {
                         log.warn("부모 지역 '{}'의 자식 지역들에 주식 데이터가 없습니다.", parentRegion.getName());
@@ -318,14 +311,6 @@ public class RegionStockServiceImpl implements RegionStockService {
                         BigDecimal add = rs.getPopularityScore() == null ? BigDecimal.ZERO : rs.getPopularityScore();
                         stockIdToPopularity.put(stockId, current.add(add));
                 }
-
-                log.info("집계된 종목 개수: {}", stockIdToPopularity.size());
-                log.info("집계된 종목들: {}", stockIdToPopularity.entrySet().stream()
-                                .map(entry -> {
-                                        Stock stock = stockIdToStock.get(entry.getKey());
-                                        return String.format("%s(%.2f)", stock.getName(), entry.getValue());
-                                })
-                                .collect(Collectors.joining(", ")));
 
                 // 부모 지역의 기존 해당 날짜 데이터 제거 후 재생성
                 regionStockRepository.deleteByRegionIdAndDataDate(parentRegion.getId(), targetDate);

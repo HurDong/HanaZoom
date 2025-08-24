@@ -64,4 +64,16 @@ public class Poll {
         this.startDate = LocalDateTime.now();
         this.endDate = endDate;
     }
+
+    public void incrementVoteUpCount() {
+        this.voteUpCount++;
+    }
+
+    public void incrementVoteDownCount() {
+        this.voteDownCount++;
+    }
+
+    public void incrementTotalVoteCount() {
+        this.totalVoteCount++;
+    }
 }

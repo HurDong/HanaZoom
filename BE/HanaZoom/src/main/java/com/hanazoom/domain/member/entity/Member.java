@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 import org.springframework.security.core.GrantedAuthority;
@@ -11,13 +12,16 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
 @Table(name = "members")
 @Getter
+@Setter
 @NoArgsConstructor
 public class Member implements UserDetails {
 
@@ -56,6 +60,10 @@ public class Member implements UserDetails {
     @Column(name = "region_id")
     private Long regionId;
 
+    @Column(name = "login_type", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private LoginType loginType = LoginType.EMAIL;
+
     @Column(name = "terms_agreed", nullable = false)
     private boolean termsAgreed;
 
@@ -72,11 +80,15 @@ public class Member implements UserDetails {
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
+    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SocialAccount> socialAccounts = new ArrayList<>();
+
     @Builder
     public Member(String email, String password, String name, String phone,
             String address, String detailAddress, String zonecode,
             Double latitude, Double longitude, Long regionId,
-            boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed) {
+            boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed,
+            LoginType loginType) {
         this.email = email;
         this.password = password;
         this.name = name;
@@ -90,6 +102,7 @@ public class Member implements UserDetails {
         this.termsAgreed = termsAgreed;
         this.privacyAgreed = privacyAgreed;
         this.marketingAgreed = marketingAgreed;
+        this.loginType = loginType != null ? loginType : LoginType.EMAIL;
     }
 
     public void updateLastLogin() {
@@ -117,6 +130,27 @@ public class Member implements UserDetails {
 
     public void updateRegion(Long regionId) {
         this.regionId = regionId;
+    }
+
+    public void addSocialAccount(SocialAccount socialAccount) {
+        this.socialAccounts.add(socialAccount);
+        socialAccount.updateLastLogin();
+    }
+
+    public void removeSocialAccount(SocialAccount socialAccount) {
+        this.socialAccounts.remove(socialAccount);
+    }
+
+    public boolean hasSocialAccount(SocialProvider provider) {
+        return this.socialAccounts.stream()
+                .anyMatch(account -> account.getProvider() == provider);
+    }
+
+    public SocialAccount getSocialAccount(SocialProvider provider) {
+        return this.socialAccounts.stream()
+                .filter(account -> account.getProvider() == provider)
+                .findFirst()
+                .orElse(null);
     }
 
     @Override

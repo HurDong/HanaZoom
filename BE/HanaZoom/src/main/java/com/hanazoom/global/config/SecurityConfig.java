@@ -61,17 +61,20 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/v1/members/login",
-                                "/api/v1/members/signup",
-                                "/api/v1/members/refresh",
-                                "/api/v1/health")
+                                "/api/members/login",
+                                "/api/members/signup",
+                                "/api/members/refresh",
+                                "/api/members/forgot-password/**",
+                                "/api/v1/members/kakao-login",
+                                "/api/health")
                         .permitAll()
-                        .requestMatchers("/api/v1/regions/**").permitAll()
+                        .requestMatchers("/api/regions/**").permitAll()
+                        .requestMatchers("/api/stocks/**").permitAll()
                         .requestMatchers("/api/v1/stocks/**").permitAll()
-                        .requestMatchers("/api/v1/websocket/**").permitAll()
-                        .requestMatchers("/api/v1/stocks/chart/**").permitAll()
+                        .requestMatchers("/api/websocket/**").permitAll()
+                        .requestMatchers("/api/stocks/chart/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/community/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/community/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/favicon.ico").permitAll()
                         .anyRequest().authenticated())

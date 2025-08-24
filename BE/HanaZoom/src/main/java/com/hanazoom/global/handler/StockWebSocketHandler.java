@@ -48,7 +48,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
             WebSocketClient client = new StandardWebSocketClient();
             URI uri = URI.create(kisConfig.getRealtimeUrl());
             client.execute(new KisWebSocketHandler(), null, uri).get();
-            log.info("🚀 KIS WebSocket connection initiated");
+
         } catch (Exception e) {
             log.error("❌ Failed to connect to KIS WebSocket", e);
         }
@@ -57,8 +57,6 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
         clientSessions.add(session);
-        log.info("✅ 새 클라이언트 웹소켓 연결: {} (총 {}개 연결)", session.getId(), clientSessions.size());
-        log.info("🔗 연결 정보: URI={}, Remote Address={}", session.getUri(), session.getRemoteAddress());
 
         // 연결 성공 메시지 전송
         sendToClient(session, createMessage("CONNECTION_ESTABLISHED", "웹소켓 연결이 성공했습니다.", null));
@@ -68,7 +66,6 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
     protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) throws Exception {
         try {
             String payload = message.getPayload();
-            log.debug("📨 클라이언트 메시지 수신: {}", payload);
 
             JSONObject jsonMessage = new JSONObject(payload);
             String type = jsonMessage.getString("type");
@@ -124,13 +121,11 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                             k -> ConcurrentHashMap.newKeySet());
                     if (!subscribers.contains(session)) {
                         subscribers.add(session);
-                        log.debug("📡 새로운 구독 추가: {} -> {}", stockCode, session.getId());
+
                     } else {
-                        log.debug("⚠️ 이미 구독 중인 종목: {} -> {}", stockCode, session.getId());
+
                     }
                 }
-
-                log.info("📡 클라이언트 {}가 종목 구독: {}", session.getId(), codes);
 
                 // KIS 웹소켓에 구독 요청 (이미 구독된 종목은 제외)
                 subscribeToKisWebSocket(codes);
@@ -167,7 +162,6 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                     }
                 }
 
-                log.info("📴 클라이언트 {}가 종목 구독 해제: {}", session.getId(), codes);
                 sendToClient(session, createMessage("UNSUBSCRIBED", "구독 해제가 완료되었습니다.", Map.of("stockCodes", codes)));
             }
         } catch (Exception e) {
@@ -200,7 +194,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                 try {
                     JSONObject request = createKisSubscriptionRequest(stockCode);
                     kisWebSocketSession.sendMessage(new TextMessage(request.toString()));
-                    log.info("📡 KIS에 종목 구독 요청: {}", stockCode);
+
                 } catch (Exception e) {
                     log.error("❌ KIS 구독 요청 실패: {}", stockCode, e);
                 }
@@ -256,9 +250,6 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                 stockSubscriptions.remove(stockCode);
             }
 
-            if (subscribers.size() > 0) {
-                log.debug("📈 {} 구독자들에게 데이터 브로드캐스트: {}명", stockCode, subscribers.size());
-            }
         }
     }
 
@@ -293,7 +284,6 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
         @Override
         public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
             kisWebSocketSession = session;
-            log.info("✅ KIS 웹소켓 연결 성공");
 
             // 기본 종목들 구독 (프론트엔드 티커와 동일)
             List<String> defaultStocks = Arrays.asList("005930", "000660", "035420", "035720", "005380", "051910",
@@ -305,7 +295,6 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
         protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message)
                 throws Exception {
             String receivedMessage = message.getPayload();
-            log.debug("📨 KIS로부터 수신: {}", receivedMessage);
 
             // 실시간 시세 데이터 처리
             if (receivedMessage.startsWith("0|H0STCNT0|")) {
@@ -327,7 +316,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
 
             // 자동 재연결 시도
             if (status.getCode() != CloseStatus.NORMAL.getCode()) {
-                log.info("🔄 KIS 웹소켓 재연결 시도...");
+
                 connectToKis();
             }
         }
@@ -337,7 +326,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                 try {
                     JSONObject request = createKisSubscriptionRequest(stockCode);
                     session.sendMessage(new TextMessage(request.toString()));
-                    log.info("📡 KIS 기본 종목 구독: {}", stockCode);
+
                 } catch (Exception e) {
                     log.error("❌ KIS 기본 구독 실패: {}", stockCode, e);
                 }
@@ -346,7 +335,6 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
 
         private void handleKisRealtimeData(String message) {
             try {
-                log.debug("📨 KIS 원본 데이터: {}", message);
 
                 // KIS 실시간 데이터 형식: 0|H0STCNT0|001|종목코드^시간^현재가^등락구분^전일대비^등락률^...
                 if (message.startsWith("0|H0STCNT0|")) {
@@ -355,8 +343,6 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                         // 실제 데이터는 4번째 부분에 ^ 구분자로 되어있음
                         String dataString = mainParts[3];
                         String[] dataParts = dataString.split("\\^");
-
-                        log.debug("📊 파싱된 데이터 필드 수: {}", dataParts.length);
 
                         if (dataParts.length >= 15) {
                             String stockCode = dataParts[0].trim(); // 종목코드
@@ -380,9 +366,6 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                             // 등락구분 변환 (KIS: 5=하락, 2=상승, 3=보합 → 우리 시스템: 4=하락, 2=상승, 3=보합)
                             String normalizedChangeSign = normalizeChangeSign(changeSign);
 
-                            log.debug("📈 파싱 결과: 종목={}, 현재가={}, 등락률={}%, 구분={} -> {}", stockCode, currentPrice,
-                                    changeRate, changeSign, normalizedChangeSign);
-
                             // 종목명은 별도 저장소에서 조회 (DB 또는 캐시)
                             String stockName = getStockNameFromCache(stockCode);
 
@@ -396,7 +379,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                             // 장종료 후에는 현재가가 종가를 의미함
                             String displayCurrentPrice = currentPrice;
                             if (isAfterMarketClose) {
-                                log.debug("시장 종료 후 - 종가({})를 현재가로 전송: {}", displayCurrentPrice, stockCode);
+
                             }
 
                             // StockPriceResponse 객체 생성

@@ -3,6 +3,7 @@ package com.hanazoom.global.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -24,6 +25,11 @@ public class WebConfig implements WebMvcConfigurer {
                 .baseUrl("https://dapi.kakao.com")
                 .defaultHeader("Authorization", "KakaoAK " + kakaoRestApiKey)
                 .build();
+    }
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
     }
 
     @Override
