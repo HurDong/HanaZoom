@@ -43,14 +43,18 @@ export default function LoginPage() {
     }
   }, [accessToken, router]);
 
-  // 페이지 로드 시 이전 로그인 상태 유지 설정 복원
+  // 페이지 로드 시 이전에 입력했던 이메일 복원 (로그인 상태 유지와 관계없이)
   useEffect(() => {
-    const savedKeepLoggedIn = localStorage.getItem("keepLoggedIn");
     const savedEmail = localStorage.getItem("loginEmail");
 
-    if (savedKeepLoggedIn === "true" && savedEmail) {
-      setKeepLoggedIn(true);
+    if (savedEmail) {
       setFormData((prev) => ({ ...prev, email: savedEmail }));
+
+      // 로그인 상태 유지 설정도 복원
+      const savedKeepLoggedIn = localStorage.getItem("keepLoggedIn");
+      if (savedKeepLoggedIn === "true") {
+        setKeepLoggedIn(true);
+      }
     }
   }, []);
 
@@ -86,8 +90,26 @@ export default function LoginPage() {
   };
 
   const handleSocialLogin = (provider: string) => {
-    // OAuth 2.0 로그인 로직 구현 예정
-    console.log(`${provider} 로그인 시도`);
+    if (provider === "kakao") {
+      // 카카오 OAuth 인증 URL로 리다이렉트
+      const kakaoClientId =
+        process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID ||
+        "f50a1c0f8638ca30ef8c170a6ff8412b";
+      const redirectUri = encodeURIComponent(
+        process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI ||
+          "http://localhost:3000/auth/kakao/callback"
+      );
+      const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${kakaoClientId}&redirect_uri=${redirectUri}&response_type=code&scope=profile_nickname`;
+
+      // 디버깅을 위한 로그
+      console.log("카카오 OAuth URL:", kakaoAuthUrl);
+      console.log("Client ID:", kakaoClientId);
+      console.log("Redirect URI:", "http://localhost:3000/auth/kakao/callback");
+
+      window.location.href = kakaoAuthUrl;
+    } else {
+      console.log(`${provider} 로그인 시도`);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -128,17 +150,25 @@ export default function LoginPage() {
         longitude: data.longitude,
       });
 
-      // 로그인 상태 유지 설정을 localStorage에 저장
+      // 🎯 이메일은 항상 저장 (사용자 편의를 위해)
+      localStorage.setItem("loginEmail", formData.email);
+
+      // 로그인 상태 유지 설정만 체크박스 상태에 따라 저장
       if (keepLoggedIn) {
         localStorage.setItem("keepLoggedIn", "true");
-        localStorage.setItem("loginEmail", formData.email);
       } else {
         localStorage.removeItem("keepLoggedIn");
-        localStorage.removeItem("loginEmail");
       }
 
-      // 로그인 성공 후 바로 메인화면으로 이동
-      router.push("/");
+      // 로그인 성공 후 redirect 파라미터가 있으면 해당 페이지로, 없으면 메인화면으로 이동
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirect = searchParams.get("redirect");
+
+      if (redirect) {
+        router.push(decodeURIComponent(redirect));
+      } else {
+        router.push("/");
+      }
     } catch (error: any) {
       showErrorAlert(
         error.response?.data?.message ||

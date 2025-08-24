@@ -3,6 +3,8 @@ import { getAccessToken } from "@/app/utils/auth";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/app/utils/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, TrendingUp, TrendingDown, MapPin } from "lucide-react";
@@ -28,6 +30,8 @@ interface UserRegionInfo {
 }
 
 export default function CommunityPage() {
+  const router = useRouter();
+  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState("stocks");
   const [allStocks, setAllStocks] = useState<Stock[]>([]);
   const [userRegion, setUserRegion] = useState<UserRegionInfo | null>(null);
@@ -74,6 +78,33 @@ export default function CommunityPage() {
   }, []);
 
   useEffect(() => {
+    // 위치 정보가 없는 경우 최신 사용자 정보 조회
+    const refreshUserInfo = async () => {
+      if (!user?.latitude || !user?.longitude) {
+        try {
+          const token = getAccessToken();
+          if (token) {
+            const response = await fetch(
+              "http://localhost:8080/api/v1/members/me",
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            if (response.ok) {
+              const data = await response.json();
+              // TODO: setLoginData를 호출하여 사용자 정보 업데이트
+            }
+          }
+        } catch (error) {
+          // 사용자 정보 새로고침 실패 시 무시
+        }
+      }
+    };
+
+    refreshUserInfo();
+
     const fetchUserRegion = async () => {
       if (activeTab !== "regions") return;
 
@@ -259,7 +290,37 @@ export default function CommunityPage() {
         {/* 지역별 채팅방 */}
         {activeTab === "regions" && (
           <div className="space-y-6">
-            {isLoadingRegion ? (
+            {!user ||
+            !user.address ||
+            !user.latitude ||
+            !user.longitude ||
+            user.latitude === 0 ||
+            user.longitude === 0 ? (
+              // 위치 정보가 없는 경우 또는 좌표가 0인 경우
+              <Card className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-green-200 dark:border-green-700">
+                <CardContent className="p-8 text-center">
+                  <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-4">
+                    <MapPin className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-green-800 dark:text-green-200 mb-2">
+                    위치 정보 설정 필요
+                  </h3>
+                  <p className="text-lg text-gray-600 dark:text-gray-300 mb-4">
+                    지역별 채팅방을 이용하려면 위치 정보를 설정해주세요
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    최초 1회만 설정하면 됩니다
+                  </p>
+                  <Button
+                    onClick={() => router.push("/auth/location-setup")}
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-2 shadow-lg hover:shadow-xl transition-all duration-300"
+                  >
+                    <MapPin className="w-4 h-4 mr-2" />
+                    위치 설정하기
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : isLoadingRegion ? (
               <Card className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-green-200 dark:border-green-700">
                 <CardContent className="p-12 text-center">
                   <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-6">

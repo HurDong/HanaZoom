@@ -3,6 +3,12 @@ import api from "@/app/config/api";
 export type PostType = "TEXT" | "POLL";
 export type PostSentiment = "BULLISH" | "BEARISH" | "NEUTRAL";
 
+export interface VoteOption {
+  id: string;
+  text: string;
+  voteCount: number;
+}
+
 export interface Post {
   id: number;
   title: string | null;
@@ -13,6 +19,10 @@ export interface Post {
   likeCount: number;
   commentCount: number;
   isLiked: boolean;
+  hasVote?: boolean;
+  voteQuestion?: string;
+  voteOptions?: VoteOption[];
+  userVote?: string; // 사용자가 선택한 투표 옵션 ID
   author: {
     id: string;
     name: string;
@@ -27,6 +37,9 @@ export interface CreatePostRequest {
   content: string;
   postType?: PostType;
   sentiment: PostSentiment;
+  hasVote?: boolean;
+  voteQuestion?: string;
+  voteOptions?: VoteOption[];
 }
 
 export interface Comment {
@@ -105,6 +118,25 @@ export const likePost = async (postId: number): Promise<void> => {
 
 export const unlikePost = async (postId: number): Promise<void> => {
   await api.delete(`/community/posts/${postId}/like`);
+};
+
+// 투표 관련 API
+export const voteOnPost = async (
+  postId: number,
+  optionId: string
+): Promise<void> => {
+  await api.post(`/community/posts/${postId}/vote`, { optionId });
+};
+
+export const getPostVoteResults = async (
+  postId: number
+): Promise<{
+  voteOptions: VoteOption[];
+  totalVotes: number;
+  userVote?: string;
+}> => {
+  const response = await api.get(`/community/posts/${postId}/vote-results`);
+  return response.data.data;
 };
 
 // Comments

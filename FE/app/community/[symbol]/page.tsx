@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MessageSquare, TrendingUp, TrendingDown, LogIn } from "lucide-react";
 import NavBar from "@/app/components/Navbar";
 import { OpinionForm } from "@/components/opinion-form";
-import { OpinionCard } from "@/components/opinion-card";
+import { TossPostCard } from "@/components/toss-post-card";
 import { StockInfoCard } from "@/components/stock-info-card";
 import { StockTicker } from "@/components/stock-ticker";
 import CommentSection from "@/components/comment-section";
@@ -18,10 +18,12 @@ import {
   createPost,
   likePost,
   unlikePost,
+  voteOnPost,
+  getPostVoteResults,
 } from "@/lib/api/community";
 import { useAuthStore } from "@/app/utils/auth";
 import type { Stock } from "@/lib/api/stock";
-import type { Post, PostSentiment } from "@/lib/api/community";
+import type { Post, PostSentiment, VoteOption } from "@/lib/api/community";
 
 export default function StockDiscussionPage() {
   const { symbol } = useParams();
@@ -61,7 +63,31 @@ export default function StockDiscussionPage() {
         const validPosts =
           postsResponse.content?.filter((post) => post && post.id) || [];
         console.log("필터링된 게시글:", validPosts);
-        setPosts(validPosts);
+
+        // 각 게시글의 투표 결과를 가져오기
+        const postsWithVotes = await Promise.all(
+          validPosts.map(async (post) => {
+            if (post.hasVote && accessToken) {
+              try {
+                const voteResults = await getPostVoteResults(post.id);
+                return {
+                  ...post,
+                  voteOptions: voteResults.voteOptions,
+                  userVote: voteResults.userVote,
+                };
+              } catch (error) {
+                console.error(
+                  `Failed to fetch vote results for post ${post.id}:`,
+                  error
+                );
+                return post;
+              }
+            }
+            return post;
+          })
+        );
+
+        setPosts(postsWithVotes);
       } catch (error) {
         console.error("Failed to fetch data:", error);
         setError("데이터를 불러오는데 실패했습니다.");
@@ -76,10 +102,18 @@ export default function StockDiscussionPage() {
   const handleCreatePost = async (data: {
     content: string;
     sentiment: PostSentiment;
+    hasVote?: boolean;
+    voteOptions?: VoteOption[];
+    voteQuestion?: string;
   }) => {
-    if (!accessToken) {
+    // 로그인 상태를 더 명확하게 체크
+    if (!isClient || !accessToken) {
       alert("게시글을 작성하려면 로그인이 필요합니다.");
-      router.push("/login");
+      // 현재 페이지 정보를 로그인 페이지로 전달하고 즉시 이동
+      const redirectUrl = `/login?redirect=${encodeURIComponent(
+        window.location.pathname
+      )}`;
+      window.location.href = redirectUrl;
       return;
     }
 
@@ -90,17 +124,12 @@ export default function StockDiscussionPage() {
       console.log("응답 타입:", typeof response);
       console.log("응답 구조:", JSON.stringify(response, null, 2));
 
-      // response 구조에 따라 다르게 처리
-      let postData = response;
-      if (response?.data) {
-        postData = response.data;
-      }
-
-      if (postData && postData.id) {
-        console.log("게시글 추가:", postData);
-        setPosts([postData, ...posts]);
+      // response가 Post 타입이므로 직접 사용
+      if (response && response.id) {
+        console.log("게시글 추가:", response);
+        setPosts([response, ...posts]);
       } else {
-        console.warn("응답이 유효하지 않음:", postData);
+        console.warn("응답이 유효하지 않음:", response);
       }
       setShowOpinionForm(false);
     } catch (error: any) {
@@ -108,7 +137,11 @@ export default function StockDiscussionPage() {
 
       if (error.response?.status === 403) {
         alert("권한이 없습니다. 다시 로그인해주세요.");
-        router.push("/login");
+        // 현재 페이지 정보를 로그인 페이지로 전달하고 즉시 이동
+        const redirectUrl = `/login?redirect=${encodeURIComponent(
+          window.location.pathname
+        )}`;
+        window.location.href = redirectUrl;
       } else {
         alert("게시글 작성에 실패했습니다.");
       }
@@ -116,9 +149,13 @@ export default function StockDiscussionPage() {
   };
 
   const handleLikePost = async (postId: number) => {
-    if (!accessToken) {
+    if (!isClient || !accessToken) {
       alert("좋아요를 누르려면 로그인이 필요합니다.");
-      router.push("/login");
+      // 현재 페이지 정보를 로그인 페이지로 전달하고 즉시 이동
+      const redirectUrl = `/login?redirect=${encodeURIComponent(
+        window.location.pathname
+      )}`;
+      window.location.href = redirectUrl;
       return;
     }
 
@@ -170,6 +207,59 @@ export default function StockDiscussionPage() {
         const shareText = `${stock?.name} 관련 게시글\n\n${post.content}\n\n${window.location.href}`;
         await navigator.clipboard.writeText(shareText);
         alert("게시글 링크가 클립보드에 복사되었습니다.");
+      }
+    }
+  };
+
+  const handleVote = async (postId: number, optionId: string) => {
+    if (!isClient || !accessToken) {
+      alert("투표하려면 로그인이 필요합니다.");
+      // 현재 페이지 정보를 로그인 페이지로 전달하고 즉시 이동
+      const redirectUrl = `/login?redirect=${encodeURIComponent(
+        window.location.pathname
+      )}`;
+      window.location.href = redirectUrl;
+      return;
+    }
+
+    try {
+      // 백엔드 API 호출
+      await voteOnPost(postId, optionId);
+
+      // 투표 성공 후 해당 게시글의 투표 결과를 다시 가져오기
+      const updatedPosts = await Promise.all(
+        posts.map(async (post) => {
+          if (post.id === postId) {
+            try {
+              const voteResults = await getPostVoteResults(postId);
+              return {
+                ...post,
+                voteOptions: voteResults.voteOptions,
+                userVote: voteResults.userVote,
+              };
+            } catch (error) {
+              console.error("Failed to fetch vote results:", error);
+              return post;
+            }
+          }
+          return post;
+        })
+      );
+
+      setPosts(updatedPosts);
+      alert("투표가 완료되었습니다!");
+    } catch (error: any) {
+      console.error("Failed to vote:", error);
+
+      if (error.response?.status === 403) {
+        alert("권한이 없습니다. 다시 로그인해주세요.");
+        // 현재 페이지 정보를 로그인 페이지로 전달하고 즉시 이동
+        const redirectUrl = `/login?redirect=${encodeURIComponent(
+          window.location.pathname
+        )}`;
+        window.location.href = redirectUrl;
+      } else {
+        alert("투표 처리에 실패했습니다.");
       }
     }
   };
@@ -254,7 +344,13 @@ export default function StockDiscussionPage() {
             </Button>
           ) : (
             <Button
-              onClick={() => router.push("/login")}
+              onClick={() =>
+                router.push(
+                  `/login?redirect=${encodeURIComponent(
+                    window.location.pathname
+                  )}`
+                )
+              }
               className="bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 dark:from-green-500 dark:to-emerald-600 dark:hover:from-green-600 dark:hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-2 border-green-300 hover:border-green-400 dark:border-green-600 dark:hover:border-green-500"
             >
               <LogIn className="w-4 h-4 mr-2" />
@@ -278,12 +374,13 @@ export default function StockDiscussionPage() {
             if (!post || !post.id) return null;
 
             return (
-              <OpinionCard
+              <TossPostCard
                 key={post.id}
                 post={post}
                 onLike={() => handleLikePost(post.id)}
                 onComment={() => {}}
                 onShare={() => handleShare(post.id)}
+                onVote={(optionId: string) => handleVote(post.id, optionId)}
               />
             );
           })}
@@ -307,7 +404,13 @@ export default function StockDiscussionPage() {
                 </Button>
               ) : (
                 <Button
-                  onClick={() => router.push("/login")}
+                  onClick={() =>
+                    router.push(
+                      `/login?redirect=${encodeURIComponent(
+                        window.location.pathname
+                      )}`
+                    )
+                  }
                   variant="outline"
                   className="mt-4 border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400 hover:text-green-800 dark:border-green-600 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-500 dark:hover:text-green-300 transition-all duration-300"
                 >

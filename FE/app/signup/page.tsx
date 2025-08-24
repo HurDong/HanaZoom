@@ -64,8 +64,21 @@ export default function SignupPage() {
   }, [accessToken, router]);
 
   const handleSocialSignup = (provider: string) => {
-    // OAuth 2.0 회원가입 로직 구현 예정
-    console.log(`${provider} 회원가입 시도`);
+    if (provider === "kakao") {
+      // 카카오 OAuth 인증 URL로 리다이렉트 (회원가입도 동일한 흐름)
+      const kakaoClientId =
+        process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID ||
+        "f50a1c0f8638ca30ef8c170a6ff8412b";
+      const redirectUri = encodeURIComponent(
+        process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI ||
+          "http://localhost:3000/auth/kakao/callback"
+      );
+      const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${kakaoClientId}&redirect_uri=${redirectUri}&response_type=code&scope=profile_nickname`;
+
+      window.location.href = kakaoAuthUrl;
+    } else {
+      console.log(`${provider} 회원가입 시도`);
+    }
   };
 
   const formatPhoneNumber = (value: string) => {

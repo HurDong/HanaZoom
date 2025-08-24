@@ -115,15 +115,17 @@ export const logout = async () => {
   } catch (error) {
     console.error("Failed to logout:", error);
   } finally {
-    // 로컬 상태 초기화
+    // 로컬 상태 초기화 (accessToken, user 정보만)
     useAuthStore.getState().clearAuth();
     // refreshToken 쿠키 제거
     await fetch("/api/auth/remove-refresh-token", {
       method: "POST",
       credentials: "include",
     });
-    // 로그인 상태 유지 설정도 정리
-    clearLoginPreferences();
+
+    // 🎯 중요: 이메일 정보는 유지! 로그인 상태 유지 설정만 해제
+    localStorage.removeItem("keepLoggedIn");
+    // localStorage.removeItem("loginEmail"); // 이메일은 삭제하지 않음!
   }
 };
 
@@ -141,5 +143,5 @@ export const getSavedLoginEmail = () => {
 
 export const clearLoginPreferences = () => {
   localStorage.removeItem("keepLoggedIn");
-  localStorage.removeItem("loginEmail");
+  // localStorage.removeItem("loginEmail"); // 이메일은 삭제하지 않음!
 };

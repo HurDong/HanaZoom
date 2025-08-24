@@ -96,6 +96,7 @@ export const API_ENDPOINTS = {
   signup: "/members/signup",
   logout: "/members/logout",
   refreshToken: "/members/refresh",
+  kakaoLogin: "/members/kakao-login",
 
   // Regions
   regions: "/regions",
