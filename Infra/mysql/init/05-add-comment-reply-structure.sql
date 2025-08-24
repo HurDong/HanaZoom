@@ -11,3 +11,4 @@ CREATE INDEX idx_comments_post_id_depth_created_at ON comments(post_id, depth, c
 
 -- 기존 댓글들의 depth를 0으로 설정 (최상위 댓글)
 UPDATE comments SET depth = 0 WHERE depth IS NULL;
+
