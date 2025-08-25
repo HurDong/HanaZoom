@@ -73,12 +73,20 @@ export default function NavBar() {
           WTS
         </Link>
         {accessToken ? (
-          <button
-            onClick={handleLogout}
-            className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors cursor-pointer"
-          >
-            로그아웃
-          </button>
+          <>
+            <Link
+              href="/mypage"
+              className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors"
+            >
+              마이페이지
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="text-sm font-medium text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors cursor-pointer"
+            >
+              로그아웃
+            </button>
+          </>
         ) : (
           <Link
             href="/login"
