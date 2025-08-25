@@ -195,3 +195,26 @@ export const createReply = async (
   );
   return response.data.data;
 };
+
+// 지역별 채팅 관련 API
+export const getRegionChatInfo = async (): Promise<any> => {
+  const response = await api.get("/chat/region-info");
+  return response.data.data;
+};
+
+export const getRegionChatMessages = async (
+  regionCode: string
+): Promise<any> => {
+  const response = await api.get(`/chat/region/${regionCode}/messages`);
+  return response.data.data;
+};
+
+export const sendRegionChatMessage = async (
+  regionCode: string,
+  message: string
+): Promise<any> => {
+  const response = await api.post(`/chat/region/${regionCode}/messages`, {
+    content: message,
+  });
+  return response.data.data;
+};

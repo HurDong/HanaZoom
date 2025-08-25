@@ -51,8 +51,11 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // 토큰이 만료되었을 때 (401 에러)
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // 토큰이 만료되었을 때 (401 에러) 또는 보안단에서 차단된 403도 동일 흐름 처리
+    if (
+      (error.response?.status === 401 || error.response?.status === 403) &&
+      !originalRequest._retry
+    ) {
       if (isRefreshing) {
         // 토큰 갱신 중이면 큐에 요청을 추가
         return new Promise((resolve, reject) => {

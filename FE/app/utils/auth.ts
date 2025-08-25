@@ -25,7 +25,7 @@ type AuthStore = AuthState & AuthActions;
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       accessToken: null,
       user: null,
       setAuth: ({ accessToken, user }) => set({ accessToken, user }),
@@ -39,6 +39,39 @@ export const useAuthStore = create<AuthStore>()(
         user: state.user,
         accessToken: state.accessToken,
       }),
+      // 하이드레이션 이후 만료 토큰 자동 처리
+      onRehydrateStorage: () => (state) => {
+        try {
+          const token = state?.accessToken;
+          if (!token) return;
+
+          const isExpired = (() => {
+            try {
+              const payload = JSON.parse(atob(token.split(".")[1]));
+              const expMs = (payload?.exp ?? 0) * 1000;
+              return Date.now() >= expMs;
+            } catch {
+              return true;
+            }
+          })();
+
+          if (!isExpired) return;
+
+          // 만료 시 즉시 갱신 시도, 실패하면 상태 초기화
+          fetch("/api/auth/refresh-token", { credentials: "include" })
+            .then(async (res) => {
+              if (!res.ok) throw new Error("refresh failed");
+              const data = await res.json();
+              get().updateAccessToken(data.accessToken);
+            })
+            .catch(() => {
+              get().clearAuth();
+            });
+        } catch {
+          // 파싱 실패 등 -> 안전하게 초기화
+          get().clearAuth();
+        }
+      },
     }
   )
 );
