@@ -7,6 +7,7 @@ import com.hanazoom.domain.member.entity.Member;
 import com.hanazoom.domain.stock.entity.Stock;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import com.hanazoom.domain.community.dto.VoteResultsResponse;
 
 public interface PostService {
         Post createPost(Member member, Stock stock, String title, String content, PostType postType,
@@ -27,4 +28,9 @@ public interface PostService {
         void unlikePost(Long postId, Member member);
 
         boolean isLikedByMember(Long postId, Member member);
+
+        // 투표 관련 메서드 추가
+        void voteOnPost(Long postId, Member member, String optionId);
+
+        VoteResultsResponse getVoteResults(Long postId, Member member);
 }

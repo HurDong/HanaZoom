@@ -156,4 +156,210 @@ public class KisApiService {
         }
         return kisConfig.getApprovalKey();
     }
+
+    /**
+     * 국내주식 현재가 시세 조회
+     * 
+     * @param stockCode 주식 종목코드 (6자리)
+     * @return 현재가 정보 JSON 응답
+     */
+    public String getCurrentStockPrice(String stockCode) {
+        if (!isAccessTokenValid()) {
+            log.warn("Access token is not valid. Issuing new token.");
+            issueAccessToken();
+        }
+
+        try {
+            String response = webClient.get()
+                    .uri("https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/quotations/inquire-price"
+                            +
+                            "?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=" + stockCode)
+                    .header("authorization", "Bearer " + kisConfig.getAccessToken())
+                    .header("appkey", kisConfig.getAppKey())
+                    .header("appsecret", kisConfig.getAppSecret())
+                    .header("tr_id", "FHKST01010100") // 거래ID (국내주식현재가)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            log.info("Successfully fetched current price for stock: {}", stockCode);
+            return response;
+
+        } catch (Exception e) {
+            log.error("Failed to fetch current stock price for code: {}", stockCode, e);
+            throw new RuntimeException("주식 현재가 조회 실패: " + stockCode, e);
+        }
+    }
+
+    /**
+     * 종목 기본 정보 조회
+     * 
+     * @param stockCode 주식 종목코드 (6자리)
+     * @return 종목 기본 정보 JSON 응답
+     */
+    public String getStockBasicInfo(String stockCode) {
+        if (!isAccessTokenValid()) {
+            log.warn("Access token is not valid. Issuing new token.");
+            issueAccessToken();
+        }
+
+        try {
+            String response = webClient.get()
+                    .uri("https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/quotations/search-stock-info"
+                            +
+                            "?PRDT_TYPE_CD=300&PDNO=" + stockCode)
+                    .header("authorization", "Bearer " + kisConfig.getAccessToken())
+                    .header("appkey", kisConfig.getAppKey())
+                    .header("appsecret", kisConfig.getAppSecret())
+                    .header("tr_id", "CTPF1002R") // 거래ID (종목정보조회)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            log.info("Successfully fetched basic info for stock: {}", stockCode);
+            return response;
+
+        } catch (Exception e) {
+            log.error("Failed to fetch basic stock info for code: {}", stockCode, e);
+            throw new RuntimeException("종목 기본 정보 조회 실패: " + stockCode, e);
+        }
+    }
+
+    /**
+     * 국내주식 일봉차트 조회
+     * 
+     * @param stockCode   주식 종목코드 (6자리)
+     * @param period      조회기간 (D=일, W=주, M=월)
+     * @param adjustPrice 수정주가 반영여부 (0=수정주가반영안함, 1=수정주가반영)
+     * @return 차트 데이터 JSON 응답
+     */
+    public String getDailyChartData(String stockCode, String period, String adjustPrice) {
+        return getDailyChartDataWithDateRange(stockCode, period, adjustPrice, null, null);
+    }
+
+    /**
+     * 국내주식 일봉차트 조회 (날짜 범위 지정)
+     * 
+     * @param stockCode   주식 종목코드
+     * @param period      조회기간 (D=일, W=주, M=월)
+     * @param adjustPrice 수정주가 반영여부
+     * @param startDate   시작일 (YYYYMMDD, null이면 기본값)
+     * @param endDate     종료일 (YYYYMMDD, null이면 오늘)
+     * @return 차트 데이터 JSON 응답
+     */
+    public String getDailyChartDataWithDateRange(String stockCode, String period, String adjustPrice, String startDate,
+            String endDate) {
+        if (!isAccessTokenValid()) {
+            log.warn("Access token is not valid. Issuing new token.");
+            issueAccessToken();
+        }
+
+        // 날짜 설정 - 기본값: 3년치 데이터
+        if (endDate == null) {
+            endDate = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+        }
+        if (startDate == null) {
+            // 3년 전 날짜 (약 1000 영업일)
+            startDate = java.time.LocalDate.now().minusYears(3)
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+        }
+
+        try {
+            String response = webClient.get()
+                    .uri("https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice"
+                            + "?FID_COND_MRKT_DIV_CODE=J"
+                            + "&FID_INPUT_ISCD=" + stockCode
+                            + "&FID_INPUT_DATE_1=" + startDate // 시작일 (YYYYMMDD)
+                            + "&FID_INPUT_DATE_2=" + endDate // 종료일 (YYYYMMDD)
+                            + "&FID_PERIOD_DIV_CODE=" + period
+                            + "&FID_ORG_ADJ_PRC=" + adjustPrice)
+                    .header("authorization", "Bearer " + kisConfig.getAccessToken())
+                    .header("appkey", kisConfig.getAppKey())
+                    .header("appsecret", kisConfig.getAppSecret())
+                    .header("tr_id", "FHKST03010100") // 거래ID (국내주식일봉차트조회)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            log.info("Successfully fetched daily chart data for stock: {} ({} ~ {})", stockCode, startDate, endDate);
+            return response;
+
+        } catch (Exception e) {
+            log.error("Failed to fetch daily chart data for code: {}", stockCode, e);
+            throw new RuntimeException("일봉 차트 조회 실패: " + stockCode, e);
+        }
+    }
+
+    /**
+     * 국내주식 분봉차트 조회
+     * 
+     * @param stockCode   주식 종목코드 (6자리)
+     * @param timeframe   분봉구분 (01=1분, 05=5분, 15=15분, 30=30분, 60=60분)
+     * @param adjustPrice 수정주가 반영여부
+     * @return 분봉 차트 데이터 JSON 응답
+     */
+    public String getMinuteChartData(String stockCode, String timeframe, String adjustPrice) {
+        if (!isAccessTokenValid()) {
+            log.warn("Access token is not valid. Issuing new token.");
+            issueAccessToken();
+        }
+
+        try {
+            String response = webClient.get()
+                    .uri("https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice"
+                            + "?FID_COND_MRKT_DIV_CODE=J"
+                            + "&FID_INPUT_ISCD=" + stockCode
+                            + "&FID_INPUT_HOUR_1=" // 시작시간 (HHMMSS)
+                            + "&FID_PW_DATA_INCU_YN=Y" // 과거데이터포함여부
+                            + "&FID_ETC_CLS_CODE=" + timeframe) // 분봉구분
+                    .header("authorization", "Bearer " + kisConfig.getAccessToken())
+                    .header("appkey", kisConfig.getAppKey())
+                    .header("appsecret", kisConfig.getAppSecret())
+                    .header("tr_id", "FHKST03010200") // 거래ID (국내주식분봉차트조회)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            log.info("Successfully fetched minute chart data for stock: {} ({}분봉)", stockCode, timeframe);
+            return response;
+
+        } catch (Exception e) {
+            log.error("Failed to fetch minute chart data for code: {}", stockCode, e);
+            throw new RuntimeException("분봉 차트 조회 실패: " + stockCode, e);
+        }
+    }
+
+    /**
+     * 주식 호가창 정보 조회
+     * 
+     * @param stockCode 주식 종목코드 (6자리)
+     * @return 호가창 정보 JSON 응답
+     */
+    public String getOrderBook(String stockCode) {
+        if (!isAccessTokenValid()) {
+            log.warn("Access token is not valid. Issuing new token.");
+            issueAccessToken();
+        }
+
+        try {
+            String response = webClient.get()
+                    .uri("https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/quotations/inquire-asking-price-exp-ccn"
+                            +
+                            "?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=" + stockCode)
+                    .header("authorization", "Bearer " + kisConfig.getAccessToken())
+                    .header("appkey", kisConfig.getAppKey())
+                    .header("appsecret", kisConfig.getAppSecret())
+                    .header("tr_id", "FHKST01010200") // 거래ID (국내주식호가)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            log.info("Successfully fetched order book for stock: {}", stockCode);
+            return response;
+
+        } catch (Exception e) {
+            log.error("Failed to fetch order book for code: {}", stockCode, e);
+            throw new RuntimeException("호가창 정보 조회 실패: " + stockCode, e);
+        }
+    }
 }

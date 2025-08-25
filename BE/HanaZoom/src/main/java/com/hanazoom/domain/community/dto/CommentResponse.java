@@ -15,6 +15,8 @@ public class CommentResponse {
     private AuthorResponse author;
     private int likeCount;
     private boolean isLiked;
+    private Long parentCommentId;
+    private int depth;
 
     @Getter
     @Builder
@@ -40,6 +42,8 @@ public class CommentResponse {
                 .author(AuthorResponse.from(comment))
                 .likeCount(comment.getLikeCount())
                 .isLiked(isLiked)
+                .parentCommentId(comment.getParentComment() != null ? comment.getParentComment().getId() : null)
+                .depth(comment.getDepth())
                 .build();
     }
 }

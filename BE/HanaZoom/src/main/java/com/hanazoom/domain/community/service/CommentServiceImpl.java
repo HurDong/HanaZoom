@@ -28,8 +28,31 @@ public class CommentServiceImpl implements CommentService {
                 .post(post)
                 .member(member)
                 .content(content)
+                .parentComment(null)
+                .depth(0)
                 .build();
         return commentRepository.save(comment);
+    }
+
+    @Override
+    @Transactional
+    public Comment createReply(Long parentCommentId, Member member, String content) {
+        Comment parentComment = getComment(parentCommentId);
+
+        // 대댓글은 최대 1단계까지만 허용 (depth 0 -> 1)
+        if (parentComment.getDepth() >= 1) {
+            throw new IllegalArgumentException("대댓글에는 답글을 달 수 없습니다.");
+        }
+
+        Comment reply = Comment.builder()
+                .post(parentComment.getPost())
+                .member(member)
+                .content(content)
+                .parentComment(parentComment)
+                .depth(parentComment.getDepth() + 1)
+                .build();
+
+        return commentRepository.save(reply);
     }
 
     @Override
@@ -50,6 +73,17 @@ public class CommentServiceImpl implements CommentService {
     @Override
     public Page<Comment> getCommentsByPost(Post post, Pageable pageable) {
         return commentRepository.findByPostAndIsDeletedFalseOrderByCreatedAtDesc(post, pageable);
+    }
+
+    @Override
+    public Page<Comment> getTopLevelCommentsByPost(Post post, Pageable pageable) {
+        return commentRepository.findByPostAndIsDeletedFalseAndDepthOrderByCreatedAtDesc(post, 0, pageable);
+    }
+
+    @Override
+    public java.util.List<Comment> getRepliesByParentComment(Long parentCommentId) {
+        Comment parentComment = getComment(parentCommentId);
+        return commentRepository.findRepliesByParentComment(parentComment);
     }
 
     @Override

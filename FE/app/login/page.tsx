@@ -17,8 +17,9 @@ import { MapPin, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MouseFollower } from "@/components/mouse-follower";
-import { useState } from "react";
-import { setLoginData } from "../utils/auth";
+import { StockTicker } from "@/components/stock-ticker";
+import { useState, useEffect } from "react";
+import { setLoginData, useAuthStore } from "../utils/auth";
 import Swal from "sweetalert2";
 import { useRouter, useSearchParams } from "next/navigation";
 import NavBar from "@/app/components/Navbar";
@@ -27,11 +28,35 @@ import { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { accessToken } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+  const [keepLoggedIn, setKeepLoggedIn] = useState(false);
+
+  // 이미 로그인된 사용자는 홈페이지로 리다이렉트
+  useEffect(() => {
+    if (accessToken) {
+      router.replace("/");
+    }
+  }, [accessToken, router]);
+
+  // 페이지 로드 시 이전에 입력했던 이메일 복원 (로그인 상태 유지와 관계없이)
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("loginEmail");
+
+    if (savedEmail) {
+      setFormData((prev) => ({ ...prev, email: savedEmail }));
+
+      // 로그인 상태 유지 설정도 복원
+      const savedKeepLoggedIn = localStorage.getItem("keepLoggedIn");
+      if (savedKeepLoggedIn === "true") {
+        setKeepLoggedIn(true);
+      }
+    }
+  }, []);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+$/;
@@ -65,8 +90,26 @@ export default function LoginPage() {
   };
 
   const handleSocialLogin = (provider: string) => {
-    // OAuth 2.0 로그인 로직 구현 예정
-    console.log(`${provider} 로그인 시도`);
+    if (provider === "kakao") {
+      // 카카오 OAuth 인증 URL로 리다이렉트
+      const kakaoClientId =
+        process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID ||
+        "f50a1c0f8638ca30ef8c170a6ff8412b";
+      const redirectUri = encodeURIComponent(
+        process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI ||
+          "http://localhost:3000/auth/kakao/callback"
+      );
+      const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${kakaoClientId}&redirect_uri=${redirectUri}&response_type=code&scope=profile_nickname`;
+
+      // 디버깅을 위한 로그
+      console.log("카카오 OAuth URL:", kakaoAuthUrl);
+      console.log("Client ID:", kakaoClientId);
+      console.log("Redirect URI:", "http://localhost:3000/auth/kakao/callback");
+
+      window.location.href = kakaoAuthUrl;
+    } else {
+      console.log(`${provider} 로그인 시도`);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -107,15 +150,25 @@ export default function LoginPage() {
         longitude: data.longitude,
       });
 
-      await Swal.fire({
-        title: "환영합니다!",
-        text: "로그인에 성공했습니다.",
-        icon: "success",
-        timer: 1500,
-        showConfirmButton: false,
-      });
+      // 🎯 이메일은 항상 저장 (사용자 편의를 위해)
+      localStorage.setItem("loginEmail", formData.email);
 
-      router.push("/");
+      // 로그인 상태 유지 설정만 체크박스 상태에 따라 저장
+      if (keepLoggedIn) {
+        localStorage.setItem("keepLoggedIn", "true");
+      } else {
+        localStorage.removeItem("keepLoggedIn");
+      }
+
+      // 로그인 성공 후 redirect 파라미터가 있으면 해당 페이지로, 없으면 메인화면으로 이동
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirect = searchParams.get("redirect");
+
+      if (redirect) {
+        router.push(decodeURIComponent(redirect));
+      } else {
+        router.push("/");
+      }
     } catch (error: any) {
       showErrorAlert(
         error.response?.data?.message ||
@@ -129,7 +182,12 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950">
       <MouseFollower />
       <NavBar />
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 flex items-center justify-center p-4 relative overflow-hidden">
+
+      <div className="fixed top-16 left-0 right-0 z-[60]">
+        <StockTicker />
+      </div>
+
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 flex items-center justify-center p-4 relative overflow-hidden pt-28">
         {/* 마우스 따라다니는 아이콘들 */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="floating-symbol absolute top-20 left-10 text-green-500 dark:text-green-400 text-2xl animate-bounce">
@@ -224,6 +282,8 @@ export default function LoginPage() {
                 <label className="flex items-center space-x-2 text-green-700 dark:text-green-300">
                   <input
                     type="checkbox"
+                    checked={keepLoggedIn}
+                    onChange={(e) => setKeepLoggedIn(e.target.checked)}
                     className="rounded border-green-300 text-green-600 focus:ring-green-500"
                   />
                   <span>로그인 상태 유지</span>

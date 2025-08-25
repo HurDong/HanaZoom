@@ -1,12 +1,19 @@
 package com.hanazoom.domain.community.service;
 
+import com.hanazoom.domain.community.dto.VoteResultsResponse;
+import com.hanazoom.domain.community.dto.VoteOptionResponse;
 import com.hanazoom.domain.community.entity.Like;
 import com.hanazoom.domain.community.entity.LikeTargetType;
 import com.hanazoom.domain.community.entity.Post;
 import com.hanazoom.domain.community.entity.PostSentiment;
 import com.hanazoom.domain.community.entity.PostType;
+import com.hanazoom.domain.community.entity.Poll;
+import com.hanazoom.domain.community.entity.PollResponse;
+import com.hanazoom.domain.community.entity.VoteOption;
 import com.hanazoom.domain.community.repository.LikeRepository;
 import com.hanazoom.domain.community.repository.PostRepository;
+import com.hanazoom.domain.community.repository.PollRepository;
+import com.hanazoom.domain.community.repository.PollResponseRepository;
 import com.hanazoom.domain.member.entity.Member;
 import com.hanazoom.domain.stock.entity.Stock;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +22,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -22,6 +32,8 @@ public class PostServiceImpl implements PostService {
 
     private final PostRepository postRepository;
     private final LikeRepository likeRepository;
+    private final PollRepository pollRepository;
+    private final PollResponseRepository pollResponseRepository;
 
     @Override
     @Transactional
@@ -103,6 +115,96 @@ public class PostServiceImpl implements PostService {
         if (member == null)
             return false;
         return likeRepository.existsByMemberAndTargetTypeAndTargetId(member, LikeTargetType.POST, postId);
+    }
+
+    @Override
+    @Transactional
+    public void voteOnPost(Long postId, Member member, String optionId) {
+        Post post = getPost(postId);
+
+        // 투표 옵션 검증
+        VoteOption voteOption;
+        try {
+            voteOption = VoteOption.valueOf(optionId.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("유효하지 않은 투표 옵션입니다.");
+        }
+
+        // Poll 엔티티 조회 또는 생성
+        Poll poll = pollRepository.findByPost(post)
+                .orElseGet(() -> pollRepository.save(Poll.builder()
+                        .post(post)
+                        .question("이 종목이 오를까요?")
+                        .build()));
+
+        // 이미 투표했는지 확인
+        if (pollResponseRepository.existsByPollAndMember(poll, member)) {
+            throw new IllegalArgumentException("이미 투표했습니다.");
+        }
+
+        // 투표 응답 저장
+        PollResponse pollResponse = PollResponse.builder()
+                .poll(poll)
+                .member(member)
+                .voteOption(voteOption)
+                .build();
+        pollResponseRepository.save(pollResponse);
+
+        // 투표 수 업데이트
+        if (voteOption == VoteOption.UP) {
+            poll.incrementVoteUpCount();
+        } else {
+            poll.incrementVoteDownCount();
+        }
+        poll.incrementTotalVoteCount();
+    }
+
+    @Override
+    public VoteResultsResponse getVoteResults(Long postId, Member member) {
+        Post post = getPost(postId);
+        Poll poll = pollRepository.findByPost(post).orElse(null);
+
+        if (poll == null) {
+            return VoteResultsResponse.builder()
+                    .voteOptions(List.of())
+                    .totalVotes(0)
+                    .userVote(null)
+                    .build();
+        }
+
+        // 사용자의 투표 확인
+        String userVote = null;
+        if (member != null) {
+            Optional<PollResponse> userResponse = pollResponseRepository.findByPollAndMember(poll, member);
+            if (userResponse.isPresent()) {
+                userVote = userResponse.get().getVoteOption().name();
+            }
+        }
+
+        // 투표 옵션 구성
+        List<VoteOptionResponse> voteOptions = List.of(
+                VoteOptionResponse.builder()
+                        .id("UP")
+                        .text("오를 것 같다 📈")
+                        .voteCount(poll.getVoteUpCount())
+                        .percentage(poll.getTotalVoteCount() > 0
+                                ? (double) poll.getVoteUpCount() / poll.getTotalVoteCount() * 100
+                                : 0)
+                        .build(),
+                VoteOptionResponse.builder()
+                        .id("DOWN")
+                        .text("떨어질 것 같다 📉")
+                        .voteCount(poll.getVoteDownCount())
+                        .percentage(poll.getTotalVoteCount() > 0
+                                ? (double) poll.getVoteDownCount() / poll.getTotalVoteCount() * 100
+                                : 0)
+                        .build());
+
+        return VoteResultsResponse.builder()
+                .voteOptions(voteOptions)
+                .totalVotes(poll.getTotalVoteCount())
+                .userVote(userVote)
+                .build();
     }
 
     private Post getPostWithMemberCheck(Long postId, Member member) {

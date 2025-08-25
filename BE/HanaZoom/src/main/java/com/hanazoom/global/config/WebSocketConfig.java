@@ -19,10 +19,10 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry){
         registry.addHandler(stockWebSocketHandler, "/ws/stocks")
-                .setAllowedOrigins("*");
+                .setAllowedOrigins("http://localhost:3000", "http://localhost:3001");
         
         // 지역별 채팅 WebSocket 핸들러 추가
         registry.addHandler(regionChatWebSocketHandler, "/ws/chat/region")
-                .setAllowedOrigins("*");
+                .setAllowedOrigins("http://localhost:3000", "http://localhost:3001");
     }
 }

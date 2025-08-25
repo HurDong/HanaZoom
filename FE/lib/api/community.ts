@@ -3,6 +3,12 @@ import api from "@/app/config/api";
 export type PostType = "TEXT" | "POLL";
 export type PostSentiment = "BULLISH" | "BEARISH" | "NEUTRAL";
 
+export interface VoteOption {
+  id: string;
+  text: string;
+  voteCount: number;
+}
+
 export interface Post {
   id: number;
   title: string | null;
@@ -13,6 +19,10 @@ export interface Post {
   likeCount: number;
   commentCount: number;
   isLiked: boolean;
+  hasVote?: boolean;
+  voteQuestion?: string;
+  voteOptions?: VoteOption[];
+  userVote?: string; // 사용자가 선택한 투표 옵션 ID
   author: {
     id: string;
     name: string;
@@ -27,6 +37,9 @@ export interface CreatePostRequest {
   content: string;
   postType?: PostType;
   sentiment: PostSentiment;
+  hasVote?: boolean;
+  voteQuestion?: string;
+  voteOptions?: VoteOption[];
 }
 
 export interface Comment {
@@ -40,6 +53,8 @@ export interface Comment {
     avatar?: string;
   };
   createdAt: string;
+  parentCommentId?: number;
+  depth: number;
 }
 
 export interface CreateCommentRequest {
@@ -105,6 +120,25 @@ export const unlikePost = async (postId: number): Promise<void> => {
   await api.delete(`/community/posts/${postId}/like`);
 };
 
+// 투표 관련 API
+export const voteOnPost = async (
+  postId: number,
+  optionId: string
+): Promise<void> => {
+  await api.post(`/community/posts/${postId}/vote`, { optionId });
+};
+
+export const getPostVoteResults = async (
+  postId: number
+): Promise<{
+  voteOptions: VoteOption[];
+  totalVotes: number;
+  userVote?: string;
+}> => {
+  const response = await api.get(`/community/posts/${postId}/vote-results`);
+  return response.data.data;
+};
+
 // Comments
 export const getComments = async (
   postId: number,
@@ -143,4 +177,44 @@ export const likeComment = async (commentId: number): Promise<void> => {
 
 export const unlikeComment = async (commentId: number): Promise<void> => {
   await api.delete(`/community/comments/${commentId}/like`);
+};
+
+// Replies (대댓글)
+export const getReplies = async (commentId: number): Promise<Comment[]> => {
+  const response = await api.get(`/community/comments/${commentId}/replies`);
+  return response.data.data;
+};
+
+export const createReply = async (
+  parentCommentId: number,
+  data: CreateCommentRequest
+): Promise<Comment> => {
+  const response = await api.post(
+    `/community/comments/${parentCommentId}/replies`,
+    data
+  );
+  return response.data.data;
+};
+
+// 지역별 채팅 관련 API
+export const getRegionChatInfo = async (): Promise<any> => {
+  const response = await api.get("/chat/region-info");
+  return response.data.data;
+};
+
+export const getRegionChatMessages = async (
+  regionCode: string
+): Promise<any> => {
+  const response = await api.get(`/chat/region/${regionCode}/messages`);
+  return response.data.data;
+};
+
+export const sendRegionChatMessage = async (
+  regionCode: string,
+  message: string
+): Promise<any> => {
+  const response = await api.post(`/chat/region/${regionCode}/messages`, {
+    content: message,
+  });
+  return response.data.data;
 };

@@ -2,6 +2,7 @@ package com.hanazoom.domain.region_stock.service;
 
 import com.hanazoom.domain.region.entity.Region;
 import com.hanazoom.domain.region.repository.RegionRepository;
+import com.hanazoom.domain.region.entity.RegionType;
 import com.hanazoom.domain.region_stock.dto.RegionStatsResponse;
 import com.hanazoom.domain.region_stock.entity.RegionStock;
 import com.hanazoom.domain.region_stock.repository.RegionStockRepository;
@@ -75,7 +76,7 @@ public class RegionStockServiceImpl implements RegionStockService {
                 if (lastCsvCacheUpdate == null || !lastCsvCacheUpdate.equals(today)) {
                         try {
                                 Resource resource = new ClassPathResource(
-                                                "data/region/recommended_stocks_by_region.csv");
+                                                "data/region/recommended_stocks_by_region2.csv");
                                 BufferedReader reader = new BufferedReader(
                                                 new InputStreamReader(resource.getInputStream(),
                                                                 StandardCharsets.UTF_8));
@@ -177,7 +178,7 @@ public class RegionStockServiceImpl implements RegionStockService {
 
         @Override
         @Transactional
-        @Scheduled(initialDelay = 10000, fixedRate = 600000) // 서버 시작 10초 후 첫 실행, 이후 10분마다
+        @Scheduled(initialDelay = 3000, fixedRate = 600000) // 서버 시작 3초 후 첫 실행, 이후 10분마다
         public void updateRegionStocks() {
                 log.info("지역별 주식 인기도 업데이트 시작...");
 
@@ -206,6 +207,9 @@ public class RegionStockServiceImpl implements RegionStockService {
                                 updatePopularityScoresBatch(regionStockMap);
                         }
 
+                        // 상위 지역 집계 (읍/면/동 -> 구/군 -> 시/도)
+                        aggregateRegionStocksUpwards(LocalDate.now());
+
                         log.info("지역별 주식 인기도 업데이트 완료");
 
                 } catch (Exception e) {
@@ -219,29 +223,174 @@ public class RegionStockServiceImpl implements RegionStockService {
                 // 구현 예정
         }
 
+        /**
+         * 하위 지역들의 데이터를 상위 지역으로 집계합니다.
+         * 1) NEIGHBORHOOD -> DISTRICT 집계
+         * 2) DISTRICT -> CITY 집계
+         */
+        private void aggregateRegionStocksUpwards(LocalDate targetDate) {
+                log.info("=== 상위 지역 집계 시작: targetDate={}", targetDate);
+                try {
+                        // 1) 구/군 단위 집계: 하위 읍/면/동 자식들의 데이터를 모읍니다
+                        List<Region> allRegions = regionRepository.findAll();
+
+                        Map<Long, Region> regionIdToRegion = allRegions.stream()
+                                        .collect(Collectors.toMap(Region::getId, r -> r));
+
+                        List<Region> districts = allRegions.stream()
+                                        .filter(r -> r.getType() == RegionType.DISTRICT)
+                                        .collect(Collectors.toList());
+
+                        for (Region district : districts) {
+                                List<Region> neighborhoods = allRegions.stream()
+                                                .filter(r -> r.getParent() != null
+                                                                && r.getParent().getId() != null
+                                                                && district.getId() != null
+                                                                && r.getParent().getId().equals(district.getId())
+                                                                && r.getType() == RegionType.NEIGHBORHOOD)
+                                                .collect(Collectors.toList());
+
+                                if (neighborhoods.isEmpty()) {
+                                        log.warn("구/군 '{}'에 하위 읍/면/동이 없습니다.", district.getName());
+                                        continue;
+                                }
+                                aggregateForParentFromChildren(district, neighborhoods, targetDate);
+                        }
+
+                        // 2) 시/도 단위 집계: 하위 구/군 자식들의 데이터를 모읍니다
+                        List<Region> cities = allRegions.stream()
+                                        .filter(r -> r.getType() == RegionType.CITY)
+                                        .collect(Collectors.toList());
+
+                        for (Region city : cities) {
+                                List<Region> childDistricts = allRegions.stream()
+                                                .filter(r -> r.getParent() != null
+                                                                && r.getParent().getId() != null
+                                                                && city.getId() != null
+                                                                && r.getParent().getId().equals(city.getId())
+                                                                && r.getType() == RegionType.DISTRICT)
+                                                .collect(Collectors.toList());
+
+                                if (childDistricts.isEmpty()) {
+                                        log.warn("시/도 '{}'에 하위 구/군이 없습니다.", city.getName());
+                                        continue;
+                                }
+                                aggregateForParentFromChildren(city, childDistricts, targetDate);
+                        }
+                        log.info("=== 상위 지역 집계 완료");
+                } catch (Exception e) {
+                        log.error("상위 지역 집계 실패", e);
+                }
+        }
+
+        /**
+         * 주어진 부모 지역에 대해, 자식 지역들의 같은 날짜 데이터를 종목별로 합산하여 저장합니다.
+         */
+        private void aggregateForParentFromChildren(Region parentRegion, List<Region> childRegions,
+                        LocalDate targetDate) {
+
+                List<Long> childIds = childRegions.stream().map(Region::getId).collect(Collectors.toList());
+
+                // 자식 지역들의 해당 날짜 데이터 조회
+                List<RegionStock> childStocks = regionStockRepository.findByRegion_IdInAndDataDate(childIds,
+                                targetDate);
+
+                if (childStocks.isEmpty()) {
+                        log.warn("부모 지역 '{}'의 자식 지역들에 주식 데이터가 없습니다.", parentRegion.getName());
+                        return;
+                }
+
+                // 종목별 합산 집계
+                Map<Long, BigDecimal> stockIdToPopularity = new HashMap<>();
+                Map<Long, Stock> stockIdToStock = new HashMap<>();
+
+                for (RegionStock rs : childStocks) {
+                        Long stockId = rs.getStock().getId();
+                        stockIdToStock.putIfAbsent(stockId, rs.getStock());
+                        BigDecimal current = stockIdToPopularity.getOrDefault(stockId, BigDecimal.ZERO);
+                        BigDecimal add = rs.getPopularityScore() == null ? BigDecimal.ZERO : rs.getPopularityScore();
+                        stockIdToPopularity.put(stockId, current.add(add));
+                }
+
+                // 부모 지역의 기존 해당 날짜 데이터 제거 후 재생성
+                regionStockRepository.deleteByRegionIdAndDataDate(parentRegion.getId(), targetDate);
+                log.info("부모 지역 '{}'의 기존 데이터 삭제 완료", parentRegion.getName());
+
+                List<RegionStock> toSave = new ArrayList<>();
+                for (Map.Entry<Long, BigDecimal> entry : stockIdToPopularity.entrySet()) {
+                        Long stockId = entry.getKey();
+                        BigDecimal popularity = entry.getValue();
+                        Stock stock = stockIdToStock.get(stockId);
+
+                        RegionStock aggregated = RegionStock.builder()
+                                        .region(parentRegion)
+                                        .stock(stock)
+                                        .dataDate(targetDate)
+                                        .popularityScore(popularity)
+                                        .regionalRanking(0)
+                                        .trendScore(BigDecimal.ZERO)
+                                        .build();
+                        toSave.add(aggregated);
+                }
+
+                if (!toSave.isEmpty()) {
+                        regionStockRepository.saveAll(toSave);
+                        log.info("부모 지역 '{}'에 {}개 종목 데이터 저장 완료", parentRegion.getName(), toSave.size());
+                } else {
+                        log.warn("부모 지역 '{}'에 저장할 데이터가 없습니다.", parentRegion.getName());
+                }
+        }
+
         @Override
         public List<StockTickerDto> getTopStocksByRegion(Long regionId, int limit) {
+                log.info("=== getTopStocksByRegion 호출: regionId={}, limit={}", regionId, limit);
+
                 // 1. 지역 존재 여부 확인
                 Region region = regionRepository.findById(regionId)
                                 .orElseThrow(() -> new IllegalArgumentException("지역을 찾을 수 없습니다."));
+                log.info("지역 정보: id={}, name={}, type={}", region.getId(), region.getName(), region.getType());
 
                 // 2. 해당 지역의 최신 날짜 데이터 중 인기도 점수 순으로 상위 주식 조회
                 List<RegionStock> topRegionStocks = regionStockRepository
                                 .findTopByRegionIdOrderByPopularityScoreDesc(
                                                 regionId,
                                                 PageRequest.of(0, limit));
+                log.info("조회된 RegionStock 개수: {}", topRegionStocks.size());
+
+                if (topRegionStocks.isEmpty()) {
+                        log.warn("지역 {} ({})에 대한 주식 데이터가 없습니다.", region.getName(), regionId);
+                } else {
+                        log.info("조회된 주식들: {}", topRegionStocks.stream()
+                                        .map(rs -> String.format("%s(%.2f)", rs.getStock().getName(),
+                                                        rs.getPopularityScore()))
+                                        .collect(Collectors.joining(", ")));
+                }
 
                 // 3. StockTickerDto로 변환 (실제 데이터만 사용)
                 List<StockTickerDto> result = topRegionStocks.stream()
-                                .map(rs -> StockTickerDto.builder()
-                                                .symbol(rs.getStock().getSymbol())
-                                                .name(rs.getStock().getName())
-                                                .price(String.valueOf(rs.getStock().getCurrentPrice()))
-                                                .change(String.format("%.2f%%", rs.getStock().getPriceChangePercent()))
-                                                .emoji(rs.getStock().getEmoji())
-                                                .build())
+                                .map(rs -> {
+                                        String sector = rs.getStock().getSector() != null ? rs.getStock().getSector()
+                                                        : "기타";
+                                        log.debug("Stock: {}, Sector: {} (원본: {})", rs.getStock().getName(), sector,
+                                                        rs.getStock().getSector());
+
+                                        return StockTickerDto.builder()
+                                                        .symbol(rs.getStock().getSymbol())
+                                                        .name(rs.getStock().getName())
+                                                        .price(String.valueOf(rs.getStock().getCurrentPrice()))
+                                                        .change(String.format("%.2f%%",
+                                                                        rs.getStock().getPriceChangePercent()))
+                                                        .logoUrl(rs.getStock().getLogoUrl())
+                                                        .sector(sector)
+                                                        .build();
+                                })
                                 .collect(Collectors.toList());
 
+                log.info("반환할 StockTickerDto 개수: {}", result.size());
+                log.info("첫 번째 종목 정보: symbol={}, name={}, sector={}",
+                                result.isEmpty() ? "없음" : result.get(0).getSymbol(),
+                                result.isEmpty() ? "없음" : result.get(0).getName(),
+                                result.isEmpty() ? "없음" : result.get(0).getSector());
                 return result;
         }
 

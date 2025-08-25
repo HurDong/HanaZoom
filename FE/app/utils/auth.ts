@@ -25,7 +25,7 @@ type AuthStore = AuthState & AuthActions;
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       accessToken: null,
       user: null,
       setAuth: ({ accessToken, user }) => set({ accessToken, user }),
@@ -39,6 +39,39 @@ export const useAuthStore = create<AuthStore>()(
         user: state.user,
         accessToken: state.accessToken,
       }),
+      // 하이드레이션 이후 만료 토큰 자동 처리
+      onRehydrateStorage: () => (state) => {
+        try {
+          const token = state?.accessToken;
+          if (!token) return;
+
+          const isExpired = (() => {
+            try {
+              const payload = JSON.parse(atob(token.split(".")[1]));
+              const expMs = (payload?.exp ?? 0) * 1000;
+              return Date.now() >= expMs;
+            } catch {
+              return true;
+            }
+          })();
+
+          if (!isExpired) return;
+
+          // 만료 시 즉시 갱신 시도, 실패하면 상태 초기화
+          fetch("/api/auth/refresh-token", { credentials: "include" })
+            .then(async (res) => {
+              if (!res.ok) throw new Error("refresh failed");
+              const data = await res.json();
+              get().updateAccessToken(data.accessToken);
+            })
+            .catch(() => {
+              get().clearAuth();
+            });
+        } catch {
+          // 파싱 실패 등 -> 안전하게 초기화
+          get().clearAuth();
+        }
+      },
     }
   )
 );
@@ -115,16 +148,33 @@ export const logout = async () => {
   } catch (error) {
     console.error("Failed to logout:", error);
   } finally {
-    // 로컬 상태 초기화
+    // 로컬 상태 초기화 (accessToken, user 정보만)
     useAuthStore.getState().clearAuth();
     // refreshToken 쿠키 제거
     await fetch("/api/auth/remove-refresh-token", {
       method: "POST",
       credentials: "include",
     });
+
+    // 🎯 중요: 이메일 정보는 유지! 로그인 상태 유지 설정만 해제
+    localStorage.removeItem("keepLoggedIn");
+    // localStorage.removeItem("loginEmail"); // 이메일은 삭제하지 않음!
   }
 };
 
 export const isLoggedIn = () => {
   return !!useAuthStore.getState().accessToken;
+};
+
+export const shouldKeepLoggedIn = () => {
+  return localStorage.getItem("keepLoggedIn") === "true";
+};
+
+export const getSavedLoginEmail = () => {
+  return localStorage.getItem("loginEmail");
+};
+
+export const clearLoginPreferences = () => {
+  localStorage.removeItem("keepLoggedIn");
+  // localStorage.removeItem("loginEmail"); // 이메일은 삭제하지 않음!
 };

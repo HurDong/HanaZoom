@@ -2,24 +2,26 @@
 import { getAccessToken } from "@/app/utils/auth";
 
 import { useState, useEffect } from "react";
-import { Search } from "lucide-react";
 import Link from "next/link";
-import { Input } from "@/components/ui/input";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/app/utils/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, TrendingUp, TrendingDown, MapPin } from "lucide-react";
 import NavBar from "@/app/components/Navbar";
 import { MouseFollower } from "@/components/mouse-follower";
+import { StockTicker } from "@/components/stock-ticker";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { mockStocks } from "@/data/mock-stocks";
+import api from "@/app/config/api";
 
 interface Stock {
   symbol: string;
   name: string;
-  price: number;
-  change: number;
-  changePercent: number;
-  emoji?: string;
+  price?: number;
+  change?: number;
+  changePercent?: number;
+  logoUrl?: string;
+  emoji?: string; // fallback용
 }
 
 interface UserRegionInfo {
@@ -28,26 +30,81 @@ interface UserRegionInfo {
 }
 
 export default function CommunityPage() {
+  const router = useRouter();
+  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState("stocks");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filteredStocks, setFilteredStocks] = useState<Stock[]>([]);
+  const [allStocks, setAllStocks] = useState<Stock[]>([]);
   const [userRegion, setUserRegion] = useState<UserRegionInfo | null>(null);
   const [isLoadingRegion, setIsLoadingRegion] = useState(false);
+  const [isLoadingStocks, setIsLoadingStocks] = useState(false);
 
-  useEffect(() => {
-    if (activeTab === "stocks") {
-      setFilteredStocks(
-        mockStocks.filter((stock) => {
-          const matchesSearch =
-            stock.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            stock.symbol.includes(searchTerm);
-          return matchesSearch;
-        })
-      );
+  // 백엔드에서 종목 데이터 가져오기
+  const fetchStocks = async () => {
+    try {
+      setIsLoadingStocks(true);
+      const response = await api.get("/stocks/ticker");
+      if (response.data && response.data.success) {
+        const stocks = response.data.data.map((stock: any) => ({
+          symbol: stock.symbol || stock.stockCode || "",
+          name: stock.name || stock.stockName || "종목명 없음",
+          price: stock.price
+            ? parseInt(stock.price)
+            : stock.currentPrice
+            ? parseInt(stock.currentPrice)
+            : undefined,
+          change: stock.priceChange ? parseInt(stock.priceChange) : undefined,
+          changePercent: stock.changeRate
+            ? parseFloat(stock.changeRate)
+            : stock.change
+            ? parseFloat(stock.change)
+            : undefined,
+          logoUrl: stock.logoUrl,
+          emoji: stock.emoji || "📈", // fallback
+        }));
+        setAllStocks(stocks);
+      }
+    } catch (error) {
+      console.error("종목 데이터 가져오기 실패:", error);
+      // 에러 시 빈 배열로 설정
+      setAllStocks([]);
+    } finally {
+      setIsLoadingStocks(false);
     }
-  }, [searchTerm, activeTab]);
+  };
+
+  // 컴포넌트 마운트 시 종목 데이터 가져오기
+  useEffect(() => {
+    fetchStocks();
+  }, []);
 
   useEffect(() => {
+    // 위치 정보가 없는 경우 최신 사용자 정보 조회
+    const refreshUserInfo = async () => {
+      if (!user?.latitude || !user?.longitude) {
+        try {
+          const token = getAccessToken();
+          if (token) {
+            const response = await fetch(
+              "http://localhost:8080/api/v1/members/me",
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            if (response.ok) {
+              const data = await response.json();
+              // TODO: setLoginData를 호출하여 사용자 정보 업데이트
+            }
+          }
+        } catch (error) {
+          // 사용자 정보 새로고침 실패 시 무시
+        }
+      }
+    };
+
+    refreshUserInfo();
+
     const fetchUserRegion = async () => {
       if (activeTab !== "regions") return;
 
@@ -90,12 +147,19 @@ export default function CommunityPage() {
       <MouseFollower />
       <NavBar />
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-green-900 dark:text-green-100 mb-2">
+      <div className="fixed top-16 left-0 right-0 z-[60]">
+        <StockTicker />
+      </div>
+
+      <main className="container mx-auto px-4 py-8 pt-36">
+        <div className="mb-8 text-center">
+          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-6">
+            <span className="text-3xl">💬</span>
+          </div>
+          <h1 className="text-4xl font-bold text-green-900 dark:text-green-100 mb-4">
             HanaZoom 커뮤니티
           </h1>
-          <p className="text-green-700 dark:text-green-300">
+          <p className="text-lg text-green-700 dark:text-green-300 max-w-2xl mx-auto">
             지역별 투자 정보와 종목별 토론방에서 다양한 의견을 나눠보세요!
           </p>
         </div>
@@ -107,115 +171,173 @@ export default function CommunityPage() {
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-2 bg-green-100 dark:bg-green-900/50">
+            <TabsList className="grid w-full grid-cols-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-green-200 dark:border-green-700 shadow-lg">
               <TabsTrigger
                 value="stocks"
-                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
               >
-                <TrendingUp className="w-4 h-4 mr-2" />
+                <TrendingUp className="w-5 h-5 mr-2" />
                 종목별 토론
               </TabsTrigger>
               <TabsTrigger
                 value="regions"
-                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
               >
-                <MapPin className="w-4 h-4 mr-2" />
+                <MapPin className="w-5 h-5 mr-2" />
                 지역별 채팅
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500 dark:text-gray-400" />
-            <Input
-              placeholder={
-                activeTab === "stocks"
-                  ? "종목명 또는 종목코드 검색..."
-                  : "나의 지역 채팅방을 확인하세요"
-              }
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 border-green-200 dark:border-green-700 focus:border-green-500 dark:focus:border-green-400"
-              disabled={activeTab === "regions"}
-            />
-          </div>
-        </div>
-
         {/* 종목별 토론방 목록 */}
         {activeTab === "stocks" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredStocks.map((stock) => (
-              <Link href={`/community/${stock.symbol}`} key={stock.symbol}>
-                <Card className="hover:shadow-lg transition-shadow duration-300">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-2">
-                        {stock.emoji && (
-                          <span className="text-2xl">{stock.emoji}</span>
-                        )}
-                        <div>
-                          <h3 className="text-xl font-bold text-green-800 dark:text-green-200">
-                            {stock.name}
-                          </h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {stock.symbol}
-                          </p>
+          <div>
+            {isLoadingStocks ? (
+              <div className="text-center py-16">
+                <div className="mx-auto w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-6">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
+                </div>
+                <p className="text-xl text-green-700 dark:text-green-300 font-medium">
+                  종목 정보를 불러오는 중...
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {allStocks.map((stock) => (
+                  <Link href={`/community/${stock.symbol}`} key={stock.symbol}>
+                    <Card className="hover:shadow-xl hover:scale-105 transition-all duration-300 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-green-200 dark:border-green-700">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center space-x-2">
+                            {stock.logoUrl ? (
+                              <img
+                                src={stock.logoUrl}
+                                alt={stock.name}
+                                className="w-8 h-8 rounded-full object-contain"
+                                onError={(e) => {
+                                  // 로고 로드 실패시 이모지로 대체
+                                  (e.target as HTMLImageElement).style.display =
+                                    "none";
+                                  const parent = (e.target as HTMLImageElement)
+                                    .parentElement;
+                                  if (parent && stock.emoji) {
+                                    const span = document.createElement("span");
+                                    span.className = "text-2xl";
+                                    span.textContent = stock.emoji;
+                                    parent.appendChild(span);
+                                  }
+                                }}
+                              />
+                            ) : stock.emoji ? (
+                              <span className="text-2xl">{stock.emoji}</span>
+                            ) : (
+                              <span className="text-2xl">📈</span>
+                            )}
+                            <div>
+                              <h3 className="text-xl font-bold text-green-800 dark:text-green-200">
+                                {stock.name}
+                              </h3>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {stock.symbol}
+                              </p>
+                            </div>
+                          </div>
+                          {stock.changePercent !== undefined && (
+                            <div
+                              className={`flex items-center px-3 py-1 rounded-full ${
+                                stock.change && stock.change >= 0
+                                  ? "bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400"
+                                  : "bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400"
+                              }`}
+                            >
+                              {stock.change && stock.change >= 0 ? (
+                                <TrendingUp className="w-4 h-4 mr-1" />
+                              ) : (
+                                <TrendingDown className="w-4 h-4 mr-1" />
+                              )}
+                              <span className="font-bold">
+                                {stock.change && stock.change >= 0 ? "+" : ""}
+                                {stock.changePercent.toFixed(2)}%
+                              </span>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <div
-                        className={`flex items-center px-3 py-1 rounded-full ${
-                          stock.change >= 0
-                            ? "bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400"
-                            : "bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400"
-                        }`}
-                      >
-                        {stock.change >= 0 ? (
-                          <TrendingUp className="w-4 h-4 mr-1" />
-                        ) : (
-                          <TrendingDown className="w-4 h-4 mr-1" />
-                        )}
-                        <span className="font-bold">
-                          {stock.change >= 0 ? "+" : ""}
-                          {stock.changePercent.toFixed(2)}%
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center mt-4">
-                      <span className="text-xl font-bold text-green-800 dark:text-green-200">
-                        ₩{stock.price.toLocaleString()}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 hover:bg-green-50 dark:hover:bg-green-900/50 transition-colors"
-                      >
-                        <MessageSquare className="w-4 h-4 mr-1" />
-                        토론방 입장
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                        <div className="flex justify-between items-center mt-4">
+                          <span className="text-xl font-bold text-green-800 dark:text-green-200">
+                            {stock.price
+                              ? `₩${stock.price.toLocaleString()}`
+                              : "가격 정보 없음"}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 hover:bg-green-50 dark:hover:bg-green-900/50 transition-colors"
+                          >
+                            <MessageSquare className="w-4 h-4 mr-1" />
+                            토론방 입장
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {/* 지역별 채팅방 */}
         {activeTab === "regions" && (
           <div className="space-y-6">
-            {isLoadingRegion ? (
-              <Card>
+            {!user ||
+            !user.address ||
+            !user.latitude ||
+            !user.longitude ||
+            user.latitude === 0 ||
+            user.longitude === 0 ? (
+              // 위치 정보가 없는 경우 또는 좌표가 0인 경우
+              <Card className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-green-200 dark:border-green-700">
                 <CardContent className="p-8 text-center">
-                  <p>지역 정보를 불러오는 중...</p>
+                  <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-4">
+                    <MapPin className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-green-800 dark:text-green-200 mb-2">
+                    위치 정보 설정 필요
+                  </h3>
+                  <p className="text-lg text-gray-600 dark:text-gray-300 mb-4">
+                    지역별 채팅방을 이용하려면 위치 정보를 설정해주세요
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    최초 1회만 설정하면 됩니다
+                  </p>
+                  <Button
+                    onClick={() => router.push("/auth/location-setup")}
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-2 shadow-lg hover:shadow-xl transition-all duration-300"
+                  >
+                    <MapPin className="w-4 h-4 mr-2" />
+                    위치 설정하기
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : isLoadingRegion ? (
+              <Card className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-green-200 dark:border-green-700">
+                <CardContent className="p-12 text-center">
+                  <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-6">
+                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-white border-t-transparent"></div>
+                  </div>
+                  <p className="text-lg text-green-700 dark:text-green-300 font-medium">
+                    지역 정보를 불러오는 중...
+                  </p>
                 </CardContent>
               </Card>
             ) : userRegion ? (
-              <Card className="hover:shadow-lg transition-shadow duration-300">
+              <Card className="hover:shadow-xl hover:scale-105 transition-all duration-300 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-green-200 dark:border-green-700">
                 <CardContent className="p-8">
                   <div className="text-center space-y-4">
-                    <MapPin className="w-16 h-16 text-green-600 dark:text-green-400 mx-auto" />
+                    <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-4">
+                      <MapPin className="w-10 h-10 text-white" />
+                    </div>
                     <div>
                       <h3 className="text-2xl font-bold text-green-800 dark:text-green-200 mb-2">
                         나의 지역 채팅방
@@ -230,7 +352,7 @@ export default function CommunityPage() {
                     <Link href={`/community/region/${userRegion.regionId}`}>
                       <Button
                         size="lg"
-                        className="bg-green-600 hover:bg-green-700 text-white px-8 py-3"
+                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-3 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                       >
                         <MessageSquare className="w-5 h-5 mr-2" />
                         채팅방 입장하기
@@ -240,13 +362,15 @@ export default function CommunityPage() {
                 </CardContent>
               </Card>
             ) : (
-              <Card>
+              <Card className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-green-200 dark:border-green-700 hover:shadow-lg transition-all duration-300">
                 <CardContent className="p-8 text-center">
-                  <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                  <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-4">
+                    <MapPin className="w-8 h-8 text-white" />
+                  </div>
+                  <p className="text-lg text-gray-600 dark:text-gray-300 mb-2">
                     지역 정보를 불러올 수 없습니다.
                   </p>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     로그인 후 이용해주세요.
                   </p>
                 </CardContent>
@@ -255,16 +379,22 @@ export default function CommunityPage() {
           </div>
         )}
 
-        {((activeTab === "stocks" && filteredStocks.length === 0) ||
-          (activeTab === "regions" && !userRegion && !isLoadingRegion)) && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400">
-              {activeTab === "stocks"
-                ? "검색 결과가 없습니다."
-                : "지역 정보를 찾을 수 없습니다."}
-            </p>
-          </div>
-        )}
+        {/* 종목이 없을 때만 표시 (지역 탭은 이미 위에서 처리) */}
+        {activeTab === "stocks" &&
+          allStocks.length === 0 &&
+          !isLoadingStocks && (
+            <div className="text-center py-16">
+              <div className="mx-auto w-20 h-20 bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 rounded-full flex items-center justify-center shadow-lg mb-6">
+                <span className="text-3xl">🔍</span>
+              </div>
+              <p className="text-lg text-gray-600 dark:text-gray-400 font-medium">
+                표시할 종목이 없습니다.
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+                잠시 후 다시 시도해주세요.
+              </p>
+            </div>
+          )}
       </main>
     </div>
   );
