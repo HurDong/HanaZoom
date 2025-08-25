@@ -441,17 +441,7 @@ export default function MyPage() {
 
                 {/* 카카오맵 섹션 */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-green-700 dark:text-green-300">
-                      위치 확인
-                    </label>
-                    {isMapLoaded && (
-                      <span className="text-xs text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900 px-2 py-1 rounded-full">
-                        ✓ 지도 준비됨
-                      </span>
-                    )}
-                  </div>
-                  <div className="w-full h-64 rounded-lg border-2 border-green-200 dark:border-green-700 overflow-hidden shadow-lg">
+                  <div className="w-full h-80 rounded-lg border-2 border-green-200 dark:border-green-700 overflow-hidden shadow-lg">
                     {mapLoading ? (
                       <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                         <div className="text-center">
@@ -471,6 +461,8 @@ export default function MyPage() {
                           zoomable={false}
                           scrollwheel={false}
                           keyboardShortcuts={false}
+                          disableDoubleClickZoom={true}
+                          onDoubleClick={() => false}
                           onLoad={(map) => {
                             // 지도 로드 완료 후 마커 추가
                             if (window.kakao && window.kakao.maps) {
@@ -492,6 +484,19 @@ export default function MyPage() {
                               // 지도 인스턴스 저장
                               mapRef.current = map;
                               setIsMapLoaded(true);
+
+                              // 더블클릭 확대 방지 (지도 인스턴스에 직접 설정)
+                              try {
+                                if (window.kakao && window.kakao.maps) {
+                                  // 카카오맵의 더블클릭 줌 비활성화
+                                  const mapInstance = map as any;
+                                  if (mapInstance.setZoomable) {
+                                    mapInstance.setZoomable(false);
+                                  }
+                                }
+                              } catch (error) {
+                                // 에러가 발생해도 지도는 정상 작동
+                              }
                             }
                           }}
                         />
@@ -507,11 +512,6 @@ export default function MyPage() {
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-green-600 dark:text-green-400 text-center">
-                    {form.latitude && form.longitude
-                      ? "위치가 표시되었습니다"
-                      : "주소 검색 버튼을 클릭하여 위치를 확인하세요"}
-                  </p>
                 </div>
               </div>
             </CardContent>
