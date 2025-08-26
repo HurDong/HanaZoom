@@ -33,7 +33,7 @@ export function StockTicker() {
   const [stocks, setStocks] = useState<StockTicker[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const animationRef = useRef<HTMLDivElement>(null);
-  const updateTimeoutRef = useRef<NodeJS.Timeout>();
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 웹소켓으로 실시간 주식 데이터 수신
   const {
@@ -47,10 +47,12 @@ export function StockTicker() {
       // 애니메이션 중단 방지를 위해 디바운싱 적용
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
+        updateTimeoutRef.current = null;
       }
 
       updateTimeoutRef.current = setTimeout(() => {
         updateStockDisplay();
+        updateTimeoutRef.current = null;
       }, 100); // 100ms 디바운싱
     },
     autoReconnect: true,
@@ -58,7 +60,9 @@ export function StockTicker() {
   });
 
   // 깜빡임 없는 부드러운 업데이트
-  const updateStockDisplay = useCallback(() => {
+  const updateStockDisplay = useCallback((): void => {
+    // getStockDataMap은 훅에서 안정적으로 반환되지만, 의존성으로 넣으면
+    // 구현 변경 시 매 렌더마다 바뀌어 효과가 반복될 수 있어 내부에서 호출만 함
     const stockDataMap = getStockDataMap();
 
     if (stockDataMap.size === 0) {
@@ -98,8 +102,20 @@ export function StockTicker() {
       };
     });
 
-    setStocks(newStocks);
-  }, [getStockDataMap]);
+    setStocks((prev) => {
+      // 동일 데이터로 인한 불필요한 렌더를 한 번 더 방지
+      const sameLength = prev.length === newStocks.length;
+      const sameAll =
+        sameLength &&
+        prev.every(
+          (p, i) =>
+            p.symbol === newStocks[i].symbol &&
+            p.price === newStocks[i].price &&
+            p.change === newStocks[i].change
+        );
+      return sameAll ? prev : newStocks;
+    });
+  }, []);
 
   // 컴포넌트 마운트 및 데이터 변경 시 업데이트
   useEffect(() => {
@@ -107,10 +123,14 @@ export function StockTicker() {
   }, []);
 
   useEffect(() => {
-    if (wsConnected && getStockDataMap().size > 0) {
-      updateStockDisplay();
+    if (wsConnected) {
+      const map = getStockDataMap();
+      if (map.size > 0) {
+        updateStockDisplay();
+      }
     }
-  }, [wsConnected, lastUpdate, updateStockDisplay]);
+    // 의존성으로 함수 레퍼런스를 두지 않고, 신호성 값들만 둔다
+  }, [wsConnected, lastUpdate]);
 
   // 컴포넌트 언마운트 시 타이머 정리
   useEffect(() => {
