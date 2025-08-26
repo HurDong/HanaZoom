@@ -19,10 +19,12 @@ import {
 } from "lucide-react";
 import { Map, useKakaoLoader } from "react-kakao-maps-sdk";
 import Script from "next/script";
+import { useRouter } from "next/navigation";
 
 // 전역 타입 선언 제거 - 다른 파일에서 이미 선언됨
 
 export default function MyPage() {
+  const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +38,19 @@ export default function MyPage() {
     latitude: "",
     longitude: "",
   });
+
+  // 최근 검증 가드: 10분 내 검증 없으면 /auth/verify 로 이동
+  useEffect(() => {
+    try {
+      const ts = sessionStorage.getItem("recentlyVerifiedAt");
+      const valid = ts && Date.now() - Number(ts) < 10 * 60 * 1000;
+      if (!valid) {
+        const redirect = encodeURIComponent("/mypage");
+        router.replace(`/auth/verify?redirect=${redirect}`);
+        return;
+      }
+    } catch {}
+  }, [router]);
 
   // 지도 중심점 상태
   const [mapCenter, setMapCenter] = useState<{
