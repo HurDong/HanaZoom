@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { TrendingUp, TrendingDown, Wifi, WifiOff } from "lucide-react";
 import type { StockPriceData } from "@/lib/api/stock";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
@@ -32,6 +32,8 @@ const TICKER_STOCKS = [
 export function StockTicker() {
   const [stocks, setStocks] = useState<StockTicker[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  const animationRef = useRef<HTMLDivElement>(null);
+  const updateTimeoutRef = useRef<NodeJS.Timeout>();
 
   // 웹소켓으로 실시간 주식 데이터 수신
   const {
@@ -42,18 +44,26 @@ export function StockTicker() {
   } = useStockWebSocket({
     stockCodes: TICKER_STOCKS.map((stock) => stock.code),
     onStockUpdate: (data) => {
-      console.log("📈 티커 실시간 데이터:", data.stockCode, data.currentPrice);
-      updateStockDisplay();
+      // 애니메이션 중단 방지를 위해 디바운싱 적용
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+
+      updateTimeoutRef.current = setTimeout(() => {
+        updateStockDisplay();
+      }, 100); // 100ms 디바운싱
     },
     autoReconnect: true,
     reconnectInterval: 3000,
   });
 
   // 깜빡임 없는 부드러운 업데이트
-  const updateStockDisplay = () => {
+  const updateStockDisplay = useCallback(() => {
     const stockDataMap = getStockDataMap();
 
-    if (stockDataMap.size === 0) return;
+    if (stockDataMap.size === 0) {
+      return;
+    }
 
     // 즉시 업데이트, 깜빡임 없음
     const newStocks: StockTicker[] = TICKER_STOCKS.map((tickerStock) => {
@@ -89,7 +99,7 @@ export function StockTicker() {
     });
 
     setStocks(newStocks);
-  };
+  }, [getStockDataMap]);
 
   // 컴포넌트 마운트 및 데이터 변경 시 업데이트
   useEffect(() => {
@@ -100,7 +110,16 @@ export function StockTicker() {
     if (wsConnected && getStockDataMap().size > 0) {
       updateStockDisplay();
     }
-  }, [wsConnected, lastUpdate]);
+  }, [wsConnected, lastUpdate, updateStockDisplay]);
+
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const formatPrice = (price: string) => {
     return new Intl.NumberFormat("ko-KR").format(Number(price));
@@ -205,13 +224,16 @@ export function StockTicker() {
         <span>장 열림</span>
       </div>
 
-      {/* 스크롤링 티커 - 겹침 현상 제거 */}
+      {/* 스크롤링 티커 - 애니메이션 중단 방지 */}
       <div className="relative w-[200%] flex">
-        <div className="w-1/2 flex whitespace-nowrap animate-[marquee_120s_linear_infinite]">
+        <div
+          ref={animationRef}
+          className="w-1/2 flex whitespace-nowrap animate-[marquee_120s_linear_infinite] marquee-optimized"
+        >
           {stocks.map((stock, index) => renderStockItem(stock, index))}
         </div>
         <div
-          className="w-1/2 flex whitespace-nowrap animate-[marquee_120s_linear_infinite]"
+          className="w-1/2 flex whitespace-nowrap animate-[marquee_120s_linear_infinite] marquee-optimized"
           style={{ animationDelay: "60s" }}
         >
           {stocks.map((stock, index) => renderStockItem(stock, index))}

@@ -149,3 +149,12 @@
     transform: translateX(-50%);
   }
 }
+
+/* 애니메이션 최적화 - 중단 방지 */
+.marquee-optimized {
+  will-change: transform;
+  animation-play-state: running;
+  transform: translateZ(0); /* GPU 가속 활성화 */
+  backface-visibility: hidden; /* 성능 최적화 */
+  perspective: 1000px; /* 3D 가속 */
+}
