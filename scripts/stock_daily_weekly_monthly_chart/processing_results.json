@@ -1,0 +1,681 @@
+[
+  {
+    "stock_code": "003490",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "000660",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "004000",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "000120",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "003550",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "000150",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "002380",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "001450",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "000880",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "000810",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "004990",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "004020",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "005490",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "005830",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "005380",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "000720",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "005930",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "006360",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "005940",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "006400",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "008930",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "009540",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "008770",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "006650",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "009150",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "010120",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "007070",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "010140",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "010950",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "010620",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "009830",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "011170",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "009240",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "011200",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "010130",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "011780",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "011210",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "012450",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "011790",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "015760",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "018260",
+    "daily_inserted": 2648,
+    "weekly_inserted": 563,
+    "monthly_inserted": 130,
+    "errors": []
+  },
+  {
+    "stock_code": "016360",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "012330",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "017670",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "018880",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "024110",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "023530",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "028670",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "029780",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "030200",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "033780",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "028260",
+    "daily_inserted": 2624,
+    "weekly_inserted": 558,
+    "monthly_inserted": 129,
+    "errors": []
+  },
+  {
+    "stock_code": "032830",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "034730",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "035420",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "034020",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "035250",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "047810",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "047040",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "035760",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "036460",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "035720",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "051900",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "051910",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "064350",
+    "daily_inserted": 2904,
+    "weekly_inserted": 617,
+    "monthly_inserted": 143,
+    "errors": []
+  },
+  {
+    "stock_code": "055550",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "069960",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "036570",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "071050",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "078930",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "069500",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "066570",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "086280",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "090430",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "096770",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "089860",
+    "daily_inserted": 984,
+    "weekly_inserted": 211,
+    "monthly_inserted": 49,
+    "errors": []
+  },
+  {
+    "stock_code": "088350",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "097950",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "128940",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "105560",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "161390",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "120110",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "139480",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "180640",
+    "daily_inserted": 2931,
+    "weekly_inserted": 623,
+    "monthly_inserted": 144,
+    "errors": []
+  },
+  {
+    "stock_code": "112610",
+    "daily_inserted": 2639,
+    "weekly_inserted": 561,
+    "monthly_inserted": 130,
+    "errors": []
+  },
+  {
+    "stock_code": "251270",
+    "daily_inserted": 2035,
+    "weekly_inserted": 433,
+    "monthly_inserted": 100,
+    "errors": []
+  },
+  {
+    "stock_code": "086790",
+    "daily_inserted": 3000,
+    "weekly_inserted": 637,
+    "monthly_inserted": 147,
+    "errors": []
+  },
+  {
+    "stock_code": "316140",
+    "daily_inserted": 1608,
+    "weekly_inserted": 342,
+    "monthly_inserted": 79,
+    "errors": []
+  },
+  {
+    "stock_code": "207940",
+    "daily_inserted": 2158,
+    "weekly_inserted": 459,
+    "monthly_inserted": 106,
+    "errors": []
+  },
+  {
+    "stock_code": "336260",
+    "daily_inserted": 1440,
+    "weekly_inserted": 307,
+    "monthly_inserted": 71,
+    "errors": []
+  },
+  {
+    "stock_code": "402340",
+    "daily_inserted": 917,
+    "weekly_inserted": 196,
+    "monthly_inserted": 46,
+    "errors": []
+  },
+  {
+    "stock_code": "326030",
+    "daily_inserted": 1265,
+    "weekly_inserted": 270,
+    "monthly_inserted": 62,
+    "errors": []
+  },
+  {
+    "stock_code": "375500",
+    "daily_inserted": 1126,
+    "weekly_inserted": 240,
+    "monthly_inserted": 56,
+    "errors": []
+  },
+  {
+    "stock_code": "282330",
+    "daily_inserted": 1893,
+    "weekly_inserted": 404,
+    "monthly_inserted": 93,
+    "errors": []
+  },
+  {
+    "stock_code": "204320",
+    "daily_inserted": 2676,
+    "weekly_inserted": 568,
+    "monthly_inserted": 131,
+    "errors": []
+  },
+  {
+    "stock_code": "373220",
+    "daily_inserted": 875,
+    "weekly_inserted": 188,
+    "monthly_inserted": 44,
+    "errors": []
+  },
+  {
+    "stock_code": "456040",
+    "daily_inserted": 547,
+    "weekly_inserted": 118,
+    "monthly_inserted": 28,
+    "errors": []
+  }
+]

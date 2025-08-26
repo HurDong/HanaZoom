@@ -15,8 +15,19 @@ export default function KakaoCallbackPage() {
   const [hasProcessed, setHasProcessed] = useState(false);
 
   useEffect(() => {
-    // 이미 로그인된 사용자는 홈페이지로 리다이렉트
-    if (accessToken) {
+    // 이미 로그인된 사용자는 홈페이지로 리다이렉트 (단, step-up이라면 계속 진행)
+    const stateRaw = searchParams.get("state");
+    let desiredRedirect: string | null = null;
+    let isStepUp = false;
+    try {
+      if (stateRaw) {
+        const parsed = JSON.parse(decodeURIComponent(stateRaw));
+        isStepUp = !!parsed?.stepUp;
+        desiredRedirect = parsed?.redirect || null;
+      }
+    } catch {}
+
+    if (accessToken && !isStepUp) {
       router.replace("/");
       return;
     }
@@ -64,21 +75,33 @@ export default function KakaoCallbackPage() {
           longitude: data.longitude,
         });
 
-        // 성공 메시지 표시
-        await Swal.fire({
-          title: "카카오 로그인 성공! 🎉",
-          text: `${data.name}님, 환영합니다!`,
-          icon: "success",
-          timer: 1500,
-          showConfirmButton: false,
-        });
+        // step-up 성공 시 최근 검증 시각 기록
+        if (isStepUp) {
+          try {
+            sessionStorage.setItem("recentlyVerifiedAt", Date.now().toString());
+          } catch {}
+        }
 
-        // 위치 정보가 없는 경우에만 위치 설정 페이지로, 있으면 홈페이지로
+        // 성공 메시지 (step-up일 때는 생략해 UX 단축)
+        if (!isStepUp) {
+          await Swal.fire({
+            title: "카카오 로그인 성공! 🎉",
+            text: `${data.name}님, 환영합니다!`,
+            icon: "success",
+            timer: 1500,
+            showConfirmButton: false,
+          });
+        }
+
+        if (isStepUp && desiredRedirect) {
+          router.replace(desiredRedirect);
+          return;
+        }
+
+        // 위치 정보 유무에 따른 분기 (기존 동작)
         if (!data.address || !data.latitude || !data.longitude) {
-          // 새로운 카카오 회원이거나 위치 정보가 없는 기존 회원
           router.replace("/auth/location-setup");
         } else {
-          // 위치 정보가 있는 기존 회원
           router.replace("/");
         }
       } catch (error: any) {
@@ -100,7 +123,7 @@ export default function KakaoCallbackPage() {
     };
 
     handleKakaoCallback();
-  }, [searchParams, accessToken, router]);
+  }, [searchParams, accessToken, router, hasProcessed]);
 
   if (isProcessing) {
     return (
