@@ -31,5 +31,5 @@ modules.xml
 .history/
 
 # ... existing code ... 
-scripts/out_krx_parallel/*
-scripts/venv/*
+scripts/stock_daily_weekly_monthly_chart/out_krx_parallel/*
+scripts/stock_daily_weekly_monthly_chart/venv/*
