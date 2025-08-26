@@ -130,3 +130,22 @@
   opacity: 1;
   transform: translateY(0);
 }
+
+/* 마퀴 애니메이션 - 겹침 현상 제거 */
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marquee_120s {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}

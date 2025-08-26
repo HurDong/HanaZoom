@@ -12,7 +12,7 @@ interface StockTicker {
   change: string;
   changeRate: string;
   logoUrl?: string;
-  emoji?: string; // 임시로 유지
+  emoji?: string;
 }
 
 // 티커에 표시할 주요 종목들과 이모지
@@ -32,7 +32,6 @@ const TICKER_STOCKS = [
 export function StockTicker() {
   const [stocks, setStocks] = useState<StockTicker[]>([]);
   const [isMounted, setIsMounted] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
 
   // 웹소켓으로 실시간 주식 데이터 수신
   const {
@@ -50,43 +49,46 @@ export function StockTicker() {
     reconnectInterval: 3000,
   });
 
-  // 웹소켓 데이터를 티커 형태로 변환
+  // 깜빡임 없는 부드러운 업데이트
   const updateStockDisplay = () => {
     const stockDataMap = getStockDataMap();
 
     if (stockDataMap.size === 0) return;
 
-    setIsUpdating(true);
-
-    // 페이드 아웃 후 데이터 업데이트
-    setTimeout(() => {
-      const newStocks: StockTicker[] = TICKER_STOCKS.map((tickerStock) => {
-        const stockData = stockDataMap.get(tickerStock.code);
-        if (!stockData) return null;
-
-        // 등락률 앞에 + 또는 - 기호 추가
-        const changePrefix =
-          stockData.changeSign === "2" || stockData.changeSign === "1"
-            ? "+"
-            : "";
-        const change =
-          stockData.changePrice === "0"
-            ? "0.00%"
-            : `${changePrefix}${stockData.changeRate}%`;
-
+    // 즉시 업데이트, 깜빡임 없음
+    const newStocks: StockTicker[] = TICKER_STOCKS.map((tickerStock) => {
+      const stockData = stockDataMap.get(tickerStock.code);
+      if (!stockData) {
+        // 데이터가 없으면 기본값 반환
         return {
           symbol: tickerStock.code,
           name: tickerStock.name,
-          price: stockData.currentPrice,
-          change: change,
-          changeRate: stockData.changeRate,
+          price: "0",
+          change: "0.00%",
+          changeRate: "0",
           emoji: tickerStock.emoji,
         };
-      }).filter((stock): stock is StockTicker => stock !== null);
+      }
 
-      setStocks(newStocks);
-      setIsUpdating(false);
-    }, 300);
+      // 등락률 앞에 + 또는 - 기호 추가
+      const changePrefix =
+        stockData.changeSign === "2" || stockData.changeSign === "1" ? "+" : "";
+      const change =
+        stockData.changePrice === "0"
+          ? "0.00%"
+          : `${changePrefix}${stockData.changeRate}%`;
+
+      return {
+        symbol: tickerStock.code,
+        name: tickerStock.name,
+        price: stockData.currentPrice,
+        change: change,
+        changeRate: stockData.changeRate,
+        emoji: tickerStock.emoji,
+      };
+    });
+
+    setStocks(newStocks);
   };
 
   // 컴포넌트 마운트 및 데이터 변경 시 업데이트
@@ -133,7 +135,7 @@ export function StockTicker() {
             <div className="w-3 h-3" />
           )}
           <span
-            className={`text-xs font-medium ${
+            className={`text-xs font-medium transition-colors duration-200 ${
               getChangeNumber(stock.change) > 0
                 ? "text-green-300"
                 : getChangeNumber(stock.change) < 0
@@ -166,7 +168,7 @@ export function StockTicker() {
       <div className="w-full bg-gradient-to-r from-red-600 via-red-500 to-red-600 dark:from-red-700 dark:via-red-600 dark:to-red-700 text-white py-3 overflow-hidden relative shadow-lg">
         <div className="flex items-center justify-center gap-2">
           <WifiOff className="w-4 h-4" />
-          <span>실시간 연결이 끊어졌습니다. 재연결 중...</span>
+          <span>연결이 끊어졌습니다. 재연결 중...</span>
         </div>
       </div>
     );
@@ -177,7 +179,7 @@ export function StockTicker() {
       <div className="w-full bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 dark:from-yellow-700 dark:via-yellow-600 dark:to-yellow-700 text-white py-3 overflow-hidden relative shadow-lg">
         <div className="flex items-center justify-center gap-2">
           <Wifi className="w-4 h-4 animate-pulse" />
-          <span>실시간 주식 데이터 로딩 중...</span>
+          <span>주식 데이터 로딩 중...</span>
         </div>
       </div>
     );
@@ -200,21 +202,17 @@ export function StockTicker() {
       {/* 연결 상태 표시 */}
       <div className="absolute top-1 right-2 flex items-center gap-1 text-xs opacity-80">
         <Wifi className="w-3 h-3 animate-pulse" />
-        <span>실시간</span>
+        <span>장 열림</span>
       </div>
 
-      {/* 스크롤링 티커 */}
-      <div
-        className={`relative w-[200%] flex transition-opacity duration-300 ${
-          isUpdating ? "opacity-0" : "opacity-100"
-        }`}
-      >
-        <div className="w-1/2 flex whitespace-nowrap animate-[marquee_60s_linear_infinite]">
+      {/* 스크롤링 티커 - 겹침 현상 제거 */}
+      <div className="relative w-[200%] flex">
+        <div className="w-1/2 flex whitespace-nowrap animate-[marquee_120s_linear_infinite]">
           {stocks.map((stock, index) => renderStockItem(stock, index))}
         </div>
         <div
-          className="w-1/2 flex whitespace-nowrap animate-[marquee_60s_linear_infinite]"
-          style={{ animationDelay: "30s" }}
+          className="w-1/2 flex whitespace-nowrap animate-[marquee_120s_linear_infinite]"
+          style={{ animationDelay: "60s" }}
         >
           {stocks.map((stock, index) => renderStockItem(stock, index))}
         </div>
