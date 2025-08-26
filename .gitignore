@@ -31,3 +31,4 @@ modules.xml
 .history/
 
 # ... existing code ... 
+scripts/out_krx_parallel/*
