@@ -20,6 +20,10 @@ import { StockPriceInfo } from "@/components/wts/StockPriceInfo";
 import { OrderBookDisplay } from "@/components/wts/OrderBookDisplay";
 import { StockChart } from "@/components/wts/StockChart";
 import { CandlestickChart } from "@/components/wts/CandlestickChart";
+import { StockCandlestickChart } from "@/components/charts/StockCandlestickChart";
+import { RealCandlestickChart } from "@/components/charts/RealCandlestickChart";
+import { TradingViewChart } from "@/components/charts/TradingViewChart";
+import { TradingViewRealtimeChart } from "@/components/charts/TradingViewRealtimeChart";
 import {
   getStockOrderBook,
   validateStockCode,
@@ -422,7 +426,7 @@ export default function StockDetailPage() {
                       : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                   }`}
                 >
-                  📊 캔들차트 (과거+실시간)
+                  📊 트레이딩뷰 차트
                 </button>
                 <button
                   onClick={() => setChartType("realtime")}
@@ -432,15 +436,15 @@ export default function StockDetailPage() {
                       : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                   }`}
                 >
-                  ⚡ 실시간 틱
+                  ⚡ 실시간 차트
                 </button>
               </div>
 
               {/* 선택된 차트 표시 */}
               {chartType === "candle" ? (
-                <CandlestickChart stockCode={stockCode} />
+                <TradingViewChart stockSymbol={stockCode} />
               ) : (
-                <StockChart stockCode={stockCode} />
+                <TradingViewRealtimeChart stockCode={stockCode} />
               )}
             </div>
 
