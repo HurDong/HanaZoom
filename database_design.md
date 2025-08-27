@@ -100,6 +100,229 @@ CREATE TABLE stocks (
 );
 ```
 
+---
+
+## 3. 주식 시계열 데이터 테이블들
+
+### 3-1. 일별 주가 데이터 테이블 (stock_daily_prices)
+
+```sql
+CREATE TABLE stock_daily_prices (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    stock_symbol VARCHAR(20) NOT NULL COMMENT '종목코드 (예: 005930)',
+    trade_date DATE NOT NULL COMMENT '거래일',
+
+    -- OHLCV 데이터
+    open_price DECIMAL(15, 2) NOT NULL COMMENT '시가',
+    high_price DECIMAL(15, 2) NOT NULL COMMENT '고가',
+    low_price DECIMAL(15, 2) NOT NULL COMMENT '저가',
+    close_price DECIMAL(15, 2) NOT NULL COMMENT '종가',
+    volume BIGINT NOT NULL COMMENT '거래량',
+
+    -- 기술적 지표 (선택사항)
+    price_change DECIMAL(15, 2) NULL COMMENT '전일 대비 변동가',
+    price_change_percent DECIMAL(5, 2) NULL COMMENT '전일 대비 변동률 (%)',
+
+    -- 메타 정보
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- 복합 유니크 키: 종목-날짜 조합은 하나만 존재
+    UNIQUE KEY uk_stock_date (stock_symbol, trade_date),
+
+    INDEX idx_stock_symbol (stock_symbol),
+    INDEX idx_trade_date (trade_date),
+    INDEX idx_stock_date (stock_symbol, trade_date),
+    INDEX idx_date_range (trade_date),
+    INDEX idx_daily_price_range (stock_symbol, trade_date, close_price)
+);
+```
+
+### 3-2. 주별 주가 데이터 테이블 (stock_weekly_prices)
+
+```sql
+CREATE TABLE stock_weekly_prices (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    stock_symbol VARCHAR(20) NOT NULL COMMENT '종목코드',
+    week_start_date DATE NOT NULL COMMENT '주 시작일 (월요일)',
+    week_end_date DATE NOT NULL COMMENT '주 종료일 (금요일)',
+
+    -- OHLCV 데이터
+    open_price DECIMAL(15, 2) NOT NULL COMMENT '주 시작가 (월요일 시가)',
+    high_price DECIMAL(15, 2) NOT NULL COMMENT '주 중 최고가',
+    low_price DECIMAL(15, 2) NOT NULL COMMENT '주 중 최저가',
+    close_price DECIMAL(15, 2) NOT NULL COMMENT '주 종가 (금요일 종가)',
+    volume BIGINT NOT NULL COMMENT '주간 총 거래량',
+
+    -- 주간 통계
+    avg_price DECIMAL(15, 2) NULL COMMENT '주간 평균가',
+    price_change DECIMAL(15, 2) NULL COMMENT '전주 대비 변동가',
+    price_change_percent DECIMAL(5, 2) NULL COMMENT '전주 대비 변동률 (%)',
+
+    -- 메타 정보
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- 복합 유니크 키: 종목-주 시작일 조합은 하나만 존재
+    UNIQUE KEY uk_stock_week (stock_symbol, week_start_date),
+
+    INDEX idx_stock_symbol (stock_symbol),
+    INDEX idx_week_start_date (week_start_date),
+    INDEX idx_week_end_date (week_end_date),
+    INDEX idx_stock_week (stock_symbol, week_start_date),
+    INDEX idx_weekly_price_range (stock_symbol, week_start_date, close_price)
+);
+```
+
+### 3-3. 월별 주가 데이터 테이블 (stock_monthly_prices)
+
+```sql
+CREATE TABLE stock_monthly_prices (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    stock_symbol VARCHAR(20) NOT NULL COMMENT '종목코드',
+    year_month VARCHAR(7) NOT NULL COMMENT '년월 (예: 2024-01)',
+
+    -- OHLCV 데이터
+    open_price DECIMAL(15, 2) NOT NULL COMMENT '월 시작가 (월 첫 거래일 시가)',
+    high_price DECIMAL(15, 2) NOT NULL COMMENT '월 중 최고가',
+    low_price DECIMAL(15, 2) NOT NULL COMMENT '월 중 최저가',
+    close_price DECIMAL(15, 2) NOT NULL COMMENT '월 종가 (월 마지막 거래일 종가)',
+    volume BIGINT NOT NULL COMMENT '월간 총 거래량',
+
+    -- 월간 통계
+    avg_price DECIMAL(15, 2) NULL COMMENT '월간 평균가',
+    price_change DECIMAL(15, 2) NULL COMMENT '전월 대비 변동가',
+    price_change_percent DECIMAL(5, 2) NULL COMMENT '전월 대비 변동률 (%)',
+
+    -- 월간 거래일 수
+    trading_days INT NULL COMMENT '월간 거래일 수',
+
+    -- 메타 정보
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- 복합 유니크 키: 종목-년월 조합은 하나만 존재
+    UNIQUE KEY uk_stock_month (stock_symbol, year_month),
+
+    INDEX idx_stock_symbol (stock_symbol),
+    INDEX idx_year_month (year_month),
+    INDEX idx_stock_month (stock_symbol, year_month),
+    INDEX idx_monthly_price_range (stock_symbol, year_month, close_price)
+);
+```
+
+### 3-4. 주식 종목 마스터 테이블 (stock_master)
+
+```sql
+CREATE TABLE stock_master (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    symbol VARCHAR(20) NOT NULL UNIQUE COMMENT '종목코드',
+    name VARCHAR(100) NOT NULL COMMENT '종목명',
+    market VARCHAR(20) NULL COMMENT '시장 (KOSPI, KOSDAQ, KONEX)',
+    sector VARCHAR(50) NULL COMMENT '섹터',
+
+    -- 데이터 상태
+    has_daily_data BOOLEAN DEFAULT FALSE COMMENT '일별 데이터 보유 여부',
+    has_weekly_data BOOLEAN DEFAULT FALSE COMMENT '주별 데이터 보유 여부',
+    has_monthly_data BOOLEAN DEFAULT FALSE COMMENT '월별 데이터 보유 여부',
+
+    -- 데이터 범위
+    daily_start_date DATE NULL COMMENT '일별 데이터 시작일',
+    daily_end_date DATE NULL COMMENT '일별 데이터 종료일',
+    weekly_start_date DATE NULL COMMENT '주별 데이터 시작일',
+    weekly_end_date DATE NULL COMMENT '주별 데이터 종료일',
+    monthly_start_date DATE NULL COMMENT '월별 데이터 시작일',
+    monthly_end_date DATE NULL COMMENT '월별 데이터 종료일',
+
+    -- 메타 정보
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_symbol (symbol),
+    INDEX idx_market (market),
+    INDEX idx_sector (sector),
+    INDEX idx_has_data (has_daily_data, has_weekly_data, has_monthly_data)
+);
+```
+
+### 3-5. 데이터 처리 로그 테이블 (data_processing_logs)
+
+```sql
+CREATE TABLE data_processing_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    process_type ENUM('DAILY', 'WEEKLY', 'MONTHLY', 'ALL') NOT NULL COMMENT '처리 타입',
+    stock_symbol VARCHAR(20) NULL COMMENT '처리된 종목코드 (NULL이면 전체)',
+
+    -- 처리 결과
+    records_processed INT DEFAULT 0 COMMENT '처리된 레코드 수',
+    records_inserted INT DEFAULT 0 COMMENT '새로 삽입된 레코드 수',
+    records_updated INT DEFAULT 0 COMMENT '업데이트된 레코드 수',
+    records_failed INT DEFAULT 0 COMMENT '실패한 레코드 수',
+
+    -- 처리 시간
+    start_time TIMESTAMP NULL COMMENT '처리 시작 시간',
+    end_time TIMESTAMP NULL COMMENT '처리 종료 시간',
+    processing_duration_seconds INT NULL COMMENT '처리 소요 시간 (초)',
+
+    -- 상태 및 메시지
+    status ENUM('SUCCESS', 'PARTIAL_SUCCESS', 'FAILED') NOT NULL COMMENT '처리 상태',
+    error_message TEXT NULL COMMENT '에러 메시지',
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_process_type (process_type),
+    INDEX idx_stock_symbol (stock_symbol),
+    INDEX idx_status (status),
+    INDEX idx_created_at (created_at)
+);
+```
+
+### 3-6. 편의를 위한 뷰 (stock_price_summary)
+
+```sql
+CREATE VIEW stock_price_summary AS
+SELECT
+    sm.symbol,
+    sm.name,
+    sm.market,
+    sm.sector,
+    sm.has_daily_data,
+    sm.has_weekly_data,
+    sm.has_monthly_data,
+    sm.daily_start_date,
+    sm.daily_end_date,
+    sm.weekly_start_date,
+    sm.weekly_end_date,
+    sm.monthly_start_date,
+    sm.monthly_end_date,
+
+    -- 최신 가격 정보
+    (SELECT close_price FROM stock_daily_prices sdp
+     WHERE sdp.stock_symbol = sm.symbol
+     ORDER BY trade_date DESC LIMIT 1) as latest_close_price,
+
+    -- 최신 거래일
+    (SELECT trade_date FROM stock_daily_prices sdp
+     WHERE sdp.stock_symbol = sm.symbol
+     ORDER BY trade_date DESC LIMIT 1) as latest_trade_date,
+
+    -- 데이터 건수
+    (SELECT COUNT(*) FROM stock_daily_prices sdp WHERE sdp.stock_symbol = sm.symbol) as daily_count,
+    (SELECT COUNT(*) FROM stock_weekly_prices swp WHERE swp.stock_symbol = sm.symbol) as weekly_count,
+    (SELECT COUNT(*) FROM stock_monthly_prices smp WHERE smp.stock_symbol = sm.symbol) as monthly_count
+
+FROM stock_master sm;
+```
+
+### 시계열 데이터 테이블 특징
+
+- **다단계 시계열**: 일별 → 주별 → 월별 데이터 계층 구조
+- **성능 최적화**: 필요한 조회 패턴에 맞는 인덱스 설정
+- **데이터 무결성**: 복합 유니크 키로 중복 데이터 방지
+- **확장성**: 새로운 종목이나 기간 추가 시 유연한 대응
+- **모니터링**: 데이터 처리 과정 추적 및 로깅
+- **편의성**: 뷰를 통한 통합 정보 조회
+
 ### 데이터 예시
 
 ```sql
@@ -120,7 +343,7 @@ INSERT INTO stocks (symbol, name, market, sector, logo_url, current_price, price
 
 ---
 
-## 3. 지역별 주식 관심도 테이블 (region_stocks)
+## 4. 지역별 주식 관심도 테이블 (region_stocks)
 
 ### 테이블 구조
 
@@ -207,7 +430,7 @@ WHERE data_date = CURRENT_DATE;
 
 ---
 
-## 4. 회원 테이블 (members)
+## 5. 회원 테이블 (members)
 
 ```sql
 CREATE TABLE members (
@@ -239,7 +462,7 @@ CREATE TABLE members (
 
 ---
 
-## 5. 커뮤니티 테이블들
+## 6. 커뮤니티 테이블들
 
 ### 5-1. 게시글 테이블 (posts)
 
@@ -404,7 +627,7 @@ CREATE TABLE attachments (
 
 ---
 
-## 6. 기획 요구사항 검증 결과
+## 7. 기획 요구사항 검증 결과
 
 ### ✅ 요구사항 1: 동/구/시 별 주식 데이터 주기적 일괄저장
 
@@ -479,7 +702,55 @@ UPDATE stocks SET
 WHERE symbol = ?;
 ```
 
-### ✅ 요구사항 4: 지역 범위 제한 (서울시/인천시/광명시)
+### ✅ 요구사항 4: 주식 시계열 데이터 저장 및 분석
+
+**해결방안**:
+
+- **시계열 테이블 구조**: `stock_daily_prices`, `stock_weekly_prices`, `stock_monthly_prices`
+- **데이터 전처리**: CSV 파일 → 정규화된 데이터베이스 구조
+- **성능 최적화**: 필요한 조회 패턴에 맞는 인덱스 설정
+- **데이터 무결성**: 복합 유니크 키로 중복 방지
+
+```sql
+-- 시계열 데이터 조회 예시 (일별)
+SELECT
+    trade_date,
+    open_price, high_price, low_price, close_price, volume,
+    price_change, price_change_percent
+FROM stock_daily_prices
+WHERE stock_symbol = '005930'
+  AND trade_date BETWEEN '2024-01-01' AND '2024-12-31'
+ORDER BY trade_date;
+
+-- 주별 데이터 조회 예시
+SELECT
+    week_start_date, week_end_date,
+    open_price, high_price, low_price, close_price, volume
+FROM stock_weekly_prices
+WHERE stock_symbol = '005930'
+  AND week_start_date >= '2024-01-01'
+ORDER BY week_start_date;
+
+-- 월별 데이터 조회 예시
+SELECT
+    year_month,
+    open_price, high_price, low_price, close_price, volume,
+    trading_days
+FROM stock_monthly_prices
+WHERE stock_symbol = '005930'
+  AND year_month >= '2024-01'
+ORDER BY year_month;
+```
+
+**데이터 처리 파이프라인**:
+
+1. **CSV 파일 스캔**: `out_krx_parallel` 폴더의 파일들 자동 감지
+2. **데이터 전처리**: 컬럼명 정규화, 데이터 타입 변환, NaN 처리
+3. **데이터베이스 저장**: 일별/주별/월별 데이터 각각 저장
+4. **마스터 정보 업데이트**: 종목별 데이터 보유 상태 관리
+5. **처리 로그 기록**: 성공/실패 건수, 처리 시간 추적
+
+### ✅ 요구사항 5: 지역 범위 제한 (서울시/인천시/광명시)
 
 **해결방안**:
 
@@ -522,7 +793,7 @@ WHERE name IN ('서울특별시', '인천광역시', '광명시')
 
 ---
 
-## 7. 결론
+## 8. 결론
 
 설계한 데이터베이스는 **모든 기획 요구사항을 만족**하며, 다음과 같은 특징을 가집니다:
 
@@ -536,10 +807,11 @@ WHERE name IN ('서울특별시', '인천광역시', '광명시')
 ### 🚀 **구현 우선순위**
 
 1. **1단계**: 기본 테이블 생성 (members, regions, stocks)
-2. **2단계**: 커뮤니티 기능 구현 (posts, comments, likes)
-3. **3단계**: 투표 시스템 구현 (polls, poll_responses)
-4. **4단계**: 지역별 통계 시스템 구현 (region_stocks)
-5. **5단계**: 파일 첨부 기능 구현 (attachments)
+2. **2단계**: 주식 시계열 데이터 시스템 구현 (stock_daily_prices, stock_weekly_prices, stock_monthly_prices)
+3. **3단계**: 커뮤니티 기능 구현 (posts, comments, likes)
+4. **4단계**: 투표 시스템 구현 (polls, poll_responses)
+5. **5단계**: 지역별 통계 시스템 구현 (region_stocks)
+6. **6단계**: 파일 첨부 기능 구현 (attachments)
 
 이제 **데이터베이스 기획이 완료**되었으니, 다음 단계로 백엔드 API 개발을 진행할 수 있습니다! 🎉
 
