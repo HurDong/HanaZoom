@@ -30,8 +30,8 @@ import {
   getChartData,
   getCurrentCandle,
   formatCandleForChart,
-  type CandleData,
 } from "@/lib/api/chart";
+import type { CandleData } from "@/types/chart";
 import type { StockPriceData } from "@/lib/api/stock";
 
 interface CandlestickChartProps {

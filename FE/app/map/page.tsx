@@ -112,7 +112,10 @@ export default function MapPage() {
         setTimeout(() => setIsMapReady(true), 100);
       } catch (err) {
         console.error("지역 데이터를 불러오는 데 실패했습니다.", err);
-        setError("지역 데이터를 불러오는 데 실패했습니다.");
+        // 비로그인/권한 오류 등으로 지역 데이터를 못 받아도 지도는 열 수 있도록 처리
+        setRegions([]);
+        setTimeout(() => setIsMapReady(true), 100);
+        // 화면 전체를 막지 않기 위해 치명적 에러 상태는 설정하지 않음
       }
     };
     fetchRegions();
@@ -250,12 +253,6 @@ export default function MapPage() {
     console.log("차트 보기:", stock.symbol);
   };
 
-  if (error) {
-    return (
-      <div className="text-red-500 p-4 text-center font-semibold">{error}</div>
-    );
-  }
-
   if (!isMapReady) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 flex items-center justify-center">
@@ -284,6 +281,13 @@ export default function MapPage() {
 
       <main className="relative z-10 pt-36">
         <div className="w-full px-6 py-4 h-[calc(100vh-10rem)] flex gap-6">
+          {/* 비치명적 경고 배너 */}
+          {error && (
+            <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-2 rounded-md bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border border-yellow-300/60 dark:border-yellow-700/60 shadow">
+              지역 데이터를 불러오지 못했습니다. 지도는 제한적으로 표시됩니다.
+            </div>
+          )}
+
           {/* 지도 컨트롤 사이드 패널 */}
           <Card className="w-80 hidden md:flex flex-col bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-green-200 dark:border-green-800">
             <CardHeader>
@@ -391,24 +395,31 @@ export default function MapPage() {
                             <div className="flex items-center gap-3">
                               <div className="relative">
                                 {stock.logoUrl ? (
-                                  <img 
-                                    src={stock.logoUrl} 
+                                  <img
+                                    src={stock.logoUrl}
                                     alt={stock.name}
                                     className="w-8 h-8 rounded-full object-contain"
                                     onError={(e) => {
                                       // 로고 로드 실패시 이모지로 대체
-                                      (e.target as HTMLImageElement).style.display = 'none';
-                                      const parent = (e.target as HTMLImageElement).parentElement;
+                                      (
+                                        e.target as HTMLImageElement
+                                      ).style.display = "none";
+                                      const parent = (
+                                        e.target as HTMLImageElement
+                                      ).parentElement;
                                       if (parent && stock.emoji) {
-                                        const span = document.createElement('span');
-                                        span.className = 'text-2xl';
+                                        const span =
+                                          document.createElement("span");
+                                        span.className = "text-2xl";
                                         span.textContent = stock.emoji;
                                         parent.appendChild(span);
                                       }
                                     }}
                                   />
                                 ) : (
-                                  <span className="text-2xl">{stock.emoji || '📈'}</span>
+                                  <span className="text-2xl">
+                                    {stock.emoji || "📈"}
+                                  </span>
                                 )}
                                 {index === 0 && (
                                   <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-yellow-500 animate-pulse" />
@@ -463,24 +474,31 @@ export default function MapPage() {
                             <div className="flex items-center gap-3">
                               <div className="relative">
                                 {selectedStock.logoUrl ? (
-                                  <img 
-                                    src={selectedStock.logoUrl} 
+                                  <img
+                                    src={selectedStock.logoUrl}
                                     alt={selectedStock.name}
                                     className="w-12 h-12 rounded-full object-contain"
                                     onError={(e) => {
                                       // 로고 로드 실패시 이모지로 대체
-                                      (e.target as HTMLImageElement).style.display = 'none';
-                                      const parent = (e.target as HTMLImageElement).parentElement;
+                                      (
+                                        e.target as HTMLImageElement
+                                      ).style.display = "none";
+                                      const parent = (
+                                        e.target as HTMLImageElement
+                                      ).parentElement;
                                       if (parent && selectedStock.emoji) {
-                                        const span = document.createElement('span');
-                                        span.className = 'text-3xl';
+                                        const span =
+                                          document.createElement("span");
+                                        span.className = "text-3xl";
                                         span.textContent = selectedStock.emoji;
                                         parent.appendChild(span);
                                       }
                                     }}
                                   />
                                 ) : (
-                                  <span className="text-3xl">{selectedStock.emoji || '📈'}</span>
+                                  <span className="text-3xl">
+                                    {selectedStock.emoji || "📈"}
+                                  </span>
                                 )}
                                 <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
                                   <TrendingUp className="w-3 h-3 text-white" />
