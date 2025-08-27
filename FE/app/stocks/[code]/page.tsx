@@ -18,12 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StockPriceInfo } from "@/components/wts/StockPriceInfo";
 import { OrderBookDisplay } from "@/components/wts/OrderBookDisplay";
-import { StockChart } from "@/components/wts/StockChart";
 import { CandlestickChart } from "@/components/wts/CandlestickChart";
-import { StockCandlestickChart } from "@/components/charts/StockCandlestickChart";
-import { RealCandlestickChart } from "@/components/charts/RealCandlestickChart";
-import { TradingViewChart } from "@/components/charts/TradingViewChart";
-import { TradingViewRealtimeChart } from "@/components/charts/TradingViewRealtimeChart";
 import {
   getStockOrderBook,
   validateStockCode,
@@ -33,6 +28,7 @@ import {
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
 import { StockTicker } from "@/components/stock-ticker";
 import { MouseFollower } from "@/components/mouse-follower";
+import { getStock, type Stock } from "@/lib/api/stock";
 
 export default function StockDetailPage() {
   const params = useParams();
@@ -40,10 +36,11 @@ export default function StockDetailPage() {
   const [orderBookData, setOrderBookData] = useState<OrderBookData | null>(
     null
   );
+  const [stockInfo, setStockInfo] = useState<Stock | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [initialLoad, setInitialLoad] = useState(true);
-  const [chartType, setChartType] = useState<"realtime" | "candle">("candle");
+  // 실시간 틱 차트는 사용하지 않고 캔들차트만 표기
 
   // 웹소켓으로 실시간 주식 데이터 수신
   const {
@@ -70,6 +67,19 @@ export default function StockDetailPage() {
 
   // 현재 종목의 데이터 가져오기
   const stockData = getStockData(stockCode);
+
+  // 기본 메타(로고, 이름, 시장/섹터 등)는 REST로 조회
+  useEffect(() => {
+    const fetchMeta = async () => {
+      try {
+        const meta = await getStock(stockCode);
+        setStockInfo(meta);
+      } catch (e) {
+        console.warn("주식 메타 정보를 불러오지 못했습니다:", e);
+      }
+    };
+    if (stockCode) fetchMeta();
+  }, [stockCode]);
 
   // 호가창 데이터는 여전히 HTTP API 사용 (KIS 웹소켓에서 제공하지 않음)
   const fetchOrderBookData = async () => {
@@ -326,31 +336,100 @@ export default function StockDetailPage() {
         <StockTicker />
       </div>
 
-      <main className="relative z-10 pt-28 pb-8">
-        <div className="container mx-auto px-4 max-w-7xl">
-          {/* 뒤로가기 & 제목 */}
-          <div className="flex items-center gap-4 mb-6">
-            <Link href="/stocks">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-green-700 dark:text-green-300"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                종목 목록
-              </Button>
-            </Link>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">
-                {stockData?.stockName || `종목 ${stockCode}`}
-              </h1>
-              <p className="text-sm text-green-600 dark:text-green-400">
-                {stockCode}
-              </p>
+      <main className="relative z-10 pt-32 pb-12">
+        <div className="container mx-auto px-6 max-w-[1400px]">
+          {/* 뒤로가기 & 제목 + 로고 */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <Link href="/stocks">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-green-700 dark:text-green-300"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  종목 목록
+                </Button>
+              </Link>
+              <div className="flex items-center gap-4">
+                <div
+                  className="w-12 h-12 rounded-full bg-white/80 dark:bg-gray-800/80 border border-green-200 dark:border-green-700 flex items-center justify-center overflow-hidden shadow-sm"
+                  aria-hidden
+                >
+                  {stockInfo?.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={stockInfo.logoUrl}
+                      alt={`${stockInfo.name} 로고`}
+                      className="w-full h-full object-contain p-1"
+                    />
+                  ) : (
+                    <span className="text-xl">📈</span>
+                  )}
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">
+                    {stockData?.stockName ||
+                      stockInfo?.name ||
+                      `종목 ${stockCode}`}
+                  </h1>
+                  <div className="flex items-center gap-3 mt-1">
+                    <p className="text-sm text-green-600 dark:text-green-400">
+                      {stockCode}
+                    </p>
+                    {stockInfo?.market && (
+                      <Badge
+                        variant="outline"
+                        className="border-green-300 text-green-700 dark:border-green-700 dark:text-green-300"
+                      >
+                        {stockInfo.market}
+                      </Badge>
+                    )}
+                    {stockInfo?.sector && (
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300"
+                      >
+                        {stockInfo.sector}
+                      </Badge>
+                    )}
+                  </div>
+                  {stockData && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-800 dark:text-emerald-200">
+                        🔺 고가
+                        <strong className="ml-1">
+                          {parseInt(stockData.highPrice).toLocaleString()}원
+                        </strong>
+                      </span>
+                      <span className="inline-flex items-center gap-2 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs text-sky-800 dark:text-sky-200">
+                        🔻 저가
+                        <strong className="ml-1">
+                          {parseInt(stockData.lowPrice).toLocaleString()}원
+                        </strong>
+                      </span>
+                      <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-800 dark:text-amber-200">
+                        📊 거래량
+                        <strong className="ml-1">
+                          {parseInt(stockData.volume).toLocaleString()}주
+                        </strong>
+                      </span>
+                      {stockData.marketCap && (
+                        <span className="inline-flex items-center gap-2 rounded-full border border-teal-500/30 bg-teal-500/10 px-3 py-1 text-xs text-teal-800 dark:text-teal-200">
+                          💰 시가총액
+                          <strong className="ml-1">
+                            {parseInt(stockData.marketCap).toLocaleString()}억
+                          </strong>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* 연결 상태 표시 */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 pl-4 ml-4 border-l border-white/30 dark:border-gray-700">
               {wsConnected ? (
                 <>
                   <Wifi className="w-4 h-4 text-green-600" />
@@ -390,15 +469,17 @@ export default function StockDetailPage() {
             </div>
           </div>
 
-          {/* 메인 그리드 레이아웃 */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* 왼쪽: 현재가 정보 */}
-            <div className="lg:col-span-1 space-y-6">
+          {/* 메인 그리드 레이아웃 (캔들차트 중심) */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-stretch">
+            {/* 왼쪽: 현재가 정보 (균일 높이) */}
+            <div className="xl:col-span-3">
               {stockData ? (
-                <StockPriceInfo stockData={stockData} />
+                <div className="min-h-[560px] h-full">
+                  <StockPriceInfo stockData={stockData} className="h-full" />
+                </div>
               ) : (
-                <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
-                  <CardContent className="p-8">
+                <Card className="h-full min-h-[560px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
+                  <CardContent className="p-8 h-full">
                     <div className="text-center">
                       <div className="animate-pulse">
                         <div className="h-8 bg-gray-200 dark:bg-gray-600 rounded mb-4"></div>
@@ -414,52 +495,29 @@ export default function StockDetailPage() {
               )}
             </div>
 
-            {/* 가운데: 차트 */}
-            <div className="lg:col-span-1 space-y-6">
-              {/* 차트 타입 선택 */}
-              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-4">
-                <button
-                  onClick={() => setChartType("candle")}
-                  className={`flex-1 px-3 py-2 rounded transition-all text-sm font-medium ${
-                    chartType === "candle"
-                      ? "bg-green-600 text-white shadow-sm"
-                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  📊 트레이딩뷰 차트
-                </button>
-                <button
-                  onClick={() => setChartType("realtime")}
-                  className={`flex-1 px-3 py-2 rounded transition-all text-sm font-medium ${
-                    chartType === "realtime"
-                      ? "bg-green-600 text-white shadow-sm"
-                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  ⚡ 실시간 차트
-                </button>
-              </div>
-
-              {/* 선택된 차트 표시 */}
-              {chartType === "candle" ? (
-                <TradingViewChart stockSymbol={stockCode} />
-              ) : (
-                <TradingViewRealtimeChart stockCode={stockCode} />
-              )}
+            {/* 가운데: 캔들차트만 표시, 넓게 */}
+            <div className="xl:col-span-6">
+              <Card className="h-full min-h-[560px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
+                <CardContent className="p-4 h-full">
+                  <CandlestickChart stockCode={stockCode} />
+                </CardContent>
+              </Card>
             </div>
 
             {/* 오른쪽: 호가창 */}
-            <div className="lg:col-span-1 space-y-6">
+            <div className="xl:col-span-3">
               {orderBookData ? (
-                <OrderBookDisplay orderBookData={orderBookData} />
+                <div className="min-h-[560px] h-full">
+                  <OrderBookDisplay orderBookData={orderBookData} />
+                </div>
               ) : (
-                <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
+                <Card className="h-full min-h-[560px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
                   <CardHeader>
                     <CardTitle className="text-lg font-bold text-green-800 dark:text-green-200">
                       호가창
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-8">
+                  <CardContent className="p-8 h-full">
                     <div className="text-center">
                       <div className="animate-pulse">
                         <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded mb-2"></div>

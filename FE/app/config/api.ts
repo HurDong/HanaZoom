@@ -12,8 +12,16 @@ const api = axios.create({
 // 요청 인터셉터 설정
 api.interceptors.request.use(
   (config) => {
+    const url: string = (config.url as string) || "";
+    const isAuthFree =
+      url.includes("/members/login") ||
+      url.includes("/members/signup") ||
+      url.includes("/members/kakao-login") ||
+      url.includes("/members/refresh") ||
+      url.includes("/members/refresh-token");
+
     const token = getAccessToken();
-    if (token) {
+    if (token && !isAuthFree) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -56,6 +64,16 @@ api.interceptors.response.use(
       (error.response?.status === 401 || error.response?.status === 403) &&
       !originalRequest._retry
     ) {
+      // 로그인/리프레시 호출 자체에서는 재시도 루프를 방지
+      const requestUrl: string = (originalRequest?.url as string) || "";
+      if (
+        requestUrl.includes("/members/login") ||
+        requestUrl.includes("/members/refresh") ||
+        requestUrl.includes("/members/refresh-token")
+      ) {
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         // 토큰 갱신 중이면 큐에 요청을 추가
         return new Promise((resolve, reject) => {
@@ -98,7 +116,7 @@ export const API_ENDPOINTS = {
   login: "/members/login",
   signup: "/members/signup",
   logout: "/members/logout",
-  refreshToken: "/members/refresh",
+  refreshToken: "/members/refresh-token",
   kakaoLogin: "/members/kakao-login",
 
   // Regions
