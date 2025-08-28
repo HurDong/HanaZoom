@@ -42,12 +42,41 @@ export function useStockWebSocket({
   const mountedRef = useRef(true);
   const subscribedCodesRef = useRef<Set<string>>(new Set());
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (state.connecting || wsRef.current?.readyState === WebSocket.OPEN) {
       return;
     }
 
     setState((prev) => ({ ...prev, connecting: true, error: null }));
+
+    // 서버 상태 확인 (선택적)
+    try {
+      const protocol =
+        window.location.protocol === "https:" ? "https:" : "http:";
+      const host = window.location.hostname;
+      const port = process.env.NODE_ENV === "production" ? "" : ":8080";
+      const healthCheckUrl = `${protocol}//${host}${port}/api/v1/websocket/health`;
+
+      console.log("🔍 서버 상태 확인 중:", healthCheckUrl);
+
+      const response = await fetch(healthCheckUrl, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        console.warn(
+          "⚠️ 서버 상태 확인 실패, WebSocket 연결 직접 시도:",
+          response.status
+        );
+      } else {
+        const healthData = await response.json();
+        console.log("✅ 서버 상태 확인 완료:", healthData);
+      }
+    } catch (error) {
+      console.warn("⚠️ 서버 상태 확인 실패, WebSocket 연결 직접 시도:", error);
+      // 서버 상태 확인 실패해도 WebSocket 연결 시도
+    }
 
     try {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -56,13 +85,13 @@ export function useStockWebSocket({
       const wsUrl = `${protocol}//${host}${port}/ws/stocks`;
 
       console.log("🔄 웹소켓 연결 시도:", wsUrl);
-      console.log("🔄 연결 환경:", { 
-        protocol, 
-        host, 
-        port, 
+      console.log("🔄 연결 환경:", {
+        protocol,
+        host,
+        port,
         NODE_ENV: process.env.NODE_ENV,
         fullUrl: wsUrl,
-        windowLocation: window.location.href
+        windowLocation: window.location.href,
       });
 
       // 웹소켓 지원 여부 확인
@@ -82,7 +111,8 @@ export function useStockWebSocket({
             ...prev,
             connected: false,
             connecting: false,
-            error: "연결 시간이 초과되었습니다. 서버가 실행 중인지 확인해주세요.",
+            error:
+              "연결 시간이 초과되었습니다. 서버가 실행 중인지 확인해주세요.",
           }));
         }
       }, 10000);
@@ -118,7 +148,9 @@ export function useStockWebSocket({
                 message.data.stockCodes.forEach((code: string) => {
                   subscribedCodesRef.current.add(code);
                 });
-                console.log("📡 현재 구독 중인 종목:", [...subscribedCodesRef.current]);
+                console.log("📡 현재 구독 중인 종목:", [
+                  ...subscribedCodesRef.current,
+                ]);
               }
               break;
 
@@ -128,7 +160,9 @@ export function useStockWebSocket({
                 message.data.stockCodes.forEach((code: string) => {
                   subscribedCodesRef.current.delete(code);
                 });
-                console.log("📴 현재 구독 중인 종목:", [...subscribedCodesRef.current]);
+                console.log("📴 현재 구독 중인 종목:", [
+                  ...subscribedCodesRef.current,
+                ]);
               }
               break;
 
@@ -178,14 +212,34 @@ export function useStockWebSocket({
           error,
           readyState: ws.readyState,
           url: wsUrl,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
+
+        // 연결 상태에 따른 오류 메시지 개선
+        let errorMessage = "웹소켓 연결 오류";
+        if (ws.readyState === WebSocket.CONNECTING) {
+          errorMessage =
+            "서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.";
+        } else if (ws.readyState === WebSocket.CLOSED) {
+          errorMessage = "연결이 종료되었습니다.";
+        }
+
         setState((prev) => ({
           ...prev,
           connected: false,
           connecting: false,
-          error: `웹소켓 연결 오류: ${wsUrl}`,
+          error: errorMessage,
         }));
+
+        // 자동 재연결 시도
+        if (autoReconnect && mountedRef.current) {
+          console.log(`🔄 ${reconnectInterval / 1000}초 후 재연결 시도...`);
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (mountedRef.current) {
+              connect();
+            }
+          }, reconnectInterval);
+        }
       };
 
       ws.onclose = (event) => {
@@ -195,14 +249,41 @@ export function useStockWebSocket({
           reason: event.reason,
           wasClean: event.wasClean,
           url: wsUrl,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
+
+        // 연결 종료 코드별 상세 메시지
+        let closeMessage = null;
+        if (!event.wasClean) {
+          switch (event.code) {
+            case 1000:
+              closeMessage = "정상 종료";
+              break;
+            case 1001:
+              closeMessage = "서버가 종료됨";
+              break;
+            case 1002:
+              closeMessage = "프로토콜 오류";
+              break;
+            case 1003:
+              closeMessage = "지원하지 않는 데이터 타입";
+              break;
+            case 1006:
+              closeMessage = "비정상 종료 (연결 실패)";
+              break;
+            case 1011:
+              closeMessage = "서버 오류";
+              break;
+            default:
+              closeMessage = `연결이 예기치 않게 종료되었습니다 (${event.code}: ${event.reason})`;
+          }
+        }
 
         setState((prev) => ({
           ...prev,
           connected: false,
           connecting: false,
-          error: event.wasClean ? null : `연결이 예기치 않게 종료되었습니다 (${event.code}: ${event.reason})`,
+          error: closeMessage,
         }));
 
         subscribedCodesRef.current.clear();
@@ -222,20 +303,18 @@ export function useStockWebSocket({
         error,
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       setState((prev) => ({
         ...prev,
         connected: false,
         connecting: false,
-        error: `웹소켓 생성 실패: ${error instanceof Error ? error.message : String(error)}`,
+        error: `웹소켓 생성 실패: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       }));
     }
-  }, [
-    autoReconnect,
-    reconnectInterval,
-    state.connecting,
-  ]);
+  }, [autoReconnect, reconnectInterval, state.connecting]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -336,27 +415,31 @@ export function useStockWebSocket({
       // 현재 구독 중인 코드와 요청된 코드 비교
       const currentCodes = new Set(subscribedCodesRef.current);
       const requestedCodes = new Set(stockCodes);
-      
+
       // 차이가 있을 때만 재구독
-      const hasDifference = 
+      const hasDifference =
         currentCodes.size !== requestedCodes.size ||
-        [...currentCodes].some(code => !requestedCodes.has(code)) ||
-        [...requestedCodes].some(code => !currentCodes.has(code));
-      
+        [...currentCodes].some((code) => !requestedCodes.has(code)) ||
+        [...requestedCodes].some((code) => !currentCodes.has(code));
+
       if (hasDifference) {
         console.log("📡 종목 구독 변경 감지:", {
           current: [...currentCodes],
-          requested: [...requestedCodes]
+          requested: [...requestedCodes],
         });
-        
+
         // 기존 구독 해제 (필요한 경우에만)
-        const codesToUnsubscribe = [...currentCodes].filter(code => !requestedCodes.has(code));
+        const codesToUnsubscribe = [...currentCodes].filter(
+          (code) => !requestedCodes.has(code)
+        );
         if (codesToUnsubscribe.length > 0) {
           unsubscribe(codesToUnsubscribe);
         }
 
         // 새로운 구독 (필요한 경우에만)
-        const codesToSubscribe = [...requestedCodes].filter(code => !currentCodes.has(code));
+        const codesToSubscribe = [...requestedCodes].filter(
+          (code) => !currentCodes.has(code)
+        );
         if (codesToSubscribe.length > 0) {
           setTimeout(() => {
             if (state.connected) {
