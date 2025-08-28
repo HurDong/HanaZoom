@@ -61,15 +61,12 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                // v1 회원 관련 공개 엔드포인트
-                                "/api/v1/members/login",
-                                "/api/v1/members/signup",
-                                "/api/v1/members/refresh-token",
-                                "/api/v1/members/forgot-password/**",
-                                "/api/v1/members/kakao-login",
-                                // 헬스체크
-                                "/api/health",
-                                "/api/v1/health")
+                                "/api/members/login",
+                                "/api/members/signup",
+                                "/api/members/refresh",
+                                "/api/members/forgot-password/**",
+                                "/api/v1/members/**",
+                                "/api/health")
                         .permitAll()
                         .requestMatchers("/api/regions/**").permitAll()
                         .requestMatchers("/api/stocks/**").permitAll()
@@ -77,6 +74,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/charts/**").permitAll()
                         .requestMatchers("/api/v1/charts/**").permitAll()
                         .requestMatchers("/api/websocket/**").permitAll()
+                        .requestMatchers("/api/v1/websocket/**").permitAll()
                         .requestMatchers("/api/stocks/chart/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/community/**").permitAll()

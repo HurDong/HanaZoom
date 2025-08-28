@@ -84,6 +84,11 @@ export const setLoginData = async (
     longitude?: string | number | null;
   }
 ) => {
+  console.log("🔄 setLoginData 시작:", {
+    accessToken: accessToken?.substring(0, 20) + "...",
+    refreshToken: refreshToken?.substring(0, 20) + "...",
+  });
+
   // 좌표 데이터를 숫자로 변환
   const processedUser: User = {
     ...user,
@@ -93,10 +98,12 @@ export const setLoginData = async (
 
   // accessToken과 user 정보를 Zustand store에 저장
   useAuthStore.getState().setAuth({ accessToken, user: processedUser });
+  console.log("✅ Zustand store에 인증 정보 저장 완료");
 
   // refreshToken을 httpOnly 쿠키로 저장
   try {
-    await fetch("/api/auth/set-refresh-token", {
+    console.log("🔄 refreshToken 쿠키 저장 시도");
+    const response = await fetch("/api/auth/set-refresh-token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -104,8 +111,14 @@ export const setLoginData = async (
       body: JSON.stringify({ refreshToken }),
       credentials: "include", // 쿠키를 포함하여 요청
     });
+
+    if (!response.ok) {
+      throw new Error(`쿠키 저장 실패: ${response.status}`);
+    }
+
+    console.log("✅ refreshToken 쿠키 저장 완료");
   } catch (error) {
-    console.error("Failed to set refresh token:", error);
+    console.error("❌ Failed to set refresh token:", error);
     throw error; // 에러를 상위로 전파하여 적절한 처리 유도
   }
 };
@@ -121,16 +134,27 @@ export const refreshAccessToken = async () => {
     });
 
     if (!response.ok) {
-      throw new Error("Failed to refresh token");
+      const errorData = await response.json();
+      console.error("Token refresh failed:", errorData);
+      throw new Error(errorData.error || "Failed to refresh token");
     }
 
     const data = await response.json();
+
+    if (!data.accessToken) {
+      throw new Error("No access token received");
+    }
+
     useAuthStore.getState().updateAccessToken(data.accessToken);
     return data.accessToken;
   } catch (error) {
     console.error("Failed to refresh access token:", error);
     useAuthStore.getState().clearAuth();
-    window.location.href = "/login";
+
+    // 로그인 페이지로 리다이렉트 (현재 페이지가 로그인 페이지가 아닌 경우에만)
+    if (window.location.pathname !== "/login") {
+      window.location.href = "/login";
+    }
     throw error;
   }
 };

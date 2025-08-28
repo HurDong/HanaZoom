@@ -14,53 +14,35 @@ export async function GET() {
       );
     }
 
-    // Call backend to refresh tokens
-    const backendBaseUrl =
-      process.env.BACKEND_BASE_URL || "http://localhost:8080/api/v1";
-    const res = await fetch(`${backendBaseUrl}/members/refresh-token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
-      // Do NOT forward credentials here; this is a server-to-server call
-    });
+    // 백엔드로 토큰 갱신 요청
+    const response = await fetch(
+      `${
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      }/api/v1/members/refresh-token`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ refreshToken }),
+      }
+    );
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Backend refresh token error:", errorData);
       return NextResponse.json(
-        { error: `Backend refresh failed: ${text || res.statusText}` },
-        { status: 401 }
+        { error: "Failed to refresh token" },
+        { status: response.status }
       );
     }
 
-    const json = await res.json();
-    // Backend returns ApiResponse<T>
-    const success = json?.success;
-    const data = json?.data;
-
-    if (!success || !data?.accessToken) {
-      return NextResponse.json(
-        { error: "Invalid refresh response" },
-        { status: 401 }
-      );
-    }
-
-    // Optionally update refresh token if backend rotated it
-    if (data.refreshToken) {
-      const mutCookieStore = await cookies();
-      mutCookieStore.set("refreshToken", data.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 30 * 24 * 60 * 60,
-        path: "/",
-      });
-    }
-
-    return NextResponse.json({ accessToken: data.accessToken });
+    const data = await response.json();
+    return NextResponse.json(data.data); // 백엔드 응답 구조에 맞춤
   } catch (error) {
-    console.error("Error refreshing access token:", error);
+    console.error("Error refreshing token:", error);
     return NextResponse.json(
-      { error: "Failed to refresh access token" },
+      { error: "Failed to refresh token" },
       { status: 500 }
     );
   }
