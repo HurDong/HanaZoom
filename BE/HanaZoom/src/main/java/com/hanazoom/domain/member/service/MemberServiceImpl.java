@@ -206,55 +206,81 @@ public class MemberServiceImpl implements MemberService {
     @Override
     @Transactional
     public LoginResponse login(LoginRequest request) {
-        // 회원 조회
-        Member member = memberRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 일치하지 않습니다."));
+        try {
+            log.info("🔄 로그인 요청 시작 - 이메일: {}", request.getEmail());
+            
+            // 회원 조회
+            Member member = memberRepository.findByEmail(request.getEmail())
+                    .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 일치하지 않습니다."));
+            log.info("✅ 회원 조회 완료 - ID: {}", member.getId());
 
-        // 비밀번호 검증
-        if (!passwordUtil.matches(request.getPassword(), member.getPassword())) {
-            throw new IllegalArgumentException("이메일 또는 비밀번호가 일치하지 않습니다.");
+            // 비밀번호 검증
+            if (!passwordUtil.matches(request.getPassword(), member.getPassword())) {
+                log.error("❌ 비밀번호 검증 실패 - 이메일: {}", request.getEmail());
+                throw new IllegalArgumentException("이메일 또는 비밀번호가 일치하지 않습니다.");
+            }
+            log.info("✅ 비밀번호 검증 완료");
+
+            // 마지막 로그인 시간 업데이트
+            member.updateLastLogin();
+            log.info("✅ 마지막 로그인 시간 업데이트 완료");
+
+            // 토큰 생성
+            String accessToken = jwtUtil.generateAccessToken(member.getId(), member.getEmail());
+            String refreshToken = jwtUtil.generateRefreshToken(member.getId(), member.getEmail());
+            log.info("✅ JWT 토큰 생성 완료");
+
+            // 리프레시 토큰 저장
+            tokenService.saveRefreshToken(member.getId(), refreshToken);
+            log.info("✅ 리프레시 토큰 저장 완료");
+
+            log.info("🎉 로그인 성공 - 이메일: {}, ID: {}", request.getEmail(), member.getId());
+            return new LoginResponse(member.getId(), member.getEmail(), member.getName(),
+                    member.getAddress(), member.getLatitude(), member.getLongitude(),
+                    accessToken, refreshToken);
+        } catch (Exception e) {
+            log.error("❌ 로그인 처리 중 오류 발생: {}", e.getMessage(), e);
+            throw e;
         }
-
-        // 마지막 로그인 시간 업데이트
-        member.updateLastLogin();
-
-        // 토큰 생성
-        String accessToken = jwtUtil.generateAccessToken(member.getId(), member.getEmail());
-        String refreshToken = jwtUtil.generateRefreshToken(member.getId(), member.getEmail());
-
-        // 리프레시 토큰 저장
-        tokenService.saveRefreshToken(member.getId(), refreshToken);
-
-        return new LoginResponse(member.getId(), member.getEmail(), member.getName(),
-                member.getAddress(), member.getLatitude(), member.getLongitude(),
-                accessToken, refreshToken);
     }
 
     @Override
     @Transactional
     public TokenRefreshResponse refreshToken(TokenRefreshRequest request) {
-        // 리프레시 토큰 검증
-        if (!jwtUtil.validateToken(request.getRefreshToken())) {
-            throw new IllegalArgumentException("유효하지 않은 리프레시 토큰입니다.");
+        try {
+            log.info("🔄 토큰 갱신 요청 시작");
+            
+            // 리프레시 토큰 검증
+            if (!jwtUtil.validateToken(request.getRefreshToken())) {
+                log.error("❌ 리프레시 토큰 검증 실패");
+                throw new IllegalArgumentException("유효하지 않은 리프레시 토큰입니다.");
+            }
+
+            // 토큰에서 정보 추출
+            UUID memberId = jwtUtil.getMemberIdFromToken(request.getRefreshToken());
+            String email = jwtUtil.getEmailFromToken(request.getRefreshToken());
+            log.info("✅ 토큰에서 정보 추출 완료 - memberId: {}, email: {}", memberId, email);
+
+            // 저장된 리프레시 토큰 검증
+            if (!tokenService.validateRefreshToken(memberId, request.getRefreshToken())) {
+                log.error("❌ 저장된 리프레시 토큰 검증 실패 - memberId: {}", memberId);
+                throw new IllegalArgumentException("유효하지 않은 리프레시 토큰입니다.");
+            }
+
+            // 새로운 토큰 생성
+            String newAccessToken = jwtUtil.generateAccessToken(memberId, email);
+            String newRefreshToken = jwtUtil.generateRefreshToken(memberId, email);
+            log.info("✅ 새로운 토큰 생성 완료");
+
+            // 리프레시 토큰 업데이트
+            tokenService.saveRefreshToken(memberId, newRefreshToken);
+            log.info("✅ 리프레시 토큰 저장 완료");
+
+            return new TokenRefreshResponse(newAccessToken, newRefreshToken);
+        } catch (Exception e) {
+            log.error("❌ 토큰 갱신 중 오류 발생: {}", e.getMessage(), e);
+            throw e;
         }
-
-        // 토큰에서 정보 추출
-        UUID memberId = jwtUtil.getMemberIdFromToken(request.getRefreshToken());
-        String email = jwtUtil.getEmailFromToken(request.getRefreshToken());
-
-        // 저장된 리프레시 토큰 검증
-        if (!tokenService.validateRefreshToken(memberId, request.getRefreshToken())) {
-            throw new IllegalArgumentException("유효하지 않은 리프레시 토큰입니다.");
-        }
-
-        // 새로운 토큰 생성
-        String newAccessToken = jwtUtil.generateAccessToken(memberId, email);
-        String newRefreshToken = jwtUtil.generateRefreshToken(memberId, email);
-
-        // 리프레시 토큰 업데이트
-        tokenService.saveRefreshToken(memberId, newRefreshToken);
-
-        return new TokenRefreshResponse(newAccessToken, newRefreshToken);
     }
 
     @Override

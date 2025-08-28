@@ -100,6 +100,30 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                 status, status.getCode(), status.getReason());
     }
 
+    /**
+     * WebSocket 세션 오류 처리 및 정리
+     */
+    private void handleSessionError(WebSocketSession session) {
+        try {
+            if (session != null) {
+                // 클라이언트 세션 목록에서 제거
+                clientSessions.remove(session);
+                
+                // 구독 목록에서 제거
+                stockSubscriptions.values().forEach(sessions -> sessions.remove(session));
+                
+                // 세션 강제 종료
+                if (session.isOpen()) {
+                    session.close();
+                }
+                
+                log.warn("⚠️ 오류 발생한 WebSocket 세션 정리 완료: {}", session.getId());
+            }
+        } catch (Exception e) {
+            log.error("❌ 세션 오류 처리 중 추가 오류 발생: {}", session != null ? session.getId() : "null", e);
+        }
+    }
+
     @Override
     public void handleTransportError(@NonNull WebSocketSession session, @NonNull Throwable exception) throws Exception {
         log.error("🚨 웹소켓 전송 오류 발생: session={}, error={}", session.getId(), exception.getMessage(), exception);
@@ -170,6 +194,11 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void sendCachedDataToClient(WebSocketSession session, List<String> stockCodes) {
+        if (session == null || !session.isOpen()) {
+            log.warn("⚠️ 세션이 유효하지 않음: {}", session != null ? session.getId() : "null");
+            return;
+        }
+        
         for (String stockCode : stockCodes) {
             try {
                 String cachedData = (String) redisTemplate.opsForValue().get("stock:realtime:" + stockCode);
@@ -233,11 +262,18 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
             List<WebSocketSession> deadSessions = new ArrayList<>();
             for (WebSocketSession session : subscribers) {
                 try {
-                    if (session.isOpen()) {
-                        session.sendMessage(new TextMessage(message));
+                    if (session != null && session.isOpen()) {
+                        synchronized (session) {
+                            if (session.isOpen()) {
+                                session.sendMessage(new TextMessage(message));
+                            }
+                        }
                     } else {
                         deadSessions.add(session);
                     }
+                } catch (IllegalStateException e) {
+                    log.warn("⚠️ WebSocket 세션 상태 오류 ({}): {}", session.getId(), e.getMessage());
+                    deadSessions.add(session);
                 } catch (Exception e) {
                     log.error("❌ 클라이언트에게 데이터 전송 실패: {}", session.getId(), e);
                     deadSessions.add(session);
@@ -249,17 +285,27 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
             if (subscribers.isEmpty()) {
                 stockSubscriptions.remove(stockCode);
             }
-
         }
     }
 
     private void sendToClient(WebSocketSession session, String message) {
         try {
-            if (session.isOpen()) {
-                session.sendMessage(new TextMessage(message));
+            if (session != null && session.isOpen()) {
+                // 세션이 쓰기 가능한 상태인지 확인
+                synchronized (session) {
+                    if (session.isOpen()) {
+                        session.sendMessage(new TextMessage(message));
+                    }
+                }
             }
+        } catch (IllegalStateException e) {
+            log.warn("⚠️ WebSocket 세션 상태 오류 ({}): {}", session.getId(), e.getMessage());
+            // 세션 상태 오류 시 해당 세션을 정리
+            handleSessionError(session);
         } catch (Exception e) {
             log.error("❌ 클라이언트 메시지 전송 실패: {}", session.getId(), e);
+            // 기타 오류 시에도 세션 정리
+            handleSessionError(session);
         }
     }
 

@@ -65,13 +65,14 @@ public class SecurityConfig {
                                 "/api/members/signup",
                                 "/api/members/refresh",
                                 "/api/members/forgot-password/**",
-                                "/api/v1/members/kakao-login",
+                                "/api/v1/members/**",
                                 "/api/health")
                         .permitAll()
                         .requestMatchers("/api/regions/**").permitAll()
                         .requestMatchers("/api/stocks/**").permitAll()
                         .requestMatchers("/api/v1/stocks/**").permitAll()
                         .requestMatchers("/api/websocket/**").permitAll()
+                        .requestMatchers("/api/v1/websocket/**").permitAll()
                         .requestMatchers("/api/stocks/chart/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/community/**").permitAll()
