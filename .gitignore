@@ -31,3 +31,4 @@ modules.xml
 .history/
 
 # ... existing code ... 
+scripts/stock_daily_weekly_monthly_chart/out_krx_parallel
