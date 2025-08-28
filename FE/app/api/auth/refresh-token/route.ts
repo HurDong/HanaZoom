@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+// This route exchanges the httpOnly refresh token cookie for a new access token
 export async function GET() {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const refreshToken = cookieStore.get("refreshToken")?.value;
 
     if (!refreshToken) {

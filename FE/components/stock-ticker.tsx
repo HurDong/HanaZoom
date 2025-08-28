@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { TrendingUp, TrendingDown, Wifi, WifiOff } from "lucide-react";
 import type { StockPriceData } from "@/lib/api/stock";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
@@ -12,7 +12,7 @@ interface StockTicker {
   change: string;
   changeRate: string;
   logoUrl?: string;
-  emoji?: string; // 임시로 유지
+  emoji?: string;
 }
 
 // 티커에 표시할 주요 종목들과 이모지
@@ -32,7 +32,8 @@ const TICKER_STOCKS = [
 export function StockTicker() {
   const [stocks, setStocks] = useState<StockTicker[]>([]);
   const [isMounted, setIsMounted] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const animationRef = useRef<HTMLDivElement>(null);
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 웹소켓으로 실시간 주식 데이터 수신
   const {
@@ -43,51 +44,78 @@ export function StockTicker() {
   } = useStockWebSocket({
     stockCodes: TICKER_STOCKS.map((stock) => stock.code),
     onStockUpdate: (data) => {
-      console.log("📈 티커 실시간 데이터:", data.stockCode, data.currentPrice);
-      updateStockDisplay();
+      // 애니메이션 중단 방지를 위해 디바운싱 적용
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+        updateTimeoutRef.current = null;
+      }
+
+      updateTimeoutRef.current = setTimeout(() => {
+        updateStockDisplay();
+        updateTimeoutRef.current = null;
+      }, 100); // 100ms 디바운싱
     },
     autoReconnect: true,
     reconnectInterval: 3000,
   });
 
-  // 웹소켓 데이터를 티커 형태로 변환
-  const updateStockDisplay = () => {
+  // 깜빡임 없는 부드러운 업데이트
+  const updateStockDisplay = useCallback((): void => {
+    // getStockDataMap은 훅에서 안정적으로 반환되지만, 의존성으로 넣으면
+    // 구현 변경 시 매 렌더마다 바뀌어 효과가 반복될 수 있어 내부에서 호출만 함
     const stockDataMap = getStockDataMap();
 
-    if (stockDataMap.size === 0) return;
+    if (stockDataMap.size === 0) {
+      return;
+    }
 
-    setIsUpdating(true);
-
-    // 페이드 아웃 후 데이터 업데이트
-    setTimeout(() => {
-      const newStocks: StockTicker[] = TICKER_STOCKS.map((tickerStock) => {
-        const stockData = stockDataMap.get(tickerStock.code);
-        if (!stockData) return null;
-
-        // 등락률 앞에 + 또는 - 기호 추가
-        const changePrefix =
-          stockData.changeSign === "2" || stockData.changeSign === "1"
-            ? "+"
-            : "";
-        const change =
-          stockData.changePrice === "0"
-            ? "0.00%"
-            : `${changePrefix}${stockData.changeRate}%`;
-
+    // 즉시 업데이트, 깜빡임 없음
+    const newStocks: StockTicker[] = TICKER_STOCKS.map((tickerStock) => {
+      const stockData = stockDataMap.get(tickerStock.code);
+      if (!stockData) {
+        // 데이터가 없으면 기본값 반환
         return {
           symbol: tickerStock.code,
           name: tickerStock.name,
-          price: stockData.currentPrice,
-          change: change,
-          changeRate: stockData.changeRate,
+          price: "0",
+          change: "0.00%",
+          changeRate: "0",
           emoji: tickerStock.emoji,
         };
-      }).filter((stock): stock is StockTicker => stock !== null);
+      }
 
-      setStocks(newStocks);
-      setIsUpdating(false);
-    }, 300);
-  };
+      // 등락률 앞에 + 또는 - 기호 추가
+      const changePrefix =
+        stockData.changeSign === "2" || stockData.changeSign === "1" ? "+" : "";
+      const change =
+        stockData.changePrice === "0"
+          ? "0.00%"
+          : `${changePrefix}${stockData.changeRate}%`;
+
+      return {
+        symbol: tickerStock.code,
+        name: tickerStock.name,
+        price: stockData.currentPrice,
+        change: change,
+        changeRate: stockData.changeRate,
+        emoji: tickerStock.emoji,
+      };
+    });
+
+    setStocks((prev) => {
+      // 동일 데이터로 인한 불필요한 렌더를 한 번 더 방지
+      const sameLength = prev.length === newStocks.length;
+      const sameAll =
+        sameLength &&
+        prev.every(
+          (p, i) =>
+            p.symbol === newStocks[i].symbol &&
+            p.price === newStocks[i].price &&
+            p.change === newStocks[i].change
+        );
+      return sameAll ? prev : newStocks;
+    });
+  }, []);
 
   // 컴포넌트 마운트 및 데이터 변경 시 업데이트
   useEffect(() => {
@@ -95,10 +123,23 @@ export function StockTicker() {
   }, []);
 
   useEffect(() => {
-    if (wsConnected && getStockDataMap().size > 0) {
-      updateStockDisplay();
+    if (wsConnected) {
+      const map = getStockDataMap();
+      if (map.size > 0) {
+        updateStockDisplay();
+      }
     }
+    // 의존성으로 함수 레퍼런스를 두지 않고, 신호성 값들만 둔다
   }, [wsConnected, lastUpdate]);
+
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const formatPrice = (price: string) => {
     return new Intl.NumberFormat("ko-KR").format(Number(price));
@@ -133,7 +174,7 @@ export function StockTicker() {
             <div className="w-3 h-3" />
           )}
           <span
-            className={`text-xs font-medium ${
+            className={`text-xs font-medium transition-colors duration-200 ${
               getChangeNumber(stock.change) > 0
                 ? "text-green-300"
                 : getChangeNumber(stock.change) < 0
@@ -166,7 +207,7 @@ export function StockTicker() {
       <div className="w-full bg-gradient-to-r from-red-600 via-red-500 to-red-600 dark:from-red-700 dark:via-red-600 dark:to-red-700 text-white py-3 overflow-hidden relative shadow-lg">
         <div className="flex items-center justify-center gap-2">
           <WifiOff className="w-4 h-4" />
-          <span>실시간 연결이 끊어졌습니다. 재연결 중...</span>
+          <span>연결이 끊어졌습니다. 재연결 중...</span>
         </div>
       </div>
     );
@@ -177,7 +218,7 @@ export function StockTicker() {
       <div className="w-full bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 dark:from-yellow-700 dark:via-yellow-600 dark:to-yellow-700 text-white py-3 overflow-hidden relative shadow-lg">
         <div className="flex items-center justify-center gap-2">
           <Wifi className="w-4 h-4 animate-pulse" />
-          <span>실시간 주식 데이터 로딩 중...</span>
+          <span>주식 데이터 로딩 중...</span>
         </div>
       </div>
     );
@@ -200,21 +241,20 @@ export function StockTicker() {
       {/* 연결 상태 표시 */}
       <div className="absolute top-1 right-2 flex items-center gap-1 text-xs opacity-80">
         <Wifi className="w-3 h-3 animate-pulse" />
-        <span>실시간</span>
+        <span>장 열림</span>
       </div>
 
-      {/* 스크롤링 티커 */}
-      <div
-        className={`relative w-[200%] flex transition-opacity duration-300 ${
-          isUpdating ? "opacity-0" : "opacity-100"
-        }`}
-      >
-        <div className="w-1/2 flex whitespace-nowrap animate-[marquee_60s_linear_infinite]">
+      {/* 스크롤링 티커 - 애니메이션 중단 방지 */}
+      <div className="relative w-[200%] flex">
+        <div
+          ref={animationRef}
+          className="w-1/2 flex whitespace-nowrap animate-[marquee_120s_linear_infinite] marquee-optimized"
+        >
           {stocks.map((stock, index) => renderStockItem(stock, index))}
         </div>
         <div
-          className="w-1/2 flex whitespace-nowrap animate-[marquee_60s_linear_infinite]"
-          style={{ animationDelay: "30s" }}
+          className="w-1/2 flex whitespace-nowrap animate-[marquee_120s_linear_infinite] marquee-optimized"
+          style={{ animationDelay: "60s" }}
         >
           {stocks.map((stock, index) => renderStockItem(stock, index))}
         </div>

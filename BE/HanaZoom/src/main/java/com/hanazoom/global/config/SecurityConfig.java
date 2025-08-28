@@ -71,6 +71,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/regions/**").permitAll()
                         .requestMatchers("/api/stocks/**").permitAll()
                         .requestMatchers("/api/v1/stocks/**").permitAll()
+                        .requestMatchers("/api/charts/**").permitAll()
+                        .requestMatchers("/api/v1/charts/**").permitAll()
                         .requestMatchers("/api/websocket/**").permitAll()
                         .requestMatchers("/api/v1/websocket/**").permitAll()
                         .requestMatchers("/api/stocks/chart/**").permitAll()

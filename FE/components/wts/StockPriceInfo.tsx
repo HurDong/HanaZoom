@@ -13,9 +13,10 @@ import type { StockPriceData } from "@/lib/api/stock";
 
 interface StockPriceInfoProps {
   stockData: StockPriceData;
+  className?: string;
 }
 
-export function StockPriceInfo({ stockData }: StockPriceInfoProps) {
+export function StockPriceInfo({ stockData, className }: StockPriceInfoProps) {
   const formatNumber = (num: string) => {
     return parseInt(num).toLocaleString();
   };
@@ -73,7 +74,11 @@ export function StockPriceInfo({ stockData }: StockPriceInfoProps) {
   };
 
   return (
-    <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
+    <Card
+      className={`h-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg ${
+        className ?? ""
+      }`}
+    >
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-bold text-green-800 dark:text-green-200">
@@ -106,7 +111,7 @@ export function StockPriceInfo({ stockData }: StockPriceInfoProps) {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 flex flex-col h-full">
         {/* 현재가 메인 표시 */}
         <div
           className={`rounded-xl p-4 ${getPriceChangeColor(
@@ -206,7 +211,7 @@ export function StockPriceInfo({ stockData }: StockPriceInfoProps) {
         </div>
 
         {/* 업데이트 시간 */}
-        <div className="flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 pt-4">
+        <div className="flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 pt-4 mt-auto">
           <Clock className="w-3 h-3" />
           <span>자동 업데이트 (5초마다)</span>
         </div>

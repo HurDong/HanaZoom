@@ -1,0 +1,39 @@
+# 주식 분봉 데이터 수집 시스템 필수 패키지
+
+# HTTP 요청 및 API 통신
+requests>=2.31.0
+
+# 데이터 처리 및 분석
+pandas>=2.0.0
+numpy>=1.24.0
+
+# 데이터베이스 연결
+mysql-connector-python>=8.1.0
+
+# 진행률 표시
+tqdm>=4.65.0
+
+# 스케줄링
+schedule>=1.2.0
+
+# 비동기 처리 (선택사항)
+aiohttp>=3.8.0
+asyncio
+
+# 로깅 및 유틸리티
+python-dateutil>=2.8.0
+
+# 타입 힌트 (Python 3.8+)
+typing-extensions>=4.5.0
+
+# 환경 변수 관리 (선택사항)
+python-dotenv>=1.0.0
+
+# JSON 처리 (Python 기본 내장)
+# json
+
+# 날짜/시간 처리 (Python 기본 내장)
+# datetime
+
+# 시스템 유틸리티 (Python 기본 내장)
+# os, sys, time, logging, threading

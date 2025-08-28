@@ -56,7 +56,16 @@ export function MouseFollower() {
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
-      setTrail((prev) => prev.filter((point) => now - point.timestamp < 800));
+      setTrail((previousTrail) => {
+        const filtered = previousTrail.filter(
+          (point) => now - point.timestamp < 800
+        );
+        // 상태가 변경되지 않았다면 동일 참조를 반환하여 불필요한 렌더 방지
+        if (filtered.length === previousTrail.length) {
+          return previousTrail;
+        }
+        return filtered;
+      });
     }, 50);
 
     return () => clearInterval(interval);
