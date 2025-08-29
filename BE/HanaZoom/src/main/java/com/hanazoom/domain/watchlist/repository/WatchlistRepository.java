@@ -2,9 +2,11 @@ package com.hanazoom.domain.watchlist.repository;
 
 import com.hanazoom.domain.watchlist.entity.Watchlist;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -52,6 +54,8 @@ public interface WatchlistRepository extends JpaRepository<Watchlist, Long> {
         boolean existsByMember_IdAndStock_SymbolAndIsActiveTrue(UUID memberId, String stockSymbol);
 
         // 회원의 관심종목 삭제 (소프트 삭제)
+        @Modifying
+        @Transactional
         @Query("UPDATE Watchlist w SET w.isActive = false WHERE w.member.id = :memberId AND w.stock.symbol = :stockSymbol")
         void deactivateByMemberIdAndStockSymbol(@Param("memberId") UUID memberId,
                         @Param("stockSymbol") String stockSymbol);

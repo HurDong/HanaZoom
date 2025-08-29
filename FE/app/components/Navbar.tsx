@@ -3,17 +3,38 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { isLoggedIn, logout, useAuthStore } from "../utils/auth";
-import { Bell, Heart, User } from "lucide-react";
+import { Bell, Heart, User, Plus, Trash2, Search, X } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
+import {
+  getMyWatchlist,
+  addToWatchlist,
+  removeFromWatchlist,
+  WatchlistItem,
+} from "@/lib/api/watchlist";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import api from "@/app/config/api";
 
 export default function NavBar() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showWatchlistModal, setShowWatchlistModal] = useState(false);
   const { accessToken } = useAuthStore();
+
+  // 관심종목 관련 상태
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [isLoadingWatchlist, setIsLoadingWatchlist] = useState(false);
+  const [isAddingStock, setIsAddingStock] = useState(false);
+
+  // 종목 검색 관련 상태
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -29,9 +50,105 @@ export default function NavBar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // 관심종목 데이터 로드
+  const loadWatchlist = async () => {
+    if (!accessToken) return;
+
+    setIsLoadingWatchlist(true);
+    try {
+      const data = await getMyWatchlist();
+      setWatchlist(data);
+    } catch (error) {
+      console.error("관심종목 로드 실패:", error);
+    } finally {
+      setIsLoadingWatchlist(false);
+    }
+  };
+
+  // 종목 검색
+  const searchStocks = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await api.get(
+        `/stocks/search?query=${encodeURIComponent(query)}`
+      );
+      if (response.data && response.data.success) {
+        setSearchResults(response.data.data || []);
+        setShowSearchResults(true);
+      }
+    } catch (error) {
+      console.error("종목 검색 실패:", error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // 검색어 변경 시 검색 실행
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim()) {
+        searchStocks(searchQuery);
+      } else {
+        setSearchResults([]);
+        setShowSearchResults(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // 관심종목 추가
+  const handleAddToWatchlist = async (stockSymbol: string) => {
+    if (!accessToken) return;
+
+    setIsAddingStock(true);
+    try {
+      await addToWatchlist({ stockSymbol });
+      setSearchQuery("");
+      setShowSearchResults(false);
+      await loadWatchlist(); // 목록 새로고침
+    } catch (error) {
+      console.error("관심종목 추가 실패:", error);
+      alert("관심종목 추가에 실패했습니다.");
+    } finally {
+      setIsAddingStock(false);
+    }
+  };
+
+  // 관심종목 제거
+  const handleRemoveFromWatchlist = async (stockSymbol: string) => {
+    if (!accessToken) return;
+
+    try {
+      await removeFromWatchlist(stockSymbol);
+      await loadWatchlist(); // 목록 새로고침
+    } catch (error) {
+      console.error("관심종목 제거 실패:", error);
+      alert("관심종목 제거에 실패했습니다.");
+    }
+  };
+
+  // 관심종목 모달 열기
+  const handleWatchlistClick = () => {
+    if (!accessToken) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
+    setShowWatchlistModal(true);
+    loadWatchlist();
+  };
+
   const handleLogout = async () => {
     // 먼저 말풍선을 닫고
     setShowProfileModal(false);
+    setShowWatchlistModal(false);
     // 그 다음 로그아웃 처리
     await logout();
     router.push("/login");
@@ -50,6 +167,241 @@ export default function NavBar() {
     return null;
   }
 
+  // 관심종목 말풍선 렌더링 함수
+  const renderWatchlistModal = () => {
+    if (!showWatchlistModal) return null;
+
+    const modalContent = (
+      <>
+        {/* 배경 오버레이 - 바깥 클릭 시 닫기 */}
+        <div
+          className="fixed inset-0 z-[99]"
+          onClick={() => setShowWatchlistModal(false)}
+        />
+
+        {/* 관심종목 말풍선 내용 */}
+        <div
+          className="fixed z-[100]"
+          style={{
+            top: "4rem", // Navbar 높이만큼 아래
+            right: "1rem",
+          }}
+        >
+          <div className="w-96 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
+            {/* 말풍선 화살표 */}
+            <div className="absolute -top-2 right-4 w-4 h-4 bg-white/95 dark:bg-gray-900/95 border-l border-t border-gray-200/50 dark:border-gray-700/50 transform rotate-45"></div>
+
+            <div className="p-6">
+              {/* 헤더 */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white font-['Pretendard'] flex items-center gap-2">
+                  <Heart className="w-5 h-5 text-pink-500" />
+                  관심종목
+                </h3>
+                <button
+                  onClick={() => setShowWatchlistModal(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* 새 종목 추가 - 종목이름 검색 */}
+              <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        placeholder="종목이름 또는 종목코드 검색 (예: 삼성전자, 005930)"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 검색 결과 드롭다운 */}
+                  {showSearchResults && searchResults.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                      {searchResults.map((stock) => (
+                        <div
+                          key={stock.symbol}
+                          className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-600 last:border-b-0"
+                          onClick={() => handleAddToWatchlist(stock.symbol)}
+                        >
+                          <div className="flex items-center gap-3">
+                            {stock.logoUrl ? (
+                              <img
+                                src={stock.logoUrl}
+                                alt={stock.name}
+                                className="w-8 h-8 rounded-full"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                                <span className="text-xs text-gray-500">
+                                  📈
+                                </span>
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white text-sm">
+                                {stock.name}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {stock.symbol}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            {stock.currentPrice && (
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                {parseInt(stock.currentPrice).toLocaleString()}
+                                원
+                              </p>
+                            )}
+                            {stock.changeRate && (
+                              <p
+                                className={`text-xs ${
+                                  parseFloat(stock.changeRate) > 0
+                                    ? "text-red-500"
+                                    : parseFloat(stock.changeRate) < 0
+                                    ? "text-blue-500"
+                                    : "text-gray-500"
+                                }`}
+                              >
+                                {parseFloat(stock.changeRate) > 0 ? "+" : ""}
+                                {stock.changeRate}%
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {isSearching && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 p-3">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-pink-500"></div>
+                        <span className="text-sm text-gray-500">
+                          검색 중...
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    종목이름이나 종목코드로 검색하세요
+                  </p>
+                </div>
+              </div>
+
+              {/* 관심종목 목록 */}
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {isLoadingWatchlist ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500 mx-auto"></div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                      로딩 중...
+                    </p>
+                  </div>
+                ) : watchlist.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Heart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">
+                      관심종목이 없습니다
+                    </p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500">
+                      위에서 종목을 검색하여 추가해보세요
+                    </p>
+                  </div>
+                ) : (
+                  watchlist.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
+                    >
+                      <div className="flex items-center gap-3">
+                        {item.stockLogoUrl ? (
+                          <img
+                            src={item.stockLogoUrl}
+                            alt={item.stockName}
+                            className="w-8 h-8 rounded-full"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                            <span className="text-xs text-gray-500">📈</span>
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white text-sm">
+                            {item.stockName}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {item.stockSymbol}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {item.currentPrice && (
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              {item.currentPrice.toLocaleString()}원
+                            </p>
+                            {item.priceChange && (
+                              <p
+                                className={`text-xs ${
+                                  item.priceChange > 0
+                                    ? "text-red-500"
+                                    : item.priceChange < 0
+                                    ? "text-blue-500"
+                                    : "text-gray-500"
+                                }`}
+                              >
+                                {item.priceChange > 0 ? "+" : ""}
+                                {item.priceChange.toLocaleString()}
+                                {item.priceChangePercent &&
+                                  ` (${item.priceChangePercent.toFixed(2)}%)`}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        <Button
+                          onClick={() =>
+                            handleRemoveFromWatchlist(item.stockSymbol)
+                          }
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* 푸터 */}
+              <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                  총 {watchlist.length}개 종목
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+
+    // Portal을 사용하여 body에 직접 렌더링
+    return createPortal(modalContent, document.body);
+  };
+
   // 말풍선 렌더링 함수
   const renderProfileModal = () => {
     if (!showProfileModal) return null;
@@ -58,17 +410,16 @@ export default function NavBar() {
       <>
         {/* 배경 오버레이 - 바깥 클릭 시 닫기 */}
         <div
-          className="fixed inset-0 z-[99999999]"
+          className="fixed inset-0 z-[99]"
           onClick={() => setShowProfileModal(false)}
         />
 
         {/* 말풍선 내용 */}
         <div
-          className="fixed z-[999999999]"
+          className="fixed z-[100]"
           style={{
             top: "4rem", // Navbar 높이만큼 아래
             right: "1rem",
-            zIndex: 999999999,
           }}
         >
           <div className="w-80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
@@ -242,8 +593,19 @@ export default function NavBar() {
           </button>
 
           {/* 관심 종목 아이콘 */}
-          <button className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors">
+          <button
+            onClick={handleWatchlistClick}
+            className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-pink-600 dark:hover:text-pink-400 transition-colors relative"
+          >
             <Heart className="w-5 h-5" />
+            {/* 관심종목 개수 표시기 */}
+            {watchlist.length > 0 && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-pink-500 rounded-full flex items-center justify-center">
+                <span className="text-xs text-white font-medium">
+                  {watchlist.length}
+                </span>
+              </div>
+            )}
           </button>
 
           {/* 프로필/로그인 아이콘 */}
@@ -276,6 +638,7 @@ export default function NavBar() {
 
       {/* Portal을 사용한 말풍선 렌더링 */}
       {renderProfileModal()}
+      {renderWatchlistModal()}
     </header>
   );
 }
