@@ -114,8 +114,7 @@ CREATE TABLE watchlist (
 
     -- 관심종목 설정 정보
     alert_price DECIMAL(15, 2) NULL COMMENT '알림 설정 가격',
-    alert_type ENUM('ABOVE', 'BELOW', 'BOTH') DEFAULT 'BOTH' COMMENT '알림 타입',
-    is_active BOOLEAN DEFAULT TRUE COMMENT '활성화 여부',
+    alert_type ENUM('ABOVE', 'BELOW', 'Bf 여부',
 
     -- 메타 정보
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -880,3 +879,339 @@ WHERE name IN ('서울특별시', '인천광역시', '광명시')
 이제 **데이터베이스 기획이 완료**되었으니, 다음 단계로 백엔드 API 개발을 진행할 수 있습니다! 🎉
 
 ---
+
+## 10. 포트폴리오 관리 테이블들
+
+### 10-1. 계좌 테이블 (accounts)
+
+```sql
+CREATE TABLE accounts (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    member_id BINARY(16) NOT NULL COMMENT '회원 ID',
+    account_number VARCHAR(20) NOT NULL COMMENT '계좌번호',
+    account_name VARCHAR(100) NOT NULL COMMENT '계좌명',
+    account_type ENUM('STOCK', 'FUND', 'MIXED') NOT NULL DEFAULT 'STOCK' COMMENT '계좌 타입',
+
+    -- 계좌 상태
+    is_active BOOLEAN DEFAULT TRUE COMMENT '활성화 여부',
+    is_main_account BOOLEAN DEFAULT FALSE COMMENT '주계좌 여부',
+
+    -- 계좌 정보
+    broker VARCHAR(50) NULL COMMENT '증권사명',
+    created_date DATE NULL COMMENT '계좌 개설일',
+
+    -- 메타 정보
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- 한 회원이 같은 계좌번호를 중복으로 가질 수 없음
+    UNIQUE KEY uk_member_account (member_id, account_number),
+
+    -- 외래키 제약조건
+    FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
+
+    INDEX idx_member_id (member_id),
+    INDEX idx_account_number (account_number),
+    INDEX idx_is_active (is_active),
+    INDEX idx_is_main_account (is_main_account)
+);
+```
+
+### 10-2. 계좌 잔고 테이블 (account_balances)
+
+```sql
+CREATE TABLE account_balances (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_id BIGINT NOT NULL COMMENT '계좌 ID',
+    balance_date DATE NOT NULL COMMENT '잔고 기준일',
+
+    -- 현금 잔고
+    cash_balance DECIMAL(15, 2) NOT NULL DEFAULT 0 COMMENT '현금 잔고',
+    available_cash DECIMAL(15, 2) NOT NULL DEFAULT 0 COMMENT '사용 가능 현금',
+    frozen_cash DECIMAL(15, 2) NOT NULL DEFAULT 0 COMMENT '동결 현금',
+
+    -- 주식 평가 정보
+    total_stock_value DECIMAL(15, 2) NOT NULL DEFAULT 0 COMMENT '총 주식 평가금액',
+    total_profit_loss DECIMAL(15, 2) NOT NULL DEFAULT 0 COMMENT '총 손익',
+    total_profit_loss_rate DECIMAL(5, 2) NOT NULL DEFAULT 0 COMMENT '총 손익률 (%)',
+
+    -- 계좌 총액
+    total_balance DECIMAL(15, 2) NOT NULL DEFAULT 0 COMMENT '계좌 총액 (현금 + 주식)',
+
+    -- 메타 정보
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- 복합 유니크 키: 계좌-날짜 조합은 하나만 존재
+    UNIQUE KEY uk_account_date (account_id, balance_date),
+
+    -- 외래키 제약조건
+    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+
+    INDEX idx_account_id (account_id),
+    INDEX idx_balance_date (balance_date),
+    INDEX idx_account_date (account_id, balance_date)
+);
+```
+
+### 10-3. 포트폴리오 보유 주식 테이블 (portfolio_stocks)
+
+```sql
+CREATE TABLE portfolio_stocks (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_id BIGINT NOT NULL COMMENT '계좌 ID',
+    stock_symbol VARCHAR(20) NOT NULL COMMENT '종목코드',
+
+    -- 보유 수량
+    quantity INT NOT NULL DEFAULT 0 COMMENT '보유 수량',
+    available_quantity INT NOT NULL DEFAULT 0 COMMENT '매도 가능 수량',
+    frozen_quantity INT NOT NULL DEFAULT 0 COMMENT '동결 수량',
+
+    -- 평균 매수가
+    avg_purchase_price DECIMAL(15, 2) NOT NULL COMMENT '평균 매수가',
+    total_purchase_amount DECIMAL(15, 2) NOT NULL COMMENT '총 매수 금액',
+
+    -- 현재 평가 정보
+    current_price DECIMAL(15, 2) NULL COMMENT '현재가',
+    current_value DECIMAL(15, 2) NOT NULL DEFAULT 0 COMMENT '현재 평가금액',
+    profit_loss DECIMAL(15, 2) NOT NULL DEFAULT 0 COMMENT '손익',
+    profit_loss_rate DECIMAL(5, 2) NOT NULL DEFAULT 0 COMMENT '손익률 (%)',
+
+    -- 메타 정보
+    first_purchase_date DATE NULL COMMENT '최초 매수일',
+    last_purchase_date DATE NULL COMMENT '최근 매수일',
+    last_sale_date DATE NULL COMMENT '최근 매도일',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- 한 계좌에 같은 종목은 하나의 레코드로 관리
+    UNIQUE KEY uk_account_stock (account_id, stock_symbol),
+
+    -- 외래키 제약조건
+    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+    FOREIGN KEY (stock_symbol) REFERENCES stocks(symbol) ON DELETE CASCADE,
+
+    INDEX idx_account_id (account_id),
+    INDEX idx_stock_symbol (stock_symbol),
+    INDEX idx_account_stock (account_id, stock_symbol),
+    INDEX idx_profit_loss (profit_loss),
+    INDEX idx_profit_loss_rate (profit_loss_rate)
+);
+```
+
+### 10-4. 거래 내역 테이블 (trade_history)
+
+```sql
+CREATE TABLE trade_history (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_id BIGINT NOT NULL COMMENT '계좌 ID',
+    stock_symbol VARCHAR(20) NOT NULL COMMENT '종목코드',
+
+    -- 거래 정보
+    trade_type ENUM('BUY', 'SELL', 'DIVIDEND', 'SPLIT', 'MERGE') NOT NULL COMMENT '거래 타입',
+    trade_date DATE NOT NULL COMMENT '거래일',
+    trade_time TIME NULL COMMENT '거래 시간',
+
+    -- 거래 수량 및 가격
+    quantity INT NOT NULL COMMENT '거래 수량',
+    price_per_share DECIMAL(15, 2) NOT NULL COMMENT '주당 가격',
+    total_amount DECIMAL(15, 2) NOT NULL COMMENT '총 거래 금액',
+
+    -- 수수료 및 세금
+    commission DECIMAL(15, 2) NOT NULL DEFAULT 0 COMMENT '수수료',
+    tax DECIMAL(15, 2) NOT NULL DEFAULT 0 COMMENT '세금',
+    net_amount DECIMAL(15, 2) NOT NULL COMMENT '수수료/세금 제외 순금액',
+
+    -- 거래 후 잔고
+    balance_after_trade DECIMAL(15, 2) NULL COMMENT '거래 후 현금 잔고',
+    stock_quantity_after_trade INT NULL COMMENT '거래 후 보유 수량',
+
+    -- 메타 정보
+    trade_memo TEXT NULL COMMENT '거래 메모',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- 외래키 제약조건
+    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+    FOREIGN KEY (stock_symbol) REFERENCES stocks(symbol) ON DELETE CASCADE,
+
+    INDEX idx_account_id (account_id),
+    INDEX idx_stock_symbol (stock_symbol),
+    INDEX idx_trade_type (trade_type),
+    INDEX idx_trade_date (trade_date),
+    INDEX idx_account_trade_date (account_id, trade_date),
+    INDEX idx_stock_trade_date (stock_symbol, trade_date)
+);
+```
+
+### 10-5. 포트폴리오 성과 분석 테이블 (portfolio_performance)
+
+```sql
+CREATE TABLE portfolio_performance (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_id BIGINT NOT NULL COMMENT '계좌 ID',
+    performance_date DATE NOT NULL COMMENT '성과 기준일',
+
+    -- 일일 성과
+    daily_return DECIMAL(5, 2) NOT NULL DEFAULT 0 COMMENT '일간 수익률 (%)',
+    daily_profit_loss DECIMAL(15, 2) NOT NULL DEFAULT 0 COMMENT '일간 손익',
+
+    -- 누적 성과
+    total_return DECIMAL(5, 2) NOT NULL DEFAULT 0 COMMENT '누적 수익률 (%)',
+    total_profit_loss DECIMAL(15, 2) NOT NULL DEFAULT 0 COMMENT '누적 손익',
+
+    -- 위험 지표
+    volatility DECIMAL(5, 2) NULL COMMENT '변동성 (%)',
+    sharpe_ratio DECIMAL(5, 2) NULL COMMENT '샤프 비율',
+    max_drawdown DECIMAL(5, 2) NULL COMMENT '최대 낙폭 (%)',
+
+    -- 자산 구성
+    stock_allocation_rate DECIMAL(5, 2) NOT NULL DEFAULT 0 COMMENT '주식 비중 (%)',
+    cash_allocation_rate DECIMAL(5, 2) NOT NULL DEFAULT 0 COMMENT '현금 비중 (%)',
+
+    -- 메타 정보
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- 복합 유니크 키: 계좌-날짜 조합은 하나만 존재
+    UNIQUE KEY uk_account_performance_date (account_id, performance_date),
+
+    -- 외래키 제약조건
+    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+
+    INDEX idx_account_id (account_id),
+    INDEX idx_performance_date (performance_date),
+    INDEX idx_account_performance_date (account_id, performance_date),
+    INDEX idx_daily_return (daily_return),
+    INDEX idx_total_return (total_return)
+);
+```
+
+### 10-6. 포트폴리오 알림 설정 테이블 (portfolio_alerts)
+
+```sql
+CREATE TABLE portfolio_alerts (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_id BIGINT NOT NULL COMMENT '계좌 ID',
+    stock_symbol VARCHAR(20) NULL COMMENT '종목코드 (NULL이면 전체 포트폴리오)',
+
+    -- 알림 조건
+    alert_type ENUM('PRICE', 'PROFIT_LOSS', 'QUANTITY', 'ALLOCATION') NOT NULL COMMENT '알림 타입',
+    condition_type ENUM('ABOVE', 'BELOW', 'EQUAL', 'CHANGE') NOT NULL COMMENT '조건 타입',
+    threshold_value DECIMAL(15, 2) NOT NULL COMMENT '임계값',
+
+    -- 알림 설정
+    is_active BOOLEAN DEFAULT TRUE COMMENT '활성화 여부',
+    notification_method ENUM('EMAIL', 'SMS', 'PUSH', 'ALL') NOT NULL DEFAULT 'PUSH' COMMENT '알림 방법',
+
+    -- 알림 메시지
+    custom_message TEXT NULL COMMENT '사용자 정의 메시지',
+
+    -- 메타 정보
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- 외래키 제약조건
+    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+    FOREIGN KEY (stock_symbol) REFERENCES stocks(symbol) ON DELETE SET NULL,
+
+    INDEX idx_account_id (account_id),
+    INDEX idx_stock_symbol (stock_symbol),
+    INDEX idx_alert_type (alert_type),
+    INDEX idx_is_active (is_active)
+);
+```
+
+### 10-7. 포트폴리오 리밸런싱 히스토리 테이블 (rebalancing_history)
+
+```sql
+CREATE TABLE rebalancing_history (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_id BIGINT NOT NULL COMMENT '계좌 ID',
+
+    -- 리밸런싱 정보
+    rebalancing_date DATE NOT NULL COMMENT '리밸런싱 실행일',
+    rebalancing_type ENUM('MANUAL', 'AUTOMATIC', 'SCHEDULED') NOT NULL COMMENT '리밸런싱 타입',
+
+    -- 리밸런싱 전후 비교
+    before_total_value DECIMAL(15, 2) NOT NULL COMMENT '리밸런싱 전 총 자산',
+    after_total_value DECIMAL(15, 2) NOT NULL COMMENT '리밸런싱 후 총 자산',
+
+    -- 거래 내역 요약
+    trades_executed INT NOT NULL DEFAULT 0 COMMENT '실행된 거래 수',
+    total_commission DECIMAL(15, 2) NOT NULL DEFAULT 0 COMMENT '총 수수료',
+
+    -- 리밸런싱 결과
+    target_allocation TEXT NOT NULL COMMENT '목표 자산 배분 (JSON)',
+    actual_allocation TEXT NOT NULL COMMENT '실제 자산 배분 (JSON)',
+
+    -- 메타 정보
+    rebalancing_reason TEXT NULL COMMENT '리밸런싱 사유',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- 외래키 제약조건
+    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+
+    INDEX idx_account_id (account_id),
+    INDEX idx_rebalancing_date (rebalancing_date),
+    INDEX idx_rebalancing_type (rebalancing_type)
+);
+```
+
+### 포트폴리오 테이블 특징
+
+- **계좌 중심 설계**: 한 회원이 여러 계좌를 가질 수 있음
+- **실시간 잔고 관리**: 계좌별 현금/주식 잔고 실시간 추적
+- **거래 내역 추적**: 모든 매수/매도 내역 상세 기록
+- **성과 분석**: 일일/누적 수익률 및 위험 지표 계산
+- **알림 시스템**: 가격/손익/수량 기반 맞춤형 알림
+- **리밸런싱 지원**: 자동/수동 자산 배분 조정
+
+### 데이터 예시
+
+```sql
+-- 계좌 생성
+INSERT INTO accounts (member_id, account_number, account_name, account_type, broker, is_main_account) VALUES
+(UUID_TO_BIN('550e8400-e29b-41d4-a716-446655440000'), '1234567890', '주식계좌', 'STOCK', '한국투자증권', TRUE),
+(UUID_TO_BIN('550e8400-e29b-41d4-a716-446655440000'), '0987654321', '펀드계좌', 'FUND', '한국투자증권', FALSE);
+
+-- 포트폴리오 보유 주식
+INSERT INTO portfolio_stocks (account_id, stock_symbol, quantity, avg_purchase_price, total_purchase_amount, current_value, profit_loss, profit_loss_rate) VALUES
+(1, '005930', 100, 70000.00, 7000000.00, 7150000.00, 150000.00, 2.14),
+(1, '035420', 50, 180000.00, 9000000.00, 9250000.00, 250000.00, 2.78);
+
+-- 거래 내역
+INSERT INTO trade_history (account_id, stock_symbol, trade_type, trade_date, quantity, price_per_share, total_amount, commission, net_amount) VALUES
+(1, '005930', 'BUY', '2024-01-15', 100, 70000.00, 7000000.00, 1000.00, 7001000.00),
+(1, '035420', 'BUY', '2024-01-15', 50, 180000.00, 9000000.00, 1000.00, 9001000.00);
+```
+
+---
+
+## 11. 업데이트된 구현 우선순위
+
+### 🚀 **새로운 구현 우선순위**
+
+1. **1단계**: 기본 테이블 생성 (members, regions, stocks)
+2. **2단계**: 주식 시계열 데이터 시스템 구현 (stock_daily_prices, stock_weekly_prices, stock_monthly_prices)
+3. **3단계**: 포트폴리오 관리 시스템 구현 (accounts, portfolio_stocks, account_balances)
+4. **4단계**: 거래 내역 시스템 구현 (trade_history, portfolio_performance)
+5. **5단계**: 커뮤니티 기능 구현 (posts, comments, likes)
+6. **6단계**: 투표 시스템 구현 (polls, poll_responses)
+7. **7단계**: 지역별 통계 시스템 구현 (region_stocks)
+8. **8단계**: 포트폴리오 고급 기능 구현 (portfolio_alerts, rebalancing_history)
+9. **9단계**: 파일 첨부 기능 구현 (attachments)
+
+이제 **포트폴리오 관리 기능이 포함된 완전한 데이터베이스 설계**가 완료되었습니다! 🎉
+
+포트폴리오 관리를 통해 사용자는:
+
+- **다중 계좌 관리**: 여러 증권사 계좌 통합 관리
+- **실시간 잔고 추적**: 현금/주식 잔고 실시간 모니터링
+- **수익률 분석**: 일일/누적 수익률 및 위험 지표 확인
+- **거래 내역 관리**: 모든 매수/매도 내역 상세 기록
+- **자동 알림**: 가격/손익 기반 맞춤형 알림 설정
+- **포트폴리오 리밸런싱**: 자동/수동 자산 배분 조정
+
+이 모든 기능을 통해 체계적이고 전문적인 주식 투자 관리가 가능합니다! 🚀
