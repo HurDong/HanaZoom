@@ -24,26 +24,26 @@ import { MouseFollower } from "@/components/mouse-follower";
 
 // 한국 주요 종목들
 const POPULAR_STOCKS = [
-  { code: "005930", name: "삼성전자", sector: "IT/전자" },
-  { code: "000660", name: "SK하이닉스", sector: "IT/전자" },
-  { code: "035420", name: "NAVER", sector: "IT/인터넷" },
-  { code: "005380", name: "현대자동차", sector: "자동차" },
-  { code: "006400", name: "삼성SDI", sector: "IT/전자" },
-  { code: "051910", name: "LG화학", sector: "화학" },
-  { code: "035720", name: "카카오", sector: "IT/인터넷" },
-  { code: "028260", name: "삼성물산", sector: "건설" },
-  { code: "207940", name: "삼성바이오로직스", sector: "바이오" },
-  { code: "068270", name: "셀트리온", sector: "바이오" },
-  { code: "323410", name: "카카오뱅크", sector: "금융" },
-  { code: "003670", name: "포스코홀딩스", sector: "철강" },
-  { code: "096770", name: "SK이노베이션", sector: "화학" },
-  { code: "017670", name: "SK텔레콤", sector: "통신" },
-  { code: "030200", name: "KT", sector: "통신" },
-  { code: "036570", name: "엔씨소프트", sector: "IT/게임" },
-  { code: "259960", name: "크래프톤", sector: "IT/게임" },
-  { code: "373220", name: "LG에너지솔루션", sector: "IT/전자" },
-  { code: "066570", name: "LG전자", sector: "IT/전자" },
-  { code: "018260", name: "삼성에스디에스", sector: "IT/서비스" },
+  { symbol: "005930", name: "삼성전자", sector: "IT/전자" },
+  { symbol: "000660", name: "SK하이닉스", sector: "IT/전자" },
+  { symbol: "035420", name: "NAVER", sector: "IT/인터넷" },
+  { symbol: "005380", name: "현대자동차", sector: "자동차" },
+  { symbol: "006400", name: "삼성SDI", sector: "IT/전자" },
+  { symbol: "051910", name: "LG화학", sector: "화학" },
+  { symbol: "035720", name: "카카오", sector: "IT/인터넷" },
+  { symbol: "028260", name: "삼성물산", sector: "건설" },
+  { symbol: "207940", name: "삼성바이오로직스", sector: "바이오" },
+  { symbol: "068270", name: "셀트리온", sector: "바이오" },
+  { symbol: "323410", name: "카카오뱅크", sector: "금융" },
+  { symbol: "003670", name: "포스코홀딩스", sector: "철강" },
+  { symbol: "096770", name: "SK이노베이션", sector: "화학" },
+  { symbol: "017670", name: "SK텔레콤", sector: "통신" },
+  { symbol: "030200", name: "KT", sector: "통신" },
+  { symbol: "036570", name: "엔씨소프트", sector: "IT/게임" },
+  { symbol: "259960", name: "크래프톤", sector: "IT/게임" },
+  { symbol: "373220", name: "LG에너지솔루션", sector: "IT/전자" },
+  { symbol: "066570", name: "LG전자", sector: "IT/전자" },
+  { symbol: "018260", name: "삼성에스디에스", sector: "IT/서비스" },
 ];
 
 interface StockItemProps {
@@ -106,19 +106,19 @@ function StockItem({ stock, priceData, wsConnected }: StockItemProps) {
     return parseInt(num).toLocaleString();
   };
 
-  return (
-    <Link href={`/stocks/${stock.code}`}>
-      <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200 dark:border-green-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-                {stock.name}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">
-                {stock.code}
-              </p>
-            </div>
+      return (
+      <Link href={`/stocks/${stock.symbol}`}>
+        <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200 dark:border-green-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
+                  {stock.name}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">
+                  {stock.symbol}
+                </p>
+              </div>
             <div className="flex items-center gap-2">
               <Badge className={getSectorColor(stock.sector)}>
                 {stock.sector}
@@ -194,7 +194,7 @@ export default function StocksPage() {
   const [filteredStocks, setFilteredStocks] = useState(POPULAR_STOCKS);
 
   // 모든 종목 코드 추출
-  const stockCodes = POPULAR_STOCKS.map((stock) => stock.code);
+  const stockCodes = POPULAR_STOCKS.map((stock) => stock.symbol);
 
   // 웹소켓으로 실시간 주식 데이터 수신
   const {
@@ -225,7 +225,7 @@ export default function StocksPage() {
     const filtered = POPULAR_STOCKS.filter(
       (stock) =>
         stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        stock.code.includes(searchQuery) ||
+        stock.symbol.includes(searchQuery) ||
         stock.sector.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredStocks(filtered);
@@ -467,9 +467,9 @@ export default function StocksPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredStocks.map((stock) => (
                 <StockItem
-                  key={stock.code}
+                  key={stock.symbol}
                   stock={stock}
-                  priceData={stockPricesMap.get(stock.code)}
+                  priceData={stockPricesMap.get(stock.symbol)}
                   wsConnected={wsConnected}
                 />
               ))}
