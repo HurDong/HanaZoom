@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { StockPriceInfo } from "@/components/wts/StockPriceInfo";
 import { OrderBookDisplay } from "@/components/wts/OrderBookDisplay";
 import { CandlestickChart } from "@/components/wts/CandlestickChart";
+import { TradingTabs } from "@/components/wts/TradingTabs";
 import {
   getStockOrderBook,
   validateStockCode,
@@ -439,7 +440,7 @@ export default function StockDetailPage() {
       </div>
 
       <main className="relative z-10 pt-28 pb-0">
-        <div className="container mx-auto px-6 max-w-[1400px]">
+        <div className="container mx-auto px-4 max-w-none">
           {/* 뒤로가기 & 제목 + 로고 */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
@@ -597,52 +598,26 @@ export default function StockDetailPage() {
             </div>
           </div>
 
-          {/* 메인 그리드 레이아웃 (캔들차트 중심) */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch">
-            {/* 왼쪽: 현재가 정보 (균일 높이) */}
-            <div className="xl:col-span-3">
-              {stockData ? (
-                <div className="min-h-[350px] h-full">
-                  <StockPriceInfo stockData={stockData} className="h-full" />
-                </div>
-              ) : (
-                <Card className="h-full min-h-[350px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
-                  <CardContent className="p-8 h-full">
-                    <div className="text-center">
-                      <div className="animate-pulse">
-                        <div className="h-8 bg-gray-200 dark:bg-gray-600 rounded mb-4"></div>
-                        <div className="h-6 bg-gray-200 dark:bg-gray-600 rounded mb-2"></div>
-                        <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded"></div>
-                      </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-                        실시간 데이터 대기 중...
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-
-            {/* 가운데: 캔들차트만 표시, 넓게 */}
-            <div className="xl:col-span-6">
-              <Card className="h-full min-h-[350px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
-                <CardContent className="p-4 h-full">
+          {/* 메인 레이아웃: 차트 중심 + 오른쪽 탭 */}
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* 캔들차트 (화면 전체 차지) */}
+            <div className="flex-1 min-w-0 order-1 lg:order-1">
+              <Card className="h-[700px] lg:h-[900px] xl:h-[1000px] 2xl:h-[1100px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
+                <CardContent className="p-2 h-full">
                   <CandlestickChart stockCode={stockCode} />
                 </CardContent>
               </Card>
             </div>
 
-            {/* 오른쪽: 호가창 */}
-            <div className="xl:col-span-3">
-              <div className="min-h-[400px] h-full">
-                <OrderBookDisplay
-                  orderBookData={orderBookData}
-                  realtimeData={stockData}
-                  isWebSocketConnected={wsConnected}
-                  onRefresh={fetchOrderBookData}
-                  className="h-full"
-                />
-              </div>
+            {/* 오른쪽: 탭 방식 (현재가/호가창/주문) */}
+            <div className="w-full lg:w-96 lg:flex-shrink-0 order-2 lg:order-2">
+              <TradingTabs
+                stockCode={stockCode}
+                stockData={stockData}
+                orderBookData={orderBookData}
+                isWebSocketConnected={wsConnected}
+                onRefresh={fetchOrderBookData}
+              />
             </div>
           </div>
         </div>

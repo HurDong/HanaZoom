@@ -2,7 +2,15 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, BarChart3, Scale, Wifi, WifiOff, RefreshCw } from "lucide-react";
+import {
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Scale,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+} from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
@@ -14,17 +22,20 @@ interface OrderBookDisplayProps {
   realtimeData?: StockPriceData | null;
   isWebSocketConnected?: boolean;
   onRefresh?: () => void;
+  onPriceClick?: (price: string) => void;
   className?: string;
 }
 
-export function OrderBookDisplay({ 
-  orderBookData, 
-  realtimeData, 
+export function OrderBookDisplay({
+  orderBookData,
+  realtimeData,
   isWebSocketConnected = false,
   onRefresh,
-  className = ""
+  onPriceClick,
+  className = "",
 }: OrderBookDisplayProps) {
-  const [localOrderBookData, setLocalOrderBookData] = useState<OrderBookData | null>(orderBookData);
+  const [localOrderBookData, setLocalOrderBookData] =
+    useState<OrderBookData | null>(orderBookData);
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
 
   // 웹소켓 실시간 데이터가 있으면 호가창 데이터 업데이트
@@ -51,14 +62,14 @@ export function OrderBookDisplay({
         setLastUpdate(Date.now());
         return;
       }
-      
+
       // 웹소켓에 호가창 데이터가 없으면 기존 로직 사용
       const updatedOrderBook = { ...orderBookData };
-      
+
       // 최우선 매수/매도 호가 업데이트 (실시간 데이터가 있는 경우)
       if (realtimeData.currentPrice) {
         const currentPrice = parseInt(realtimeData.currentPrice);
-        
+
         // 최우선 매수호가 (현재가보다 낮은 가격)
         if (updatedOrderBook.bidOrders.length > 0) {
           const bestBid = updatedOrderBook.bidOrders[0];
@@ -67,11 +78,11 @@ export function OrderBookDisplay({
             updatedOrderBook.bidOrders[0] = {
               ...bestBid,
               price: (currentPrice - 1).toString(),
-              quantity: realtimeData.volume || bestBid.quantity
+              quantity: realtimeData.volume || bestBid.quantity,
             };
           }
         }
-        
+
         // 최우선 매도호가 (현재가보다 높은 가격)
         if (updatedOrderBook.askOrders.length > 0) {
           const bestAsk = updatedOrderBook.askOrders[0];
@@ -79,19 +90,22 @@ export function OrderBookDisplay({
             updatedOrderBook.askOrders[0] = {
               ...bestAsk,
               price: (currentPrice + 1).toString(),
-              quantity: realtimeData.volume || bestAsk.quantity
+              quantity: realtimeData.volume || bestAsk.quantity,
             };
           }
         }
-        
+
         // 스프레드 재계산
-        if (updatedOrderBook.askOrders.length > 0 && updatedOrderBook.bidOrders.length > 0) {
+        if (
+          updatedOrderBook.askOrders.length > 0 &&
+          updatedOrderBook.bidOrders.length > 0
+        ) {
           const bestAskPrice = parseInt(updatedOrderBook.askOrders[0].price);
           const bestBidPrice = parseInt(updatedOrderBook.bidOrders[0].price);
           updatedOrderBook.spread = bestAskPrice - bestBidPrice;
         }
       }
-      
+
       setLocalOrderBookData(updatedOrderBook);
       setLastUpdate(Date.now());
     }
@@ -108,13 +122,18 @@ export function OrderBookDisplay({
   // 데이터가 없으면 로딩 상태 표시
   if (!localOrderBookData) {
     return (
-      <Card className={`bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg ${className}`}>
+      <Card
+        className={`bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg ${className}`}
+      >
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-bold text-green-800 dark:text-green-200">
               호가창
             </CardTitle>
-            <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+            <Badge
+              variant="outline"
+              className="text-yellow-600 border-yellow-600"
+            >
               데이터 로딩 중...
             </Badge>
           </div>
@@ -176,7 +195,9 @@ export function OrderBookDisplay({
   };
 
   return (
-    <Card className={`bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg ${className}`}>
+    <Card
+      className={`bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg ${className}`}
+    >
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-bold text-green-800 dark:text-green-200">
@@ -191,18 +212,18 @@ export function OrderBookDisplay({
                 <WifiOff className="w-4 h-4 text-red-600" />
               )}
             </div>
-            
+
             {/* 데이터 소스 표시 */}
-            <Badge 
+            <Badge
               className={
-                isWebSocketConnected 
+                isWebSocketConnected
                   ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
                   : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
               }
             >
               {isWebSocketConnected ? "실시간" : "HTTP API"}
             </Badge>
-            
+
             {/* 수동 새로고침 버튼 */}
             {onRefresh && (
               <Button
@@ -216,7 +237,7 @@ export function OrderBookDisplay({
             )}
           </div>
         </div>
-        
+
         {/* 마지막 업데이트 시간 */}
         <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
           <span>10단계 호가</span>
@@ -241,8 +262,12 @@ export function OrderBookDisplay({
             className="h-2"
           />
           <div className="flex justify-between text-xs mt-1">
-            <span>매도: {formatNumber(localOrderBookData.totalAskQuantity)}주</span>
-            <span>매수: {formatNumber(localOrderBookData.totalBidQuantity)}주</span>
+            <span>
+              매도: {formatNumber(localOrderBookData.totalAskQuantity)}주
+            </span>
+            <span>
+              매수: {formatNumber(localOrderBookData.totalBidQuantity)}주
+            </span>
           </div>
         </div>
 
@@ -258,10 +283,14 @@ export function OrderBookDisplay({
           {/* 매도 호가 (역순으로 표시 - 높은 가격부터) */}
           {[...localOrderBookData.askOrders].reverse().map((ask, index) => {
             const bid = localOrderBookData.bidOrders[9 - index]; // 대응하는 매수 호가
-            
+
             // 디버깅: rank 값 확인
             if (index === 0) {
-              console.log("첫 번째 매도호가:", { rank: ask.rank, price: ask.price, quantity: ask.quantity });
+              console.log("첫 번째 매도호가:", {
+                rank: ask.rank,
+                price: ask.price,
+                quantity: ask.quantity,
+              });
             }
 
             return (
@@ -289,9 +318,12 @@ export function OrderBookDisplay({
 
                 {/* 호가 */}
                 <div className="text-center">
-                  <span className="font-mono text-sm font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-1 rounded">
+                  <button
+                    onClick={() => onPriceClick?.(ask.price)}
+                    className="font-mono text-sm font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors cursor-pointer"
+                  >
                     {formatNumber(ask.price)}
-                  </span>
+                  </button>
                 </div>
 
                 {/* 매수잔량 */}
@@ -307,9 +339,12 @@ export function OrderBookDisplay({
                           )}%`,
                         }}
                       />
-                      <span className="relative z-10 text-red-600 dark:text-red-400 font-mono text-xs px-1">
+                      <button
+                        onClick={() => onPriceClick?.(bid.price)}
+                        className="relative z-10 text-red-600 dark:text-red-400 font-mono text-xs px-1 hover:bg-red-100 dark:hover:bg-red-900/50 rounded cursor-pointer transition-colors"
+                      >
                         {formatQuantity(bid.quantity)}
-                      </span>
+                      </button>
                     </div>
                   )}
                 </div>

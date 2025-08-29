@@ -18,10 +18,7 @@ import {
 } from "lucide-react";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
 // import { useMinuteData } from "@/hooks/useMinuteData";
-import {
-  getChartData,
-  formatCandleForChart,
-} from "@/lib/api/chart";
+import { getChartData, formatCandleForChart } from "@/lib/api/chart";
 import type { CandleData } from "@/types/chart";
 import type { StockPriceData } from "@/lib/api/stock";
 // import type { StockMinutePrice } from "@/lib/api/minute";
@@ -97,12 +94,23 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         console.log("분봉 차트 요청됨:", timeframe);
         const dataLimit = 100;
         const pastCandles = await getChartData(stockCode, timeframe, dataLimit);
-        console.log("분봉 데이터 응답:", pastCandles.length, "개, 첫 번째:", pastCandles[0]);
+        console.log(
+          "분봉 데이터 응답:",
+          pastCandles.length,
+          "개, 첫 번째:",
+          pastCandles[0]
+        );
         data = pastCandles.map(formatCandleForChart);
-        console.log("포맷팅된 분봉 데이터:", data.length, "개, 첫 번째:", data[0]);
+        console.log(
+          "포맷팅된 분봉 데이터:",
+          data.length,
+          "개, 첫 번째:",
+          data[0]
+        );
       } else {
         // 일/주/월봉 데이터 사용
-        const dataLimit = timeframe === "1D" ? 1000 : timeframe === "1W" ? 200 : 100;
+        const dataLimit =
+          timeframe === "1D" ? 1000 : timeframe === "1W" ? 200 : 100;
         const pastCandles = await getChartData(stockCode, timeframe, dataLimit);
         data = pastCandles.map(formatCandleForChart);
       }
@@ -176,7 +184,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     setTimeframe(minuteTf);
     setLastMinuteTimeframe(minuteTf);
     setShowMinuteToggle(false);
-    
+
     // 분봉 변경 시 즉시 데이터 로드
     setTimeout(() => {
       loadChartData();
@@ -186,9 +194,14 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
   // 현재 타임프레임에 따른 분봉 토글 라벨
   const getMinuteToggleLabel = () => {
     if (timeframe === "1M" || timeframe === "5M" || timeframe === "15M") {
-      return minuteTimeframes.find(tf => tf.value === timeframe)?.label || "분봉";
+      return (
+        minuteTimeframes.find((tf) => tf.value === timeframe)?.label || "분봉"
+      );
     }
-    return minuteTimeframes.find(tf => tf.value === lastMinuteTimeframe)?.label || "분봉";
+    return (
+      minuteTimeframes.find((tf) => tf.value === lastMinuteTimeframe)?.label ||
+      "분봉"
+    );
   };
 
   // 시간봉 변경 시 데이터 재로드
@@ -214,39 +227,39 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
   const formatTimeLabel = (timeString: string, tf: string) => {
     try {
       const date = new Date(timeString);
-      
+
       if (tf === "1M" || tf === "5M" || tf === "15M") {
         // 분봉: HH:MM 형식
-        return date.toLocaleTimeString('ko-KR', { 
-          hour: '2-digit', 
-          minute: '2-digit',
-          hour12: false 
+        return date.toLocaleTimeString("ko-KR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
         });
       } else if (tf === "1D") {
         // 일봉: MM/DD 형식
-        return date.toLocaleDateString('ko-KR', { 
-          month: '2-digit', 
-          day: '2-digit' 
+        return date.toLocaleDateString("ko-KR", {
+          month: "2-digit",
+          day: "2-digit",
         });
       } else if (tf === "1W") {
         // 주봉: MM/DD 형식
-        return date.toLocaleDateString('ko-KR', { 
-          month: '2-digit', 
-          day: '2-digit' 
+        return date.toLocaleDateString("ko-KR", {
+          month: "2-digit",
+          day: "2-digit",
         });
       } else if (tf === "1MO") {
         // 월봉: YYYY/MM 형식
-        return date.toLocaleDateString('ko-KR', { 
-          year: '2-digit', 
-          month: '2-digit' 
+        return date.toLocaleDateString("ko-KR", {
+          year: "2-digit",
+          month: "2-digit",
         });
       }
-      
+
       // 기본: 시간만 표시
-      return date.toLocaleTimeString('ko-KR', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false 
+      return date.toLocaleTimeString("ko-KR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
       });
     } catch (error) {
       console.warn("시간 포맷팅 실패:", timeString, error);
@@ -275,11 +288,11 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const padding = 60;
     const chartWidth = canvas.width - padding * 2;
     const chartHeight = canvas.height - padding * 2;
-    const candleWidth = Math.max(2, chartWidth / chartData.length * 0.8);
+    const candleWidth = Math.max(2, (chartWidth / chartData.length) * 0.8);
     const candleSpacing = chartWidth / chartData.length;
 
     // 가격 범위 계산
-    const prices = chartData.flatMap(d => [d.high, d.low]);
+    const prices = chartData.flatMap((d) => [d.high, d.low]);
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
     const priceRange = maxPrice - minPrice;
@@ -321,7 +334,11 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
     // X축 라벨
     ctx.textAlign = "center";
-    for (let i = 0; i < chartData.length; i += Math.max(1, Math.floor(chartData.length / 10))) {
+    for (
+      let i = 0;
+      i < chartData.length;
+      i += Math.max(1, Math.floor(chartData.length / 10))
+    ) {
       const x = padding + candleSpacing * i + candleSpacing / 2;
       const time = formatTimeLabel(chartData[i].time, timeframe);
       ctx.fillText(time, x, canvas.height - padding + 20);
@@ -329,14 +346,17 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
     // 캔들스틱 그리기
     chartData.forEach((dataPoint, index) => {
-      const x = padding + candleSpacing * index + (candleSpacing - candleWidth) / 2;
+      const x =
+        padding + candleSpacing * index + (candleSpacing - candleWidth) / 2;
       const isUp = dataPoint.close >= dataPoint.open;
       const color = getCandleColor(dataPoint);
 
       // 고가-저가 선 (심지)
-      const highY = padding + ((maxPrice - dataPoint.high) / priceRange) * chartHeight;
-      const lowY = padding + ((maxPrice - dataPoint.low) / priceRange) * chartHeight;
-      
+      const highY =
+        padding + ((maxPrice - dataPoint.high) / priceRange) * chartHeight;
+      const lowY =
+        padding + ((maxPrice - dataPoint.low) / priceRange) * chartHeight;
+
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -345,8 +365,10 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       ctx.stroke();
 
       // 캔들 몸통
-      const openY = padding + ((maxPrice - dataPoint.open) / priceRange) * chartHeight;
-      const closeY = padding + ((maxPrice - dataPoint.close) / priceRange) * chartHeight;
+      const openY =
+        padding + ((maxPrice - dataPoint.open) / priceRange) * chartHeight;
+      const closeY =
+        padding + ((maxPrice - dataPoint.close) / priceRange) * chartHeight;
       const bodyTop = Math.min(openY, closeY);
       const bodyHeight = Math.max(Math.abs(closeY - openY), 1);
 
@@ -457,7 +479,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
   return (
     <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg h-full">
-      <CardHeader className="pb-4">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <CardTitle className="text-lg font-bold text-green-800 dark:text-green-200">
@@ -498,7 +520,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2">
         {/* 차트 컨트롤 */}
         <div className="flex flex-wrap gap-2">
           {/* 분봉 토글 */}
@@ -506,7 +528,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
             <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
               <button
                 onClick={handleMinuteTextClick}
-                className="px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-l-md transition-colors"
+                className="px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-l-md transition-colors"
               >
                 {getMinuteToggleLabel()}
               </button>
@@ -521,7 +543,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
                 )}
               </button>
             </div>
-            
+
             {/* 분봉 드롭다운 */}
             {showMinuteToggle && (
               <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 min-w-[120px]">
@@ -533,8 +555,15 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
                       timeframe === tf.value
                         ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
                         : "text-gray-700 dark:text-gray-300"
-                    } ${tf.value === minuteTimeframes[0].value ? "rounded-t-lg" : ""} ${
-                      tf.value === minuteTimeframes[minuteTimeframes.length - 1].value ? "rounded-b-lg" : ""
+                    } ${
+                      tf.value === minuteTimeframes[0].value
+                        ? "rounded-t-lg"
+                        : ""
+                    } ${
+                      tf.value ===
+                      minuteTimeframes[minuteTimeframes.length - 1].value
+                        ? "rounded-b-lg"
+                        : ""
                     }`}
                   >
                     {tf.label}
@@ -550,7 +579,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
               <button
                 key={tf.value}
                 onClick={() => setTimeframe(tf.value)}
-                className={`px-2 py-1 text-xs rounded transition-all ${
+                className={`px-1.5 py-0.5 text-xs rounded transition-all ${
                   timeframe === tf.value
                     ? "bg-green-600 text-white shadow-sm"
                     : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
@@ -563,9 +592,9 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         </div>
 
         {/* 캔들 차트 영역 */}
-        <div 
+        <div
           ref={chartContainerRef}
-          className="relative h-80 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
+          className="relative h-[600px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
         >
           {chartData.length > 0 ? (
             <canvas
@@ -586,61 +615,6 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
             </div>
           )}
         </div>
-
-        {/* 차트 정보 */}
-        <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">캔들 수</p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              {chartData.length}개
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">시간봉</p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              {timeframes.find((tf) => tf.value === timeframe)?.label ||
-                minuteTimeframes.find((tf) => tf.value === timeframe)?.label ||
-                timeframe}
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">업데이트</p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              {lastUpdate > 0
-                ? `${Math.floor((Date.now() - lastUpdate) / 1000)}초 전`
-                : "-"}
-            </p>
-          </div>
-        </div>
-
-        {/* 실시간 상태 안내 */}
-        {wsConnected ? (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-            <div className="flex items-start gap-2">
-              <div className="w-2 h-2 bg-green-400 rounded-full mt-1.5 animate-pulse" />
-              <div className="text-xs text-green-800 dark:text-green-200">
-                <span className="font-semibold">
-                  과거 데이터 + 실시간 업데이트
-                </span>
-                <br />
-                {timeframes.find((tf) => tf.value === timeframe)?.label ||
-                  minuteTimeframes.find((tf) => tf.value === timeframe)?.label}{" "}
-                캔들차트가 실시간으로 업데이트됩니다.
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-            <div className="flex items-start gap-2">
-              <div className="w-2 h-2 bg-yellow-400 rounded-full mt-1.5 animate-pulse" />
-              <div className="text-xs text-yellow-800 dark:text-yellow-200">
-                <span className="font-semibold">과거 데이터 로드 완료</span>
-                <br />
-                실시간 업데이트를 위해 웹소켓 연결 중...
-              </div>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
