@@ -135,14 +135,23 @@ export default function NavBar() {
     }
   };
 
-  // 관심종목 모달 열기
+  // 관심종목 모달 열기/닫기 (토글)
   const handleWatchlistClick = () => {
     if (!accessToken) {
       alert("로그인이 필요합니다.");
       return;
     }
-    setShowWatchlistModal(true);
-    loadWatchlist();
+
+    if (showWatchlistModal) {
+      // 이미 열려있으면 닫기
+      setShowWatchlistModal(false);
+      setSearchQuery("");
+      setShowSearchResults(false);
+    } else {
+      // 닫혀있으면 열기
+      setShowWatchlistModal(true);
+      loadWatchlist();
+    }
   };
 
   const handleLogout = async () => {
@@ -323,7 +332,13 @@ export default function NavBar() {
                       key={item.id}
                       className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
                     >
-                      <div className="flex items-center gap-3">
+                      <div
+                        className="flex items-center gap-3 flex-1 cursor-pointer"
+                        onClick={() => {
+                          router.push(`/stocks/${item.stockSymbol}`);
+                          setShowWatchlistModal(false);
+                        }}
+                      >
                         {item.stockLogoUrl ? (
                           <img
                             src={item.stockLogoUrl}

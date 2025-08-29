@@ -11,6 +11,7 @@ import {
   DollarSign,
   Wifi,
   WifiOff,
+  Heart,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -29,10 +30,17 @@ import { useStockWebSocket } from "@/hooks/useStockWebSocket";
 import { StockTicker } from "@/components/stock-ticker";
 import { MouseFollower } from "@/components/mouse-follower";
 import { getStock, type Stock } from "@/lib/api/stock";
+import { useAuthStore } from "@/app/utils/auth";
+import {
+  addToWatchlist,
+  removeFromWatchlist,
+  checkIsInWatchlist,
+} from "@/lib/api/watchlist";
 
 export default function StockDetailPage() {
   const params = useParams();
   const stockCode = params.code as string;
+  const { accessToken } = useAuthStore();
   const [orderBookData, setOrderBookData] = useState<OrderBookData | null>(
     null
   );
@@ -40,6 +48,11 @@ export default function StockDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [initialLoad, setInitialLoad] = useState(true);
+
+  // 관심종목 관련 상태
+  const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const [isWatchlistLoading, setIsWatchlistLoading] = useState(false);
+
   // 실시간 틱 차트는 사용하지 않고 캔들차트만 표기
 
   // 웹소켓으로 실시간 주식 데이터 수신
@@ -68,6 +81,42 @@ export default function StockDetailPage() {
   // 현재 종목의 데이터 가져오기
   const stockData = getStockData(stockCode);
 
+  // 관심종목 상태 확인
+  const checkWatchlistStatus = async () => {
+    if (!accessToken || !stockCode) return;
+
+    try {
+      const status = await checkIsInWatchlist(stockCode);
+      setIsInWatchlist(status);
+    } catch (error) {
+      console.error("관심종목 상태 확인 실패:", error);
+    }
+  };
+
+  // 관심종목 토글
+  const toggleWatchlist = async () => {
+    if (!accessToken) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
+
+    setIsWatchlistLoading(true);
+    try {
+      if (isInWatchlist) {
+        await removeFromWatchlist(stockCode);
+        setIsInWatchlist(false);
+      } else {
+        await addToWatchlist({ stockSymbol: stockCode });
+        setIsInWatchlist(true);
+      }
+    } catch (error) {
+      console.error("관심종목 토글 실패:", error);
+      alert("관심종목 변경에 실패했습니다.");
+    } finally {
+      setIsWatchlistLoading(false);
+    }
+  };
+
   // 기본 메타(로고, 이름, 시장/섹터 등)는 REST로 조회
   useEffect(() => {
     const fetchMeta = async () => {
@@ -80,6 +129,13 @@ export default function StockDetailPage() {
     };
     if (stockCode) fetchMeta();
   }, [stockCode]);
+
+  // 관심종목 상태 확인
+  useEffect(() => {
+    if (stockCode && accessToken) {
+      checkWatchlistStatus();
+    }
+  }, [stockCode, accessToken]);
 
   // 호가창 데이터 가져오기 (웹소켓에 호가창 데이터가 있으면 우선 사용, 없으면 HTTP API 사용)
   const fetchOrderBookData = async () => {
@@ -474,44 +530,70 @@ export default function StockDetailPage() {
               </div>
             </div>
 
-            {/* 연결 상태 표시 */}
-            <div className="flex items-center gap-2 pl-4 ml-4 border-l border-white/30 dark:border-gray-700">
-              {wsConnected ? (
-                <>
-                  <Wifi className="w-4 h-4 text-green-600" />
-                  <Badge
-                    variant="outline"
-                    className="text-green-600 border-green-600"
-                  >
-                    실시간 연결
-                  </Badge>
-                </>
-              ) : wsConnecting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
-                  <Badge
-                    variant="outline"
-                    className="text-yellow-600 border-yellow-600"
-                  >
-                    연결 중...
-                  </Badge>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-4 h-4 text-red-600" />
-                  <Badge
-                    variant="outline"
-                    className="text-red-600 border-red-600"
-                  >
-                    연결 안됨
-                  </Badge>
-                </>
-              )}
-              {lastUpdate > 0 && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {Math.floor((Date.now() - lastUpdate) / 1000)}초 전
-                </span>
-              )}
+            {/* 관심종목 하트 아이콘 + 연결 상태 표시 */}
+            <div className="flex items-center gap-4">
+              {/* 관심종목 하트 아이콘 */}
+              <button
+                onClick={toggleWatchlist}
+                disabled={isWatchlistLoading}
+                className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
+                  isInWatchlist
+                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 hover:bg-pink-200 dark:hover:bg-pink-900/50"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+                } ${
+                  isWatchlistLoading
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
+              >
+                {isWatchlistLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-pink-500"></div>
+                ) : (
+                  <Heart
+                    className={`w-4 h-4 ${isInWatchlist ? "fill-current" : ""}`}
+                  />
+                )}
+              </button>
+
+              {/* 연결 상태 표시 */}
+              <div className="flex items-center gap-2 pl-4 ml-4 border-l border-white/30 dark:border-gray-700">
+                {wsConnected ? (
+                  <>
+                    <Wifi className="w-4 h-4 text-green-600" />
+                    <Badge
+                      variant="outline"
+                      className="text-green-600 border-green-600"
+                    >
+                      실시간 연결
+                    </Badge>
+                  </>
+                ) : wsConnecting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
+                    <Badge
+                      variant="outline"
+                      className="text-yellow-600 border-yellow-600"
+                    >
+                      연결 중...
+                    </Badge>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-4 h-4 text-red-600" />
+                    <Badge
+                      variant="outline"
+                      className="text-red-600 border-red-600"
+                    >
+                      연결 안됨
+                    </Badge>
+                  </>
+                )}
+                {lastUpdate > 0 && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {Math.floor((Date.now() - lastUpdate) / 1000)}초 전
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
