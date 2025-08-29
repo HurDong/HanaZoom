@@ -235,17 +235,17 @@ export function StockTicker() {
   const renderStockItem = (stock: StockTicker, index: number) => (
     <div
       key={`${stock.symbol}-${index}`}
-      className="inline-flex items-center space-x-3 mx-6"
+      className="inline-flex items-center space-x-2 mx-4"
     >
-      <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1 hover:bg-white/20 transition-all duration-300">
-        <span className="text-lg hover:scale-110 transition-transform duration-300">
+      <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-full px-2 py-1 hover:bg-white/20 transition-all duration-300">
+        <span className="text-base hover:scale-110 transition-transform duration-300">
           {stock.emoji}
         </span>
-        <span className="font-semibold text-sm">{stock.name}</span>
+        <span className="font-semibold text-xs">{stock.name}</span>
       </div>
 
       <div className="flex items-center space-x-2">
-        <span className="text-green-100 font-mono text-sm">
+        <span className="text-green-100 font-mono text-xs">
           ₩{formatPrice(stock.price)}
         </span>
         <div className="flex items-center space-x-1">
@@ -269,17 +269,17 @@ export function StockTicker() {
           </span>
         </div>
       </div>
-      <div className="w-px h-4 bg-white/20"></div>
+      <div className="w-px h-3 bg-white/20"></div>
     </div>
   );
 
   if (!isMounted) {
     return (
-      <div className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-green-600 dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-3 overflow-hidden relative shadow-lg animate-pulse">
-        <div className="flex items-center justify-center h-12">
-          <div className="h-4 bg-white/20 rounded w-32 mx-2"></div>
-          <div className="h-4 bg-white/20 rounded w-24 mx-2"></div>
-          <div className="h-4 bg-white/20 rounded w-16 mx-2"></div>
+      <div className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-green-600 dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-2 overflow-hidden relative shadow-lg animate-pulse">
+        <div className="flex items-center justify-center h-8">
+          <div className="h-3 bg-white/20 rounded w-32 mx-2"></div>
+          <div className="h-3 bg-white/20 rounded w-24 mx-2"></div>
+          <div className="h-3 bg-white/20 rounded w-16 mx-2"></div>
         </div>
       </div>
     );
@@ -287,10 +287,10 @@ export function StockTicker() {
 
   if (!wsConnected) {
     return (
-      <div className="w-full bg-gradient-to-r from-red-600 via-red-500 to-red-600 dark:from-red-700 dark:via-red-600 dark:to-red-700 text-white py-3 overflow-hidden relative shadow-lg">
-        <div className="flex items-center justify-center gap-2">
-          <WifiOff className="w-4 h-4" />
-          <span>연결이 끊어졌습니다. 재연결 중...</span>
+      <div className="w-full bg-gradient-to-r from-red-600 via-red-500 to-red-600 dark:from-red-700 dark:via-red-600 dark:to-red-700 text-white py-2 overflow-hidden relative shadow-lg">
+        <div className="flex items-center justify-center gap-2 h-8">
+          <WifiOff className="w-3 h-3" />
+          <span className="text-sm">연결이 끊어졌습니다. 재연결 중...</span>
         </div>
       </div>
     );
@@ -298,17 +298,17 @@ export function StockTicker() {
 
   if (stocks.length === 0) {
     return (
-      <div className="w-full bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 dark:from-yellow-700 dark:via-yellow-600 dark:to-yellow-700 text-white py-3 overflow-hidden relative shadow-lg">
-        <div className="flex items-center justify-center gap-2">
-          <Wifi className="w-4 h-4 animate-pulse" />
-          <span>주식 데이터 로딩 중...</span>
+      <div className="w-full bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 dark:from-yellow-700 dark:via-yellow-600 dark:to-yellow-700 text-white py-2 overflow-hidden relative shadow-lg">
+        <div className="flex items-center justify-center gap-2 h-8">
+          <Wifi className="w-3 h-3 animate-pulse" />
+          <span className="text-sm">주식 데이터 로딩 중...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-green-600 dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-3 overflow-hidden relative shadow-lg">
+    <div className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-green-600 dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-2 overflow-hidden relative shadow-lg">
       {/* 배경 패턴 */}
       <div className="absolute inset-0 opacity-20">
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>

@@ -1,38 +1,30 @@
 "use client";
 
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  LineChart as LineChartIcon,
   BarChart3,
   TrendingUp,
-  Calendar,
+  TrendingDown,
   Maximize2,
-  Activity,
+  Settings,
+  Trash2,
   Wifi,
-  RefreshCw,
+  Activity,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
-import {
-  ComposedChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-} from "recharts";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
+// import { useMinuteData } from "@/hooks/useMinuteData";
 import {
   getChartData,
-  getCurrentCandle,
   formatCandleForChart,
 } from "@/lib/api/chart";
 import type { CandleData } from "@/types/chart";
 import type { StockPriceData } from "@/lib/api/stock";
+// import type { StockMinutePrice } from "@/lib/api/minute";
 
 interface CandlestickChartProps {
   stockCode: string;
@@ -52,12 +44,16 @@ interface ChartDataPoint {
 }
 
 export function CandlestickChart({ stockCode }: CandlestickChartProps) {
-  const [timeframe, setTimeframe] = useState("1D");
-  const [chartType, setChartType] = useState("candle");
+  const [timeframe, setTimeframe] = useState("5M");
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hoveredCandle, setHoveredCandle] = useState<number | null>(null);
+  const [showMinuteToggle, setShowMinuteToggle] = useState(false);
+  const [lastMinuteTimeframe, setLastMinuteTimeframe] = useState("5M");
   const currentCandleRef = useRef<ChartDataPoint | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // 실시간 웹소켓 데이터
   const {
@@ -72,14 +68,20 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     autoReconnect: true,
   });
 
+  // 분봉 데이터 (현재는 사용하지 않음, 백엔드 API 구현 완료 후 활성화)
+  // const { data: minuteData, loading: minuteLoading, error: minuteError, refresh: fetchMinuteData } =
+  //   useMinuteData({ stockSymbol: stockCode, timeframe: lastMinuteTimeframe, limit: 100 });
+
   const timeframes = [
-    { label: "1분", value: "1M" },
-    { label: "5분", value: "5M" },
-    { label: "15분", value: "15M" },
-    { label: "1시간", value: "1H" },
     { label: "1일", value: "1D" },
     { label: "1주", value: "1W" },
     { label: "1달", value: "1MO" },
+  ];
+
+  const minuteTimeframes = [
+    { label: "1분", value: "1M" },
+    { label: "5분", value: "5M" },
+    { label: "15분", value: "15M" },
   ];
 
   // 과거 차트 데이터 로드
@@ -88,34 +90,32 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       setLoading(true);
       setError(null);
 
-      // 과거 캔들 데이터 조회 - 더 많은 데이터 요청
-      const dataLimit =
-        timeframe === "1D" ? 1000 : timeframe === "1W" ? 200 : 100; // 일봉: 3년, 주봉: 4년, 기타: 기본값
-      const pastCandles = await getChartData(stockCode, timeframe, dataLimit);
+      let data: ChartDataPoint[] = [];
 
-      // 현재 캔들 데이터 조회 - 임시 비활성화 (Redis 직렬화 문제)
-      // let currentCandle = null;
-      // try {
-      //   currentCandle = await getCurrentCandle(stockCode, timeframe);
-      // } catch (currentError) {
-      //   console.warn("현재 캔들 조회 실패, 과거 데이터만 표시:", currentError);
-      // }
+      if (timeframe === "1M" || timeframe === "5M" || timeframe === "15M") {
+        // 분봉 데이터 사용
+        console.log("분봉 차트 요청됨:", timeframe);
+        const dataLimit = 100;
+        const pastCandles = await getChartData(stockCode, timeframe, dataLimit);
+        console.log("분봉 데이터 응답:", pastCandles.length, "개, 첫 번째:", pastCandles[0]);
+        data = pastCandles.map(formatCandleForChart);
+        console.log("포맷팅된 분봉 데이터:", data.length, "개, 첫 번째:", data[0]);
+      } else {
+        // 일/주/월봉 데이터 사용
+        const dataLimit = timeframe === "1D" ? 1000 : timeframe === "1W" ? 200 : 100;
+        const pastCandles = await getChartData(stockCode, timeframe, dataLimit);
+        data = pastCandles.map(formatCandleForChart);
+      }
 
-      // 차트 데이터 포맷 변환
-      const formattedData = pastCandles.map(formatCandleForChart);
+      // 시간순으로 정렬 (왼쪽이 오래된 데이터, 오른쪽이 최신 데이터)
+      data.sort((a, b) => a.timestamp - b.timestamp);
 
-      // 현재 캔들이 있고 완성되지 않았으면 추가
-      // if (currentCandle && !currentCandle.isComplete) {
-      //   const formattedCurrent = formatCandleForChart(currentCandle);
-      //   formattedData.push(formattedCurrent);
-      //   currentCandleRef.current = formattedCurrent;
-      // }
-
-      setChartData(formattedData);
+      setChartData(data);
       console.log(
-        "✅ 기본 차트 데이터 로드 완료:",
-        formattedData.length,
-        "개 캔들"
+        "✅ 차트 데이터 로드 완료:",
+        data.length,
+        "개 캔들, 타임프레임:",
+        timeframe
       );
     } catch (err) {
       console.error("차트 데이터 로드 실패:", err);
@@ -159,6 +159,38 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     });
   };
 
+  // 분봉 토글 클릭 핸들러
+  const handleMinuteToggle = () => {
+    setShowMinuteToggle(!showMinuteToggle);
+  };
+
+  // 분봉 텍스트 클릭 핸들러 (마지막으로 선택한 분봉으로 이동)
+  const handleMinuteTextClick = () => {
+    setTimeframe(lastMinuteTimeframe);
+    setShowMinuteToggle(false);
+  };
+
+  // 분봉 선택 핸들러
+  const handleMinuteSelect = (minuteTf: string) => {
+    console.log("분봉 선택됨:", minuteTf);
+    setTimeframe(minuteTf);
+    setLastMinuteTimeframe(minuteTf);
+    setShowMinuteToggle(false);
+    
+    // 분봉 변경 시 즉시 데이터 로드
+    setTimeout(() => {
+      loadChartData();
+    }, 100);
+  };
+
+  // 현재 타임프레임에 따른 분봉 토글 라벨
+  const getMinuteToggleLabel = () => {
+    if (timeframe === "1M" || timeframe === "5M" || timeframe === "15M") {
+      return minuteTimeframes.find(tf => tf.value === timeframe)?.label || "분봉";
+    }
+    return minuteTimeframes.find(tf => tf.value === lastMinuteTimeframe)?.label || "분봉";
+  };
+
   // 시간봉 변경 시 데이터 재로드
   useEffect(() => {
     if (stockCode) {
@@ -166,111 +198,239 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     }
   }, [stockCode, timeframe]);
 
+  // 분봉 데이터 변경 시 차트 업데이트 (현재는 비활성화)
+  // useEffect(() => {
+  //   if (timeframe === "1M" || timeframe === "5M" || timeframe === "15M") {
+  //     loadChartData();
+  //   }
+  // }, [minuteData]);
+
   // 캔들스틱 색상 결정
   const getCandleColor = (dataPoint: ChartDataPoint) => {
     return dataPoint.close >= dataPoint.open ? "#ef4444" : "#3b82f6"; // 상승: 빨강, 하락: 파랑
   };
 
-  // 커스텀 캔들스틱 컴포넌트
-  const CustomCandlestick = (props: any) => {
-    const { payload, x, y, width, height } = props;
-    if (!payload) return null;
-
-    const { open, high, low, close } = payload;
-    const isUp = close >= open;
-    const color = isUp ? "#ef4444" : "#3b82f6";
-
-    const bodyHeight = Math.abs(close - open);
-    const bodyY = Math.min(open, close);
-
-    return (
-      <g>
-        {/* 심지 (고가-저가) */}
-        <line
-          x1={x + width / 2}
-          y1={y + ((high - Math.max(open, close)) * height) / (high - low)}
-          x2={x + width / 2}
-          y2={y + ((high - Math.min(open, close)) * height) / (high - low)}
-          stroke={color}
-          strokeWidth={1}
-        />
-
-        {/* 몸통 (시가-종가) */}
-        <rect
-          x={x + width * 0.2}
-          y={y + ((high - Math.max(open, close)) * height) / (high - low)}
-          width={width * 0.6}
-          height={(bodyHeight * height) / (high - low)}
-          fill={isUp ? color : "white"}
-          stroke={color}
-          strokeWidth={1}
-        />
-      </g>
-    );
-  };
-
-  // 커스텀 툴팁
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-            {label}
-          </p>
-          <div className="space-y-1 text-xs">
-            <p>
-              시가:{" "}
-              <span className="font-semibold">
-                {data.open.toLocaleString()}원
-              </span>
-            </p>
-            <p>
-              고가:{" "}
-              <span className="font-semibold text-red-600">
-                {data.high.toLocaleString()}원
-              </span>
-            </p>
-            <p>
-              저가:{" "}
-              <span className="font-semibold text-blue-600">
-                {data.low.toLocaleString()}원
-              </span>
-            </p>
-            <p>
-              종가:{" "}
-              <span className="font-semibold">
-                {data.close.toLocaleString()}원
-              </span>
-            </p>
-            <p
-              className={`font-semibold ${
-                data.change >= 0 ? "text-red-600" : "text-blue-600"
-              }`}
-            >
-              전일대비: {data.change >= 0 ? "+" : ""}
-              {data.change.toFixed(0)}원 ({data.changePercent.toFixed(2)}%)
-            </p>
-            <p>
-              거래량:{" "}
-              <span className="font-semibold">
-                {data.volume.toLocaleString()}주
-              </span>
-            </p>
-            {!data.isComplete && <p className="text-yellow-600">진행중</p>}
-          </div>
-        </div>
-      );
+  // 시간 라벨 포맷팅 (타임프레임에 따라)
+  const formatTimeLabel = (timeString: string, tf: string) => {
+    try {
+      const date = new Date(timeString);
+      
+      if (tf === "1M" || tf === "5M" || tf === "15M") {
+        // 분봉: HH:MM 형식
+        return date.toLocaleTimeString('ko-KR', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false 
+        });
+      } else if (tf === "1D") {
+        // 일봉: MM/DD 형식
+        return date.toLocaleDateString('ko-KR', { 
+          month: '2-digit', 
+          day: '2-digit' 
+        });
+      } else if (tf === "1W") {
+        // 주봉: MM/DD 형식
+        return date.toLocaleDateString('ko-KR', { 
+          month: '2-digit', 
+          day: '2-digit' 
+        });
+      } else if (tf === "1MO") {
+        // 월봉: YYYY/MM 형식
+        return date.toLocaleDateString('ko-KR', { 
+          year: '2-digit', 
+          month: '2-digit' 
+        });
+      }
+      
+      // 기본: 시간만 표시
+      return date.toLocaleTimeString('ko-KR', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+      });
+    } catch (error) {
+      console.warn("시간 포맷팅 실패:", timeString, error);
+      return timeString;
     }
-    return null;
   };
+
+  // 차트 렌더링
+  const renderChart = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || chartData.length === 0) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const container = chartContainerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+
+    // 배경 클리어
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const padding = 60;
+    const chartWidth = canvas.width - padding * 2;
+    const chartHeight = canvas.height - padding * 2;
+    const candleWidth = Math.max(2, chartWidth / chartData.length * 0.8);
+    const candleSpacing = chartWidth / chartData.length;
+
+    // 가격 범위 계산
+    const prices = chartData.flatMap(d => [d.high, d.low]);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const priceRange = maxPrice - minPrice;
+
+    // 그리드 그리기
+    ctx.strokeStyle = "#e5e7eb";
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([3, 3]);
+
+    // 수평 그리드
+    for (let i = 0; i <= 5; i++) {
+      const y = padding + (chartHeight / 5) * i;
+      ctx.beginPath();
+      ctx.moveTo(padding, y);
+      ctx.lineTo(canvas.width - padding, y);
+      ctx.stroke();
+    }
+
+    // 수직 그리드
+    for (let i = 0; i <= 10; i++) {
+      const x = padding + (chartWidth / 10) * i;
+      ctx.beginPath();
+      ctx.moveTo(x, padding);
+      ctx.lineTo(x, canvas.height - padding);
+      ctx.stroke();
+    }
+
+    ctx.setLineDash([]);
+
+    // Y축 라벨
+    ctx.fillStyle = "#6b7280";
+    ctx.font = "10px Arial";
+    ctx.textAlign = "right";
+    for (let i = 0; i <= 5; i++) {
+      const price = maxPrice - (priceRange / 5) * i;
+      const y = padding + (chartHeight / 5) * i;
+      ctx.fillText(price.toLocaleString(), padding - 10, y + 3);
+    }
+
+    // X축 라벨
+    ctx.textAlign = "center";
+    for (let i = 0; i < chartData.length; i += Math.max(1, Math.floor(chartData.length / 10))) {
+      const x = padding + candleSpacing * i + candleSpacing / 2;
+      const time = formatTimeLabel(chartData[i].time, timeframe);
+      ctx.fillText(time, x, canvas.height - padding + 20);
+    }
+
+    // 캔들스틱 그리기
+    chartData.forEach((dataPoint, index) => {
+      const x = padding + candleSpacing * index + (candleSpacing - candleWidth) / 2;
+      const isUp = dataPoint.close >= dataPoint.open;
+      const color = getCandleColor(dataPoint);
+
+      // 고가-저가 선 (심지)
+      const highY = padding + ((maxPrice - dataPoint.high) / priceRange) * chartHeight;
+      const lowY = padding + ((maxPrice - dataPoint.low) / priceRange) * chartHeight;
+      
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + candleWidth / 2, highY);
+      ctx.lineTo(x + candleWidth / 2, lowY);
+      ctx.stroke();
+
+      // 캔들 몸통
+      const openY = padding + ((maxPrice - dataPoint.open) / priceRange) * chartHeight;
+      const closeY = padding + ((maxPrice - dataPoint.close) / priceRange) * chartHeight;
+      const bodyTop = Math.min(openY, closeY);
+      const bodyHeight = Math.max(Math.abs(closeY - openY), 1);
+
+      ctx.fillStyle = isUp ? color : "white";
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.fillRect(x, bodyTop, candleWidth, bodyHeight);
+      ctx.strokeRect(x, bodyTop, candleWidth, bodyHeight);
+
+      // 호버 효과
+      if (hoveredCandle === index) {
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - 2, bodyTop - 2, candleWidth + 4, bodyHeight + 4);
+      }
+    });
+  }, [chartData, hoveredCandle]);
+
+  // 차트 클릭 핸들러
+  const handleChartClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // 클릭된 캔들 찾기
+    const padding = 60;
+    const chartWidth = canvas.width - padding * 2;
+    const candleSpacing = chartWidth / chartData.length;
+
+    const index = Math.floor((x - padding) / candleSpacing);
+    if (index >= 0 && index < chartData.length) {
+      console.log("클릭된 캔들:", chartData[index]);
+    }
+  };
+
+  // 차트 마우스 이동 핸들러
+  const handleChartMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+
+    const padding = 60;
+    const chartWidth = canvas.width - padding * 2;
+    const candleSpacing = chartWidth / chartData.length;
+
+    const index = Math.floor((x - padding) / candleSpacing);
+    if (index >= 0 && index < chartData.length) {
+      setHoveredCandle(index);
+    } else {
+      setHoveredCandle(null);
+    }
+  };
+
+  // 차트 마우스 리브 핸들러
+  const handleChartMouseLeave = () => {
+    setHoveredCandle(null);
+  };
+
+  // 차트 리사이즈 및 렌더링
+  useEffect(() => {
+    renderChart();
+  }, [renderChart]);
+
+  // 윈도우 리사이즈 핸들러
+  useEffect(() => {
+    const handleResize = () => {
+      renderChart();
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [renderChart]);
 
   if (loading) {
     return (
       <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg h-full">
         <CardContent className="flex items-center justify-center h-80">
           <div className="text-center space-y-4">
-            <RefreshCw className="w-8 h-8 text-green-500 mx-auto animate-spin" />
+            <Activity className="w-8 h-8 text-green-500 mx-auto animate-spin" />
             <p className="text-sm text-gray-600 dark:text-gray-400">
               차트 데이터 로딩 중...
             </p>
@@ -332,7 +492,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
               className="p-1"
               onClick={loadChartData}
             >
-              <RefreshCw className="w-4 h-4" />
+              <Activity className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -341,6 +501,49 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       <CardContent className="space-y-4">
         {/* 차트 컨트롤 */}
         <div className="flex flex-wrap gap-2">
+          {/* 분봉 토글 */}
+          <div className="relative">
+            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+              <button
+                onClick={handleMinuteTextClick}
+                className="px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-l-md transition-colors"
+              >
+                {getMinuteToggleLabel()}
+              </button>
+              <button
+                onClick={handleMinuteToggle}
+                className="px-2 py-1 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-r-md transition-colors"
+              >
+                {showMinuteToggle ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+            
+            {/* 분봉 드롭다운 */}
+            {showMinuteToggle && (
+              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 min-w-[120px]">
+                {minuteTimeframes.map((tf) => (
+                  <button
+                    key={tf.value}
+                    onClick={() => handleMinuteSelect(tf.value)}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                      timeframe === tf.value
+                        ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
+                        : "text-gray-700 dark:text-gray-300"
+                    } ${tf.value === minuteTimeframes[0].value ? "rounded-t-lg" : ""} ${
+                      tf.value === minuteTimeframes[minuteTimeframes.length - 1].value ? "rounded-b-lg" : ""
+                    }`}
+                  >
+                    {tf.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* 시간대 선택 */}
           <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
             {timeframes.map((tf) => (
@@ -360,51 +563,18 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         </div>
 
         {/* 캔들 차트 영역 */}
-        <div className="relative h-80 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div 
+          ref={chartContainerRef}
+          className="relative h-80 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
+        >
           {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart
-                data={chartData}
-                margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#e5e7eb"
-                  className="dark:stroke-gray-600"
-                />
-                <XAxis
-                  dataKey="time"
-                  tick={{ fontSize: 10 }}
-                  stroke="#6b7280"
-                  interval="preserveStartEnd"
-                />
-                <YAxis
-                  domain={["dataMin - 100", "dataMax + 100"]}
-                  tick={{ fontSize: 10 }}
-                  stroke="#6b7280"
-                  tickFormatter={(value) => `${value.toLocaleString()}`}
-                />
-                <Tooltip content={<CustomTooltip />} />
-
-                {/* 고가-저가 라인 */}
-                {chartData.map((entry, index) => (
-                  <Line
-                    key={`line-${index}`}
-                    type="monotone"
-                    dataKey="high"
-                    stroke="transparent"
-                    dot={false}
-                    activeDot={false}
-                  />
-                ))}
-
-                {/* 캔들스틱 몸통 */}
-                <Bar
-                  dataKey={(entry) => Math.abs(entry.close - entry.open)}
-                  fill={(entry) => getCandleColor(entry)}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
+            <canvas
+              ref={canvasRef}
+              className="w-full h-full cursor-crosshair"
+              onClick={handleChartClick}
+              onMouseMove={handleChartMouseMove}
+              onMouseLeave={handleChartMouseLeave}
+            />
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="text-center space-y-4">
@@ -429,6 +599,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
             <p className="text-xs text-gray-500 dark:text-gray-400">시간봉</p>
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
               {timeframes.find((tf) => tf.value === timeframe)?.label ||
+                minuteTimeframes.find((tf) => tf.value === timeframe)?.label ||
                 timeframe}
             </p>
           </div>
@@ -452,7 +623,8 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
                   과거 데이터 + 실시간 업데이트
                 </span>
                 <br />
-                {timeframes.find((tf) => tf.value === timeframe)?.label}{" "}
+                {timeframes.find((tf) => tf.value === timeframe)?.label ||
+                  minuteTimeframes.find((tf) => tf.value === timeframe)?.label}{" "}
                 캔들차트가 실시간으로 업데이트됩니다.
               </div>
             </div>
