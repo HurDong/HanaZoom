@@ -12,6 +12,8 @@ import com.hanazoom.global.util.MarketTimeUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
@@ -97,6 +99,35 @@ public class StockServiceImpl implements StockService {
                                                                 : "0")
                                                 .build())
                                 .collect(Collectors.toList());
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public Page<StockTickerDto> getAllStocks(Pageable pageable) {
+                return stockRepository.findAll(pageable)
+                                .map(stock -> StockTickerDto.builder()
+                                                .symbol(stock.getSymbol())
+                                                .name(stock.getName())
+                                                .price(stock.getCurrentPrice() != null
+                                                                ? stock.getCurrentPrice().toString()
+                                                                : "0")
+                                                .change(stock.getPriceChangePercent() != null
+                                                                ? stock.getPriceChangePercent().toString()
+                                                                : "0")
+                                                .logoUrl(stock.getLogoUrl())
+                                                .sector(stock.getSector() != null ? stock.getSector() : "기타")
+                                                .stockCode(stock.getSymbol())
+                                                .stockName(stock.getName())
+                                                .currentPrice(stock.getCurrentPrice() != null
+                                                                ? stock.getCurrentPrice().toString()
+                                                                : "0")
+                                                .priceChange(stock.getPriceChange() != null
+                                                                ? stock.getPriceChange().toString()
+                                                                : "0")
+                                                .changeRate(stock.getPriceChangePercent() != null
+                                                                ? stock.getPriceChangePercent().toString()
+                                                                : "0")
+                                                .build());
         }
 
         @Override

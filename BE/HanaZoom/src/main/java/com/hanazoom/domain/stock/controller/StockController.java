@@ -10,6 +10,10 @@ import com.hanazoom.domain.stock.service.StockService;
 import com.hanazoom.global.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -41,6 +45,23 @@ public class StockController {
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<List<StockTickerDto>>> searchStocks(@RequestParam String query) {
         List<StockTickerDto> stocks = stockService.searchStocks(query);
+        return ResponseEntity.ok(ApiResponse.success(stocks));
+    }
+
+    /**
+     * 모든 주식 종목을 페이지네이션으로 조회
+     */
+    @GetMapping("/list")
+    public ResponseEntity<ApiResponse<Page<StockTickerDto>>> getAllStocks(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(defaultValue = "symbol") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+        
+        Sort.Direction direction = sortDir.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        
+        Page<StockTickerDto> stocks = stockService.getAllStocks(pageable);
         return ResponseEntity.ok(ApiResponse.success(stocks));
     }
 

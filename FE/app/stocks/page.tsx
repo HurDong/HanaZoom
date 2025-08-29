@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import NavBar from "@/app/components/Navbar";
 import {
   Search,
@@ -11,6 +11,8 @@ import {
   RefreshCw,
   Wifi,
   WifiOff,
+  ChevronRight,
+  ArrowUpDown,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -21,33 +23,30 @@ import type { StockPriceData } from "@/lib/api/stock";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
 import { StockTicker } from "@/components/stock-ticker";
 import { MouseFollower } from "@/components/mouse-follower";
+import api from "@/app/config/api";
 
-// 한국 주요 종목들
-const POPULAR_STOCKS = [
-  { symbol: "005930", name: "삼성전자", sector: "IT/전자" },
-  { symbol: "000660", name: "SK하이닉스", sector: "IT/전자" },
-  { symbol: "035420", name: "NAVER", sector: "IT/인터넷" },
-  { symbol: "005380", name: "현대자동차", sector: "자동차" },
-  { symbol: "006400", name: "삼성SDI", sector: "IT/전자" },
-  { symbol: "051910", name: "LG화학", sector: "화학" },
-  { symbol: "035720", name: "카카오", sector: "IT/인터넷" },
-  { symbol: "028260", name: "삼성물산", sector: "건설" },
-  { symbol: "207940", name: "삼성바이오로직스", sector: "바이오" },
-  { symbol: "068270", name: "셀트리온", sector: "바이오" },
-  { symbol: "323410", name: "카카오뱅크", sector: "금융" },
-  { symbol: "003670", name: "포스코홀딩스", sector: "철강" },
-  { symbol: "096770", name: "SK이노베이션", sector: "화학" },
-  { symbol: "017670", name: "SK텔레콤", sector: "통신" },
-  { symbol: "030200", name: "KT", sector: "통신" },
-  { symbol: "036570", name: "엔씨소프트", sector: "IT/게임" },
-  { symbol: "259960", name: "크래프톤", sector: "IT/게임" },
-  { symbol: "373220", name: "LG에너지솔루션", sector: "IT/전자" },
-  { symbol: "066570", name: "LG전자", sector: "IT/전자" },
-  { symbol: "018260", name: "삼성에스디에스", sector: "IT/서비스" },
-];
+interface Stock {
+  symbol: string;
+  name: string;
+  sector: string;
+  logoUrl?: string;
+  currentPrice?: string;
+  priceChange?: string;
+  changeRate?: string;
+}
+
+interface StockPage {
+  content: Stock[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  first: boolean;
+  last: boolean;
+}
 
 interface StockItemProps {
-  stock: (typeof POPULAR_STOCKS)[0];
+  stock: Stock;
   priceData?: StockPriceData;
   wsConnected: boolean;
 }
@@ -108,9 +107,9 @@ function StockItem({ stock, priceData, wsConnected }: StockItemProps) {
 
   return (
     <Link href={`/stocks/${stock.symbol}`}>
-      <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200 dark:border-green-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
+      <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
         <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-2">
+          <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
                 {stock.name}
@@ -133,16 +132,16 @@ function StockItem({ stock, priceData, wsConnected }: StockItemProps) {
 
           {/* 가격 정보 표시 */}
           {priceData ? (
-            <div className="mb-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
+            <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {getPriceChangeIcon(priceData.changeSign)}
-                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
                     {formatNumber(priceData.currentPrice)}원
                   </span>
                 </div>
                 <div
-                  className={`text-xs ${getPriceChangeColor(
+                  className={`text-sm font-semibold ${getPriceChangeColor(
                     priceData.changeSign
                   )}`}
                 >
@@ -161,7 +160,7 @@ function StockItem({ stock, priceData, wsConnected }: StockItemProps) {
               </div>
             </div>
           ) : (
-            <div className="mb-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
+            <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="flex items-center justify-center">
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   실시간 데이터 대기 중...
@@ -180,7 +179,7 @@ function StockItem({ stock, priceData, wsConnected }: StockItemProps) {
             </div>
             <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
               <span className="text-xs font-medium">상세보기</span>
-              <TrendingUp className="w-3 h-3" />
+              <ChevronRight className="w-3 h-3" />
             </div>
           </div>
         </CardContent>
@@ -191,10 +190,23 @@ function StockItem({ stock, priceData, wsConnected }: StockItemProps) {
 
 export default function StocksPage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [filteredStocks, setFilteredStocks] = useState(POPULAR_STOCKS);
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [filteredStocks, setFilteredStocks] = useState<Stock[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [sortBy, setSortBy] = useState("symbol");
+  const [sortDir, setSortDir] = useState("asc");
+  
+  const observer = useRef<IntersectionObserver>();
+  const lastStockElementRef = useRef<HTMLDivElement>(null);
 
-  // 모든 종목 코드 추출
-  const stockCodes = POPULAR_STOCKS.map((stock) => stock.symbol);
+  const pageSize = 50;
+
+  // 모든 종목 코드 추출 (웹소켓용)
+  const stockCodes = stocks.map((stock) => stock.symbol);
 
   // 웹소켓으로 실시간 주식 데이터 수신
   const {
@@ -220,16 +232,83 @@ export default function StocksPage() {
     reconnectInterval: 3000,
   });
 
+  // 주식 데이터 가져오기
+  const fetchStocks = useCallback(async (page: number, reset: boolean = false) => {
+    if (isLoading) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await api.get("/stocks/list", {
+        params: {
+          page,
+          size: pageSize,
+          sortBy,
+          sortDir,
+        },
+      });
+
+      if (response.data && response.data.success) {
+        const stockPage: StockPage = response.data.data;
+        
+        if (reset) {
+          setStocks(stockPage.content);
+          setFilteredStocks(stockPage.content);
+        } else {
+          setStocks(prev => [...prev, ...stockPage.content]);
+          setFilteredStocks(prev => [...prev, ...stockPage.content]);
+        }
+        
+        setTotalPages(stockPage.totalPages);
+        setTotalElements(stockPage.totalElements);
+        setHasMore(!stockPage.last);
+      }
+    } catch (error) {
+      console.error("주식 데이터 가져오기 실패:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [sortBy, sortDir]);
+
+  // 초기 데이터 로드
+  useEffect(() => {
+    fetchStocks(0, true);
+  }, []);
+
+  // 정렬 변경 시 데이터 재로드
+  useEffect(() => {
+    setCurrentPage(0);
+    setStocks([]);
+    setFilteredStocks([]);
+    fetchStocks(0, true);
+  }, [sortBy, sortDir, fetchStocks]);
+
+  // 무한 스크롤 설정
+  const lastElementRef = useCallback((node: HTMLDivElement) => {
+    if (isLoading) return;
+    
+    if (observer.current) observer.current.disconnect();
+    
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        const nextPage = currentPage + 1;
+        setCurrentPage(nextPage);
+        fetchStocks(nextPage);
+      }
+    });
+    
+    if (node) observer.current.observe(node);
+  }, [isLoading, hasMore, currentPage, fetchStocks]);
+
   // 검색 필터링
   useEffect(() => {
-    const filtered = POPULAR_STOCKS.filter(
+    const filtered = stocks.filter(
       (stock) =>
         stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         stock.symbol.includes(searchQuery) ||
         stock.sector.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredStocks(filtered);
-  }, [searchQuery]);
+  }, [searchQuery, stocks]);
 
   // 수동 새로고침 (웹소켓 재연결)
   const handleRefresh = () => {
@@ -238,6 +317,16 @@ export default function StocksPage() {
       setTimeout(() => wsConnect(), 1000);
     } else {
       wsConnect();
+    }
+  };
+
+  // 정렬 변경
+  const handleSortChange = (field: string) => {
+    if (sortBy === field) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortDir("asc");
     }
   };
 
@@ -268,7 +357,7 @@ export default function StocksPage() {
         <div className="floating-symbol absolute bottom-60 left-20 text-green-600 dark:text-green-400 text-xl animate-bounce delay-700">
           💰
         </div>
-        <div className="floating-symbol absolute top-32 right-1/3 text-emerald-400 dark:text-emerald-300 text-lg animate-pulse delay-200">
+        <div className="floating-symbol absolute top-32 right-1/3 text-emerald-400 dark:text-green-300 text-lg animate-pulse delay-200">
           🎯
         </div>
       </div>
@@ -284,7 +373,7 @@ export default function StocksPage() {
       </div>
 
       <main className="relative z-10 pt-28 pb-8">
-        <div className="container mx-auto px-4 max-w-6xl">
+        <div className="container mx-auto px-4 max-w-7xl">
           {/* 헤더 섹션 */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-4 mb-4">
@@ -303,7 +392,7 @@ export default function StocksPage() {
                 ) : wsConnecting ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600"></div>
-                    <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                    <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-green-200">
                       연결 중...
                     </Badge>
                   </>
@@ -323,8 +412,9 @@ export default function StocksPage() {
             </p>
           </div>
 
-          {/* 검색 섹션 */}
-          <div className="mb-8">
+          {/* 검색 및 정렬 섹션 */}
+          <div className="mb-8 space-y-4">
+            {/* 검색 */}
             <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg max-w-md mx-auto">
               <CardContent className="p-4">
                 <div className="relative">
@@ -338,6 +428,52 @@ export default function StocksPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* 정렬 옵션 */}
+            <div className="flex justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSortChange("symbol")}
+                className={`border-green-600 ${
+                  sortBy === "symbol" ? "bg-green-50 text-green-600" : "text-green-600"
+                }`}
+              >
+                <ArrowUpDown className="w-4 h-4 mr-1" />
+                종목코드
+                {sortBy === "symbol" && (
+                  <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSortChange("name")}
+                className={`border-green-600 ${
+                  sortBy === "name" ? "bg-green-50 text-green-600" : "text-green-600"
+                }`}
+              >
+                <ArrowUpDown className="w-4 h-4 mr-1" />
+                종목명
+                {sortBy === "name" && (
+                  <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSortChange("sector")}
+                className={`border-green-600 ${
+                  sortBy === "sector" ? "bg-green-50 text-green-600" : "text-green-600"
+                }`}
+              >
+                <ArrowUpDown className="w-4 h-4 mr-1" />
+                업종
+                {sortBy === "sector" && (
+                  <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>
+                )}
+              </Button>
+            </div>
           </div>
 
           {/* 통계 정보 */}
@@ -351,7 +487,7 @@ export default function StocksPage() {
                   </span>
                 </div>
                 <p className="text-2xl font-bold text-green-800 dark:text-green-200">
-                  {POPULAR_STOCKS.length}개
+                  {totalElements.toLocaleString()}개
                 </p>
               </CardContent>
             </Card>
@@ -365,7 +501,7 @@ export default function StocksPage() {
                   </span>
                 </div>
                 <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">
-                  {filteredStocks.length}개
+                  {filteredStocks.length.toLocaleString()}개
                 </p>
               </CardContent>
             </Card>
@@ -403,7 +539,7 @@ export default function StocksPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-green-800 dark:text-green-200">
-                📋 주요 종목 목록
+                📋 전체 종목 목록
               </h2>
               <div className="flex items-center gap-2">
                 <Button
@@ -445,7 +581,7 @@ export default function StocksPage() {
             )}
 
             {/* 검색 결과가 없을 때 */}
-            {filteredStocks.length === 0 && (
+            {filteredStocks.length === 0 && !isLoading && (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">🔍</div>
                 <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
@@ -463,17 +599,52 @@ export default function StocksPage() {
               </div>
             )}
 
-            {/* 종목 그리드 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredStocks.map((stock) => (
-                <StockItem
-                  key={stock.symbol}
-                  stock={stock}
-                  priceData={stockPricesMap.get(stock.symbol)}
-                  wsConnected={wsConnected}
-                />
-              ))}
+            {/* 종목 그리드 - 증권가 스타일 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+              {filteredStocks.map((stock, index) => {
+                if (filteredStocks.length === index + 1) {
+                  return (
+                    <div key={stock.symbol} ref={lastElementRef}>
+                      <StockItem
+                        stock={stock}
+                        priceData={stockPricesMap.get(stock.symbol)}
+                        wsConnected={wsConnected}
+                      />
+                    </div>
+                  );
+                } else {
+                  return (
+                    <StockItem
+                      key={stock.symbol}
+                      stock={stock}
+                      priceData={stockPricesMap.get(stock.symbol)}
+                      wsConnected={wsConnected}
+                    />
+                  );
+                }
+              })}
             </div>
+
+            {/* 로딩 인디케이터 */}
+            {isLoading && (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                <p className="text-green-600 dark:text-green-400">종목을 불러오는 중...</p>
+              </div>
+            )}
+
+            {/* 더 이상 로드할 데이터가 없을 때 */}
+            {!hasMore && filteredStocks.length > 0 && (
+              <div className="text-center py-8">
+                <div className="text-2xl mb-2">🏁</div>
+                <p className="text-gray-600 dark:text-gray-400">
+                  모든 종목을 불러왔습니다
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-500">
+                  총 {totalElements.toLocaleString()}개 종목
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </main>

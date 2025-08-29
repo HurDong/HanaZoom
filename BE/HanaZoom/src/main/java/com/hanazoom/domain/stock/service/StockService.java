@@ -5,6 +5,8 @@ import com.hanazoom.domain.stock.dto.StockBasicInfoResponse;
 import com.hanazoom.domain.stock.dto.StockPriceResponse;
 import com.hanazoom.domain.stock.dto.StockTickerDto;
 import com.hanazoom.domain.stock.entity.Stock;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 public interface StockService {
@@ -37,4 +39,12 @@ public interface StockService {
      * @return 호가창 정보
      */
     OrderBookResponse getOrderBook(String stockCode);
+
+    /**
+     * 모든 주식 종목을 페이지네이션으로 조회
+     * 
+     * @param pageable 페이지 정보
+     * @return 페이지네이션된 주식 목록
+     */
+    Page<StockTickerDto> getAllStocks(Pageable pageable);
 }
