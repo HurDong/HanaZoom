@@ -106,19 +106,19 @@ function StockItem({ stock, priceData, wsConnected }: StockItemProps) {
     return parseInt(num).toLocaleString();
   };
 
-      return (
-      <Link href={`/stocks/${stock.symbol}`}>
-        <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200 dark:border-green-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-                  {stock.name}
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">
-                  {stock.symbol}
-                </p>
-              </div>
+  return (
+    <Link href={`/stocks/${stock.symbol}`}>
+      <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200 dark:border-green-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
+                {stock.name}
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">
+                {stock.symbol}
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <Badge className={getSectorColor(stock.sector)}>
                 {stock.sector}
@@ -473,48 +473,6 @@ export default function StocksPage() {
                   wsConnected={wsConnected}
                 />
               ))}
-            </div>
-          </div>
-
-          {/* 안내 정보 */}
-          <div className="mt-12 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-xl p-6">
-            <div className="text-center">
-              <div className="text-2xl mb-3">⚡</div>
-              <h3 className="text-lg font-semibold text-green-800 dark:text-green-200 mb-2">
-                실시간 웹소켓 연결 완료!
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-green-700 dark:text-green-300">
-                <div>
-                  <strong>웹소켓 실시간:</strong>
-                  <br />
-                  KIS API 직접 연결로 즉시 업데이트
-                  <br />
-                  <span className="text-xs text-green-600 dark:text-green-400">
-                    연결된 종목: {stockPricesMap.size}/{POPULAR_STOCKS.length}개
-                  </span>
-                </div>
-                <div>
-                  <strong>전문 정보:</strong>
-                  <br />
-                  현재가, 호가창, 차트 분석 원스톱
-                  <br />
-                  <span className="text-xs text-green-600 dark:text-green-400">
-                    {lastUpdate > 0 &&
-                      `${Math.floor(
-                        (Date.now() - lastUpdate) / 1000
-                      )}초 전 업데이트`}
-                  </span>
-                </div>
-                <div>
-                  <strong>모의투자:</strong>
-                  <br />
-                  실제 데이터로 안전한 모의거래 환경
-                  <br />
-                  <span className="text-xs text-green-600 dark:text-green-400">
-                    한국투자증권 KIS API 연동
-                  </span>
-                </div>
-              </div>
             </div>
           </div>
         </div>

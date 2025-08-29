@@ -102,7 +102,71 @@ CREATE TABLE stocks (
 
 ---
 
-## 3. 주식 시계열 데이터 테이블들
+## 3. 관심종목 테이블 (watchlist)
+
+### 테이블 구조
+
+```sql
+CREATE TABLE watchlist (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    member_id BINARY(16) NOT NULL COMMENT '회원 ID',
+    stock_symbol VARCHAR(20) NOT NULL COMMENT '종목코드',
+
+    -- 관심종목 설정 정보
+    alert_price DECIMAL(15, 2) NULL COMMENT '알림 설정 가격',
+    alert_type ENUM('ABOVE', 'BELOW', 'BOTH') DEFAULT 'BOTH' COMMENT '알림 타입',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '활성화 여부',
+
+    -- 메타 정보
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- 한 회원이 같은 종목을 중복으로 관심종목에 추가할 수 없음
+    UNIQUE KEY uk_member_stock (member_id, stock_symbol),
+
+    -- 외래키 제약조건
+    FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
+    FOREIGN KEY (stock_symbol) REFERENCES stocks(symbol) ON DELETE CASCADE,
+
+    INDEX idx_member_id (member_id),
+    INDEX idx_stock_symbol (stock_symbol),
+    INDEX idx_is_active (is_active),
+    INDEX idx_alert_price (alert_price)
+);
+```
+
+### 데이터 예시
+
+```sql
+-- 사용자 A의 관심종목 설정
+INSERT INTO watchlist (member_id, stock_symbol, alert_price, alert_type, is_active) VALUES
+(UUID_TO_BIN('550e8400-e29b-41d4-a716-446655440000'), '005930', 70000.00, 'BELOW', TRUE),   -- 삼성전자 7만원 이하 알림
+(UUID_TO_BIN('550e8400-e29b-41d4-a716-446655440000'), '035420', 180000.00, 'ABOVE', TRUE),  -- NAVER 18만원 이상 알림
+(UUID_TO_BIN('550e8400-e29b-41d4-a716-446655440000'), '035720', 50000.00, 'BOTH', TRUE);    -- 카카오 5만원 정확히 알림
+
+-- 사용자 B의 관심종목 설정
+INSERT INTO watchlist (member_id, stock_symbol, alert_price, alert_type, is_active) VALUES
+(UUID_TO_BIN('550e8400-e29b-41d4-a716-446655440001'), '000660', 130000.00, 'ABOVE', TRUE),  -- SK하이닉스 13만원 이상 알림
+(UUID_TO_BIN('550e8400-e29b-41d4-a716-446655440001'), '051910', 400000.00, 'BELOW', TRUE);  -- LG화학 40만원 이하 알림
+```
+
+### 특징
+
+- **개인화**: 회원별로 독립적인 관심종목 관리
+- **알림 설정**: 가격 알림을 위한 다양한 옵션 제공
+- **중복 방지**: 한 회원이 같은 종목을 중복 추가할 수 없음
+- **유연한 알림**: ABOVE(이상), BELOW(이하), BOTH(정확히) 알림 타입 지원
+- **활성화 관리**: 관심종목을 비활성화할 수 있어 임시 제외 가능
+
+### 알림 타입 설명
+
+- **ABOVE**: 설정한 가격 이상일 때 알림 (예: 7만원 이상일 때)
+- **BELOW**: 설정한 가격 이하일 때 알림 (예: 7만원 이하일 때)
+- **BOTH**: 설정한 가격과 정확히 일치할 때 알림 (예: 7만원 정확히)
+
+---
+
+## 4. 주식 시계열 데이터 테이블들
 
 ### 3-1. 일별 주가 데이터 테이블 (stock_daily_prices)
 
@@ -430,7 +494,7 @@ WHERE data_date = CURRENT_DATE;
 
 ---
 
-## 5. 회원 테이블 (members)
+## 6. 회원 테이블 (members)
 
 ```sql
 CREATE TABLE members (
@@ -462,7 +526,7 @@ CREATE TABLE members (
 
 ---
 
-## 6. 커뮤니티 테이블들
+## 7. 커뮤니티 테이블들
 
 ### 5-1. 게시글 테이블 (posts)
 
@@ -627,7 +691,7 @@ CREATE TABLE attachments (
 
 ---
 
-## 7. 기획 요구사항 검증 결과
+## 8. 기획 요구사항 검증 결과
 
 ### ✅ 요구사항 1: 동/구/시 별 주식 데이터 주기적 일괄저장
 
@@ -793,7 +857,7 @@ WHERE name IN ('서울특별시', '인천광역시', '광명시')
 
 ---
 
-## 8. 결론
+## 9. 결론
 
 설계한 데이터베이스는 **모든 기획 요구사항을 만족**하며, 다음과 같은 특징을 가집니다:
 
