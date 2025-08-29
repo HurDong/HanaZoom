@@ -158,3 +158,32 @@
   backface-visibility: hidden; /* 성능 최적화 */
   perspective: 1000px; /* 3D 가속 */
 }
+
+/* 토스트 알림 커스텀 스타일 */
+[data-sonner-toaster] [data-sonner-toast][data-type="success"] {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+  border: 2px solid #991b1b !important;
+  color: white !important;
+  box-shadow: 0 8px 32px rgba(220, 38, 38, 0.4) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-type="error"] {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%) !important;
+  border: 2px solid #7f1d1d !important;
+  color: white !important;
+  box-shadow: 0 8px 32px rgba(220, 38, 38, 0.5) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-type="warning"] {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+  border: 2px solid #92400e !important;
+  color: white !important;
+  box-shadow: 0 8px 32px rgba(217, 119, 6, 0.4) !important;
+}
+
+/* 토스트 호버 효과 */
+[data-sonner-toaster] [data-sonner-toast]:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3) !important;
+  transition: all 0.2s ease-in-out !important;
+}
