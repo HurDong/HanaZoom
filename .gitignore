@@ -33,5 +33,8 @@ modules.xml
 
 # ... existing code ... 
 scripts/stock_daily_weekly_monthly_chart/out_krx_parallel/*
+scripts/stock_daily_weekly_monthly_chart/*.log
 scripts/stock_daily_weekly_monthly_chart/venv/*
 scripts/stock_minute_chart/venv/*
+scripts/stock_logo/venv/*
+scripts/region_data/venv/*
