@@ -7,8 +7,8 @@ import KakaoMapScripts from "@/components/KakaoMapScripts";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "HanaZoom",
-  description: "주식 맛집 지도",
+  title: "우리동네 주식맛집 하나줌",
+  description: "지역별 주식 투자 트렌드를 한눈에 보는 지도 기반 웹 서비스",
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",

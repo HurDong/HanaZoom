@@ -190,12 +190,14 @@ export default function NavBar() {
         {/* 왼쪽: 로고 및 브랜드명 */}
         <Link href="/" className="flex items-center space-x-3">
           <div className="relative">
-            <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center shadow-lg">
-              <span className="text-white text-lg font-bold">ㅎ</span>
-            </div>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+            {/* 하나은행 로고 이미지 */}
+            <img
+              src="/favicon.ico"
+              alt="하나은행 로고"
+              className="w-8 h-8 object-contain"
+            />
           </div>
-          <span className="text-xl font-bold text-green-600 font-['Pretendard']">
+          <span className="text-xl font-bold text-green-600 font-['Noto Sans KR']">
             하나줌
           </span>
         </Link>
