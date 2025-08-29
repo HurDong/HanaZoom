@@ -46,6 +46,13 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hoveredCandle, setHoveredCandle] = useState<number | null>(null);
+  const [hoveredVolume, setHoveredVolume] = useState<number | null>(null);
+  const [tooltipData, setTooltipData] = useState<{
+    x: number;
+    y: number;
+    data: ChartDataPoint;
+    type: "candle" | "volume";
+  } | null>(null);
   const [showMinuteToggle, setShowMinuteToggle] = useState(false);
   const [lastMinuteTimeframe, setLastMinuteTimeframe] = useState("5M");
   const currentCandleRef = useRef<ChartDataPoint | null>(null);
@@ -372,7 +379,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       const bodyTop = Math.min(openY, closeY);
       const bodyHeight = Math.max(Math.abs(closeY - openY), 1);
 
-      ctx.fillStyle = isUp ? color : "white";
+      ctx.fillStyle = color; // 상승/하락 모두 동일한 색상으로 배경 채우기
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
       ctx.fillRect(x, bodyTop, candleWidth, bodyHeight);
@@ -414,6 +421,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
 
     const padding = 60;
     const chartWidth = canvas.width - padding * 2;
@@ -422,30 +430,152 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const index = Math.floor((x - padding) / candleSpacing);
     if (index >= 0 && index < chartData.length) {
       setHoveredCandle(index);
+      setTooltipData({
+        x: event.clientX,
+        y: event.clientY,
+        data: chartData[index],
+        type: "candle",
+      });
     } else {
       setHoveredCandle(null);
+      setTooltipData(null);
     }
   };
 
   // 차트 마우스 리브 핸들러
   const handleChartMouseLeave = () => {
     setHoveredCandle(null);
+    setTooltipData(null);
   };
+
+  // 거래량 차트 마우스 이동 핸들러
+  const handleVolumeMouseMove = (
+    event: React.MouseEvent<HTMLCanvasElement>
+  ) => {
+    const canvas = event.currentTarget;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+
+    const padding = 20;
+    const chartWidth = canvas.width - padding * 2;
+    const barSpacing = chartWidth / chartData.length;
+
+    const index = Math.floor((x - padding) / barSpacing);
+    if (index >= 0 && index < chartData.length) {
+      setHoveredVolume(index);
+      setTooltipData({
+        x: event.clientX,
+        y: event.clientY,
+        data: chartData[index],
+        type: "volume",
+      });
+    } else {
+      setHoveredVolume(null);
+      setTooltipData(null);
+    }
+  };
+
+  // 거래량 차트 마우스 리브 핸들러
+  const handleVolumeMouseLeave = () => {
+    setHoveredVolume(null);
+    setTooltipData(null);
+  };
+
+  // 거래량 차트 렌더링
+  const renderVolumeChart = useCallback(() => {
+    const canvas = document.getElementById("volumeCanvas") as HTMLCanvasElement;
+    if (!canvas || chartData.length === 0) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const container = canvas.parentElement;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+
+    // 배경 클리어
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const padding = 20;
+    const chartWidth = canvas.width - padding * 2;
+    const chartHeight = canvas.height - padding * 2;
+    const barWidth = Math.max(1, (chartWidth / chartData.length) * 0.8);
+    const barSpacing = chartWidth / chartData.length;
+
+    // 거래량 범위 계산
+    const volumes = chartData.map((d) => d.volume);
+    const maxVolume = Math.max(...volumes);
+
+    // 그리드 그리기
+    ctx.strokeStyle = "#e5e7eb";
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([2, 2]);
+
+    // 수평 그리드
+    for (let i = 0; i <= 4; i++) {
+      const y = padding + (chartHeight / 4) * i;
+      ctx.beginPath();
+      ctx.moveTo(padding, y);
+      ctx.lineTo(canvas.width - padding, y);
+      ctx.stroke();
+    }
+
+    // 거래량 바 그리기
+    chartData.forEach((dataPoint, index) => {
+      const x = padding + index * barSpacing + (barSpacing - barWidth) / 2;
+      const height = (dataPoint.volume / maxVolume) * chartHeight;
+      const y = canvas.height - padding - height;
+
+      // 캔들 색상과 동일한 색상 사용
+      const color = getCandleColor(dataPoint);
+      ctx.fillStyle = color + "60"; // 투명도를 조금 더 높게 설정하여 색상이 잘 보이도록
+      ctx.fillRect(x, y, barWidth, height);
+
+      // 테두리
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, barWidth, height);
+    });
+
+    // 거래량 라벨
+    ctx.fillStyle = "#6b7280";
+    ctx.font = "10px Arial";
+    ctx.textAlign = "right";
+    ctx.fillText(
+      `${(maxVolume / 1000000).toFixed(1)}M`,
+      canvas.width - padding,
+      padding + 10
+    );
+  }, [chartData]);
 
   // 차트 리사이즈 및 렌더링
   useEffect(() => {
     renderChart();
-  }, [renderChart]);
+    renderVolumeChart();
+  }, [renderChart, renderVolumeChart]);
 
   // 윈도우 리사이즈 핸들러
   useEffect(() => {
     const handleResize = () => {
       renderChart();
+      renderVolumeChart();
     };
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [renderChart]);
+  }, [renderChart, renderVolumeChart]);
+
+  // 차트 데이터 변경 시 거래량 차트도 함께 업데이트
+  useEffect(() => {
+    if (chartData.length > 0) {
+      renderVolumeChart();
+    }
+  }, [chartData, renderVolumeChart]);
 
   if (loading) {
     return (
@@ -594,7 +724,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         {/* 캔들 차트 영역 */}
         <div
           ref={chartContainerRef}
-          className="relative h-[600px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
+          className="relative h-[500px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
         >
           {chartData.length > 0 ? (
             <canvas
@@ -615,6 +745,162 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
             </div>
           )}
         </div>
+
+        {/* 거래량 차트 영역 */}
+        <div className="relative h-[100px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+          {chartData.length > 0 ? (
+            <canvas
+              id="volumeCanvas"
+              className="w-full h-full cursor-crosshair"
+              onMouseMove={handleVolumeMouseMove}
+              onMouseLeave={handleVolumeMouseLeave}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  거래량 데이터 준비 중...
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 야무진 툴팁 */}
+        {tooltipData && (
+          <div
+            className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-3 min-w-[200px] pointer-events-none"
+            style={{
+              left: tooltipData.x + 10,
+              top: tooltipData.y - 10,
+              transform: "translateY(-100%)",
+            }}
+          >
+            <div className="space-y-2">
+              {/* 시간 정보 */}
+              <div className="text-center">
+                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {formatTimeLabel(tooltipData.data.time, timeframe)}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {new Date(tooltipData.data.time).toLocaleDateString("ko-KR", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    weekday: "long",
+                  })}
+                </p>
+              </div>
+
+              {/* 가격 정보 */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="space-y-1">
+                  <p className="text-gray-500 dark:text-gray-400">시가</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">
+                    {tooltipData.data.open.toLocaleString()}원
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-gray-500 dark:text-gray-400">고가</p>
+                  <p className="font-semibold text-red-600 dark:text-red-400">
+                    {tooltipData.data.high.toLocaleString()}원
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-gray-500 dark:text-gray-400">저가</p>
+                  <p className="font-semibold text-blue-600 dark:text-blue-400">
+                    {tooltipData.data.low.toLocaleString()}원
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-gray-500 dark:text-gray-400">종가</p>
+                  <p
+                    className={`font-semibold ${
+                      tooltipData.data.close >= tooltipData.data.open
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-blue-600 dark:text-blue-400"
+                    }`}
+                  >
+                    {tooltipData.data.close.toLocaleString()}원
+                  </p>
+                </div>
+              </div>
+
+              {/* 변동 정보 */}
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    변동
+                  </span>
+                  <span
+                    className={`text-xs font-semibold ${
+                      tooltipData.data.change >= 0
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-blue-600 dark:text-blue-400"
+                    }`}
+                  >
+                    {tooltipData.data.change >= 0 ? "+" : ""}
+                    {tooltipData.data.change.toLocaleString()}원
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    변동률
+                  </span>
+                  <span
+                    className={`text-xs font-semibold ${
+                      tooltipData.data.changePercent >= 0
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-blue-600 dark:text-blue-400"
+                    }`}
+                  >
+                    {tooltipData.data.changePercent >= 0 ? "+" : ""}
+                    {tooltipData.data.changePercent.toFixed(2)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* 거래량 정보 */}
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    거래량
+                  </span>
+                  <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                    {tooltipData.data.volume.toLocaleString()}주
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    거래대금
+                  </span>
+                  <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                    {(
+                      (tooltipData.data.volume * tooltipData.data.close) /
+                      1000000
+                    ).toFixed(1)}
+                    M원
+                  </span>
+                </div>
+              </div>
+
+              {/* 차트 타입 표시 */}
+              <div className="text-center pt-1">
+                <span
+                  className={`inline-block px-2 py-1 text-xs rounded-full ${
+                    tooltipData.type === "candle"
+                      ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
+                      : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+                  }`}
+                >
+                  {tooltipData.type === "candle"
+                    ? "📈 캔들차트"
+                    : "📊 거래량차트"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
