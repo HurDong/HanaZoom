@@ -458,7 +458,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
 
-    const padding = 20;
+    const padding = 60; // 캔들차트와 동일한 패딩 사용
     const chartWidth = canvas.width - padding * 2;
     const barSpacing = chartWidth / chartData.length;
 
@@ -501,11 +501,12 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     // 배경 클리어
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const padding = 20;
+    // 캔들차트와 동일한 패딩과 간격 사용
+    const padding = 60; // 캔들차트와 동일한 패딩
     const chartWidth = canvas.width - padding * 2;
     const chartHeight = canvas.height - padding * 2;
     const barWidth = Math.max(1, (chartWidth / chartData.length) * 0.8);
-    const barSpacing = chartWidth / chartData.length;
+    const barSpacing = chartWidth / chartData.length; // 캔들차트와 동일한 간격
 
     // 거래량 범위 계산
     const volumes = chartData.map((d) => d.volume);
@@ -525,7 +526,26 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       ctx.stroke();
     }
 
-    // 거래량 바 그리기
+    // Y축 라벨 (거래량 단위)
+    ctx.fillStyle = "#6b7280";
+    ctx.font = "10px Arial";
+    ctx.textAlign = "right";
+    for (let i = 0; i <= 4; i++) {
+      const volume = maxVolume - (maxVolume / 4) * i;
+      const y = padding + (chartHeight / 4) * i;
+      ctx.fillText(`${(volume / 1000000).toFixed(1)}M`, padding - 10, y + 3);
+    }
+
+    // 수직 그리드 (캔들차트와 동일한 위치)
+    for (let i = 0; i <= 10; i++) {
+      const x = padding + (chartWidth / 10) * i;
+      ctx.beginPath();
+      ctx.moveTo(x, padding);
+      ctx.lineTo(x, canvas.height - padding);
+      ctx.stroke();
+    }
+
+    // 거래량 바 그리기 (캔들차트와 정확히 동일한 X축 위치)
     chartData.forEach((dataPoint, index) => {
       const x = padding + index * barSpacing + (barSpacing - barWidth) / 2;
       const height = (dataPoint.volume / maxVolume) * chartHeight;
@@ -533,7 +553,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
       // 캔들 색상과 동일한 색상 사용
       const color = getCandleColor(dataPoint);
-      ctx.fillStyle = color + "60"; // 투명도를 조금 더 높게 설정하여 색상이 잘 보이도록
+      ctx.fillStyle = color + "60";
       ctx.fillRect(x, y, barWidth, height);
 
       // 테두리
@@ -541,6 +561,21 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       ctx.lineWidth = 1;
       ctx.strokeRect(x, y, barWidth, height);
     });
+
+    // X축 라벨 (캔들차트와 동일한 위치)
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#6b7280";
+    ctx.font = "10px Arial";
+    ctx.textAlign = "center";
+    for (
+      let i = 0;
+      i < chartData.length;
+      i += Math.max(1, Math.floor(chartData.length / 10))
+    ) {
+      const x = padding + barSpacing * i + barSpacing / 2;
+      const time = formatTimeLabel(chartData[i].time, timeframe);
+      ctx.fillText(time, x, canvas.height - padding + 20);
+    }
 
     // 거래량 라벨
     ctx.fillStyle = "#6b7280";
@@ -551,7 +586,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       canvas.width - padding,
       padding + 10
     );
-  }, [chartData]);
+  }, [chartData, timeframe]);
 
   // 차트 리사이즈 및 렌더링
   useEffect(() => {
@@ -724,7 +759,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         {/* 캔들 차트 영역 */}
         <div
           ref={chartContainerRef}
-          className="relative h-[500px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
+          className="relative h-[600px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
         >
           {chartData.length > 0 ? (
             <canvas
@@ -747,7 +782,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         </div>
 
         {/* 거래량 차트 영역 */}
-        <div className="relative h-[100px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="relative h-[200px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
           {chartData.length > 0 ? (
             <canvas
               id="volumeCanvas"

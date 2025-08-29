@@ -37,6 +37,7 @@ import {
   removeFromWatchlist,
   checkIsInWatchlist,
 } from "@/lib/api/watchlist";
+import { toast } from "sonner";
 
 export default function StockDetailPage() {
   const params = useParams();
@@ -97,7 +98,7 @@ export default function StockDetailPage() {
   // 관심종목 토글
   const toggleWatchlist = async () => {
     if (!accessToken) {
-      alert("로그인이 필요합니다.");
+      toast.error("관심종목을 관리하려면 로그인이 필요합니다.");
       return;
     }
 
@@ -106,13 +107,15 @@ export default function StockDetailPage() {
       if (isInWatchlist) {
         await removeFromWatchlist(stockCode);
         setIsInWatchlist(false);
+        toast.warning(`${stockCode}이(가) 관심종목에서 제거되었습니다.`);
       } else {
         await addToWatchlist({ stockSymbol: stockCode });
         setIsInWatchlist(true);
+        toast.warning(`${stockCode}이(가) 관심종목에 추가되었습니다.`);
       }
     } catch (error) {
       console.error("관심종목 토글 실패:", error);
-      alert("관심종목 변경에 실패했습니다.");
+      toast.error("관심종목 변경에 실패했습니다. 다시 시도해주세요.");
     } finally {
       setIsWatchlistLoading(false);
     }
@@ -602,7 +605,7 @@ export default function StockDetailPage() {
           <div className="flex flex-col lg:flex-row gap-4">
             {/* 캔들차트 (화면 전체 차지) */}
             <div className="flex-1 min-w-0 order-1 lg:order-1">
-              <Card className="h-[700px] lg:h-[900px] xl:h-[1000px] 2xl:h-[1100px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
+              <Card className="h-[800px] lg:h-[1000px] xl:h-[1100px] 2xl:h-[1200px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-gray-700 shadow-lg">
                 <CardContent className="p-2 h-full">
                   <CandlestickChart stockCode={stockCode} />
                 </CardContent>
