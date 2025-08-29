@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/app/config/api";
+import { toast } from "sonner";
 
 export default function NavBar() {
   const router = useRouter();
@@ -114,9 +115,10 @@ export default function NavBar() {
       setSearchQuery("");
       setShowSearchResults(false);
       await loadWatchlist(); // 목록 새로고침
+      toast.warning(`${stockSymbol}이(가) 관심종목에 추가되었습니다.`);
     } catch (error) {
       console.error("관심종목 추가 실패:", error);
-      alert("관심종목 추가에 실패했습니다.");
+      toast.error("관심종목 추가에 실패했습니다. 다시 시도해주세요.");
     } finally {
       setIsAddingStock(false);
     }
@@ -129,16 +131,17 @@ export default function NavBar() {
     try {
       await removeFromWatchlist(stockSymbol);
       await loadWatchlist(); // 목록 새로고침
+      toast.warning(`${stockSymbol}이(가) 관심종목에서 제거되었습니다.`);
     } catch (error) {
       console.error("관심종목 제거 실패:", error);
-      alert("관심종목 제거에 실패했습니다.");
+      toast.error("관심종목 제거에 실패했습니다. 다시 시도해주세요.");
     }
   };
 
   // 관심종목 모달 열기/닫기 (토글)
   const handleWatchlistClick = () => {
     if (!accessToken) {
-      alert("로그인이 필요합니다.");
+      toast.error("관심종목을 관리하려면 로그인이 필요합니다.");
       return;
     }
 
@@ -659,6 +662,15 @@ export default function NavBar() {
           {/* 테마 토글 */}
           <div className="flex items-center gap-3 ml-4">
             <ThemeToggle />
+            {/* 토스트 테스트 버튼 */}
+            <button
+              onClick={() => {
+                toast.warning("토스트 알림이 작동합니다!");
+              }}
+              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+            >
+              토스트 테스트
+            </button>
           </div>
         </div>
       </div>

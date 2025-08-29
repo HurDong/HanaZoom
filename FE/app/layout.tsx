@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import KakaoMapScripts from "@/components/KakaoMapScripts";
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -32,6 +33,7 @@ export default function RootLayout({
           disableTransitionOnChange={false}
         >
           {children}
+          <SonnerToaster />
         </ThemeProvider>
       </body>
     </html>
