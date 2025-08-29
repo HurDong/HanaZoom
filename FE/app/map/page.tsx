@@ -81,12 +81,13 @@ export default function MapPage() {
   });
 
   // 사용자 위치로 이동하는 함수
-  const moveToUserLocation = () => {
+  const moveToUserLocation = useCallback(() => {
     if (user?.latitude && user?.longitude) {
       setCenter({ lat: Number(user.latitude), lng: Number(user.longitude) });
       setZoomLevel(4);
+      setDebouncedZoomLevel(4);
     }
-  };
+  }, [user?.latitude, user?.longitude]);
 
   // 초기 중심점 설정
   const initialCenter = { lat: 37.5665, lng: 126.978 }; // 서울시청
@@ -98,7 +99,7 @@ export default function MapPage() {
     if (user?.latitude && user?.longitude) {
       moveToUserLocation();
     }
-  }, [user]);
+  }, [user, moveToUserLocation]);
 
   // 지역 데이터를 불러옵니다.
   useEffect(() => {
