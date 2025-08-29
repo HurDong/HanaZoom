@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import NavBar from "@/app/components/Navbar";
 import { StockTicker } from "@/components/stock-ticker";
 import api, { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
+import Swal from "sweetalert2";
 
 export default function VerifyPage() {
   const router = useRouter();
@@ -26,6 +27,28 @@ export default function VerifyPage() {
 
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // 로그인 페이지와 완전히 동일한 에러 알림 함수
+  const showErrorAlert = (message: string) => {
+    // 현재 다크모드 상태 확인
+    const isDarkMode = document.documentElement.classList.contains("dark");
+
+    Swal.fire({
+      title: "앗!",
+      text: message,
+      icon: "error",
+      confirmButtonText: "확인",
+      confirmButtonColor: "#10b981",
+      background: isDarkMode ? "#1f2937" : "#ffffff",
+      color: isDarkMode ? "#f9fafb" : "#1f2937",
+      customClass: {
+        popup: isDarkMode ? "border border-gray-700" : "",
+        title: isDarkMode ? "text-white" : "",
+        htmlContainer: isDarkMode ? "text-gray-300" : "",
+        confirmButton: isDarkMode ? "bg-green-600 hover:bg-green-700" : "",
+      },
+    });
+  };
 
   useEffect(() => {
     // 사용자 정보가 없으면 로그인으로 이동
@@ -99,8 +122,8 @@ export default function VerifyPage() {
       // 검증 성공 -> 원래 위치로
       router.replace(redirect);
     } catch (err) {
-      // 실패 시 간단 알림만
-      alert("비밀번호가 올바르지 않습니다.");
+      // 실패 시 로그인 페이지와 동일한 에러 알림 사용
+      showErrorAlert("비밀번호가 올바르지 않습니다.");
     } finally {
       setSubmitting(false);
     }
@@ -119,7 +142,7 @@ export default function VerifyPage() {
             보안 검증
           </h1>
           <p className="text-green-700 dark:text-green-300 mb-6">
-            민감한 작업을 위해 본인 확인이 필요합니다.
+            개인정보가 포함된 페이지이므로 본인 확인을 한 번 더 진행합니다.
           </p>
 
           {isSocialKakao ? (
@@ -147,11 +170,11 @@ export default function VerifyPage() {
                 className="mb-4"
               />
               <Button
-                className="w-full"
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg"
                 onClick={submitPassword}
                 disabled={submitting || !password}
               >
-                {submitting ? "확인 중..." : "본인 확인"}
+                {submitting ? "확인 중..." : "검증하기"}
               </Button>
             </>
           )}

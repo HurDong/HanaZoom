@@ -82,16 +82,8 @@ export default function KakaoCallbackPage() {
           } catch {}
         }
 
-        // 성공 메시지 (step-up일 때는 생략해 UX 단축)
-        if (!isStepUp) {
-          await Swal.fire({
-            title: "카카오 로그인 성공! 🎉",
-            text: `${data.name}님, 환영합니다!`,
-            icon: "success",
-            timer: 1500,
-            showConfirmButton: false,
-          });
-        }
+        // 성공 메시지 제거 (모든 경우에 SweetAlert 비활성화)
+        // step-up 검증 시에는 아무 알림 없이 바로 리다이렉트
 
         if (isStepUp && desiredRedirect) {
           router.replace(desiredRedirect);

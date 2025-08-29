@@ -49,7 +49,12 @@ export default function MyPage() {
         router.replace(`/auth/verify?redirect=${redirect}`);
         return;
       }
-    } catch {}
+    } catch (error) {
+      // 에러 발생 시에도 검증 페이지로 이동
+      const redirect = encodeURIComponent("/mypage");
+      router.replace(`/auth/verify?redirect=${redirect}`);
+      return;
+    }
   }, [router]);
 
   // 지도 중심점 상태
@@ -250,7 +255,17 @@ export default function MyPage() {
     }
   };
 
-  if (loading) {
+  // 검증 상태 확인 (10분 내 검증 완료 여부)
+  const isVerified = (() => {
+    try {
+      const ts = sessionStorage.getItem("recentlyVerifiedAt");
+      return ts && Date.now() - Number(ts) < 10 * 60 * 1000;
+    } catch {
+      return false;
+    }
+  })();
+
+  if (loading || !isVerified) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950">
         <NavBar />
@@ -258,7 +273,7 @@ export default function MyPage() {
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
             <p className="text-green-700 dark:text-green-300">
-              정보를 불러오는 중...
+              {!isVerified ? "보안 검증 중..." : "정보를 불러오는 중..."}
             </p>
           </div>
         </div>

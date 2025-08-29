@@ -148,7 +148,8 @@ export default function NavBar() {
       setSearchQuery("");
       setShowSearchResults(false);
     } else {
-      // 닫혀있으면 열기
+      // 닫혀있으면 열기 (프로필 모달은 닫기)
+      setShowProfileModal(false);
       setShowWatchlistModal(true);
       loadWatchlist();
     }
@@ -164,12 +165,23 @@ export default function NavBar() {
   };
 
   const handleProfileClick = () => {
-    setShowProfileModal(!showProfileModal);
+    if (showProfileModal) {
+      // 이미 열려있으면 닫기
+      setShowProfileModal(false);
+    } else {
+      // 닫혀있으면 열기 (관심종목 모달은 닫기)
+      setShowWatchlistModal(false);
+      setSearchQuery("");
+      setShowSearchResults(false);
+      setShowProfileModal(true);
+    }
   };
 
   const handleMyPageClick = () => {
     setShowProfileModal(false);
-    router.push("/mypage");
+    // 마이페이지 접근 시 검증 페이지로 이동
+    const redirect = encodeURIComponent("/mypage");
+    router.push(`/auth/verify?redirect=${redirect}`);
   };
 
   if (!mounted) {
