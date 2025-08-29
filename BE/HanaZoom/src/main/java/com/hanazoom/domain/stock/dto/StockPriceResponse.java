@@ -5,8 +5,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
- * KIS API 현재가 조회 응답 DTO
+ * KIS API 현재가 조회 응답 DTO (호가창 데이터 포함)
  */
 @Data
 @Builder
@@ -31,6 +33,16 @@ public class StockPriceResponse {
     private boolean isMarketOpen; // 장 운영시간 여부
     private boolean isAfterMarketClose; // 장종료 후 여부
     private String marketStatus; // 시장 상태 메시지
+
+    // 호가창 데이터 필드들
+    private List<OrderBookItem> askOrders; // 매도호가 목록 (10단계)
+    private List<OrderBookItem> bidOrders; // 매수호가 목록 (10단계)
+    private String totalAskQuantity; // 총 매도잔량
+    private String totalBidQuantity; // 총 매수잔량
+    private double imbalanceRatio; // 매수/매도 불균형 비율
+    private int spread; // 스프레드 (최우선매도 - 최우선매수)
+    private boolean buyDominant; // 매수우세 여부
+    private boolean sellDominant; // 매도우세 여부
 
     /**
      * 전일대비구분을 기반으로 상승/하락 상태 반환
@@ -64,5 +76,55 @@ public class StockPriceResponse {
      */
     public boolean isNegativeChange() {
         return "4".equals(changeSign) || "5".equals(changeSign);
+    }
+
+    /**
+     * 호가창 데이터가 있는지 확인
+     */
+    public boolean hasOrderBookData() {
+        return askOrders != null && !askOrders.isEmpty() && 
+               bidOrders != null && !bidOrders.isEmpty();
+    }
+
+    /**
+     * 최우선 매수호가 반환
+     */
+    public String getBestBidPrice() {
+        return bidOrders != null && !bidOrders.isEmpty() ? bidOrders.get(0).getPrice() : "0";
+    }
+
+    /**
+     * 최우선 매도호가 반환
+     */
+    public String getBestAskPrice() {
+        return askOrders != null && !askOrders.isEmpty() ? askOrders.get(0).getPrice() : "0";
+    }
+
+    /**
+     * 스프레드 계산 및 업데이트
+     */
+    public void calculateSpread() {
+        if (hasOrderBookData()) {
+            int bestAsk = Integer.parseInt(getBestAskPrice());
+            int bestBid = Integer.parseInt(getBestBidPrice());
+            this.spread = bestAsk - bestBid;
+        }
+    }
+
+    /**
+     * 매수/매도 불균형 비율 계산 및 업데이트
+     */
+    public void calculateImbalanceRatio() {
+        if (hasOrderBookData()) {
+            long totalAsk = Long.parseLong(totalAskQuantity != null ? totalAskQuantity : "0");
+            long totalBid = Long.parseLong(totalBidQuantity != null ? totalBidQuantity : "0");
+            long total = totalAsk + totalBid;
+            
+            if (total > 0) {
+                this.imbalanceRatio = (double) totalBid / total;
+                this.buyDominant = imbalanceRatio > 0.6;
+                this.sellDominant = imbalanceRatio < 0.4;
+            }
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.hanazoom.domain.stock.service;
 
 import com.hanazoom.domain.stock.dto.OrderBookResponse;
+import com.hanazoom.domain.stock.dto.OrderBookItem;
 import com.hanazoom.domain.stock.dto.StockBasicInfoResponse;
 import com.hanazoom.domain.stock.dto.StockPriceResponse;
 import com.hanazoom.domain.stock.dto.StockTickerDto;
@@ -221,28 +222,30 @@ public class StockServiceImpl implements StockService {
                         JSONObject output1 = jsonResponse.getJSONObject("output1");
 
                         // 매도 호가 리스트 구성 (1~10호가)
-                        List<OrderBookResponse.OrderBookItem> askOrders = new ArrayList<>();
+                        List<OrderBookItem> askOrders = new ArrayList<>();
                         for (int i = 1; i <= 10; i++) {
                                 String askPrice = output1.optString("askp" + i, "0");
                                 String askQuantity = output1.optString("askp_rsqn" + i, "0");
 
-                                askOrders.add(OrderBookResponse.OrderBookItem.builder()
+                                askOrders.add(OrderBookItem.builder()
                                                 .price(askPrice)
                                                 .quantity(askQuantity)
-                                                .rank(i)
+                                                .orderCount(String.valueOf(i))
+                                                .orderType("매도")
                                                 .build());
                         }
 
                         // 매수 호가 리스트 구성 (1~10호가)
-                        List<OrderBookResponse.OrderBookItem> bidOrders = new ArrayList<>();
+                        List<OrderBookItem> bidOrders = new ArrayList<>();
                         for (int i = 1; i <= 10; i++) {
                                 String bidPrice = output1.optString("bidp" + i, "0");
                                 String bidQuantity = output1.optString("bidp_rsqn" + i, "0");
 
-                                bidOrders.add(OrderBookResponse.OrderBookItem.builder()
+                                bidOrders.add(OrderBookItem.builder()
                                                 .price(bidPrice)
                                                 .quantity(bidQuantity)
-                                                .rank(i)
+                                                .orderCount(String.valueOf(i))
+                                                .orderType("매수")
                                                 .build());
                         }
 

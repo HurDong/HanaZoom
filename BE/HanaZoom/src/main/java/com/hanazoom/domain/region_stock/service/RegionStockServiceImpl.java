@@ -153,7 +153,7 @@ public class RegionStockServiceImpl implements RegionStockService {
                                                 today,
                                                 PageRequest.of(0, 5));
 
-                log.debug("Found {} trending stocks for region {}", trendingStocks.size(), regionId);
+                // 트렌딩 주식 개수는 로그에서 제외
 
                 // 4. 응답 DTO 생성
                 return RegionStatsResponse.builder()
@@ -371,8 +371,7 @@ public class RegionStockServiceImpl implements RegionStockService {
                                 .map(rs -> {
                                         String sector = rs.getStock().getSector() != null ? rs.getStock().getSector()
                                                         : "기타";
-                                        log.debug("Stock: {}, Sector: {} (원본: {})", rs.getStock().getName(), sector,
-                                                        rs.getStock().getSector());
+                                        // 섹터 정보는 로그에서 제외
 
                                         return StockTickerDto.builder()
                                                         .symbol(rs.getStock().getSymbol())

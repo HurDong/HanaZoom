@@ -2,7 +2,10 @@ package com.hanazoom.global.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hanazoom.domain.stock.dto.StockPriceResponse;
+import com.hanazoom.domain.stock.dto.OrderBookItem;
 import com.hanazoom.domain.stock.service.StockChartService;
+import com.hanazoom.domain.stock.service.StockMinutePriceService;
+import com.hanazoom.domain.stock.entity.StockMinutePrice;
 import com.hanazoom.global.config.KisConfig;
 import com.hanazoom.global.service.KisApiService;
 import com.hanazoom.global.util.MarketTimeUtils;
@@ -20,6 +23,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.data.redis.core.RedisTemplate;
 
 import javax.annotation.PostConstruct;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,6 +42,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper;
     private final StockChartService stockChartService;
     private final MarketTimeUtils marketTimeUtils;
+    private final StockMinutePriceService stockMinutePriceService;
 
     // KIS 웹소켓 연결용
     private WebSocketSession kisWebSocketSession;
@@ -45,12 +50,60 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
     @PostConstruct
     public void connectToKis() {
         try {
+            log.info("🔄 KIS WebSocket 연결 시도 중...");
             WebSocketClient client = new StandardWebSocketClient();
             URI uri = URI.create(kisConfig.getRealtimeUrl());
+            
+            // 기존 세션이 있다면 정리
+            if (kisWebSocketSession != null) {
+                try {
+                    kisWebSocketSession.close();
+                } catch (Exception e) {
+                    log.warn("⚠️ 기존 KIS WebSocket 세션 종료 중 오류: {}", e.getMessage());
+                }
+            }
+            
             client.execute(new KisWebSocketHandler(), null, uri).get();
+            log.info("✅ KIS WebSocket 연결 성공");
 
         } catch (Exception e) {
             log.error("❌ Failed to connect to KIS WebSocket", e);
+            // 연결 실패 시 재시도 스케줄링
+            scheduleReconnection();
+        }
+    }
+
+    // 재연결 스케줄링
+    private void scheduleReconnection() {
+        try {
+            log.info("🔄 10초 후 KIS WebSocket 재연결 시도 예정...");
+            Thread.sleep(10000);
+            connectToKis();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("⚠️ KIS WebSocket 재연결 스케줄링 중 인터럽트 발생");
+        } catch (Exception e) {
+            log.error("❌ KIS WebSocket 재연결 스케줄링 실패", e);
+        }
+    }
+
+    // KIS WebSocket 세션 오류 처리
+    private void handleKisSessionError() {
+        try {
+            log.info("🔄 KIS WebSocket 재연결 시도 중...");
+            if (kisWebSocketSession != null) {
+                try {
+                    kisWebSocketSession.close();
+                } catch (Exception e) {
+                    log.warn("⚠️ 기존 KIS WebSocket 세션 종료 중 오류: {}", e.getMessage());
+                }
+            }
+            
+            // 잠시 대기 후 재연결
+            Thread.sleep(2000);
+            connectToKis();
+        } catch (Exception e) {
+            log.error("❌ KIS WebSocket 재연결 실패", e);
         }
     }
 
@@ -405,7 +458,8 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                             String highPrice = dataParts[8].trim(); // 고가
                             String lowPrice = dataParts[9].trim(); // 저가
                             String previousClose = dataParts[10].trim(); // 전일종가
-                            // String bidPrice = dataParts[11].trim(); // 매수호가
+                            String bidPrice = dataParts[11].trim(); // 매수호가
+                            String askPrice = dataParts[12].trim(); // 매도호가
                             String volume = dataParts[13].trim(); // 누적거래량
                             // String volumeAmount = dataParts[14].trim(); // 누적거래대금
 
@@ -428,6 +482,14 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
 
                             }
 
+                            // 호가창 데이터 생성
+                            List<OrderBookItem> askOrders = generateAskOrders(askPrice, volume);
+                            List<OrderBookItem> bidOrders = generateBidOrders(bidPrice, volume);
+                            
+                            // 총 잔량 계산
+                            String totalAskQuantity = calculateTotalQuantity(askOrders);
+                            String totalBidQuantity = calculateTotalQuantity(bidOrders);
+                            
                             // StockPriceResponse 객체 생성
                             StockPriceResponse stockData = StockPriceResponse.builder()
                                     .stockCode(stockCode)
@@ -447,7 +509,16 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                                     .isMarketOpen(isMarketOpen)
                                     .isAfterMarketClose(isAfterMarketClose)
                                     .marketStatus(marketInfo.getStatusMessage())
+                                    // 호가창 데이터
+                                    .askOrders(askOrders)
+                                    .bidOrders(bidOrders)
+                                    .totalAskQuantity(totalAskQuantity)
+                                    .totalBidQuantity(totalBidQuantity)
                                     .build();
+                            
+                            // 호가창 관련 계산 수행
+                            stockData.calculateSpread();
+                            stockData.calculateImbalanceRatio();
 
                             // Redis에 캐시
                             String key = "stock:realtime:" + stockCode;
@@ -459,6 +530,26 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                             // 캔들 차트 데이터 업데이트
                             stockChartService.updateCurrentCandle(stockCode, currentPrice, volume);
 
+                            // 분봉 데이터 업데이트 (1분, 5분, 15분)
+                            try {
+                                stockMinutePriceService.updateCurrentMinutePrice(stockCode, 
+                                    StockMinutePrice.MinuteInterval.ONE_MINUTE, 
+                                    new BigDecimal(currentPrice), 
+                                    Long.parseLong(volume));
+                                
+                                stockMinutePriceService.updateCurrentMinutePrice(stockCode, 
+                                    StockMinutePrice.MinuteInterval.FIVE_MINUTES, 
+                                    new BigDecimal(currentPrice), 
+                                    Long.parseLong(volume));
+                                
+                                stockMinutePriceService.updateCurrentMinutePrice(stockCode, 
+                                    StockMinutePrice.MinuteInterval.FIFTEEN_MINUTES, 
+                                    new BigDecimal(currentPrice), 
+                                    Long.parseLong(volume));
+                            } catch (Exception e) {
+                                log.warn("⚠️ 분봉 데이터 업데이트 실패: 종목={}", stockCode, e);
+                            }
+
                             log.info("📈 실시간 데이터 처리 완료: {} = {}원 ({}%)", stockCode, currentPrice, changeRate);
                         } else {
                             log.warn("⚠️ KIS 데이터 필드 부족: 예상 15개, 실제 {}개", dataParts.length);
@@ -467,7 +558,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                         log.warn("⚠️ KIS 데이터 형식 오류: mainParts.length = {}", mainParts.length);
                     }
                 } else {
-                    log.debug("📋 KIS 기타 메시지 (비실시간): {}", message.substring(0, Math.min(50, message.length())));
+                    // 비실시간 메시지는 로그에서 제외
                 }
             } catch (Exception e) {
                 log.error("❌ KIS 실시간 데이터 처리 실패: {}", message, e);
@@ -489,6 +580,81 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                     return "5"; // 하한가 (KIS 4 → 우리 5)
                 default:
                     return "3"; // 기본값: 보합
+            }
+        }
+
+        /**
+         * 매도 호가 생성
+         */
+        private List<OrderBookItem> generateAskOrders(String askPrice, String volume) {
+            List<OrderBookItem> askOrders = new ArrayList<>();
+            try {
+                long basePrice = Long.parseLong(askPrice);
+                long baseVolume = Long.parseLong(volume);
+                
+                for (int i = 0; i < 10; i++) {
+                    long price = basePrice + (i * 100); // 100원씩 증가
+                    long quantity = baseVolume + (i * 1000); // 1000주씩 증가
+                    
+                    OrderBookItem item = OrderBookItem.builder()
+                            .price(String.valueOf(price))
+                            .quantity(String.valueOf(quantity))
+                            .orderCount(String.valueOf(1 + i))
+                            .orderType("매도")
+                            .rank(i + 1)
+                            .build();
+                    
+                    askOrders.add(item);
+                    log.debug("매도호가 생성: rank={}, price={}, quantity={}", item.getRank(), item.getPrice(), item.getQuantity());
+                }
+            } catch (Exception e) {
+                log.warn("매도 호가 생성 실패: {}", e.getMessage());
+            }
+            return askOrders;
+        }
+
+        /**
+         * 매수 호가 생성
+         */
+        private List<OrderBookItem> generateBidOrders(String bidPrice, String volume) {
+            List<OrderBookItem> bidOrders = new ArrayList<>();
+            try {
+                long basePrice = Long.parseLong(bidPrice);
+                long baseVolume = Long.parseLong(volume);
+                
+                for (int i = 0; i < 10; i++) {
+                    long price = basePrice - (i * 100); // 100원씩 감소
+                    long quantity = baseVolume + (i * 1000); // 1000주씩 증가
+                    
+                    OrderBookItem item = OrderBookItem.builder()
+                            .price(String.valueOf(price))
+                            .quantity(String.valueOf(quantity))
+                            .orderCount(String.valueOf(1 + i))
+                            .orderType("매수")
+                            .rank(i + 1)
+                            .build();
+                    
+                    bidOrders.add(item);
+                    log.debug("매수호가 생성: rank={}, price={}, quantity={}", item.getRank(), item.getPrice(), item.getQuantity());
+                }
+            } catch (Exception e) {
+                log.warn("매수 호가 생성 실패: {}", e.getMessage());
+            }
+            return bidOrders;
+        }
+
+        /**
+         * 총 잔량 계산
+         */
+        private String calculateTotalQuantity(List<OrderBookItem> orders) {
+            try {
+                long total = orders.stream()
+                        .mapToLong(OrderBookItem::getQuantityAsLong)
+                        .sum();
+                return String.valueOf(total);
+            } catch (Exception e) {
+                log.warn("총 잔량 계산 실패: {}", e.getMessage());
+                return "0";
             }
         }
 

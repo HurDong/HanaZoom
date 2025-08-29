@@ -76,6 +76,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/websocket/**").permitAll()
                         .requestMatchers("/api/v1/websocket/**").permitAll()
                         .requestMatchers("/api/stocks/chart/**").permitAll()
+                        .requestMatchers("/api/stock-minute-prices/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/community/**").permitAll()
                         .requestMatchers("/error").permitAll()

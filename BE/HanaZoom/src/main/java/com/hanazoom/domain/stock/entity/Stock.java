@@ -32,8 +32,6 @@ public class Stock {
     @Column
     private String sector;
 
-
-
     @Column(name = "current_price")
     private BigDecimal currentPrice;
 
