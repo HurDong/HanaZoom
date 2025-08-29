@@ -91,7 +91,7 @@ export default function StockDetailPage() {
 
     try {
       setError(null);
-      
+
       // 웹소켓 데이터에 호가창 정보가 있으면 우선 사용
       if (stockData && stockData.askOrders && stockData.bidOrders) {
         console.log("📊 웹소켓 호가창 데이터 사용");
@@ -112,7 +112,7 @@ export default function StockDetailPage() {
         setOrderBookData(wsOrderBookData);
         return;
       }
-      
+
       // 웹소켓에 호가창 데이터가 없으면 HTTP API 사용
       console.log("📊 HTTP API 호가창 데이터 사용");
       const orderBookData = await getStockOrderBook(stockCode);
@@ -382,7 +382,7 @@ export default function StockDetailPage() {
         <StockTicker />
       </div>
 
-             <main className="relative z-10 pt-28 pb-0">
+      <main className="relative z-10 pt-28 pb-0">
         <div className="container mx-auto px-6 max-w-[1400px]">
           {/* 뒤로가기 & 제목 + 로고 */}
           <div className="flex items-center justify-between mb-6">
@@ -515,16 +515,16 @@ export default function StockDetailPage() {
             </div>
           </div>
 
-                                           {/* 메인 그리드 레이아웃 (캔들차트 중심) */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch">
-                                                                                                                                                                                                               {/* 왼쪽: 현재가 정보 (균일 높이) */}
-                <div className="xl:col-span-3">
-                  {stockData ? (
-                    <div className="min-h-[350px] h-full">
-                      <StockPriceInfo stockData={stockData} className="h-full" />
-                    </div>
-                  ) : (
-                    <Card className="h-full min-h-[350px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
+          {/* 메인 그리드 레이아웃 (캔들차트 중심) */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch">
+            {/* 왼쪽: 현재가 정보 (균일 높이) */}
+            <div className="xl:col-span-3">
+              {stockData ? (
+                <div className="min-h-[350px] h-full">
+                  <StockPriceInfo stockData={stockData} className="h-full" />
+                </div>
+              ) : (
+                <Card className="h-full min-h-[350px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
                   <CardContent className="p-8 h-full">
                     <div className="text-center">
                       <div className="animate-pulse">
@@ -541,30 +541,28 @@ export default function StockDetailPage() {
               )}
             </div>
 
-                                                                                                                                                                                                               {/* 가운데: 캔들차트만 표시, 넓게 */}
-                <div className="xl:col-span-6">
-                  <Card className="h-full min-h-[350px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
+            {/* 가운데: 캔들차트만 표시, 넓게 */}
+            <div className="xl:col-span-6">
+              <Card className="h-full min-h-[350px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
                 <CardContent className="p-4 h-full">
                   <CandlestickChart stockCode={stockCode} />
                 </CardContent>
               </Card>
             </div>
 
-                                                                                                       {/* 오른쪽: 호가창 */}
-               <div className="xl:col-span-3">
-                 <div className="min-h-[400px] h-full">
-                   <OrderBookDisplay 
-                     orderBookData={orderBookData}
-                     realtimeData={stockData}
-                     isWebSocketConnected={wsConnected}
-                     onRefresh={fetchOrderBookData}
-                     className="h-full"
-                   />
-                 </div>
-               </div>
+            {/* 오른쪽: 호가창 */}
+            <div className="xl:col-span-3">
+              <div className="min-h-[400px] h-full">
+                <OrderBookDisplay
+                  orderBookData={orderBookData}
+                  realtimeData={stockData}
+                  isWebSocketConnected={wsConnected}
+                  onRefresh={fetchOrderBookData}
+                  className="h-full"
+                />
+              </div>
+            </div>
           </div>
-
-
         </div>
       </main>
     </div>

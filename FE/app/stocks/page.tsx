@@ -199,7 +199,7 @@ export default function StocksPage() {
   const [hasMore, setHasMore] = useState(true);
   const [sortBy, setSortBy] = useState("symbol");
   const [sortDir, setSortDir] = useState("asc");
-  
+
   const observer = useRef<IntersectionObserver>();
   const lastStockElementRef = useRef<HTMLDivElement>(null);
 
@@ -233,41 +233,44 @@ export default function StocksPage() {
   });
 
   // 주식 데이터 가져오기
-  const fetchStocks = useCallback(async (page: number, reset: boolean = false) => {
-    if (isLoading) return;
-    
-    setIsLoading(true);
-    try {
-      const response = await api.get("/stocks/list", {
-        params: {
-          page,
-          size: pageSize,
-          sortBy,
-          sortDir,
-        },
-      });
+  const fetchStocks = useCallback(
+    async (page: number, reset: boolean = false) => {
+      if (isLoading) return;
 
-      if (response.data && response.data.success) {
-        const stockPage: StockPage = response.data.data;
-        
-        if (reset) {
-          setStocks(stockPage.content);
-          setFilteredStocks(stockPage.content);
-        } else {
-          setStocks(prev => [...prev, ...stockPage.content]);
-          setFilteredStocks(prev => [...prev, ...stockPage.content]);
+      setIsLoading(true);
+      try {
+        const response = await api.get("/stocks/list", {
+          params: {
+            page,
+            size: pageSize,
+            sortBy,
+            sortDir,
+          },
+        });
+
+        if (response.data && response.data.success) {
+          const stockPage: StockPage = response.data.data;
+
+          if (reset) {
+            setStocks(stockPage.content);
+            setFilteredStocks(stockPage.content);
+          } else {
+            setStocks((prev) => [...prev, ...stockPage.content]);
+            setFilteredStocks((prev) => [...prev, ...stockPage.content]);
+          }
+
+          setTotalPages(stockPage.totalPages);
+          setTotalElements(stockPage.totalElements);
+          setHasMore(!stockPage.last);
         }
-        
-        setTotalPages(stockPage.totalPages);
-        setTotalElements(stockPage.totalElements);
-        setHasMore(!stockPage.last);
+      } catch (error) {
+        console.error("주식 데이터 가져오기 실패:", error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("주식 데이터 가져오기 실패:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [sortBy, sortDir]);
+    },
+    [sortBy, sortDir]
+  );
 
   // 초기 데이터 로드
   useEffect(() => {
@@ -283,21 +286,24 @@ export default function StocksPage() {
   }, [sortBy, sortDir, fetchStocks]);
 
   // 무한 스크롤 설정
-  const lastElementRef = useCallback((node: HTMLDivElement) => {
-    if (isLoading) return;
-    
-    if (observer.current) observer.current.disconnect();
-    
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        const nextPage = currentPage + 1;
-        setCurrentPage(nextPage);
-        fetchStocks(nextPage);
-      }
-    });
-    
-    if (node) observer.current.observe(node);
-  }, [isLoading, hasMore, currentPage, fetchStocks]);
+  const lastElementRef = useCallback(
+    (node: HTMLDivElement) => {
+      if (isLoading) return;
+
+      if (observer.current) observer.current.disconnect();
+
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          const nextPage = currentPage + 1;
+          setCurrentPage(nextPage);
+          fetchStocks(nextPage);
+        }
+      });
+
+      if (node) observer.current.observe(node);
+    },
+    [isLoading, hasMore, currentPage, fetchStocks]
+  );
 
   // 검색 필터링
   useEffect(() => {
@@ -436,7 +442,9 @@ export default function StocksPage() {
                 size="sm"
                 onClick={() => handleSortChange("symbol")}
                 className={`border-green-600 ${
-                  sortBy === "symbol" ? "bg-green-50 text-green-600" : "text-green-600"
+                  sortBy === "symbol"
+                    ? "bg-green-50 text-green-600"
+                    : "text-green-600"
                 }`}
               >
                 <ArrowUpDown className="w-4 h-4 mr-1" />
@@ -450,7 +458,9 @@ export default function StocksPage() {
                 size="sm"
                 onClick={() => handleSortChange("name")}
                 className={`border-green-600 ${
-                  sortBy === "name" ? "bg-green-50 text-green-600" : "text-green-600"
+                  sortBy === "name"
+                    ? "bg-green-50 text-green-600"
+                    : "text-green-600"
                 }`}
               >
                 <ArrowUpDown className="w-4 h-4 mr-1" />
@@ -464,7 +474,9 @@ export default function StocksPage() {
                 size="sm"
                 onClick={() => handleSortChange("sector")}
                 className={`border-green-600 ${
-                  sortBy === "sector" ? "bg-green-50 text-green-600" : "text-green-600"
+                  sortBy === "sector"
+                    ? "bg-green-50 text-green-600"
+                    : "text-green-600"
                 }`}
               >
                 <ArrowUpDown className="w-4 h-4 mr-1" />
@@ -629,7 +641,9 @@ export default function StocksPage() {
             {isLoading && (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-                <p className="text-green-600 dark:text-green-400">종목을 불러오는 중...</p>
+                <p className="text-green-600 dark:text-green-400">
+                  종목을 불러오는 중...
+                </p>
               </div>
             )}
 
