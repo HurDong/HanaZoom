@@ -83,6 +83,10 @@ public class Member implements UserDetails {
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SocialAccount> socialAccounts = new ArrayList<>();
 
+    // 포트폴리오 관련 연관관계
+    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<com.hanazoom.domain.portfolio.entity.Account> accounts = new ArrayList<>();
+
     @Builder
     public Member(String email, String password, String name, String phone,
             String address, String detailAddress, String zonecode,
@@ -151,6 +155,32 @@ public class Member implements UserDetails {
                 .filter(account -> account.getProvider() == provider)
                 .findFirst()
                 .orElse(null);
+    }
+
+    // 포트폴리오 관련 메서드들
+    public void addAccount(com.hanazoom.domain.portfolio.entity.Account account) {
+        this.accounts.add(account);
+    }
+
+    public void removeAccount(com.hanazoom.domain.portfolio.entity.Account account) {
+        this.accounts.remove(account);
+    }
+
+    public com.hanazoom.domain.portfolio.entity.Account getMainAccount() {
+        return this.accounts.stream()
+                .filter(com.hanazoom.domain.portfolio.entity.Account::isMainAccount)
+                .findFirst()
+                .orElse(null);
+    }
+
+    public List<com.hanazoom.domain.portfolio.entity.Account> getActiveAccounts() {
+        return this.accounts.stream()
+                .filter(com.hanazoom.domain.portfolio.entity.Account::isActive)
+                .toList();
+    }
+
+    public boolean hasActiveAccounts() {
+        return this.accounts.stream().anyMatch(com.hanazoom.domain.portfolio.entity.Account::isActive);
     }
 
     @Override
