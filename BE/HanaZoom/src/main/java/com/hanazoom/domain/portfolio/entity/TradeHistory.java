@@ -84,7 +84,7 @@ public class TradeHistory {
     public TradeHistory(Account account, String stockSymbol, TradeType tradeType,
             LocalDate tradeDate, LocalTime tradeTime, Integer quantity,
             BigDecimal pricePerShare, BigDecimal totalAmount, BigDecimal commission,
-            BigDecimal tax, String tradeMemo) {
+            BigDecimal tax, BigDecimal balanceAfterTrade, Integer stockQuantityAfterTrade, String tradeMemo) {
         this.account = account;
         this.stockSymbol = stockSymbol;
         this.tradeType = tradeType;
@@ -95,6 +95,8 @@ public class TradeHistory {
         this.totalAmount = totalAmount;
         this.commission = commission != null ? commission : BigDecimal.ZERO;
         this.tax = tax != null ? tax : BigDecimal.ZERO;
+        this.balanceAfterTrade = balanceAfterTrade;
+        this.stockQuantityAfterTrade = stockQuantityAfterTrade;
         this.tradeMemo = tradeMemo;
 
         calculateNetAmount();

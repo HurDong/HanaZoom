@@ -11,6 +11,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "account_balances")
@@ -40,6 +42,13 @@ public class AccountBalance {
     @Column(name = "frozen_cash", nullable = false, precision = 15, scale = 2)
     private BigDecimal frozenCash = BigDecimal.ZERO;
 
+    // 정산 관련 현금
+    @Column(name = "settlement_cash", nullable = false, precision = 15, scale = 2)
+    private BigDecimal settlementCash = BigDecimal.ZERO;
+
+    @Column(name = "withdrawable_cash", nullable = false, precision = 15, scale = 2)
+    private BigDecimal withdrawableCash = BigDecimal.ZERO;
+
     // 주식 평가 정보
     @Column(name = "total_stock_value", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalStockValue = BigDecimal.ZERO;
@@ -54,6 +63,10 @@ public class AccountBalance {
     @Column(name = "total_balance", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalBalance = BigDecimal.ZERO;
 
+    // 정산 일정
+    @OneToMany(mappedBy = "accountBalance", cascade = CascadeType.ALL)
+    private List<SettlementSchedule> settlementSchedules = new ArrayList<>();
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -64,13 +77,16 @@ public class AccountBalance {
 
     @Builder
     public AccountBalance(Account account, LocalDate balanceDate, BigDecimal cashBalance,
-            BigDecimal availableCash, BigDecimal frozenCash, BigDecimal totalStockValue,
+            BigDecimal availableCash, BigDecimal frozenCash, BigDecimal settlementCash,
+            BigDecimal withdrawableCash, BigDecimal totalStockValue,
             BigDecimal totalProfitLoss, BigDecimal totalProfitLossRate) {
         this.account = account;
         this.balanceDate = balanceDate;
         this.cashBalance = cashBalance != null ? cashBalance : BigDecimal.ZERO;
         this.availableCash = availableCash != null ? availableCash : BigDecimal.ZERO;
         this.frozenCash = frozenCash != null ? frozenCash : BigDecimal.ZERO;
+        this.settlementCash = settlementCash != null ? settlementCash : BigDecimal.ZERO;
+        this.withdrawableCash = withdrawableCash != null ? withdrawableCash : BigDecimal.ZERO;
         this.totalStockValue = totalStockValue != null ? totalStockValue : BigDecimal.ZERO;
         this.totalProfitLoss = totalProfitLoss != null ? totalProfitLoss : BigDecimal.ZERO;
         this.totalProfitLossRate = totalProfitLossRate != null ? totalProfitLossRate : BigDecimal.ZERO;
@@ -79,7 +95,11 @@ public class AccountBalance {
 
     // 총 잔고 계산
     public void calculateTotalBalance() {
-        this.totalBalance = this.cashBalance.add(this.totalStockValue);
+        this.totalBalance = this.availableCash
+                .add(this.settlementCash)
+                .add(this.withdrawableCash)
+                .add(this.frozenCash)
+                .add(this.totalStockValue);
     }
 
     // 현금 잔고 업데이트
