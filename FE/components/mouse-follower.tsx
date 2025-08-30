@@ -72,7 +72,7 @@ export function MouseFollower() {
   }, []);
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-[9999]">
+    <div className="fixed inset-0 pointer-events-none z-[9999999]">
       {/* 주식 차트 라인 궤적 */}
       {trail.length > 1 && (
         <svg className="absolute inset-0 w-full h-full">
