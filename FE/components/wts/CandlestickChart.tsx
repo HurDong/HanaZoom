@@ -387,9 +387,19 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
       // 호버 효과
       if (hoveredCandle === index) {
+        // 호버된 캔들 강조 - 더 뚜렷하게
         ctx.strokeStyle = "#f59e0b";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x - 2, bodyTop - 2, candleWidth + 4, bodyHeight + 4);
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x - 3, bodyTop - 3, candleWidth + 6, bodyHeight + 6);
+
+        // 호버된 캔들 내부 하이라이트
+        ctx.fillStyle = color + "CC"; // CC = 80% 투명도
+        ctx.fillRect(x, bodyTop, candleWidth, bodyHeight);
+
+        // 호버된 캔들 테두리 다시 그리기
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x, bodyTop, candleWidth, bodyHeight);
       }
     });
   }, [chartData, hoveredCandle]);
@@ -430,6 +440,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const index = Math.floor((x - padding) / candleSpacing);
     if (index >= 0 && index < chartData.length) {
       setHoveredCandle(index);
+      setHoveredVolume(index); // 거래량 차트도 동시에 활성화
       setTooltipData({
         x: event.clientX,
         y: event.clientY,
@@ -438,6 +449,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       });
     } else {
       setHoveredCandle(null);
+      setHoveredVolume(null);
       setTooltipData(null);
     }
   };
@@ -445,6 +457,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
   // 차트 마우스 리브 핸들러
   const handleChartMouseLeave = () => {
     setHoveredCandle(null);
+    setHoveredVolume(null); // 거래량 차트도 함께 비활성화
     setTooltipData(null);
   };
 
@@ -465,6 +478,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const index = Math.floor((x - padding) / barSpacing);
     if (index >= 0 && index < chartData.length) {
       setHoveredVolume(index);
+      setHoveredCandle(index); // 캔들차트도 동시에 활성화
       setTooltipData({
         x: event.clientX,
         y: event.clientY,
@@ -473,6 +487,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       });
     } else {
       setHoveredVolume(null);
+      setHoveredCandle(null);
       setTooltipData(null);
     }
   };
@@ -480,6 +495,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
   // 거래량 차트 마우스 리브 핸들러
   const handleVolumeMouseLeave = () => {
     setHoveredVolume(null);
+    setHoveredCandle(null); // 캔들차트도 함께 비활성화
     setTooltipData(null);
   };
 
@@ -505,17 +521,29 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const padding = 60; // 캔들차트와 동일한 패딩
     const chartWidth = canvas.width - padding * 2;
     const chartHeight = canvas.height - padding * 2;
-    const barWidth = Math.max(1, (chartWidth / chartData.length) * 0.8);
+    const barWidth = Math.max(3, (chartWidth / chartData.length) * 0.8); // 바 너비 더 증가
     const barSpacing = chartWidth / chartData.length; // 캔들차트와 동일한 간격
 
     // 거래량 범위 계산
     const volumes = chartData.map((d) => d.volume);
     const maxVolume = Math.max(...volumes);
 
-    // 그리드 그리기
-    ctx.strokeStyle = "#e5e7eb";
-    ctx.lineWidth = 0.5;
-    ctx.setLineDash([2, 2]);
+    // 배경 그라데이션
+    const gradient = ctx.createLinearGradient(
+      0,
+      padding,
+      0,
+      canvas.height - padding
+    );
+    gradient.addColorStop(0, "rgba(16, 185, 129, 0.03)");
+    gradient.addColorStop(1, "rgba(16, 185, 129, 0.08)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(padding, padding, chartWidth, chartHeight);
+
+    // 1단계: 먼저 그리드 그리기 (뒤쪽에 위치)
+    ctx.strokeStyle = "#374151"; // 더 어두운 그리드 색상
+    ctx.lineWidth = 0.8; // 선 두께 줄임
+    ctx.setLineDash([6, 6]); // 점선 간격 더 늘림
 
     // 수평 그리드
     for (let i = 0; i <= 4; i++) {
@@ -524,16 +552,6 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       ctx.moveTo(padding, y);
       ctx.lineTo(canvas.width - padding, y);
       ctx.stroke();
-    }
-
-    // Y축 라벨 (거래량 단위)
-    ctx.fillStyle = "#6b7280";
-    ctx.font = "10px Arial";
-    ctx.textAlign = "right";
-    for (let i = 0; i <= 4; i++) {
-      const volume = maxVolume - (maxVolume / 4) * i;
-      const y = padding + (chartHeight / 4) * i;
-      ctx.fillText(`${(volume / 1000000).toFixed(1)}M`, padding - 10, y + 3);
     }
 
     // 수직 그리드 (캔들차트와 동일한 위치)
@@ -545,27 +563,61 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       ctx.stroke();
     }
 
-    // 거래량 바 그리기 (캔들차트와 정확히 동일한 X축 위치)
+    // 2단계: 거래량 바 그리기 (그리드보다 앞에 위치)
     chartData.forEach((dataPoint, index) => {
       const x = padding + index * barSpacing + (barSpacing - barWidth) / 2;
       const height = (dataPoint.volume / maxVolume) * chartHeight;
       const y = canvas.height - padding - height;
 
-      // 캔들 색상과 동일한 색상 사용
+      // 캔들 색상과 동일한 색상 사용하되 더 진하게
       const color = getCandleColor(dataPoint);
-      ctx.fillStyle = color + "60";
+
+      // 바 배경 (더 진한 색상, 불투명도 증가)
+      ctx.fillStyle = color + "E6"; // E6 = 90% 불투명도
       ctx.fillRect(x, y, barWidth, height);
 
-      // 테두리
+      // 바 테두리 (실선으로 깔끔하게)
       ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([]); // 점선 제거, 실선으로 설정
       ctx.strokeRect(x, y, barWidth, height);
+
+      // 호버 효과 - 더 뚜렷하게
+      if (hoveredVolume === index) {
+        // 호버된 바 강조 (가장 앞에 위치)
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 4;
+        ctx.setLineDash([]); // 호버 시에도 실선 유지
+        ctx.strokeRect(x - 3, y - 3, barWidth + 6, height + 6);
+
+        // 호버된 바 내부 하이라이트
+        ctx.fillStyle = color + "FF"; // FF = 100% 불투명도
+        ctx.fillRect(x, y, barWidth, height);
+
+        // 호버된 바 테두리 다시 그리기
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]); // 실선 유지
+        ctx.strokeRect(x, y, barWidth, height);
+      }
     });
 
-    // X축 라벨 (캔들차트와 동일한 위치)
+    // 3단계: 마지막에 라벨 그리기 (가장 앞에 위치)
     ctx.setLineDash([]);
-    ctx.fillStyle = "#6b7280";
-    ctx.font = "10px Arial";
+
+    // Y축 라벨 (거래량 단위) - 더 진한 색상
+    ctx.fillStyle = "#1f2937"; // 더 진한 텍스트 색상
+    ctx.font = "12px Arial"; // 폰트 크기 더 증가
+    ctx.textAlign = "right";
+    for (let i = 0; i <= 4; i++) {
+      const volume = maxVolume - (maxVolume / 4) * i;
+      const y = padding + (chartHeight / 4) * i;
+      ctx.fillText(`${(volume / 1000000).toFixed(1)}M`, padding - 10, y + 3);
+    }
+
+    // X축 라벨 (캔들차트와 동일한 위치) - 더 진한 색상
+    ctx.fillStyle = "#1f2937"; // 더 진한 텍스트 색상
+    ctx.font = "12px Arial"; // 폰트 크기 더 증가
     ctx.textAlign = "center";
     for (
       let i = 0;
@@ -577,16 +629,16 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       ctx.fillText(time, x, canvas.height - padding + 20);
     }
 
-    // 거래량 라벨
-    ctx.fillStyle = "#6b7280";
-    ctx.font = "10px Arial";
+    // 거래량 라벨 - 더 진한 색상
+    ctx.fillStyle = "#1f2937";
+    ctx.font = "12px Arial";
     ctx.textAlign = "right";
     ctx.fillText(
       `${(maxVolume / 1000000).toFixed(1)}M`,
       canvas.width - padding,
       padding + 10
     );
-  }, [chartData, timeframe]);
+  }, [chartData, timeframe, hoveredVolume]);
 
   // 차트 리사이즈 및 렌더링
   useEffect(() => {
@@ -781,8 +833,8 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
           )}
         </div>
 
-        {/* 거래량 차트 영역 */}
-        <div className="relative h-[200px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+        {/* 거래량 차트 영역 - 높이 증가 */}
+        <div className="relative h-[250px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
           {chartData.length > 0 ? (
             <canvas
               id="volumeCanvas"
