@@ -538,64 +538,126 @@ export default function NavBar() {
             {accessToken ? (
               // 로그인 상태: 프로필 정보
               <div className="p-6">
-                {/* 프로필 헤더 */}
+                {/* 프로필 헤더 - 계층화된 정보 */}
                 <div className="flex items-center space-x-4 mb-6">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow-lg">
-                    <User className="w-7 h-7 text-white" />
+                  <div className="relative">
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg">
+                      <User className="w-7 h-7 text-white" />
+                    </div>
+                    {/* 하나금융 그룹 뱃지 오버레이 */}
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center shadow-md">
+                      <span className="text-xs text-white font-bold">H</span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white font-['Pretendard']">
-                      사용자님
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 font-['Pretendard']">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white font-['Pretendard']">
+                        사용자님
+                      </h3>
+                      {/* 회원 등급 뱃지 */}
+                      <span className="px-2 py-1 text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-200 dark:border-emerald-700">
+                        일반회원
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 font-['Pretendard']">
                       하나줌 회원
                     </p>
                   </div>
                 </div>
 
-                {/* 프로필 정보 */}
-                <div className="space-y-3 mb-6">
-                  <div className="flex justify-between items-center py-3 border-b border-gray-100 dark:border-gray-800">
-                    <span className="text-sm text-gray-600 dark:text-gray-400 font-['Pretendard']">
+                {/* 보조 정보 - 작은 글씨로 Secondary color */}
+                <div className="space-y-2 mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-500 dark:text-gray-400 font-['Pretendard']">
                       가입일
                     </span>
-                    <span className="text-sm text-gray-900 dark:text-white font-['Pretendard'] font-medium">
-                      2024년
+                    <span className="text-gray-700 dark:text-gray-300 font-['Pretendard'] font-medium">
+                      2024년 3월
                     </span>
                   </div>
-                  <div className="flex justify-between items-center py-3 border-b border-gray-100 dark:border-gray-800">
-                    <span className="text-sm text-gray-600 dark:text-gray-400 font-['Pretendard']">
-                      등급
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-500 dark:text-gray-400 font-['Pretendard']">
+                      최근 접속
                     </span>
-                    <span className="text-sm text-green-600 dark:text-green-400 font-['Pretendard'] font-medium">
-                      일반회원
+                    <span className="text-gray-700 dark:text-gray-300 font-['Pretendard'] font-medium">
+                      2025-08-31 (PC)
                     </span>
                   </div>
                 </div>
 
-                {/* 액션 버튼들 */}
-                <div className="space-y-3">
+                {/* 자산 현황 섹션 */}
+                <div className="mb-6 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl border border-emerald-200/50 dark:border-emerald-700/30">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-lg">📊</span>
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white font-['Pretendard']">
+                      내 자산 현황
+                    </h4>
+                  </div>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-400 font-['Pretendard']">
+                        총자산
+                      </span>
+                      <span className="text-gray-900 dark:text-white font-['Pretendard'] font-semibold">
+                        1,200만원
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-400 font-['Pretendard']">
+                        주식
+                      </span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-['Pretendard'] font-medium">
+                        75%
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-400 font-['Pretendard']">
+                        현금
+                      </span>
+                      <span className="text-blue-600 dark:text-blue-400 font-['Pretendard'] font-medium">
+                        25%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 액션 버튼들 - 라인 스타일로 변경 */}
+                <div className="space-y-2 mb-4">
                   <button
                     onClick={handleMyPageClick}
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg font-['Pretendard']"
+                    className="w-full border-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-transparent hover:bg-emerald-50 dark:hover:bg-emerald-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm"
                   >
                     마이페이지로 이동
                   </button>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg font-['Pretendard']"
-                  >
-                    로그아웃
-                  </button>
+                  <div className="flex gap-2">
+                    <button className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800 font-medium py-2 px-3 rounded-lg transition-all duration-200 font-['Pretendard'] text-xs">
+                      알림설정
+                    </button>
+                    <button className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800 font-medium py-2 px-3 rounded-lg transition-all duration-200 font-['Pretendard'] text-xs">
+                      고객센터
+                    </button>
+                  </div>
                 </div>
+
+                {/* 로그아웃 버튼 - 진한 회색으로 톤다운 */}
+                <button
+                  onClick={handleLogout}
+                  className="w-full border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-400 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm"
+                >
+                  로그아웃
+                </button>
               </div>
             ) : (
               // 로그아웃 상태: 로그인/회원가입 옵션
               <div className="p-6">
                 {/* 헤더 */}
                 <div className="text-center mb-6">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 mx-auto mb-4 flex items-center justify-center shadow-lg">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 mx-auto mb-4 flex items-center justify-center shadow-lg relative">
                     <User className="w-8 h-8 text-white" />
+                    {/* 하나금융 그룹 뱃지 오버레이 */}
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center shadow-md">
+                      <span className="text-xs text-white font-bold">H</span>
+                    </div>
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white font-['Pretendard'] mb-2">
                     하나줌에 오신 것을 환영합니다!
@@ -605,12 +667,12 @@ export default function NavBar() {
                   </p>
                 </div>
 
-                {/* 로그인/회원가입 버튼들 */}
+                {/* 로그인/회원가입 버튼들 - 라인 스타일로 변경 */}
                 <div className="space-y-3">
                   <Link
                     href="/login"
                     onClick={() => setShowProfileModal(false)}
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg font-['Pretendard'] flex items-center justify-center"
+                    className="w-full border-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-transparent hover:bg-emerald-50 dark:hover:bg-emerald-900/20 font-semibold py-3 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] flex items-center justify-center"
                   >
                     <span className="mr-2">🚀</span>
                     로그인하기
@@ -618,7 +680,7 @@ export default function NavBar() {
                   <Link
                     href="/signup"
                     onClick={() => setShowProfileModal(false)}
-                    className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg font-['Pretendard'] flex items-center justify-center"
+                    className="w-full border-2 border-amber-500 text-amber-600 dark:text-amber-400 bg-transparent hover:bg-amber-50 dark:hover:bg-amber-900/20 font-semibold py-3 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] flex items-center justify-center"
                   >
                     <span className="mr-2">✨</span>
                     회원가입하기
