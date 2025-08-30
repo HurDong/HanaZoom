@@ -35,7 +35,7 @@ export function TradingTabs({
     switch (activeTab) {
       case "price":
         return (
-          <div className="h-[720px] lg:h-[920px] xl:h-[1020px] 2xl:h-[1120px]">
+          <div className="h-[620px] lg:h-[720px] xl:h-[820px] 2xl:h-[920px]">
             {stockData ? (
               <StockPriceInfo stockData={stockData} className="h-full" />
             ) : (
@@ -55,7 +55,7 @@ export function TradingTabs({
 
       case "orderbook":
         return (
-          <div className="h-[720px] lg:h-[920px] xl:h-[1020px] 2xl:h-[1120px]">
+          <div className="h-[620px] lg:h-[720px] xl:h-[820px] 2xl:h-[920px]">
             <OrderBookDisplay
               orderBookData={orderBookData}
               realtimeData={stockData}
@@ -76,7 +76,7 @@ export function TradingTabs({
 
       case "order":
         return (
-          <div className="h-[720px] lg:h-[920px] xl:h-[1020px] 2xl:h-[1120px]">
+          <div className="h-[620px] lg:h-[720px] xl:h-[820px] 2xl:h-[920px]">
             <TradingOrderPanel
               ref={orderPanelRef}
               stockCode={stockCode}
@@ -92,7 +92,7 @@ export function TradingTabs({
   };
 
   return (
-    <Card className="h-[800px] lg:h-[1000px] xl:h-[1100px] 2xl:h-[1200px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
+    <Card className="h-[700px] lg:h-[800px] xl:h-[900px] 2xl:h-[1000px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg">
       {/* 탭 헤더 */}
       <CardHeader className="pb-3">
         <div className="flex gap-1">
@@ -118,7 +118,7 @@ export function TradingTabs({
       </CardHeader>
 
       {/* 탭 컨텐츠 */}
-      <CardContent className="p-4 h-[720px] lg:h-[920px] xl:h-[1020px] 2xl:h-[1120px] overflow-hidden">
+      <CardContent className="p-4 h-[620px] lg:h-[720px] xl:h-[820px] 2xl:h-[1120px] overflow-hidden">
         {renderTabContent()}
       </CardContent>
     </Card>

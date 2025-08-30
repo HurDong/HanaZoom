@@ -437,7 +437,7 @@ export default function StockDetailPage() {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950">
       {/* 마우스 따라다니는 아이콘들 */}
       <MouseFollower />
 
@@ -472,7 +472,7 @@ export default function StockDetailPage() {
         <StockTicker />
       </div>
 
-      <main className="relative z-10 pt-28 pb-0">
+      <main className="relative z-10 pt-28 pb-4">
         <div className="container mx-auto px-4 max-w-none">
           {/* 뒤로가기 & 제목 + 로고 */}
           <div className="flex items-center justify-between mb-6">
@@ -632,10 +632,10 @@ export default function StockDetailPage() {
           </div>
 
           {/* 메인 레이아웃: 차트 중심 + 오른쪽 탭 */}
-          <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex flex-col lg:flex-row gap-4 mb-0">
             {/* 캔들차트 (화면 전체 차지) */}
             <div className="flex-1 min-w-0 order-1 lg:order-1">
-              <Card className="h-[800px] lg:h-[1000px] xl:h-[1100px] 2xl:h-[1200px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-gray-700 shadow-lg">
+              <Card className="h-[700px] lg:h-[800px] xl:h-[900px] 2xl:h-[1000px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-gray-700 shadow-lg">
                 <CardContent className="p-2 h-full">
                   <CandlestickChart stockCode={stockCode} />
                 </CardContent>

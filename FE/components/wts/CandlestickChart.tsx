@@ -292,7 +292,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     // 배경 클리어
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const padding = 60;
+    const padding = 80; // 패딩 증가로 축 공간 확보
     const chartWidth = canvas.width - padding * 2;
     const chartHeight = canvas.height - padding * 2;
     const candleWidth = Math.max(2, (chartWidth / chartData.length) * 0.8);
@@ -304,10 +304,10 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const maxPrice = Math.max(...prices);
     const priceRange = maxPrice - minPrice;
 
-    // 그리드 그리기
-    ctx.strokeStyle = "#e5e7eb";
+    // 1단계: 배경 그리드 그리기 (가장 뒤쪽)
+    ctx.strokeStyle = "#374151"; // 어두운 그리드 색상
     ctx.lineWidth = 0.5;
-    ctx.setLineDash([3, 3]);
+    ctx.setLineDash([4, 4]);
 
     // 수평 그리드
     for (let i = 0; i <= 5; i++) {
@@ -327,31 +327,24 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       ctx.stroke();
     }
 
-    ctx.setLineDash([]);
+    // 2단계: X축과 Y축 그리기 (그리드 위에)
+    ctx.setLineDash([]); // 실선으로 설정
+    ctx.strokeStyle = "#6b7280"; // 축 색상
+    ctx.lineWidth = 2; // 축 두께
 
-    // Y축 라벨
-    ctx.fillStyle = "#6b7280";
-    ctx.font = "10px Arial";
-    ctx.textAlign = "right";
-    for (let i = 0; i <= 5; i++) {
-      const price = maxPrice - (priceRange / 5) * i;
-      const y = padding + (chartHeight / 5) * i;
-      ctx.fillText(price.toLocaleString(), padding - 10, y + 3);
-    }
+    // Y축 (왼쪽)
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, canvas.height - padding);
+    ctx.stroke();
 
-    // X축 라벨
-    ctx.textAlign = "center";
-    for (
-      let i = 0;
-      i < chartData.length;
-      i += Math.max(1, Math.floor(chartData.length / 10))
-    ) {
-      const x = padding + candleSpacing * i + candleSpacing / 2;
-      const time = formatTimeLabel(chartData[i].time, timeframe);
-      ctx.fillText(time, x, canvas.height - padding + 20);
-    }
+    // X축 (아래쪽)
+    ctx.beginPath();
+    ctx.moveTo(padding, canvas.height - padding);
+    ctx.lineTo(canvas.width - padding, canvas.height - padding);
+    ctx.stroke();
 
-    // 캔들스틱 그리기
+    // 3단계: 캔들스틱 그리기 (축 위에)
     chartData.forEach((dataPoint, index) => {
       const x =
         padding + candleSpacing * index + (candleSpacing - candleWidth) / 2;
@@ -379,7 +372,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       const bodyTop = Math.min(openY, closeY);
       const bodyHeight = Math.max(Math.abs(closeY - openY), 1);
 
-      ctx.fillStyle = color; // 상승/하락 모두 동일한 색상으로 배경 채우기
+      ctx.fillStyle = color;
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
       ctx.fillRect(x, bodyTop, candleWidth, bodyHeight);
@@ -402,7 +395,58 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         ctx.strokeRect(x, bodyTop, candleWidth, bodyHeight);
       }
     });
-  }, [chartData, hoveredCandle]);
+
+    // 4단계: 축 라벨 그리기 (가장 앞에)
+    ctx.fillStyle = "#f3f4f6"; // 밝은 색상으로 변경
+    ctx.font = "bold 12px Arial"; // 폰트 굵기 증가
+
+    // Y축 라벨 (왼쪽)
+    ctx.textAlign = "right";
+    for (let i = 0; i <= 5; i++) {
+      const price = maxPrice - (priceRange / 5) * i;
+      const y = padding + (chartHeight / 5) * i;
+      ctx.fillText(price.toLocaleString(), padding - 15, y + 4);
+    }
+
+    // X축 라벨 (아래쪽)
+    ctx.textAlign = "center";
+    for (
+      let i = 0;
+      i < chartData.length;
+      i += Math.max(1, Math.floor(chartData.length / 10))
+    ) {
+      const x = padding + candleSpacing * i + candleSpacing / 2;
+      const time = formatTimeLabel(chartData[i].time, timeframe);
+      ctx.fillText(time, x, canvas.height - padding + 25);
+    }
+
+    // 현재가 라인 (토스증권 스타일)
+    if (chartData.length > 0) {
+      const lastPrice = chartData[chartData.length - 1].close;
+      const currentPriceY =
+        padding + ((maxPrice - lastPrice) / priceRange) * chartHeight;
+
+      // 현재가 수평선
+      ctx.strokeStyle = "#ef4444"; // 빨간색
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]); // 점선
+      ctx.beginPath();
+      ctx.moveTo(padding, currentPriceY);
+      ctx.lineTo(canvas.width - padding, currentPriceY);
+      ctx.stroke();
+
+      // 현재가 라벨
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#ef4444";
+      ctx.font = "bold 12px Arial";
+      ctx.textAlign = "left";
+      ctx.fillText(
+        `현재가: ${lastPrice.toLocaleString()}원`,
+        canvas.width - padding + 10,
+        currentPriceY + 4
+      );
+    }
+  }, [chartData, hoveredCandle, timeframe]);
 
   // 차트 클릭 핸들러
   const handleChartClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -518,7 +562,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // 캔들차트와 동일한 패딩과 간격 사용
-    const padding = 60; // 캔들차트와 동일한 패딩
+    const padding = 80; // 캔들차트와 동일한 패딩
     const chartWidth = canvas.width - padding * 2;
     const chartHeight = canvas.height - padding * 2;
     const barWidth = Math.max(3, (chartWidth / chartData.length) * 0.8); // 바 너비 더 증가
@@ -542,7 +586,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
     // 1단계: 먼저 그리드 그리기 (뒤쪽에 위치)
     ctx.strokeStyle = "#374151"; // 더 어두운 그리드 색상
-    ctx.lineWidth = 0.8; // 선 두께 줄임
+    ctx.lineWidth = 0.5; // 선 두께 줄임
     ctx.setLineDash([6, 6]); // 점선 간격 더 늘림
 
     // 수평 그리드
@@ -563,7 +607,24 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       ctx.stroke();
     }
 
-    // 2단계: 거래량 바 그리기 (그리드보다 앞에 위치)
+    // 2단계: X축과 Y축 그리기 (그리드 위에)
+    ctx.setLineDash([]); // 실선으로 설정
+    ctx.strokeStyle = "#6b7280"; // 축 색상
+    ctx.lineWidth = 2; // 축 두께
+
+    // Y축 (왼쪽)
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, canvas.height - padding);
+    ctx.stroke();
+
+    // X축 (아래쪽)
+    ctx.beginPath();
+    ctx.moveTo(padding, canvas.height - padding);
+    ctx.lineTo(canvas.width - padding, canvas.height - padding);
+    ctx.stroke();
+
+    // 3단계: 거래량 바 그리기 (축 위에 위치)
     chartData.forEach((dataPoint, index) => {
       const x = padding + index * barSpacing + (barSpacing - barWidth) / 2;
       const height = (dataPoint.volume / maxVolume) * chartHeight;
@@ -602,22 +663,22 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       }
     });
 
-    // 3단계: 마지막에 라벨 그리기 (가장 앞에 위치)
+    // 4단계: 마지막에 라벨 그리기 (가장 앞에 위치)
     ctx.setLineDash([]);
 
     // Y축 라벨 (거래량 단위) - 더 진한 색상
-    ctx.fillStyle = "#1f2937"; // 더 진한 텍스트 색상
-    ctx.font = "12px Arial"; // 폰트 크기 더 증가
+    ctx.fillStyle = "#f3f4f6"; // 밝은 색상으로 변경
+    ctx.font = "bold 12px Arial"; // 폰트 굵기 증가
     ctx.textAlign = "right";
     for (let i = 0; i <= 4; i++) {
       const volume = maxVolume - (maxVolume / 4) * i;
       const y = padding + (chartHeight / 4) * i;
-      ctx.fillText(`${(volume / 1000000).toFixed(1)}M`, padding - 10, y + 3);
+      ctx.fillText(`${(volume / 1000000).toFixed(1)}M`, padding - 15, y + 4);
     }
 
     // X축 라벨 (캔들차트와 동일한 위치) - 더 진한 색상
-    ctx.fillStyle = "#1f2937"; // 더 진한 텍스트 색상
-    ctx.font = "12px Arial"; // 폰트 크기 더 증가
+    ctx.fillStyle = "#f3f4f6"; // 밝은 색상으로 변경
+    ctx.font = "bold 12px Arial"; // 폰트 굵기 증가
     ctx.textAlign = "center";
     for (
       let i = 0;
@@ -626,17 +687,17 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     ) {
       const x = padding + barSpacing * i + barSpacing / 2;
       const time = formatTimeLabel(chartData[i].time, timeframe);
-      ctx.fillText(time, x, canvas.height - padding + 20);
+      ctx.fillText(time, x, canvas.height - padding + 25);
     }
 
     // 거래량 라벨 - 더 진한 색상
-    ctx.fillStyle = "#1f2937";
-    ctx.font = "12px Arial";
+    ctx.fillStyle = "#f3f4f6";
+    ctx.font = "bold 12px Arial";
     ctx.textAlign = "right";
     ctx.fillText(
       `${(maxVolume / 1000000).toFixed(1)}M`,
-      canvas.width - padding,
-      padding + 10
+      canvas.width - padding + 10,
+      padding + 15
     );
   }, [chartData, timeframe, hoveredVolume]);
 

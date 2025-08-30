@@ -1,6 +1,5 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   TrendingUp,
@@ -180,11 +179,11 @@ export function OrderBookDisplay({
 
   const getImbalanceColor = () => {
     if (localOrderBookData.buyDominant) {
-      return "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950";
+      return "text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-950/30";
     } else if (localOrderBookData.sellDominant) {
-      return "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950";
+      return "text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/30";
     }
-    return "text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800";
+    return "text-gray-600 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/50";
   };
 
   const getTimeAgo = () => {
@@ -195,14 +194,12 @@ export function OrderBookDisplay({
   };
 
   return (
-    <Card
-      className={`bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg ${className}`}
-    >
-      <CardHeader className="pb-4">
+    <div className={`${className} overflow-hidden`}>
+      <div className="pb-4 px-6 pt-6">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-bold text-green-800 dark:text-green-200">
+          <div className="text-lg font-bold text-green-800 dark:text-green-200">
             호가창
-          </CardTitle>
+          </div>
           <div className="flex items-center gap-2">
             {/* 연결 상태 표시 */}
             <div className="flex items-center gap-1">
@@ -243,11 +240,13 @@ export function OrderBookDisplay({
           <span>10단계 호가</span>
           <span>마지막 업데이트: {getTimeAgo()}</span>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="space-y-4">
+      <div className="space-y-3 px-6 pb-4">
         {/* 호가 불균형 정보 */}
-        <div className={`rounded-lg p-3 ${getImbalanceColor()}`}>
+        <div
+          className={`rounded-lg p-3 border border-gray-200 dark:border-gray-700 ${getImbalanceColor()}`}
+        >
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Scale className="w-4 h-4" />
@@ -272,9 +271,9 @@ export function OrderBookDisplay({
         </div>
 
         {/* 호가창 테이블 */}
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           {/* 헤더 */}
-          <div className="grid grid-cols-3 gap-2 text-xs text-gray-500 dark:text-gray-400 font-medium border-b pb-2">
+          <div className="grid grid-cols-3 gap-2 text-xs text-gray-500 dark:text-gray-400 font-medium border-b border-gray-200 dark:border-gray-700 pb-2">
             <span className="text-center">매도잔량</span>
             <span className="text-center">호가</span>
             <span className="text-center">매수잔량</span>
@@ -354,7 +353,7 @@ export function OrderBookDisplay({
         </div>
 
         {/* 스프레드 정보 */}
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-gray-500" />
@@ -380,7 +379,7 @@ export function OrderBookDisplay({
         {/* 최우선 호가 정보 */}
         {localOrderBookData.askOrders.length > 0 &&
           localOrderBookData.bidOrders.length > 0 && (
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <TrendingDown className="w-3 h-3 text-blue-600" />
@@ -412,7 +411,7 @@ export function OrderBookDisplay({
               </div>
             </div>
           )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
