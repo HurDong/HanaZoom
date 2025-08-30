@@ -128,6 +128,10 @@ export const API_ENDPOINTS = {
   stockRealtime: "/stocks/realtime",
   stockOrderbook: "/stocks/orderbook",
 
+  // Watchlist
+  watchlist: "/watchlist",
+  watchlistCheck: "/watchlist/check",
+
   // Health Check
   health: "/health",
 } as const;

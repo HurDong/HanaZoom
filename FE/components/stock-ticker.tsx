@@ -17,16 +17,16 @@ interface StockTicker {
 
 // 티커에 표시할 주요 종목들과 이모지
 const TICKER_STOCKS = [
-  { code: "005930", name: "삼성전자", emoji: "📱" },
-  { code: "000660", name: "SK하이닉스", emoji: "💻" },
-  { code: "035420", name: "NAVER", emoji: "🔍" },
-  { code: "035720", name: "카카오", emoji: "💬" },
-  { code: "005380", name: "현대자동차", emoji: "🚗" },
-  { code: "051910", name: "LG화학", emoji: "🧪" },
-  { code: "207940", name: "삼성바이오", emoji: "🧬" },
-  { code: "068270", name: "셀트리온", emoji: "💊" },
-  { code: "323410", name: "카카오뱅크", emoji: "🏦" },
-  { code: "373220", name: "LG에너지", emoji: "🔋" },
+  { symbol: "005930", name: "삼성전자", emoji: "📱" },
+  { symbol: "000660", name: "SK하이닉스", emoji: "💻" },
+  { symbol: "035420", name: "NAVER", emoji: "🔍" },
+  { symbol: "035720", name: "카카오", emoji: "💬" },
+  { symbol: "005380", name: "현대자동차", emoji: "🚗" },
+  { symbol: "051910", name: "LG화학", emoji: "🧪" },
+  { symbol: "207940", name: "삼성바이오", emoji: "🧬" },
+  { symbol: "068270", name: "셀트리온", emoji: "💊" },
+  { symbol: "323410", name: "카카오뱅크", emoji: "🏦" },
+  { symbol: "373220", name: "LG에너지", emoji: "🔋" },
 ];
 
 export function StockTicker() {
@@ -42,7 +42,7 @@ export function StockTicker() {
     lastUpdate,
     getStockDataMap,
   } = useStockWebSocket({
-    stockCodes: TICKER_STOCKS.map((stock) => stock.code),
+    stockCodes: TICKER_STOCKS.map((stock) => stock.symbol),
     onStockUpdate: (data) => {
       // 애니메이션 중단 방지를 위해 디바운싱 적용
       if (updateTimeoutRef.current) {
@@ -60,22 +60,24 @@ export function StockTicker() {
   });
 
   // 깜빡임 없는 부드러운 업데이트
-  const updateStockDisplay = useCallback((): void => {
-    // getStockDataMap은 훅에서 안정적으로 반환되지만, 의존성으로 넣으면
-    // 구현 변경 시 매 렌더마다 바뀌어 효과가 반복될 수 있어 내부에서 호출만 함
-    const stockDataMap = getStockDataMap();
+  const updateStockDisplayWithMap = useCallback((stockDataMap: Map<string, any>): void => {
+    console.log('updateStockDisplayWithMap called, stockDataMap size:', stockDataMap.size);
+    console.log('stockDataMap contents:', Object.fromEntries(stockDataMap));
 
     if (stockDataMap.size === 0) {
+      console.log('stockDataMap is empty, returning early');
       return;
     }
 
     // 즉시 업데이트, 깜빡임 없음
     const newStocks: StockTicker[] = TICKER_STOCKS.map((tickerStock) => {
-      const stockData = stockDataMap.get(tickerStock.code);
+      const stockData = stockDataMap.get(tickerStock.symbol);
+      console.log(`Processing ${tickerStock.symbol}:`, stockData);
+      
       if (!stockData) {
         // 데이터가 없으면 기본값 반환
         return {
-          symbol: tickerStock.code,
+          symbol: tickerStock.symbol,
           name: tickerStock.name,
           price: "0",
           change: "0.00%",
@@ -93,7 +95,7 @@ export function StockTicker() {
           : `${changePrefix}${stockData.changeRate}%`;
 
       return {
-        symbol: tickerStock.code,
+        symbol: tickerStock.symbol,
         name: tickerStock.name,
         price: stockData.currentPrice,
         change: change,
@@ -101,6 +103,8 @@ export function StockTicker() {
         emoji: tickerStock.emoji,
       };
     });
+
+    console.log('New stocks to be set:', newStocks);
 
     setStocks((prev) => {
       // 동일 데이터로 인한 불필요한 렌더를 한 번 더 방지
@@ -113,6 +117,80 @@ export function StockTicker() {
             p.price === newStocks[i].price &&
             p.change === newStocks[i].change
         );
+      
+      console.log('Previous stocks:', prev);
+      console.log('Same data check:', sameAll);
+      
+      return sameAll ? prev : newStocks;
+    });
+  }, []);
+
+  // 기존 updateStockDisplay 함수는 웹소켓 콜백용으로 유지
+  const updateStockDisplay = useCallback((): void => {
+    // getStockDataMap은 훅에서 안정적으로 반환되지만, 의존성으로 넣으면
+    // 구현 변경 시 매 렌더마다 바뀌어 효과가 반복될 수 있어 내부에서 호출만 함
+    const stockDataMap = getStockDataMap();
+    
+    console.log('updateStockDisplay called, stockDataMap size:', stockDataMap.size);
+    console.log('stockDataMap contents:', Object.fromEntries(stockDataMap));
+
+    if (stockDataMap.size === 0) {
+      console.log('stockDataMap is empty, returning early');
+      return;
+    }
+
+    // 즉시 업데이트, 깜빡임 없음
+    const newStocks: StockTicker[] = TICKER_STOCKS.map((tickerStock) => {
+      const stockData = stockDataMap.get(tickerStock.symbol);
+      console.log(`Processing ${tickerStock.symbol}:`, stockData);
+      
+      if (!stockData) {
+        // 데이터가 없으면 기본값 반환
+        return {
+          symbol: tickerStock.symbol,
+          name: tickerStock.name,
+          price: "0",
+          change: "0.00%",
+          changeRate: "0",
+          emoji: tickerStock.emoji,
+        };
+      }
+
+      // 등락률 앞에 + 또는 - 기호 추가
+      const changePrefix =
+        stockData.changeSign === "2" || stockData.changeSign === "1" ? "+" : "";
+      const change =
+        stockData.changePrice === "0"
+          ? "0.00%"
+          : `${changePrefix}${stockData.changeRate}%`;
+
+      return {
+        symbol: tickerStock.symbol,
+        name: tickerStock.name,
+        price: stockData.currentPrice,
+        change: change,
+        changeRate: stockData.changeRate,
+        emoji: tickerStock.emoji,
+      };
+    });
+
+    console.log('New stocks to be set:', newStocks);
+
+    setStocks((prev) => {
+      // 동일 데이터로 인한 불필요한 렌더를 한 번 더 방지
+      const sameLength = prev.length === newStocks.length;
+      const sameAll =
+        sameLength &&
+        prev.every(
+          (p, i) =>
+            p.symbol === newStocks[i].symbol &&
+            p.price === newStocks[i].price &&
+            p.change === newStocks[i].change
+        );
+      
+      console.log('Previous stocks:', prev);
+      console.log('Same data check:', sameAll);
+      
       return sameAll ? prev : newStocks;
     });
   }, []);
@@ -123,10 +201,15 @@ export function StockTicker() {
   }, []);
 
   useEffect(() => {
+    console.log('useEffect triggered - wsConnected:', wsConnected, 'lastUpdate:', lastUpdate);
     if (wsConnected) {
       const map = getStockDataMap();
+      console.log('Map from getStockDataMap:', map.size, Object.fromEntries(map));
       if (map.size > 0) {
-        updateStockDisplay();
+        // Map을 직접 전달하여 일관성 보장
+        updateStockDisplayWithMap(map);
+      } else {
+        console.log('Map is empty, not calling updateStockDisplay');
       }
     }
     // 의존성으로 함수 레퍼런스를 두지 않고, 신호성 값들만 둔다
@@ -152,17 +235,17 @@ export function StockTicker() {
   const renderStockItem = (stock: StockTicker, index: number) => (
     <div
       key={`${stock.symbol}-${index}`}
-      className="inline-flex items-center space-x-3 mx-6"
+      className="inline-flex items-center space-x-2 mx-4"
     >
-      <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1 hover:bg-white/20 transition-all duration-300">
-        <span className="text-lg hover:scale-110 transition-transform duration-300">
+      <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-full px-2 py-1 hover:bg-white/20 transition-all duration-300">
+        <span className="text-base hover:scale-110 transition-transform duration-300">
           {stock.emoji}
         </span>
-        <span className="font-semibold text-sm">{stock.name}</span>
+        <span className="font-semibold text-xs">{stock.name}</span>
       </div>
 
       <div className="flex items-center space-x-2">
-        <span className="text-green-100 font-mono text-sm">
+        <span className="text-green-100 font-mono text-xs">
           ₩{formatPrice(stock.price)}
         </span>
         <div className="flex items-center space-x-1">
@@ -186,17 +269,17 @@ export function StockTicker() {
           </span>
         </div>
       </div>
-      <div className="w-px h-4 bg-white/20"></div>
+      <div className="w-px h-3 bg-white/20"></div>
     </div>
   );
 
   if (!isMounted) {
     return (
-      <div className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-green-600 dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-3 overflow-hidden relative shadow-lg animate-pulse">
-        <div className="flex items-center justify-center h-12">
-          <div className="h-4 bg-white/20 rounded w-32 mx-2"></div>
-          <div className="h-4 bg-white/20 rounded w-24 mx-2"></div>
-          <div className="h-4 bg-white/20 rounded w-16 mx-2"></div>
+      <div className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-green-600 dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-2 overflow-hidden relative shadow-lg animate-pulse">
+        <div className="flex items-center justify-center h-8">
+          <div className="h-3 bg-white/20 rounded w-32 mx-2"></div>
+          <div className="h-3 bg-white/20 rounded w-24 mx-2"></div>
+          <div className="h-3 bg-white/20 rounded w-16 mx-2"></div>
         </div>
       </div>
     );
@@ -204,10 +287,10 @@ export function StockTicker() {
 
   if (!wsConnected) {
     return (
-      <div className="w-full bg-gradient-to-r from-red-600 via-red-500 to-red-600 dark:from-red-700 dark:via-red-600 dark:to-red-700 text-white py-3 overflow-hidden relative shadow-lg">
-        <div className="flex items-center justify-center gap-2">
-          <WifiOff className="w-4 h-4" />
-          <span>연결이 끊어졌습니다. 재연결 중...</span>
+      <div className="w-full bg-gradient-to-r from-red-600 via-red-500 to-red-600 dark:from-red-700 dark:via-red-600 dark:to-red-700 text-white py-2 overflow-hidden relative shadow-lg">
+        <div className="flex items-center justify-center gap-2 h-8">
+          <WifiOff className="w-3 h-3" />
+          <span className="text-sm">연결이 끊어졌습니다. 재연결 중...</span>
         </div>
       </div>
     );
@@ -215,17 +298,17 @@ export function StockTicker() {
 
   if (stocks.length === 0) {
     return (
-      <div className="w-full bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 dark:from-yellow-700 dark:via-yellow-600 dark:to-yellow-700 text-white py-3 overflow-hidden relative shadow-lg">
-        <div className="flex items-center justify-center gap-2">
-          <Wifi className="w-4 h-4 animate-pulse" />
-          <span>주식 데이터 로딩 중...</span>
+      <div className="w-full bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 dark:from-yellow-700 dark:via-yellow-600 dark:to-yellow-700 text-white py-2 overflow-hidden relative shadow-lg">
+        <div className="flex items-center justify-center gap-2 h-8">
+          <Wifi className="w-3 h-3 animate-pulse" />
+          <span className="text-sm">주식 데이터 로딩 중...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-green-600 dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-3 overflow-hidden relative shadow-lg">
+    <div className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-green-600 dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-2 overflow-hidden relative shadow-lg">
       {/* 배경 패턴 */}
       <div className="absolute inset-0 opacity-20">
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>

@@ -35,6 +35,15 @@ export interface StockPriceData {
   isMarketOpen: boolean;
   isAfterMarketClose: boolean;
   marketStatus: string;
+  // 호가창 데이터 필드들 (웹소켓 실시간 데이터)
+  askOrders?: OrderBookItem[];
+  bidOrders?: OrderBookItem[];
+  totalAskQuantity?: string;
+  totalBidQuantity?: string;
+  imbalanceRatio?: number;
+  spread?: number;
+  buyDominant?: boolean;
+  sellDominant?: boolean;
 }
 
 export interface OrderBookItem {

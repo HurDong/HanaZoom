@@ -101,7 +101,7 @@ public class StockLogoUpdaterService {
             return false;
 
         } catch (Exception e) {
-            log.debug("로고 URL 검증 실패: {} - {}", logoUrl, e.getMessage());
+            // 로고 URL 검증 실패는 로그에서 제외
             return false;
         }
     }

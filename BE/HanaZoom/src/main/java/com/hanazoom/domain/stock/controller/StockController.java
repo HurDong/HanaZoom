@@ -10,6 +10,10 @@ import com.hanazoom.domain.stock.service.StockService;
 import com.hanazoom.global.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -42,6 +46,41 @@ public class StockController {
     public ResponseEntity<ApiResponse<List<StockTickerDto>>> searchStocks(@RequestParam String query) {
         List<StockTickerDto> stocks = stockService.searchStocks(query);
         return ResponseEntity.ok(ApiResponse.success(stocks));
+    }
+
+    /**
+     * 모든 주식 종목을 페이지네이션으로 조회
+     */
+    @GetMapping("/list")
+    public ResponseEntity<ApiResponse<Page<StockTickerDto>>> getAllStocks(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(defaultValue = "symbol") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+
+        try {
+            log.info("getAllStocks API 호출 - page: {}, size: {}, sortBy: {}, sortDir: {}", page, size, sortBy, sortDir);
+
+            // 디버깅: 데이터베이스 상태 확인
+            if (stockService instanceof com.hanazoom.domain.stock.service.StockServiceImpl) {
+                ((com.hanazoom.domain.stock.service.StockServiceImpl) stockService).debugDatabaseStatus();
+            }
+
+            Sort.Direction direction = sortDir.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
+            Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+
+            log.info("생성된 pageable: {}", pageable);
+
+            Page<StockTickerDto> stocks = stockService.getAllStocks(pageable);
+            log.info("성공적으로 주식 데이터 조회 완료 - totalElements: {}", stocks.getTotalElements());
+
+            return ResponseEntity.ok(ApiResponse.success(stocks));
+
+        } catch (Exception e) {
+            log.error("getAllStocks API 실행 중 오류 발생", e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("주식 목록 조회 중 오류가 발생했습니다: " + e.getMessage()));
+        }
     }
 
     /**

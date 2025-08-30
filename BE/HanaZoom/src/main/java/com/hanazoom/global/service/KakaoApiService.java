@@ -90,7 +90,6 @@ public class KakaoApiService {
             Region region = regionRepository.findByFullAddress(cityName, districtName, dongName)
                     .orElse(null);
             if (region != null) {
-                log.debug("전체 주소로 매칭됨: {} {} {}", cityName, districtName, dongName);
                 return region.getId();
             }
         }
@@ -99,7 +98,6 @@ public class KakaoApiService {
         Region region = regionRepository.findByDistrictAddress(cityName, districtName)
                 .orElse(null);
         if (region != null) {
-            log.debug("구군 레벨로 매칭됨: {} {}", cityName, districtName);
             return region.getId();
         }
 

@@ -24,6 +24,7 @@ import {
 import { useAuthStore } from "@/app/utils/auth";
 import type { Stock } from "@/lib/api/stock";
 import type { Post, PostSentiment, VoteOption } from "@/lib/api/community";
+import { toast } from "sonner";
 
 export default function StockDiscussionPage() {
   const { symbol } = useParams();
@@ -108,7 +109,7 @@ export default function StockDiscussionPage() {
   }) => {
     // 로그인 상태를 더 명확하게 체크
     if (!isClient || !accessToken) {
-      alert("게시글을 작성하려면 로그인이 필요합니다.");
+      toast.error("게시글을 작성하려면 로그인이 필요합니다.");
       // 현재 페이지 정보를 로그인 페이지로 전달하고 즉시 이동
       const redirectUrl = `/login?redirect=${encodeURIComponent(
         window.location.pathname
@@ -136,21 +137,21 @@ export default function StockDiscussionPage() {
       console.error("Failed to create post:", error);
 
       if (error.response?.status === 403) {
-        alert("권한이 없습니다. 다시 로그인해주세요.");
+        toast.error("권한이 없습니다. 다시 로그인해주세요.");
         // 현재 페이지 정보를 로그인 페이지로 전달하고 즉시 이동
         const redirectUrl = `/login?redirect=${encodeURIComponent(
           window.location.pathname
         )}`;
         window.location.href = redirectUrl;
       } else {
-        alert("게시글 작성에 실패했습니다.");
+        toast.error("게시글 작성에 실패했습니다. 다시 시도해주세요.");
       }
     }
   };
 
   const handleLikePost = async (postId: number) => {
     if (!isClient || !accessToken) {
-      alert("좋아요를 누르려면 로그인이 필요합니다.");
+      toast.error("좋아요를 누르려면 로그인이 필요합니다.");
       // 현재 페이지 정보를 로그인 페이지로 전달하고 즉시 이동
       const redirectUrl = `/login?redirect=${encodeURIComponent(
         window.location.pathname
@@ -186,7 +187,7 @@ export default function StockDiscussionPage() {
       console.error("Failed to like/unlike post:", error);
 
       if (error.response?.status === 403) {
-        alert("권한이 없습니다. 다시 로그인해주세요.");
+        toast.error("권한이 없습니다. 다시 로그인해주세요.");
         router.push("/login");
       }
     }

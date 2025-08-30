@@ -92,18 +92,18 @@ export function StockPriceInfo({ stockData, className }: StockPriceInfoProps) {
                   실시간
                 </span>
               </>
-            ) : stockData.isAfterMarketClose ? (
+            ) : stockData?.isAfterMarketClose ? (
               <>
                 <Clock className="w-3 h-3 text-orange-600 dark:text-orange-400" />
                 <span className="text-orange-600 dark:text-orange-400">
-                  {stockData.marketStatus}
+                  {stockData?.marketStatus}
                 </span>
               </>
             ) : (
               <>
                 <Clock className="w-3 h-3 text-gray-600 dark:text-gray-400" />
                 <span className="text-gray-600 dark:text-gray-400">
-                  {stockData.marketStatus}
+                  {stockData?.marketStatus}
                 </span>
               </>
             )}
@@ -120,30 +120,30 @@ export function StockPriceInfo({ stockData, className }: StockPriceInfoProps) {
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium opacity-80">
-              {stockData.isAfterMarketClose ? "종가" : "현재가"}
+              {stockData?.isAfterMarketClose ? "종가" : "현재가"}
             </span>
-            <Badge className={getBadgeVariant(stockData.changeSign)}>
-              {stockData.changeStatus}
+            <Badge className={getBadgeVariant(stockData?.changeSign)}>
+              {stockData?.changeStatus}
             </Badge>
           </div>
 
           <div className="flex items-end gap-3">
             <div className="flex items-center gap-2">
-              {getPriceChangeIcon(stockData.changeSign)}
+              {getPriceChangeIcon(stockData?.changeSign)}
               <span className="text-3xl font-bold">
-                {formatNumber(stockData.currentPrice)}원
+                {formatNumber(stockData?.currentPrice)}원
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-3 mt-2">
             <span className="text-lg font-semibold">
-              {getChangePrefix(stockData.changeSign)}
-              {formatNumber(stockData.changePrice)}원
+              {getChangePrefix(stockData?.changeSign)}
+              {formatNumber(stockData?.changePrice)}원
             </span>
             <span className="text-lg font-semibold">
-              ({getChangePrefix(stockData.changeSign)}
-              {stockData.changeRate}%)
+              ({getChangePrefix(stockData?.changeSign)}
+              {stockData?.changeRate}%)
             </span>
           </div>
         </div>
@@ -155,7 +155,7 @@ export function StockPriceInfo({ stockData, className }: StockPriceInfoProps) {
               시가
             </span>
             <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {formatNumber(stockData.openPrice)}원
+              {formatNumber(stockData?.openPrice)}원
             </p>
           </div>
 
@@ -164,7 +164,7 @@ export function StockPriceInfo({ stockData, className }: StockPriceInfoProps) {
               전일종가
             </span>
             <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {formatNumber(stockData.previousClose)}원
+              {formatNumber(stockData?.previousClose)}원
             </p>
           </div>
         </div>
@@ -173,7 +173,7 @@ export function StockPriceInfo({ stockData, className }: StockPriceInfoProps) {
           <div className="space-y-1">
             <span className="text-sm text-red-600 dark:text-red-400">고가</span>
             <p className="text-lg font-semibold text-red-600 dark:text-red-400">
-              {formatNumber(stockData.highPrice)}원
+              {formatNumber(stockData?.highPrice)}원
             </p>
           </div>
 
@@ -182,7 +182,7 @@ export function StockPriceInfo({ stockData, className }: StockPriceInfoProps) {
               저가
             </span>
             <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-              {formatNumber(stockData.lowPrice)}원
+              {formatNumber(stockData?.lowPrice)}원
             </p>
           </div>
         </div>

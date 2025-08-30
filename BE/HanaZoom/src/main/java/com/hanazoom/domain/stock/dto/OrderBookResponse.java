@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import com.hanazoom.domain.stock.dto.OrderBookItem;
 
 /**
  * KIS API 호가창 정보 조회 응답 DTO
@@ -27,40 +28,7 @@ public class OrderBookResponse {
     private String totalAskQuantity; // 매도 총잔량
     private String totalBidQuantity; // 매수 총잔량
 
-    /**
-     * 호가창 개별 항목
-     */
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class OrderBookItem {
-        private String price; // 호가 가격
-        private String quantity; // 호가 잔량
-        private int rank; // 호가 순위 (1~10)
 
-        /**
-         * 잔량을 정수로 반환
-         */
-        public long getQuantityAsLong() {
-            try {
-                return Long.parseLong(quantity.replaceAll("[^0-9]", ""));
-            } catch (Exception e) {
-                return 0;
-            }
-        }
-
-        /**
-         * 가격을 정수로 반환
-         */
-        public long getPriceAsLong() {
-            try {
-                return Long.parseLong(price.replaceAll("[^0-9]", ""));
-            } catch (Exception e) {
-                return 0;
-            }
-        }
-    }
 
     /**
      * 매수/매도 호가 차이 (스프레드) 계산

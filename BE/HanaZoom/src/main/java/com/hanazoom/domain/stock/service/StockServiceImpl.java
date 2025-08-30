@@ -1,6 +1,7 @@
 package com.hanazoom.domain.stock.service;
 
 import com.hanazoom.domain.stock.dto.OrderBookResponse;
+import com.hanazoom.domain.stock.dto.OrderBookItem;
 import com.hanazoom.domain.stock.dto.StockBasicInfoResponse;
 import com.hanazoom.domain.stock.dto.StockPriceResponse;
 import com.hanazoom.domain.stock.dto.StockTickerDto;
@@ -11,6 +12,10 @@ import com.hanazoom.global.util.MarketTimeUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
@@ -96,6 +101,108 @@ public class StockServiceImpl implements StockService {
                                                                 : "0")
                                                 .build())
                                 .collect(Collectors.toList());
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public Page<StockTickerDto> getAllStocks(Pageable pageable) {
+                try {
+                        log.info("getAllStocks 호출됨 - pageable: {}", pageable);
+
+                        // 정렬 필드 검증 및 수정
+                        Sort sort = pageable.getSort();
+                        if (sort.isSorted()) {
+                                Sort.Order order = sort.iterator().next();
+                                String property = order.getProperty();
+                                log.info("정렬 필드: {}", property);
+
+                                // 정렬 필드가 엔티티에 존재하지 않는 경우 기본값으로 설정
+                                if (!isValidSortField(property)) {
+                                        log.warn("유효하지 않은 정렬 필드: {}, 기본값 'symbol'으로 변경", property);
+                                        sort = Sort.by(order.getDirection(), "symbol");
+                                        pageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                                                        sort);
+                                }
+                        }
+
+                        // 전체 데이터 개수 확인
+                        long totalCount = stockRepository.count();
+                        log.info("전체 주식 데이터 개수: {}", totalCount);
+
+                        if (totalCount == 0) {
+                                log.warn("데이터베이스에 주식 데이터가 없습니다");
+                                throw new RuntimeException("데이터베이스에 주식 데이터가 없습니다");
+                        }
+
+                        Page<Stock> stockPage = stockRepository.findAll(pageable);
+                        log.info("조회된 페이지 정보: totalElements={}, totalPages={}, currentPage={}",
+                                        stockPage.getTotalElements(), stockPage.getTotalPages(), stockPage.getNumber());
+
+                        return stockPage.map(stock -> StockTickerDto.builder()
+                                        .symbol(stock.getSymbol())
+                                        .name(stock.getName())
+                                        .price(stock.getCurrentPrice() != null
+                                                        ? stock.getCurrentPrice().toString()
+                                                        : "0")
+                                        .change(stock.getPriceChangePercent() != null
+                                                        ? stock.getPriceChangePercent().toString()
+                                                        : "0")
+                                        .logoUrl(stock.getLogoUrl())
+                                        .sector(stock.getSector() != null ? stock.getSector() : "기타")
+                                        .stockCode(stock.getSymbol())
+                                        .stockName(stock.getName())
+                                        .currentPrice(stock.getCurrentPrice() != null
+                                                        ? stock.getCurrentPrice().toString()
+                                                        : "0")
+                                        .priceChange(stock.getPriceChange() != null
+                                                        ? stock.getPriceChange().toString()
+                                                        : "0")
+                                        .changeRate(stock.getPriceChangePercent() != null
+                                                        ? stock.getPriceChangePercent().toString()
+                                                        : "0")
+                                        .build());
+
+                } catch (Exception e) {
+                        log.error("getAllStocks 실행 중 오류 발생", e);
+                        throw new RuntimeException("주식 목록 조회 중 오류가 발생했습니다: " + e.getMessage(), e);
+                }
+        }
+
+        /**
+         * 정렬 필드가 유효한지 검증
+         */
+        private boolean isValidSortField(String field) {
+                return field.equals("symbol") || field.equals("name") || field.equals("sector");
+        }
+
+        /**
+         * 디버깅용: 데이터베이스 상태 확인
+         */
+        public void debugDatabaseStatus() {
+                try {
+                        long totalCount = stockRepository.count();
+                        log.info("=== 데이터베이스 상태 디버깅 ===");
+                        log.info("전체 주식 개수: {}", totalCount);
+
+                        if (totalCount > 0) {
+                                List<Stock> firstStock = stockRepository.findAll().stream().limit(1)
+                                                .collect(Collectors.toList());
+                                if (!firstStock.isEmpty()) {
+                                        Stock stock = firstStock.get(0);
+                                        log.info("첫 번째 주식: symbol={}, name={}, sector={}",
+                                                        stock.getSymbol(), stock.getName(), stock.getSector());
+                                }
+                        }
+
+                        // 간단한 페이지네이션 테스트
+                        Pageable testPageable = PageRequest.of(0, 5);
+                        Page<Stock> testPage = stockRepository.findAll(testPageable);
+                        log.info("테스트 페이지네이션: totalElements={}, contentSize={}",
+                                        testPage.getTotalElements(), testPage.getContent().size());
+
+                } catch (Exception e) {
+                        log.error("데이터베이스 상태 확인 중 오류", e);
+                }
         }
 
         @Override
@@ -221,28 +328,30 @@ public class StockServiceImpl implements StockService {
                         JSONObject output1 = jsonResponse.getJSONObject("output1");
 
                         // 매도 호가 리스트 구성 (1~10호가)
-                        List<OrderBookResponse.OrderBookItem> askOrders = new ArrayList<>();
+                        List<OrderBookItem> askOrders = new ArrayList<>();
                         for (int i = 1; i <= 10; i++) {
                                 String askPrice = output1.optString("askp" + i, "0");
                                 String askQuantity = output1.optString("askp_rsqn" + i, "0");
 
-                                askOrders.add(OrderBookResponse.OrderBookItem.builder()
+                                askOrders.add(OrderBookItem.builder()
                                                 .price(askPrice)
                                                 .quantity(askQuantity)
-                                                .rank(i)
+                                                .orderCount(String.valueOf(i))
+                                                .orderType("매도")
                                                 .build());
                         }
 
                         // 매수 호가 리스트 구성 (1~10호가)
-                        List<OrderBookResponse.OrderBookItem> bidOrders = new ArrayList<>();
+                        List<OrderBookItem> bidOrders = new ArrayList<>();
                         for (int i = 1; i <= 10; i++) {
                                 String bidPrice = output1.optString("bidp" + i, "0");
                                 String bidQuantity = output1.optString("bidp_rsqn" + i, "0");
 
-                                bidOrders.add(OrderBookResponse.OrderBookItem.builder()
+                                bidOrders.add(OrderBookItem.builder()
                                                 .price(bidPrice)
                                                 .quantity(bidQuantity)
-                                                .rank(i)
+                                                .orderCount(String.valueOf(i))
+                                                .orderType("매수")
                                                 .build());
                         }
 

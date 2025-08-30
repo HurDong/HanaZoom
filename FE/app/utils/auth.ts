@@ -62,14 +62,14 @@ export const useAuthStore = create<AuthStore>()(
             .then(async (res) => {
               if (!res.ok) throw new Error("refresh failed");
               const data = await res.json();
-              get().updateAccessToken(data.accessToken);
+              useAuthStore.getState().updateAccessToken(data.accessToken);
             })
             .catch(() => {
-              get().clearAuth();
+              useAuthStore.getState().clearAuth();
             });
         } catch {
           // 파싱 실패 등 -> 안전하게 초기화
-          get().clearAuth();
+          useAuthStore.getState().clearAuth();
         }
       },
     }

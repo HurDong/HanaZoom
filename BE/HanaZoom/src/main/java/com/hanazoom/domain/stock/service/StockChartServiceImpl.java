@@ -13,6 +13,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import com.hanazoom.domain.stock.entity.StockMinutePrice;
+import com.hanazoom.domain.stock.service.StockMinutePriceService;
+import java.math.BigDecimal;
 
 @Slf4j
 @Service
@@ -23,17 +26,47 @@ public class StockChartServiceImpl implements StockChartService {
     private final KisApiService kisApiService;
     private final ObjectMapper objectMapper;
     private final Random random = new Random(); // 더미 데이터용
+    private final StockMinutePriceService stockMinutePriceService;
 
     @Override
     public List<CandleData> getChartData(String stockCode, String timeframe, int limit) {
-        log.info("차트 데이터 조회: 종목={}, 시간봉={}, 개수={}", stockCode, timeframe, limit);
-        
         try {
-            // 실제 KIS API에서 차트 데이터 조회
-            return getChartDataFromKis(stockCode, timeframe, limit);
+            log.info("차트 데이터 조회 시작: 종목={}, 시간봉={}, 제한={}", stockCode, timeframe, limit);
+            
+            // 분봉 데이터인 경우 DB에서 조회 시도
+            if (isMinuteTimeframe(timeframe)) {
+                List<CandleData> dbData = getMinuteDataFromDB(stockCode, timeframe, limit);
+                if (!dbData.isEmpty()) {
+                    log.info("DB에서 분봉 데이터 조회 완료: 종목={}, 시간봉={}, 개수={}", stockCode, timeframe, dbData.size());
+                    return dbData;
+                }
+            }
+
+            // DB에 데이터가 없거나 다른 시간봉인 경우 KIS API 호출
+            String kisResponse;
+            if (timeframe.equals("1D") || timeframe.equals("1W") || timeframe.equals("1MO")) {
+                // 일봉/주봉/월봉 데이터
+                String period = timeframe.equals("1D") ? "D" : timeframe.equals("1W") ? "W" : "M";
+                kisResponse = kisApiService.getDailyChartData(stockCode, period, "1");
+            } else {
+                // 분봉 데이터 (1M, 5M, 15M, 1H)
+                String minuteCode = convertToKisMinuteCode(timeframe);
+                kisResponse = kisApiService.getMinuteChartData(stockCode, minuteCode, "1");
+            }
+
+            // KIS 응답 파싱
+            List<CandleData> parsedData = parseKisChartResponse(kisResponse, stockCode, timeframe, limit);
+            
+            // 분봉 데이터인 경우 DB에 저장
+            if (isMinuteTimeframe(timeframe)) {
+                saveMinuteDataToDB(stockCode, timeframe, parsedData);
+            }
+            
+            return parsedData;
+            
         } catch (Exception e) {
-            log.warn("KIS API 차트 데이터 조회 실패, 더미 데이터로 대체: {}", e.getMessage());
-            // KIS API 실패 시 더미 데이터로 대체
+            log.error("KIS 차트 데이터 조회 실패: 종목={}, 시간봉={}", stockCode, timeframe, e);
+            // 실패 시 더미 데이터 반환
             return generateDummyChartData(stockCode, timeframe, limit);
         }
     }
@@ -198,7 +231,6 @@ public class StockChartServiceImpl implements StockChartService {
             if (currentCandle != null) {
                 currentCandle.updateWithRealtime(currentPrice, volume);
                 redisTemplate.opsForValue().set(key, currentCandle);
-                log.debug("현재 캔들 업데이트: 종목={}, 시간봉={}, 가격={}", stockCode, timeframe, currentPrice);
             }
         }
     }
@@ -330,6 +362,95 @@ public class StockChartServiceImpl implements StockChartService {
             case "1W": return 60 * 24 * 7;
             case "1MO": return 60 * 24 * 30;
             default: return 60 * 24; // 기본 일봉
+        }
+    }
+
+    /**
+     * 분봉 시간봉인지 확인
+     */
+    private boolean isMinuteTimeframe(String timeframe) {
+        return timeframe.equals("1M") || timeframe.equals("5M") || timeframe.equals("15M") || timeframe.equals("1H");
+    }
+
+    /**
+     * 분봉 데이터를 DB에서 조회
+     */
+    private List<CandleData> getMinuteDataFromDB(String stockCode, String timeframe, int limit) {
+        try {
+            // StockMinutePriceService를 통해 분봉 데이터 조회
+            StockMinutePrice.MinuteInterval interval = convertToMinuteInterval(timeframe);
+            List<StockMinutePrice> minutePrices = stockMinutePriceService.getRecentMinutePrices(stockCode, interval, limit);
+            
+            return minutePrices.stream()
+                    .map(this::convertToCandleData)
+                    .toList();
+        } catch (Exception e) {
+            log.warn("DB에서 분봉 데이터 조회 실패: 종목={}, 시간봉={}", stockCode, timeframe, e);
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * 분봉 데이터를 DB에 저장
+     */
+    private void saveMinuteDataToDB(String stockCode, String timeframe, List<CandleData> data) {
+        try {
+            StockMinutePrice.MinuteInterval interval = convertToMinuteInterval(timeframe);
+            
+            for (CandleData candleData : data) {
+                StockMinutePrice minutePrice = StockMinutePrice.builder()
+                        .stockSymbol(stockCode)
+                        .minuteInterval(interval)
+                        .timestamp(candleData.getDateTime())
+                        .openPrice(new BigDecimal(candleData.getOpenPrice()))
+                        .highPrice(new BigDecimal(candleData.getHighPrice()))
+                        .lowPrice(new BigDecimal(candleData.getLowPrice()))
+                        .closePrice(new BigDecimal(candleData.getClosePrice()))
+                        .volume(Long.parseLong(candleData.getVolume()))
+                        .priceChange(new BigDecimal(candleData.getChangePrice()))
+                        .priceChangePercent(new BigDecimal(candleData.getChangeRate()))
+                        .tickCount(1)
+                        .build();
+                
+                stockMinutePriceService.saveMinutePrice(minutePrice);
+            }
+            
+            log.info("분봉 데이터 DB 저장 완료: 종목={}, 시간봉={}, 개수={}", stockCode, timeframe, data.size());
+        } catch (Exception e) {
+            log.error("분봉 데이터 DB 저장 실패: 종목={}, 시간봉={}", stockCode, timeframe, e);
+        }
+    }
+
+    /**
+     * StockMinutePrice를 CandleData로 변환
+     */
+    private CandleData convertToCandleData(StockMinutePrice minutePrice) {
+        return CandleData.builder()
+                .stockCode(minutePrice.getStockSymbol())
+                .dateTime(minutePrice.getTimestamp())
+                .timeframe(minutePrice.getMinuteInterval().name())
+                .openPrice(minutePrice.getOpenPrice().toString())
+                .highPrice(minutePrice.getHighPrice().toString())
+                .lowPrice(minutePrice.getLowPrice().toString())
+                .closePrice(minutePrice.getClosePrice().toString())
+                .volume(minutePrice.getVolume().toString())
+                .changePrice(minutePrice.getPriceChange().toString())
+                .changeRate(minutePrice.getPriceChangePercent().toString())
+                .changeSign(calculateChangeSign(minutePrice.getPriceChange().toString()))
+                .isComplete(true)
+                .timestamp(minutePrice.getTimestamp().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())
+                .build();
+    }
+
+    /**
+     * 시간봉을 MinuteInterval으로 변환
+     */
+    private StockMinutePrice.MinuteInterval convertToMinuteInterval(String timeframe) {
+        switch (timeframe) {
+            case "1M": return StockMinutePrice.MinuteInterval.ONE_MINUTE;
+            case "5M": return StockMinutePrice.MinuteInterval.FIVE_MINUTES;
+            case "15M": return StockMinutePrice.MinuteInterval.FIFTEEN_MINUTES;
+            default: return StockMinutePrice.MinuteInterval.FIVE_MINUTES;
         }
     }
 }
