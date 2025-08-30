@@ -107,11 +107,19 @@ export default function StockDetailPage() {
       if (isInWatchlist) {
         await removeFromWatchlist(stockCode);
         setIsInWatchlist(false);
-        toast.warning(`${stockCode}이(가) 관심종목에서 제거되었습니다.`);
+
+        // 종목 이름으로 표시
+        const stockName = stockData?.stockName || stockInfo?.name || stockCode;
+        const josa = getKoreanJosa(stockName);
+        toast.warning(`${stockName}${josa} 관심종목에서 제거되었습니다.`);
       } else {
         await addToWatchlist({ stockSymbol: stockCode });
         setIsInWatchlist(true);
-        toast.warning(`${stockCode}이(가) 관심종목에 추가되었습니다.`);
+
+        // 종목 이름으로 표시
+        const stockName = stockData?.stockName || stockInfo?.name || stockCode;
+        const josa = getKoreanJosa(stockName);
+        toast.success(`${stockName}${josa} 관심종목에 추가되었습니다.`);
       }
     } catch (error) {
       console.error("관심종목 토글 실패:", error);
@@ -291,6 +299,28 @@ export default function StockDetailPage() {
       default: // 보합
         return "text-gray-600 dark:text-gray-400";
     }
+  };
+
+  // 한국어 조사 결정 함수
+  const getKoreanJosa = (word: string) => {
+    if (!word) return "가";
+
+    // 마지막 글자의 유니코드
+    const lastChar = word.charAt(word.length - 1);
+    const lastCharCode = lastChar.charCodeAt(0);
+
+    // 한글 범위: 44032 ~ 55203
+    if (lastCharCode >= 44032 && lastCharCode <= 55203) {
+      // 한글 유니코드에서 받침 계산
+      const hangulCode = lastCharCode - 44032;
+      const finalConsonant = hangulCode % 28;
+
+      // 받침이 있으면 (0이 아니면) "이", 없으면 "가"
+      return finalConsonant === 0 ? "가" : "이";
+    }
+
+    // 한글이 아닌 경우 기본값
+    return "가";
   };
 
   const getPriceChangeIcon = (changeSign: string) => {

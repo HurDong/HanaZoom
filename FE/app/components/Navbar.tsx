@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/app/config/api";
 import { toast } from "sonner";
+import NotificationDropdown from "@/components/NotificationDropdown";
+import { getUnreadCount } from "@/lib/api/notification";
 
 export default function NavBar() {
   const router = useRouter();
@@ -37,9 +39,19 @@ export default function NavBar() {
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
+  // 알림 관련 상태
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (accessToken) {
+      loadNotificationCount();
+    }
+  }, [accessToken]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -63,6 +75,20 @@ export default function NavBar() {
       console.error("관심종목 로드 실패:", error);
     } finally {
       setIsLoadingWatchlist(false);
+    }
+  };
+
+  // 알림 개수 로드
+  const loadNotificationCount = async () => {
+    if (!accessToken) return;
+
+    try {
+      const count = await getUnreadCount();
+      setNotificationCount(count);
+    } catch (error) {
+      console.error("알림 개수 로드 실패:", error);
+      // 에러가 발생해도 알림 개수를 0으로 설정하여 UI가 깨지지 않도록 함
+      setNotificationCount(0);
     }
   };
 
@@ -115,13 +141,41 @@ export default function NavBar() {
       setSearchQuery("");
       setShowSearchResults(false);
       await loadWatchlist(); // 목록 새로고침
-      toast.warning(`${stockSymbol}이(가) 관심종목에 추가되었습니다.`);
+
+      // 검색 결과에서 해당 종목의 이름 찾기
+      const stock = searchResults.find((s) => s.symbol === stockSymbol);
+      const stockName = stock?.name || stockSymbol;
+      const josa = getKoreanJosa(stockName);
+
+      toast.success(`${stockName}${josa} 관심종목에 추가되었습니다.`);
     } catch (error) {
       console.error("관심종목 추가 실패:", error);
       toast.error("관심종목 추가에 실패했습니다. 다시 시도해주세요.");
     } finally {
       setIsAddingStock(false);
     }
+  };
+
+  // 한국어 조사 결정 함수
+  const getKoreanJosa = (word: string) => {
+    if (!word) return "가";
+
+    // 마지막 글자의 유니코드
+    const lastChar = word.charAt(word.length - 1);
+    const lastCharCode = lastChar.charCodeAt(0);
+
+    // 한글 범위: 44032 ~ 55203
+    if (lastCharCode >= 44032 && lastCharCode <= 55203) {
+      // 한글 유니코드에서 받침 계산
+      const hangulCode = lastCharCode - 44032;
+      const finalConsonant = hangulCode % 28;
+
+      // 받침이 있으면 (0이 아니면) "이", 없으면 "가"
+      return finalConsonant === 0 ? "가" : "이";
+    }
+
+    // 한글이 아닌 경우 기본값
+    return "가";
   };
 
   // 관심종목 제거
@@ -131,7 +185,13 @@ export default function NavBar() {
     try {
       await removeFromWatchlist(stockSymbol);
       await loadWatchlist(); // 목록 새로고침
-      toast.warning(`${stockSymbol}이(가) 관심종목에서 제거되었습니다.`);
+
+      // 관심종목 목록에서 해당 종목의 이름 찾기
+      const stock = watchlist.find((w) => w.stockSymbol === stockSymbol);
+      const stockName = stock?.stockName || stockSymbol;
+      const josa = getKoreanJosa(stockName);
+
+      toast.warning(`${stockName}${josa} 관심종목에서 제거되었습니다.`);
     } catch (error) {
       console.error("관심종목 제거 실패:", error);
       toast.error("관심종목 제거에 실패했습니다. 다시 시도해주세요.");
@@ -185,6 +245,25 @@ export default function NavBar() {
     // 마이페이지 접근 시 검증 페이지로 이동
     const redirect = encodeURIComponent("/mypage");
     router.push(`/auth/verify?redirect=${redirect}`);
+  };
+
+  // 알림 모달 열기/닫기
+  const handleNotificationClick = () => {
+    if (!accessToken) {
+      toast.error("알림을 보려면 로그인이 필요합니다.");
+      return;
+    }
+
+    if (showNotificationModal) {
+      setShowNotificationModal(false);
+    } else {
+      // 다른 모달들은 닫기
+      setShowProfileModal(false);
+      setShowWatchlistModal(false);
+      setSearchQuery("");
+      setShowSearchResults(false);
+      setShowNotificationModal(true);
+    }
   };
 
   if (!mounted) {
@@ -616,10 +695,19 @@ export default function NavBar() {
         {/* 우측: 액션 아이콘들 */}
         <div className="flex items-center gap-4">
           {/* 알림 아이콘 */}
-          <button className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors relative">
+          <button
+            onClick={handleNotificationClick}
+            className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors relative"
+          >
             <Bell className="w-5 h-5" />
-            {/* 알림 표시기 */}
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+            {/* 읽지 않은 알림 개수 표시기 */}
+            {notificationCount > 0 && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                <span className="text-xs text-white font-medium">
+                  {notificationCount > 99 ? "99+" : notificationCount}
+                </span>
+              </div>
+            )}
           </button>
 
           {/* 관심 종목 아이콘 */}
@@ -662,15 +750,6 @@ export default function NavBar() {
           {/* 테마 토글 */}
           <div className="flex items-center gap-3 ml-4">
             <ThemeToggle />
-            {/* 토스트 테스트 버튼 */}
-            <button
-              onClick={() => {
-                toast.warning("토스트 알림이 작동합니다!");
-              }}
-              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
-            >
-              토스트 테스트
-            </button>
           </div>
         </div>
       </div>
@@ -678,6 +757,13 @@ export default function NavBar() {
       {/* Portal을 사용한 말풍선 렌더링 */}
       {renderProfileModal()}
       {renderWatchlistModal()}
+
+      {/* 알림 드롭다운 */}
+      <NotificationDropdown
+        isOpen={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
+        onNotificationUpdate={(newCount) => setNotificationCount(newCount)}
+      />
     </header>
   );
 }

@@ -12,21 +12,25 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      style={{ zIndex: 9999998 }}
+      closeButton={false}
       toastOptions={{
+        unstyled: false,
+        closeButton: false,
         classNames: {
           toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-          description: "group-[.toast]:text-muted-foreground",
+            "group toast bg-gray-600 text-white border border-gray-600 rounded-lg shadow-xl px-4 py-3 min-w-[300px] max-w-[500px] backdrop-blur-sm [&>button]:hidden",
+          description: "text-gray-200 text-sm mt-1",
           actionButton:
-            "group-[.toaster]:bg-primary group-[.toaster]:text-primary-foreground",
+            "bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors",
           cancelButton:
-            "group-[.toaster]:bg-muted group-[.toaster]:text-muted-foreground",
+            "bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors",
           success:
-            "group-[.toaster]:bg-orange-600 group-[.toaster]:text-white group-[.toaster]:border-orange-700",
+            "group toast !bg-green-500 !text-white !border-green-500 rounded-lg shadow-xl px-4 py-3 min-w-[300px] max-w-[500px] backdrop-blur-sm [&>button]:hidden",
           error:
-            "group-[.toaster]:bg-red-600 group-[.toaster]:text-white group-[.toaster]:border-red-700",
+            "!bg-red-700 !text-white border border-gray-400 rounded-lg shadow-xl px-4 py-3 min-w-[300px] max-w-[500px] backdrop-blur-sm [&>button]:hidden",
           warning:
-            "group-[.toaster]:bg-amber-600 group-[.toaster]:text-white group-[.toaster]:border-amber-700",
+            "!bg-yellow-400 !text-yellow-900 border border-gray-400 rounded-lg shadow-xl px-4 py-3 min-w-[300px] max-w-[500px] backdrop-blur-sm [&>button]:hidden",
         },
       }}
       {...props}
