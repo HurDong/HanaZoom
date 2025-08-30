@@ -165,6 +165,44 @@ export function OrderBookDisplay({
     return num.toLocaleString();
   };
 
+  const getImbalanceColor = () => {
+    if (localOrderBookData.buyDominant) {
+      return "text-cyan-600 dark:text-cyan-400 bg-cyan-50/50 dark:bg-cyan-950/30";
+    } else if (localOrderBookData.sellDominant) {
+      return "text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-950/30";
+    }
+    return "text-gray-600 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/50";
+  };
+
+  // 현재가 계산 (최우선매수와 최우선매도의 중간값)
+  const getCurrentPrice = () => {
+    if (
+      localOrderBookData.askOrders.length > 0 &&
+      localOrderBookData.bidOrders.length > 0
+    ) {
+      const bestAsk = parseInt(localOrderBookData.askOrders[0].price);
+      const bestBid = parseInt(localOrderBookData.bidOrders[0].price);
+      return Math.round((bestAsk + bestBid) / 2);
+    }
+    return 0;
+  };
+
+  // 스프레드 비율 계산 (스프레드 / 현재가 * 100)
+  const getSpreadRatio = () => {
+    if (
+      localOrderBookData.askOrders.length > 0 &&
+      localOrderBookData.bidOrders.length > 0
+    ) {
+      const bestAsk = parseInt(localOrderBookData.askOrders[0].price);
+      const bestBid = parseInt(localOrderBookData.bidOrders[0].price);
+      const spread = bestAsk - bestBid;
+      const currentPrice = Math.round((bestAsk + bestBid) / 2);
+      return (spread / currentPrice) * 100;
+    }
+    return 0;
+  };
+
+  // 수량 바 너비 계산 (최대 수량 대비)
   const getQuantityBarWidth = (quantity: string, maxQuantity: number) => {
     const num = parseInt(quantity);
     return Math.min((num / maxQuantity) * 100, 100);
@@ -177,21 +215,23 @@ export function OrderBookDisplay({
   ];
   const maxQuantity = Math.max(...allQuantities);
 
-  const getImbalanceColor = () => {
-    if (localOrderBookData.buyDominant) {
-      return "text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-950/30";
-    } else if (localOrderBookData.sellDominant) {
-      return "text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/30";
-    }
-    return "text-gray-600 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/50";
-  };
-
   const getTimeAgo = () => {
     const seconds = Math.floor((Date.now() - lastUpdate) / 1000);
     if (seconds < 60) return `${seconds}초 전`;
     if (seconds < 3600) return `${Math.floor(seconds / 60)}분 전`;
     return `${Math.floor(seconds / 3600)}시간 전`;
   };
+
+  // 실시간 업데이트 애니메이션 상태
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // 실시간 데이터 업데이트 시 애니메이션
+  useEffect(() => {
+    if (realtimeData && orderBookData) {
+      setIsUpdating(true);
+      setTimeout(() => setIsUpdating(false), 1000);
+    }
+  }, [realtimeData, orderBookData]);
 
   return (
     <div className={`${className} overflow-hidden`}>
@@ -238,35 +278,106 @@ export function OrderBookDisplay({
         {/* 마지막 업데이트 시간 */}
         <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
           <span>10단계 호가</span>
-          <span>마지막 업데이트: {getTimeAgo()}</span>
+          <div className="flex items-center gap-2">
+            <span>마지막 업데이트: {getTimeAgo()}</span>
+            {/* 실시간 업데이트 애니메이션 */}
+            <div
+              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                isUpdating ? "bg-green-500 animate-pulse" : "bg-gray-400"
+              }`}
+            ></div>
+          </div>
         </div>
       </div>
 
       <div className="space-y-3 px-6 pb-4">
-        {/* 호가 불균형 정보 */}
-        <div
-          className={`rounded-lg p-3 border border-gray-200 dark:border-gray-700 ${getImbalanceColor()}`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Scale className="w-4 h-4" />
-              <span className="text-sm font-medium">호가 불균형</span>
-            </div>
-            <span className="text-xs">
-              매수 {(localOrderBookData.imbalanceRatio * 100).toFixed(1)}%
+        {/* 호가 불균형 정보 - WTS 스타일 (라이트/다크 모드 최적화) */}
+        <div className="border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 p-4 rounded-lg shadow-sm dark:shadow-none">
+          {/* 제목 */}
+          <div className="flex items-center gap-2 mb-3">
+            <Scale className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              매수/매도 불균형
             </span>
           </div>
-          <Progress
-            value={localOrderBookData.imbalanceRatio * 100}
-            className="h-2"
-          />
-          <div className="flex justify-between text-xs mt-1">
-            <span>
-              매도: {formatNumber(localOrderBookData.totalAskQuantity)}주
-            </span>
-            <span>
-              매수: {formatNumber(localOrderBookData.totalBidQuantity)}주
-            </span>
+
+          {/* 우세도 표시 */}
+          <div className="mb-4">
+            <div
+              className={`text-base font-bold ${
+                localOrderBookData.buyDominant
+                  ? "text-blue-600 dark:text-blue-400"
+                  : localOrderBookData.sellDominant
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-gray-600 dark:text-gray-400"
+              }`}
+            >
+              {localOrderBookData.buyDominant
+                ? "매수 우세"
+                : localOrderBookData.sellDominant
+                ? "매도 우세"
+                : "호가 균형"}
+              <span className="text-lg ml-2">
+                ({(localOrderBookData.imbalanceRatio * 100).toFixed(0)}%)
+              </span>
+            </div>
+          </div>
+
+          {/* Progress Bar 방식의 비율 표시 */}
+          <div className="space-y-3 mb-4">
+            {/* 매수 비율 */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-blue-600 dark:text-blue-400 font-mono w-10 font-semibold">
+                매수
+              </span>
+              <span className="text-sm text-blue-600 dark:text-blue-400 font-mono w-12 font-bold">
+                {(localOrderBookData.imbalanceRatio * 100).toFixed(0)}%
+              </span>
+              <div className="flex-1 bg-gray-200 dark:bg-gray-700 h-3 rounded-full overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-blue-400 to-blue-500 dark:from-blue-500 dark:to-blue-600 h-full transition-all duration-500 rounded-full shadow-sm"
+                  style={{
+                    width: `${localOrderBookData.imbalanceRatio * 100}%`,
+                  }}
+                ></div>
+              </div>
+            </div>
+
+            {/* 매도 비율 */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-red-600 dark:text-red-400 font-mono w-10 font-semibold">
+                매도
+              </span>
+              <span className="text-sm text-red-600 dark:text-red-400 font-mono w-12 font-bold">
+                {((1 - localOrderBookData.imbalanceRatio) * 100).toFixed(0)}%
+              </span>
+              <div className="flex-1 bg-gray-200 dark:bg-gray-700 h-3 rounded-full overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-red-400 to-red-500 dark:from-red-500 dark:to-red-600 h-full transition-all duration-500 rounded-full shadow-sm"
+                  style={{
+                    width: `${(1 - localOrderBookData.imbalanceRatio) * 100}%`,
+                  }}
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          {/* 수량 정보 - 보조 정보로 작게 */}
+          <div className="text-xs text-gray-600 dark:text-gray-400 border-t border-gray-300 dark:border-gray-600 pt-3">
+            <div className="flex justify-between">
+              <span className="font-medium">
+                매수 잔량:{" "}
+                <span className="font-bold text-blue-600 dark:text-blue-400">
+                  {formatNumber(localOrderBookData.totalBidQuantity)}주
+                </span>
+              </span>
+              <span className="font-medium">
+                매도 잔량:{" "}
+                <span className="font-bold text-red-600 dark:text-red-400">
+                  {formatNumber(localOrderBookData.totalAskQuantity)}주
+                </span>
+              </span>
+            </div>
           </div>
         </div>
 
@@ -282,26 +393,25 @@ export function OrderBookDisplay({
           {/* 매도 호가 (역순으로 표시 - 높은 가격부터) */}
           {[...localOrderBookData.askOrders].reverse().map((ask, index) => {
             const bid = localOrderBookData.bidOrders[9 - index]; // 대응하는 매수 호가
-
-            // 디버깅: rank 값 확인
-            if (index === 0) {
-              console.log("첫 번째 매도호가:", {
-                rank: ask.rank,
-                price: ask.price,
-                quantity: ask.quantity,
-              });
-            }
+            const currentPrice = getCurrentPrice();
+            const isCurrentPriceLevel =
+              parseInt(ask.price) === currentPrice ||
+              parseInt(bid?.price || "0") === currentPrice;
 
             return (
               <div
                 key={`order-${ask.rank || index}-${ask.price}`}
-                className="grid grid-cols-3 gap-2 text-xs items-center py-1"
+                className={`grid grid-cols-3 gap-2 text-xs items-center py-1.5 rounded ${
+                  isCurrentPriceLevel
+                    ? "bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
+                    : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                }`}
               >
                 {/* 매도잔량 */}
                 <div className="text-right">
                   <div className="relative">
                     <div
-                      className="absolute right-0 top-0 h-full bg-blue-100 dark:bg-blue-900/30 rounded-sm opacity-60"
+                      className="absolute right-0 top-0 h-full bg-red-200 dark:bg-red-800/40 rounded-sm opacity-80"
                       style={{
                         width: `${getQuantityBarWidth(
                           ask.quantity,
@@ -309,7 +419,7 @@ export function OrderBookDisplay({
                         )}%`,
                       }}
                     />
-                    <span className="relative z-10 text-blue-600 dark:text-blue-400 font-mono text-xs px-1">
+                    <span className="relative z-10 text-red-700 dark:text-red-300 font-mono text-xs">
                       {formatQuantity(ask.quantity)}
                     </span>
                   </div>
@@ -319,7 +429,7 @@ export function OrderBookDisplay({
                 <div className="text-center">
                   <button
                     onClick={() => onPriceClick?.(ask.price)}
-                    className="font-mono text-sm font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors cursor-pointer"
+                    className="font-mono text-sm font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/50 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors cursor-pointer"
                   >
                     {formatNumber(ask.price)}
                   </button>
@@ -330,7 +440,7 @@ export function OrderBookDisplay({
                   {bid && (
                     <div className="relative">
                       <div
-                        className="absolute left-0 top-0 h-full bg-red-100 dark:bg-red-900/30 rounded-sm opacity-60"
+                        className="absolute left-0 top-0 h-full bg-cyan-200 dark:bg-cyan-800/40 rounded-sm opacity-80"
                         style={{
                           width: `${getQuantityBarWidth(
                             bid.quantity,
@@ -340,7 +450,7 @@ export function OrderBookDisplay({
                       />
                       <button
                         onClick={() => onPriceClick?.(bid.price)}
-                        className="relative z-10 text-red-600 dark:text-red-400 font-mono text-xs px-1 hover:bg-red-100 dark:hover:bg-red-900/50 rounded cursor-pointer transition-colors"
+                        className="relative z-10 text-cyan-700 dark:text-cyan-400 font-mono text-xs px-1 hover:bg-cyan-200 dark:hover:bg-cyan-800/50 rounded cursor-pointer transition-colors"
                       >
                         {formatQuantity(bid.quantity)}
                       </button>
@@ -350,30 +460,6 @@ export function OrderBookDisplay({
               </div>
             );
           })}
-        </div>
-
-        {/* 스프레드 정보 */}
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-gray-500" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                스프레드
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                {formatNumber(localOrderBookData.spread)}원
-              </span>
-              <Badge variant="outline" className="text-xs">
-                {localOrderBookData.buyDominant
-                  ? "매수우세"
-                  : localOrderBookData.sellDominant
-                  ? "매도우세"
-                  : "균형"}
-              </Badge>
-            </div>
-          </div>
         </div>
 
         {/* 최우선 호가 정보 */}
