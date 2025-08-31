@@ -24,6 +24,9 @@ public class SettlementSchedule {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "account_balance_id", nullable = false, insertable = false, updatable = false)
+    private Long accountBalanceId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_balance_id", nullable = false)
     private AccountBalance accountBalance;
@@ -59,9 +62,9 @@ public class SettlementSchedule {
     }
 
     @Builder
-    public SettlementSchedule(AccountBalance accountBalance, Long tradeHistoryId,
+    public SettlementSchedule(Long accountBalanceId, Long tradeHistoryId,
             BigDecimal settlementAmount, LocalDate tradeDate) {
-        this.accountBalance = accountBalance;
+        this.accountBalanceId = accountBalanceId;
         this.tradeHistoryId = tradeHistoryId;
         this.settlementAmount = settlementAmount;
         this.tradeDate = tradeDate;
@@ -96,5 +99,11 @@ public class SettlementSchedule {
     // 정산 취소 처리
     public void cancelSettlement() {
         this.status = SettlementStatus.CANCELLED;
+    }
+
+    // accountBalance 설정 (accountBalanceId도 함께 설정)
+    public void setAccountBalance(AccountBalance accountBalance) {
+        this.accountBalance = accountBalance;
+        this.accountBalanceId = accountBalance.getId();
     }
 }

@@ -11,8 +11,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "account_balances")
@@ -25,9 +23,8 @@ public class AccountBalance {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    private Account account;
+    @Column(name = "account_id", nullable = false)
+    private Long accountId;
 
     @Column(name = "balance_date", nullable = false)
     private LocalDate balanceDate;
@@ -63,10 +60,6 @@ public class AccountBalance {
     @Column(name = "total_balance", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalBalance = BigDecimal.ZERO;
 
-    // 정산 일정
-    @OneToMany(mappedBy = "accountBalance", cascade = CascadeType.ALL)
-    private List<SettlementSchedule> settlementSchedules = new ArrayList<>();
-
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -76,11 +69,11 @@ public class AccountBalance {
     private LocalDateTime updatedAt;
 
     @Builder
-    public AccountBalance(Account account, LocalDate balanceDate, BigDecimal cashBalance,
+    public AccountBalance(Long accountId, LocalDate balanceDate, BigDecimal cashBalance,
             BigDecimal availableCash, BigDecimal frozenCash, BigDecimal settlementCash,
             BigDecimal withdrawableCash, BigDecimal totalStockValue,
             BigDecimal totalProfitLoss, BigDecimal totalProfitLossRate) {
-        this.account = account;
+        this.accountId = accountId;
         this.balanceDate = balanceDate;
         this.cashBalance = cashBalance != null ? cashBalance : BigDecimal.ZERO;
         this.availableCash = availableCash != null ? availableCash : BigDecimal.ZERO;

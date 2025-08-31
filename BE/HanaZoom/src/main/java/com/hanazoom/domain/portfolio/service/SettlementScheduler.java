@@ -4,6 +4,7 @@ import com.hanazoom.domain.portfolio.entity.SettlementSchedule;
 import com.hanazoom.domain.portfolio.entity.SettlementSchedule.SettlementStatus;
 import com.hanazoom.domain.portfolio.repository.SettlementScheduleRepository;
 import com.hanazoom.domain.portfolio.repository.AccountBalanceRepository;
+import com.hanazoom.domain.portfolio.repository.AccountRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import com.hanazoom.domain.portfolio.entity.AccountBalance;
 
 @Slf4j
 @Service
@@ -23,6 +25,7 @@ public class SettlementScheduler {
 
     private final SettlementScheduleRepository settlementScheduleRepository;
     private final AccountBalanceRepository accountBalanceRepository;
+    private final AccountRepository accountRepository;
 
     // 매일 자정에 정산 처리
     @Scheduled(cron = "0 0 0 * * ?")
@@ -51,24 +54,37 @@ public class SettlementScheduler {
 
     private void processSettlement(SettlementSchedule schedule) {
         try {
+            // 정산 대기 → 인출 가능으로 상태 변경
+            AccountBalance balance = schedule.getAccountBalance();
+            if (balance == null) {
+                balance = accountBalanceRepository.findById(schedule.getAccountBalanceId())
+                        .orElseThrow(
+                                () -> new IllegalArgumentException(
+                                        "계좌 잔고를 찾을 수 없습니다: " + schedule.getAccountBalanceId()));
+            }
+
+            final AccountBalance finalBalance = balance;
+
+            // Account 정보 조회
+            var account = accountRepository.findById(finalBalance.getAccountId())
+                    .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다: " + finalBalance.getAccountId()));
+
             log.info("정산 처리: ID={}, 금액={}, 계좌={}",
                     schedule.getId(), schedule.getSettlementAmount(),
-                    schedule.getAccountBalance().getAccount().getAccountNumber());
+                    account.getAccountNumber());
 
-            // 정산 대기 → 인출 가능으로 상태 변경
-            var balance = schedule.getAccountBalance();
-            balance.setSettlementCash(balance.getSettlementCash().subtract(schedule.getSettlementAmount()));
-            balance.setWithdrawableCash(balance.getWithdrawableCash().add(schedule.getSettlementAmount()));
+            finalBalance.setSettlementCash(finalBalance.getSettlementCash().subtract(schedule.getSettlementAmount()));
+            finalBalance.setWithdrawableCash(finalBalance.getWithdrawableCash().add(schedule.getSettlementAmount()));
 
             // 스케줄 상태 업데이트
             schedule.completeSettlement();
 
             // 잔고 저장
-            accountBalanceRepository.save(balance);
+            accountBalanceRepository.save(finalBalance);
             settlementScheduleRepository.save(schedule);
 
             log.info("정산 완료: ID={}, 계좌={}",
-                    schedule.getId(), balance.getAccount().getAccountNumber());
+                    schedule.getId(), finalBalance.getAccountId());
 
         } catch (Exception e) {
             log.error("개별 정산 처리 실패: ID={}", schedule.getId(), e);

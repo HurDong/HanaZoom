@@ -12,9 +12,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 @Entity
 @Table(name = "accounts")
@@ -67,29 +64,6 @@ public class Account {
     private LocalDateTime updatedAt;
 
     // 연관관계 매핑
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<PortfolioStock> portfolioStocks = new ArrayList<>();
-
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<AccountBalance> accountBalances = new ArrayList<>();
-
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<TradeHistory> tradeHistories = new ArrayList<>();
-
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<PortfolioPerformance> portfolioPerformances = new ArrayList<>();
-
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<PortfolioAlert> portfolioAlerts = new ArrayList<>();
-
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<RebalancingHistory> rebalancingHistories = new ArrayList<>();
 
     // 계좌 활성화/비활성화
     public void activate() {

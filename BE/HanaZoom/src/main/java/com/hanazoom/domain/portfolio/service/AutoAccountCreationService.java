@@ -72,7 +72,7 @@ public class AutoAccountCreationService {
         BigDecimal initialAmount = new BigDecimal("100000000"); // 1억원
 
         AccountBalance balance = AccountBalance.builder()
-                .account(account)
+                .accountId(account.getId())
                 .balanceDate(LocalDate.now())
                 .availableCash(initialAmount) // 즉시 사용 가능
                 .settlementCash(BigDecimal.ZERO) // 정산 대기
@@ -119,7 +119,7 @@ public class AutoAccountCreationService {
 
         defaultStocks.forEach(stock -> {
             PortfolioStock portfolioStock = PortfolioStock.builder()
-                    .account(account)
+                    .accountId(account.getId())
                     .stockSymbol(stock.symbol)
                     .quantity(stock.quantity)
                     .avgPurchasePrice(stock.avgPrice)

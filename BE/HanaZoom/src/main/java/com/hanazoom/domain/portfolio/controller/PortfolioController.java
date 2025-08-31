@@ -5,10 +5,8 @@ import com.hanazoom.domain.portfolio.dto.PortfolioStockResponse;
 import com.hanazoom.domain.portfolio.dto.TradeResult;
 import com.hanazoom.domain.portfolio.entity.Account;
 import com.hanazoom.domain.portfolio.entity.TradeHistory;
-import com.hanazoom.domain.portfolio.entity.SettlementSchedule;
 import com.hanazoom.domain.portfolio.service.PortfolioService;
 import com.hanazoom.domain.portfolio.service.VirtualTradingService;
-import com.hanazoom.domain.portfolio.service.PortfolioService.PortfolioPerformanceAnalysis;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -206,18 +204,4 @@ public class PortfolioController {
         }
     }
 
-    // 정산 스케줄 조회
-    @GetMapping("/settlements")
-    public ResponseEntity<List<SettlementSchedule>> getSettlementSchedules(
-            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
-        try {
-            log.info("정산 스케줄 조회 요청: 회원={}", member.getEmail());
-            Account account = portfolioService.getAccountByMemberId(member.getId());
-            List<SettlementSchedule> schedules = portfolioService.getSettlementSchedules(account.getId());
-            return ResponseEntity.ok(schedules);
-        } catch (Exception e) {
-            log.error("정산 스케줄 조회 실패: 회원={}", member.getId(), e);
-            return ResponseEntity.badRequest().build();
-        }
-    }
 }

@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -138,7 +139,7 @@ public class VirtualTradingService {
         AccountBalance balance = getAccountBalance(account);
 
         SettlementSchedule schedule = SettlementSchedule.builder()
-                .accountBalance(balance)
+                .accountBalanceId(balance.getId())
                 .settlementAmount(amount)
                 .tradeDate(tradeDate)
                 .build();
@@ -166,7 +167,7 @@ public class VirtualTradingService {
             int quantity, BigDecimal price, BigDecimal totalAmount,
             BigDecimal commission, BigDecimal balanceAfterTrade, int stockQuantityAfterTrade) {
         return TradeHistory.builder()
-                .account(account)
+                .accountId(account.getId())
                 .stockSymbol(stockSymbol)
                 .tradeType(tradeType)
                 .tradeDate(LocalDate.now())
@@ -189,15 +190,15 @@ public class VirtualTradingService {
 
     // 계좌 잔고 조회
     private AccountBalance getAccountBalance(Account account) {
-        return accountBalanceRepository.findLatestBalanceByAccountOrderByDateDesc(account)
+        return accountBalanceRepository.findLatestBalanceByAccountIdOrderByDateDesc(account.getId())
                 .orElseThrow(() -> new IllegalArgumentException("계좌 잔고를 찾을 수 없습니다: " + account.getAccountNumber()));
     }
 
     // 포트폴리오 주식 조회 또는 생성
     private PortfolioStock getOrCreatePortfolioStock(Account account, String stockSymbol) {
-        return portfolioStockRepository.findByAccountAndStockSymbol(account, stockSymbol)
+        return portfolioStockRepository.findByAccountIdAndStockSymbol(account.getId(), stockSymbol)
                 .orElseGet(() -> PortfolioStock.builder()
-                        .account(account)
+                        .accountId(account.getId())
                         .stockSymbol(stockSymbol)
                         .quantity(0)
                         .avgPurchasePrice(BigDecimal.ZERO)
@@ -207,23 +208,32 @@ public class VirtualTradingService {
 
     // 포트폴리오 주식 조회
     private PortfolioStock getPortfolioStock(Account account, String stockSymbol) {
-        return portfolioStockRepository.findByAccountAndStockSymbol(account, stockSymbol)
+        return portfolioStockRepository.findByAccountIdAndStockSymbol(account.getId(), stockSymbol)
                 .orElseThrow(() -> new IllegalArgumentException("보유 종목을 찾을 수 없습니다: " + stockSymbol));
     }
 
     // 계좌 잔고 업데이트
     private void updateAccountBalance(Account account) {
         // 주식 평가 정보 업데이트
-        BigDecimal totalStockValue = portfolioStockRepository.findTotalStockValueByAccount(account);
-        BigDecimal totalProfitLoss = portfolioStockRepository.findTotalProfitLossByAccount(account);
+        BigDecimal totalStockValue = portfolioStockRepository.findTotalStockValueByAccountId(account.getId());
+        BigDecimal totalProfitLoss = portfolioStockRepository.findTotalProfitLossByAccountId(account.getId());
 
         AccountBalance balance = getAccountBalance(account);
-        balance.updateStockValue(totalStockValue, totalProfitLoss,
-                totalProfitLoss.compareTo(BigDecimal.ZERO) != 0 ? totalProfitLoss
-                        .divide(balance.getAvailableCash().add(balance.getSettlementCash())
-                                .add(balance.getWithdrawableCash()), 4, BigDecimal.ROUND_HALF_UP)
-                        .multiply(new BigDecimal("100")) : BigDecimal.ZERO);
 
+        // 수익률 계산: 주식 매수 금액 대비 손익률 (현금 제외)
+        List<PortfolioStock> stocks = portfolioStockRepository.findHoldingStocksByAccountId(account.getId());
+        BigDecimal totalStockInvestment = stocks.stream()
+                .map(PortfolioStock::getTotalPurchaseAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalProfitLossRate = BigDecimal.ZERO;
+        if (totalStockInvestment.compareTo(BigDecimal.ZERO) > 0) {
+            totalProfitLossRate = totalProfitLoss
+                    .divide(totalStockInvestment, 4, BigDecimal.ROUND_HALF_UP)
+                    .multiply(new BigDecimal("100"));
+        }
+
+        balance.updateStockValue(totalStockValue, totalProfitLoss, totalProfitLossRate);
         accountBalanceRepository.save(balance);
     }
 

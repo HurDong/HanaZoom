@@ -2,8 +2,14 @@ package com.hanazoom.domain.portfolio.service;
 
 import com.hanazoom.domain.portfolio.dto.PortfolioSummaryResponse;
 import com.hanazoom.domain.portfolio.dto.PortfolioStockResponse;
-import com.hanazoom.domain.portfolio.entity.*;
-import com.hanazoom.domain.portfolio.repository.*;
+import com.hanazoom.domain.portfolio.entity.Account;
+import com.hanazoom.domain.portfolio.entity.AccountBalance;
+import com.hanazoom.domain.portfolio.entity.PortfolioStock;
+import com.hanazoom.domain.portfolio.entity.TradeHistory;
+import com.hanazoom.domain.portfolio.repository.AccountRepository;
+import com.hanazoom.domain.portfolio.repository.AccountBalanceRepository;
+import com.hanazoom.domain.portfolio.repository.PortfolioStockRepository;
+import com.hanazoom.domain.portfolio.repository.TradeHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -44,16 +50,41 @@ public class PortfolioService {
 
         Account account = getAccount(accountId);
         AccountBalance balance = getAccountBalance(account);
-        List<PortfolioStock> stocks = portfolioStockRepository.findHoldingStocksByAccount(account);
+        List<PortfolioStock> stocks = portfolioStockRepository.findHoldingStocksByAccountId(account.getId());
+
+        // 각 주식의 현재가 설정 및 손익 계산
+        BigDecimal actualTotalStockValue = BigDecimal.ZERO;
+        BigDecimal actualTotalProfitLoss = BigDecimal.ZERO;
+        BigDecimal totalStockInvestment = BigDecimal.ZERO;
+
+        for (PortfolioStock stock : stocks) {
+            // 임시로 평균 매수가를 현재가로 설정 (실제로는 실시간 주식 가격 API 사용)
+            if (stock.getCurrentPrice() == null) {
+                stock.updateCurrentPrice(stock.getAvgPurchasePrice());
+            }
+
+            // 손익 계산
+            stock.updateCurrentValue();
+            actualTotalStockValue = actualTotalStockValue.add(stock.getCurrentValue());
+            actualTotalProfitLoss = actualTotalProfitLoss.add(stock.getProfitLoss());
+            totalStockInvestment = totalStockInvestment.add(stock.getTotalPurchaseAmount());
+        }
 
         // 포트폴리오 구성 계산
-        BigDecimal totalStockValue = balance.getTotalStockValue();
         BigDecimal totalCash = balance.getAvailableCash().add(balance.getSettlementCash())
                 .add(balance.getWithdrawableCash());
-        BigDecimal totalBalance = balance.getTotalBalance();
+        BigDecimal totalBalance = totalCash.add(actualTotalStockValue);
+
+        // 수익률 계산: 주식 매수 금액 대비 손익률 (현금 제외)
+        BigDecimal actualTotalProfitLossRate = BigDecimal.ZERO;
+        if (totalStockInvestment.compareTo(BigDecimal.ZERO) > 0) {
+            actualTotalProfitLossRate = actualTotalProfitLoss
+                    .divide(totalStockInvestment, 4, RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal("100"));
+        }
 
         BigDecimal stockAllocationRate = totalBalance.compareTo(BigDecimal.ZERO) > 0
-                ? totalStockValue.divide(totalBalance, 4, RoundingMode.HALF_UP).multiply(new BigDecimal("100"))
+                ? actualTotalStockValue.divide(totalBalance, 4, RoundingMode.HALF_UP).multiply(new BigDecimal("100"))
                 : BigDecimal.ZERO;
 
         BigDecimal cashAllocationRate = totalBalance.compareTo(BigDecimal.ZERO) > 0
@@ -70,9 +101,9 @@ public class PortfolioService {
                 .withdrawableCash(balance.getWithdrawableCash())
                 .frozenCash(balance.getFrozenCash())
                 .totalCash(totalCash)
-                .totalStockValue(totalStockValue)
-                .totalProfitLoss(balance.getTotalProfitLoss())
-                .totalProfitLossRate(balance.getTotalProfitLossRate())
+                .totalStockValue(actualTotalStockValue)
+                .totalProfitLoss(actualTotalProfitLoss)
+                .totalProfitLossRate(actualTotalProfitLossRate)
                 .totalBalance(totalBalance)
                 .totalStockCount(stocks.size())
                 .stockAllocationRate(stockAllocationRate)
@@ -94,81 +125,18 @@ public class PortfolioService {
         log.info("포트폴리오 보유 주식 조회: 계좌={}", accountId);
 
         Account account = getAccount(accountId);
-        List<PortfolioStock> stocks = portfolioStockRepository.findHoldingStocksByAccount(account);
-        BigDecimal totalStockValue = portfolioStockRepository.findTotalStockValueByAccount(account);
+        List<PortfolioStock> stocks = portfolioStockRepository.findHoldingStocksByAccountId(account.getId());
+        BigDecimal totalStockValue = portfolioStockRepository.findTotalStockValueByAccountId(account.getId());
 
         return stocks.stream()
                 .map(stock -> convertToPortfolioStockResponse(stock, totalStockValue))
                 .collect(Collectors.toList());
     }
 
-    // 특정 종목 상세 정보 조회
-    public PortfolioStockResponse getPortfolioStockDetail(Long accountId, String stockSymbol) {
-        log.info("포트폴리오 종목 상세 조회: 계좌={}, 종목={}", accountId, stockSymbol);
-
-        Account account = getAccount(accountId);
-        PortfolioStock stock = portfolioStockRepository.findByAccountAndStockSymbol(account, stockSymbol)
-                .orElseThrow(() -> new IllegalArgumentException("보유 종목을 찾을 수 없습니다: " + stockSymbol));
-
-        BigDecimal totalStockValue = portfolioStockRepository.findTotalStockValueByAccount(account);
-        return convertToPortfolioStockResponse(stock, totalStockValue);
-    }
-
     // 거래 내역 조회
     public List<TradeHistory> getTradeHistory(Long accountId) {
         log.info("거래 내역 조회: 계좌={}", accountId);
-        Account account = getAccount(accountId);
-        return tradeHistoryRepository.findByAccountOrderByTradeDateDescTradeTimeDesc(account);
-    }
-
-    // 정산 스케줄 조회
-    public List<SettlementSchedule> getSettlementSchedules(Long accountId) {
-        log.info("정산 스케줄 조회: 계좌={}", accountId);
-        Account account = getAccount(accountId);
-        AccountBalance balance = getAccountBalance(account);
-        return balance.getSettlementSchedules();
-    }
-
-    // 포트폴리오 성과 분석
-    public PortfolioPerformanceAnalysis getPortfolioPerformance(Long accountId) {
-        log.info("포트폴리오 성과 분석: 계좌={}", accountId);
-
-        Account account = getAccount(accountId);
-        List<PortfolioStock> stocks = portfolioStockRepository.findHoldingStocksByAccount(account);
-
-        // 수익률 분석
-        List<PortfolioStock> profitableStocks = stocks.stream()
-                .filter(PortfolioStock::isProfitable)
-                .collect(Collectors.toList());
-
-        List<PortfolioStock> lossStocks = stocks.stream()
-                .filter(stock -> !stock.isProfitable())
-                .collect(Collectors.toList());
-
-        // 섹터별 분석 (간단한 예시)
-        long techStocks = stocks.stream()
-                .filter(stock -> isTechStock(stock.getStockSymbol()))
-                .count();
-
-        long financeStocks = stocks.stream()
-                .filter(stock -> isFinanceStock(stock.getStockSymbol()))
-                .count();
-
-        return PortfolioPerformanceAnalysis.builder()
-                .totalStocks(stocks.size())
-                .profitableStocks(profitableStocks.size())
-                .lossStocks(lossStocks.size())
-                .techStocks((int) techStocks)
-                .financeStocks((int) financeStocks)
-                .topPerformingStocks(portfolioStockRepository.findTopPerformingStocksByAccount(account).stream()
-                        .limit(5)
-                        .map(stock -> convertToPortfolioStockResponse(stock, BigDecimal.ZERO))
-                        .collect(Collectors.toList()))
-                .worstPerformingStocks(portfolioStockRepository.findWorstPerformingStocksByAccount(account).stream()
-                        .limit(5)
-                        .map(stock -> convertToPortfolioStockResponse(stock, BigDecimal.ZERO))
-                        .collect(Collectors.toList()))
-                .build();
+        return tradeHistoryRepository.findByAccountIdOrderByTradeDateDescTradeTimeDesc(accountId);
     }
 
     // 포트폴리오 주식 응답 변환
@@ -219,18 +187,6 @@ public class PortfolioService {
         return BigDecimal.ZERO;
     }
 
-    // 섹터 판별 (간단한 예시)
-    private boolean isTechStock(String stockSymbol) {
-        // 실제로는 Stock 엔티티의 섹터 정보를 사용해야 함
-        return stockSymbol.equals("005930") || stockSymbol.equals("035420") ||
-                stockSymbol.equals("051910") || stockSymbol.equals("006400");
-    }
-
-    private boolean isFinanceStock(String stockSymbol) {
-        // 실제로는 Stock 엔티티의 섹터 정보를 사용해야 함
-        return stockSymbol.equals("000660") || stockSymbol.equals("207940");
-    }
-
     // 종목명 조회 (간단한 예시)
     private String getStockName(String stockSymbol) {
         // 실제로는 Stock 엔티티에서 조회해야 함
@@ -260,20 +216,7 @@ public class PortfolioService {
 
     // 계좌 잔고 조회
     private AccountBalance getAccountBalance(Account account) {
-        return accountBalanceRepository.findLatestBalanceByAccountOrderByDateDesc(account)
+        return accountBalanceRepository.findLatestBalanceByAccountIdOrderByDateDesc(account.getId())
                 .orElseThrow(() -> new IllegalArgumentException("계좌 잔고를 찾을 수 없습니다: " + account.getAccountNumber()));
-    }
-
-    // 포트폴리오 성과 분석 결과
-    @lombok.Builder
-    @lombok.Getter
-    public static class PortfolioPerformanceAnalysis {
-        private int totalStocks;
-        private int profitableStocks;
-        private int lossStocks;
-        private int techStocks;
-        private int financeStocks;
-        private List<PortfolioStockResponse> topPerformingStocks;
-        private List<PortfolioStockResponse> worstPerformingStocks;
     }
 }
