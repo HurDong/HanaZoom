@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 import com.hanazoom.domain.region.repository.RegionRepository;
 import com.hanazoom.domain.region.entity.Region;
+import com.hanazoom.domain.portfolio.service.AutoAccountCreationService;
 
 @Slf4j
 @Service
@@ -35,6 +36,7 @@ public class MemberServiceImpl implements MemberService {
     private final KakaoApiService kakaoApiService;
     private final KakaoOAuthService kakaoOAuthService;
     private final RegionRepository regionRepository;
+    private final AutoAccountCreationService autoAccountCreationService;
 
     @Override
     @Transactional
@@ -84,6 +86,15 @@ public class MemberServiceImpl implements MemberService {
                 .build();
 
         memberRepository.save(member);
+
+        // 개발 환경에서만 자동 계좌 생성
+        try {
+            autoAccountCreationService.createAccountForNewMember(member);
+            log.info("자동 계좌 생성 완료 - 회원: {}", member.getEmail());
+        } catch (Exception e) {
+            log.warn("자동 계좌 생성 실패 - 회원: {}, 오류: {}", member.getEmail(), e.getMessage());
+            // 계좌 생성 실패는 회원가입 실패로 처리하지 않음
+        }
 
         log.info("회원가입 완료 - 이메일: {}, 지역ID: {}", request.getEmail(), regionId);
     }
@@ -208,7 +219,7 @@ public class MemberServiceImpl implements MemberService {
     public LoginResponse login(LoginRequest request) {
         try {
             log.info("🔄 로그인 요청 시작 - 이메일: {}", request.getEmail());
-            
+
             // 회원 조회
             Member member = memberRepository.findByEmail(request.getEmail())
                     .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 일치하지 않습니다."));
@@ -249,7 +260,7 @@ public class MemberServiceImpl implements MemberService {
     public TokenRefreshResponse refreshToken(TokenRefreshRequest request) {
         try {
             log.info("🔄 토큰 갱신 요청 시작");
-            
+
             // 리프레시 토큰 검증
             if (!jwtUtil.validateToken(request.getRefreshToken())) {
                 log.error("❌ 리프레시 토큰 검증 실패");

@@ -24,9 +24,8 @@ public class TradeHistory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    private Account account;
+    @Column(name = "account_id", nullable = false)
+    private Long accountId;
 
     @Column(name = "stock_symbol", nullable = false, length = 20)
     private String stockSymbol;
@@ -81,11 +80,11 @@ public class TradeHistory {
     private LocalDateTime updatedAt;
 
     @Builder
-    public TradeHistory(Account account, String stockSymbol, TradeType tradeType,
+    public TradeHistory(Long accountId, String stockSymbol, TradeType tradeType,
             LocalDate tradeDate, LocalTime tradeTime, Integer quantity,
             BigDecimal pricePerShare, BigDecimal totalAmount, BigDecimal commission,
-            BigDecimal tax, String tradeMemo) {
-        this.account = account;
+            BigDecimal tax, BigDecimal balanceAfterTrade, Integer stockQuantityAfterTrade, String tradeMemo) {
+        this.accountId = accountId;
         this.stockSymbol = stockSymbol;
         this.tradeType = tradeType;
         this.tradeDate = tradeDate != null ? tradeDate : LocalDate.now();
@@ -95,6 +94,8 @@ public class TradeHistory {
         this.totalAmount = totalAmount;
         this.commission = commission != null ? commission : BigDecimal.ZERO;
         this.tax = tax != null ? tax : BigDecimal.ZERO;
+        this.balanceAfterTrade = balanceAfterTrade;
+        this.stockQuantityAfterTrade = stockQuantityAfterTrade;
         this.tradeMemo = tradeMemo;
 
         calculateNetAmount();

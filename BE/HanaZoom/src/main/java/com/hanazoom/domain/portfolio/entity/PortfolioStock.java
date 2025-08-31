@@ -23,9 +23,8 @@ public class PortfolioStock {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    private Account account;
+    @Column(name = "account_id", nullable = false)
+    private Long accountId;
 
     @Column(name = "stock_symbol", nullable = false, length = 20)
     private String stockSymbol;
@@ -79,9 +78,9 @@ public class PortfolioStock {
     private LocalDateTime updatedAt;
 
     @Builder
-    public PortfolioStock(Account account, String stockSymbol, Integer quantity,
+    public PortfolioStock(Long accountId, String stockSymbol, Integer quantity,
             BigDecimal avgPurchasePrice, BigDecimal totalPurchaseAmount) {
-        this.account = account;
+        this.accountId = accountId;
         this.stockSymbol = stockSymbol;
         this.quantity = quantity != null ? quantity : 0;
         this.availableQuantity = this.quantity;
@@ -137,7 +136,7 @@ public class PortfolioStock {
     }
 
     // 현재 평가금액 및 손익 계산
-    private void updateCurrentValue() {
+    public void updateCurrentValue() {
         if (this.currentPrice != null && this.quantity > 0) {
             this.currentValue = this.currentPrice.multiply(BigDecimal.valueOf(this.quantity));
             this.profitLoss = this.currentValue.subtract(this.totalPurchaseAmount);

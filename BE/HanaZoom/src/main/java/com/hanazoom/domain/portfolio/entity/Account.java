@@ -2,6 +2,7 @@ package com.hanazoom.domain.portfolio.entity;
 
 import com.hanazoom.domain.member.entity.Member;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,15 +12,14 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 @Entity
 @Table(name = "accounts")
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Account {
 
     @Id
@@ -38,12 +38,15 @@ public class Account {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "account_type", nullable = false)
+    @Builder.Default
     private AccountType accountType = AccountType.STOCK;
 
     @Column(name = "is_active", nullable = false)
+    @Builder.Default
     private boolean isActive = true;
 
     @Column(name = "is_main_account", nullable = false)
+    @Builder.Default
     private boolean isMainAccount = false;
 
     @Column(name = "broker", length = 50)
@@ -61,36 +64,6 @@ public class Account {
     private LocalDateTime updatedAt;
 
     // 연관관계 매핑
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PortfolioStock> portfolioStocks = new ArrayList<>();
-
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<AccountBalance> accountBalances = new ArrayList<>();
-
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<TradeHistory> tradeHistories = new ArrayList<>();
-
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PortfolioPerformance> portfolioPerformances = new ArrayList<>();
-
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PortfolioAlert> portfolioAlerts = new ArrayList<>();
-
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<RebalancingHistory> rebalancingHistories = new ArrayList<>();
-
-    @Builder
-    public Account(Member member, String accountNumber, String accountName,
-            AccountType accountType, String broker, LocalDate createdDate,
-            boolean isMainAccount) {
-        this.member = member;
-        this.accountNumber = accountNumber;
-        this.accountName = accountName;
-        this.accountType = accountType;
-        this.broker = broker;
-        this.createdDate = createdDate;
-        this.isMainAccount = isMainAccount;
-    }
 
     // 계좌 활성화/비활성화
     public void activate() {

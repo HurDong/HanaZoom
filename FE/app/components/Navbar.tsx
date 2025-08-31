@@ -629,6 +629,14 @@ export default function NavBar() {
                   >
                     마이페이지로 이동
                   </button>
+                  <Link
+                    href="/portfolio"
+                    onClick={() => setShowProfileModal(false)}
+                    className="w-full border-2 border-blue-500 text-blue-600 dark:text-blue-400 bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm flex items-center justify-center"
+                  >
+                    <span className="mr-2">💼</span>
+                    포트폴리오 보기
+                  </Link>
                   <div className="flex gap-2">
                     <button className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800 font-medium py-2 px-3 rounded-lg transition-all duration-200 font-['Pretendard'] text-xs">
                       알림설정
@@ -751,6 +759,14 @@ export default function NavBar() {
             >
               WTS
             </Link>
+            {accessToken && (
+              <Link
+                href="/portfolio"
+                className="text-base font-medium text-gray-800 dark:text-gray-200 hover:text-green-600 dark:hover:text-green-400 transition-colors font-['Pretendard']"
+              >
+                포트폴리오
+              </Link>
+            )}
           </div>
         </nav>
 
