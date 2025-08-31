@@ -129,12 +129,14 @@ export const usePortfolio = () => {
     setError(null);
 
     try {
+      console.log("🔍 거래 내역 조회 시작...");
       const result = await retryApiCall(async () => {
         const token = getAccessToken();
         if (!token) {
           throw new Error("인증 토큰이 없습니다.");
         }
 
+        console.log("🔑 JWT 토큰 확인됨, API 호출 시작");
         const response = await fetch(`${API_BASE_URL}/api/portfolio/trades`, {
           method: "GET",
           headers: {
@@ -144,6 +146,10 @@ export const usePortfolio = () => {
           credentials: "include",
         });
 
+        console.log(
+          `📡 API 응답 상태: ${response.status} ${response.statusText}`
+        );
+
         if (!response.ok) {
           throw new Error(
             `거래 내역 조회에 실패했습니다. (${response.status})`
@@ -151,6 +157,7 @@ export const usePortfolio = () => {
         }
 
         const data = await response.json();
+        console.log("📊 거래 내역 API 응답 데이터:", data);
         return data;
       });
 
@@ -158,6 +165,7 @@ export const usePortfolio = () => {
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
+      console.error("❌ 거래 내역 조회 실패:", err);
       setError(errorMessage);
       return [];
     } finally {

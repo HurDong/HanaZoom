@@ -12,19 +12,23 @@ export default function PortfolioSummaryCard({
   summary,
 }: PortfolioSummaryCardProps) {
   const {
-    balance,
-    totalStocks,
-    totalValue,
+    totalStockCount,
+    totalStockValue,
     totalProfitLoss,
     totalProfitLossRate,
   } = summary;
 
+  // 개발자 도구에 DTO 데이터 로깅
+  console.log("🔍 PortfolioSummary DTO 전체:", summary);
+  console.log("💵 totalBalance 값:", summary.totalBalance);
+  console.log("💵 availableCash 값:", summary.availableCash);
+  console.log("💵 settlementCash 값:", summary.settlementCash);
+  console.log("💵 withdrawableCash 값:", summary.withdrawableCash);
+  console.log("💵 frozenCash 값:", summary.frozenCash);
+  console.log("💵 totalCash 값:", summary.totalCash);
+
   const isProfit = (totalProfitLoss || 0) >= 0;
-  const totalAssets =
-    (balance?.availableCash || 0) +
-    (balance?.settlementCash || 0) +
-    (balance?.withdrawableCash || 0) +
-    (totalValue || 0);
+  const totalAssets = summary.totalBalance || 0;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -96,33 +100,31 @@ export default function PortfolioSummaryCard({
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-            {totalStocks || 0}종목
+            {totalStockCount || 0}종목
           </div>
           <div className="text-sm text-green-600 dark:text-green-400 mt-1">
-            {(totalValue || 0).toLocaleString()}원
+            {(totalStockValue || 0).toLocaleString()}원
           </div>
         </CardContent>
       </Card>
 
       {/* 사용가능 현금 */}
-      {balance && (
-        <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800 hover:shadow-lg transition-all duration-300">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2 text-green-900 dark:text-green-100">
-              <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
-              사용가능
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-              {(balance.availableCash || 0).toLocaleString()}원
-            </div>
-            <div className="text-sm text-green-600 dark:text-green-400 mt-1">
-              즉시 거래 가능
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800 hover:shadow-lg transition-all duration-300">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2 text-green-900 dark:text-green-100">
+            <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
+            사용가능
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-green-900 dark:text-green-100">
+            {(summary.availableCash || 0).toLocaleString()}원
+          </div>
+          <div className="text-sm text-green-600 dark:text-green-400 mt-1">
+            즉시 거래 가능
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

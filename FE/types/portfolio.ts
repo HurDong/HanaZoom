@@ -61,12 +61,36 @@ export interface TradeHistory {
 }
 
 export interface PortfolioSummary {
-  account: Account;
-  balance: AccountBalance;
-  totalStocks: number;
-  totalValue: number;
+  // 계좌 정보
+  accountId: number;
+  accountNumber: string;
+  accountName: string;
+  balanceDate: string;
+
+  // 현금 잔고
+  availableCash: number;
+  settlementCash: number;
+  withdrawableCash: number;
+  frozenCash: number;
+  totalCash: number;
+
+  // 주식 정보
+  totalStockCount: number;
+  totalStockValue: number;
   totalProfitLoss: number;
   totalProfitLossRate: number;
+
+  // 총 잔고
+  totalBalance: number;
+
+  // 자산 배분
+  cashAllocationRate: number;
+  stockAllocationRate: number;
+
+  // 수익률
+  dailyReturn: number;
+  monthlyReturn: number;
+  yearlyReturn: number;
 }
 
 export interface TradeResult {

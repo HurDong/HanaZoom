@@ -22,6 +22,12 @@ export default function TradeHistoryTable({ trades }: TradeHistoryTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"ALL" | "BUY" | "SELL">("ALL");
 
+  // 거래내역 데이터 로깅
+  console.log("📋 TradeHistoryTable 렌더링:", {
+    tradesCount: trades.length,
+    trades: trades,
+  });
+
   const filteredTrades = trades.filter((trade) => {
     const matchesSearch = trade.stockSymbol
       .toLowerCase()
