@@ -488,65 +488,6 @@ export default function StocksPage() {
             </div>
           </div>
 
-          {/* 통계 정보 */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200 dark:border-green-700">
-              <CardContent className="p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Activity className="w-5 h-5 text-green-600" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    총 종목 수
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-green-800 dark:text-green-200">
-                  {totalElements.toLocaleString()}개
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200 dark:border-green-700">
-              <CardContent className="p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <TrendingUp className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    검색 결과
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">
-                  {filteredStocks.length.toLocaleString()}개
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200 dark:border-green-700">
-              <CardContent className="p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Wifi className="w-5 h-5 text-emerald-600" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    구독 종목
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-emerald-800 dark:text-emerald-200">
-                  {subscribedCodes.length}개
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200 dark:border-green-700">
-              <CardContent className="p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <DollarSign className="w-5 h-5 text-purple-600" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    실시간 데이터
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-purple-800 dark:text-purple-200">
-                  {stockPricesMap.size}개
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
           {/* 종목 리스트 */}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
