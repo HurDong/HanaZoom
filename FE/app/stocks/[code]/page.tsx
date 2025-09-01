@@ -70,11 +70,7 @@ export default function StockDetailPage() {
   } = useStockWebSocket({
     stockCodes: validateStockCode(stockCode) ? [stockCode] : [],
     onStockUpdate: (data) => {
-      console.log(
-        "📈 웹소켓 데이터 업데이트:",
-        data.stockCode,
-        data.currentPrice
-      );
+      // 로그 제거 - 너무 많이 찍힘
     },
     autoReconnect: true,
     reconnectInterval: 3000,
