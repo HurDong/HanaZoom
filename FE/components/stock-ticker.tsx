@@ -262,6 +262,48 @@ export function StockTicker() {
   }
 
   if (!wsConnected) {
+    // 웹소켓 연결이 끊어져도 기존 데이터가 있으면 계속 표시
+    if (stocks.length > 0) {
+      return (
+        <div className="w-full bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 dark:from-yellow-700 dark:via-yellow-600 dark:to-yellow-700 text-white py-2 overflow-hidden relative shadow-lg">
+          {/* 배경 패턴 */}
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage:
+                  "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.1) 20px)",
+              }}
+            ></div>
+          </div>
+
+          {/* 연결 상태 표시 */}
+          <div className="absolute top-1 right-2 flex items-center gap-1 text-xs opacity-80">
+            <WifiOff className="w-3 h-3" />
+            <span>장종료</span>
+          </div>
+
+          {/* 스크롤링 티커 - 애니메이션 중단 방지 */}
+          <div className="relative w-[200%] flex">
+            <div
+              ref={animationRef}
+              className="w-1/2 flex whitespace-nowrap animate-[marquee_120s_linear_infinite] marquee-optimized"
+            >
+              {stocks.map((stock, index) => renderStockItem(stock, index))}
+            </div>
+            <div
+              className="w-1/2 flex whitespace-nowrap animate-[marquee_120s_linear_infinite] marquee-optimized"
+              style={{ animationDelay: "60s" }}
+            >
+              {stocks.map((stock, index) => renderStockItem(stock, index))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // 데이터도 없는 경우
     return (
       <div className="w-full bg-gradient-to-r from-red-600 via-red-500 to-red-600 dark:from-red-700 dark:via-red-600 dark:to-red-700 text-white py-2 overflow-hidden relative shadow-lg">
         <div className="flex items-center justify-center gap-2 h-8">

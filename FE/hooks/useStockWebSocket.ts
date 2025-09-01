@@ -279,6 +279,7 @@ export function useStockWebSocket({
           connected: false,
           connecting: false,
           error: closeMessage,
+          // 기존 주식 데이터는 유지 (장종료 후에도 표시하기 위해)
         }));
 
         subscribedCodesRef.current.clear();

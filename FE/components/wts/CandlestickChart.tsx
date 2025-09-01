@@ -59,6 +59,50 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
+  // localStorage 키 생성자
+  const getMinuteKey = useCallback(() => `lastMinuteTimeframe_${stockCode}`, [stockCode]);
+
+  // 초기 로드: localStorage에서 이전 분봉을 불러와 적용
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const key = getMinuteKey();
+      const saved = localStorage.getItem(key);
+      if (saved && ["1M", "5M", "15M"].includes(saved)) {
+        console.log("🗂️ 저장된 분봉 초기화:", saved);
+        setLastMinuteTimeframe(saved);
+        // 현재가 분봉 계열이면 함께 동기화
+        if (timeframe === "1M" || timeframe === "5M" || timeframe === "15M") {
+          setTimeframe(saved);
+        }
+      }
+    } catch (e) {
+      console.warn("분봉 초기값 로드 실패:", e);
+    }
+  }, [getMinuteKey]);
+
+  // 주기적 동기화: 다른 탭/페이지에서 변경된 값을 반영
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = getMinuteKey();
+    const sync = () => {
+      try {
+        const saved = localStorage.getItem(key);
+        if (saved && ["1M", "5M", "15M"].includes(saved) && saved !== lastMinuteTimeframe) {
+          console.log("🔁 분봉 동기화:", lastMinuteTimeframe, "→", saved);
+          setLastMinuteTimeframe(saved);
+          if (timeframe === "1M" || timeframe === "5M" || timeframe === "15M") {
+            setTimeframe(saved);
+          }
+        }
+      } catch (e) {
+        console.warn("분봉 동기화 실패:", e);
+      }
+    };
+    const interval = setInterval(sync, 5000);
+    return () => clearInterval(interval);
+  }, [getMinuteKey, lastMinuteTimeframe, timeframe]);
+
   // 실시간 웹소켓 데이터
   const {
     connected: wsConnected,
@@ -83,9 +127,9 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
   ];
 
   const minuteTimeframes = [
-    { label: "1분", value: "15M" },  // 1분봉 버튼 → 15분봉 API 요청
-    { label: "5분", value: "1M" },   // 5분봉 버튼 → 1분봉 API 요청
-    { label: "15분", value: "5M" },  // 15분봉 버튼 → 5분봉 API 요청
+    { label: "1분", value: "1M" },   // 1분봉 버튼 → 1분봉 API 요청
+    { label: "5분", value: "5M" },   // 5분봉 버튼 → 5분봉 API 요청
+    { label: "15분", value: "15M" }, // 15분봉 버튼 → 15분봉 API 요청
   ];
 
   // 과거 차트 데이터 로드
@@ -98,24 +142,37 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
       if (timeframe === "1M" || timeframe === "5M" || timeframe === "15M" || timeframe === "1H") {
         // 분봉 데이터 사용
-        console.log("분봉 차트 요청됨:", timeframe);
+        const minuteLabels = {
+          "1M": "1분봉",
+          "5M": "5분봉", 
+          "15M": "15분봉"
+        };
+        const selectedLabel = minuteLabels[timeframe as keyof typeof minuteLabels] || timeframe;
+        
+        console.log("🚀 API 호출 시작:", selectedLabel, "(", timeframe, ") - 종목:", stockCode);
+        
         const dataLimit = 100;
         const pastCandles = await getChartData(stockCode, timeframe, dataLimit);
         console.log(
-          "분봉 데이터 응답:",
+          "📊 분봉 데이터 응답:",
           pastCandles.length,
-          "개, 첫 번째:",
+          "개, 타임프레임:",
+          timeframe,
+          "첫 번째:",
           pastCandles[0]
         );
         data = pastCandles.map(formatCandleForChart);
         console.log(
-          "포맷팅된 분봉 데이터:",
+          "📊 포맷팅된 분봉 데이터:",
           data.length,
-          "개, 첫 번째:",
+          "개, 타임프레임:",
+          timeframe,
+          "첫 번째:",
           data[0]
         );
       } else {
         // 일/주/월봉 데이터 사용
+        console.log("📊 일/주/월봉 차트 요청됨:", timeframe, "종목:", stockCode);
         const dataLimit =
           timeframe === "1D" ? 1000 : timeframe === "1W" ? 200 : 100;
         const pastCandles = await getChartData(stockCode, timeframe, dataLimit);
@@ -181,21 +238,49 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
   // 분봉 텍스트 클릭 핸들러 (마지막으로 선택한 분봉으로 이동)
   const handleMinuteTextClick = () => {
+    console.log("🎯 분봉 텍스트 버튼 클릭됨 - lastMinuteTimeframe:", lastMinuteTimeframe);
     setTimeframe(lastMinuteTimeframe);
     setShowMinuteToggle(false);
   };
 
   // 분봉 선택 핸들러
   const handleMinuteSelect = (minuteTf: string) => {
-    console.log("분봉 선택됨:", minuteTf);
-    setTimeframe(minuteTf);
-    setLastMinuteTimeframe(minuteTf);
-    setShowMinuteToggle(false);
-
-    // 분봉 변경 시 즉시 데이터 로드
-    setTimeout(() => {
-      loadChartData();
-    }, 100);
+    // 개발자 도구에 분봉 선택 로그 출력
+    const minuteLabels = {
+      "1M": "1분봉",
+      "5M": "5분봉", 
+      "15M": "15분봉"
+    };
+    const selectedLabel = minuteLabels[minuteTf as keyof typeof minuteLabels] || minuteTf;
+    
+    console.log("🎯 분봉 드롭다운에서 선택됨:", selectedLabel, "(", minuteTf, ")");
+    console.log("🎯 현재 timeframe:", timeframe, "새로 선택할 timeframe:", minuteTf);
+    
+    // API URL 로그 출력
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+    const apiUrl = `${API_BASE_URL}/api/v1/stocks/chart/${stockCode}?timeframe=${minuteTf}&limit=100`;
+    console.log("🌐 API 요청 URL:", apiUrl);
+    
+    // 현재 선택된 타임프레임과 다를 때만 업데이트
+    if (timeframe !== minuteTf) {
+      console.log("🔄 타임프레임 변경:", timeframe, "→", minuteTf);
+      setTimeframe(minuteTf);
+      setLastMinuteTimeframe(minuteTf);
+      // 선택값 저장
+      try {
+        const key = getMinuteKey();
+        localStorage.setItem(key, minuteTf);
+        console.log("💾 분봉 저장:", key, "=", minuteTf);
+      } catch (e) {
+        console.warn("분봉 저장 실패:", e);
+      }
+      setShowMinuteToggle(false);
+      // 데이터 로드는 timeframe 변경에 따른 useEffect에서 수행
+    } else {
+      console.log("ℹ️ 같은 타임프레임이므로 토글만 닫기");
+      // 같은 타임프레임이면 토글만 닫기
+      setShowMinuteToggle(false);
+    }
   };
 
   // 현재 타임프레임에 따른 분봉 토글 라벨
