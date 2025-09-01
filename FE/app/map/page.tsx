@@ -138,15 +138,33 @@ export default function MapPage() {
   }, [user?.latitude, user?.longitude]);
 
   // 초기 중심점 설정
-  const initialCenter = { lat: 37.5665, lng: 126.978 }; // 서울시청
-  const [center, setCenter] = useState(initialCenter);
-  const [zoomLevel, setZoomLevel] = useState(9);
+  const [center, setCenter] = useState({ lat: 37.5665, lng: 126.978 }); // 서울시청 (기본값)
+  const [zoomLevel, setZoomLevel] = useState(9); // 기본값
 
-  // 지도 인스턴스가 준비되면 사용자 위치로 이동
+  // 사용자 정보가 로드되면 초기 위치 설정
+  useEffect(() => {
+    if (user?.latitude && user?.longitude) {
+      console.log("👤 사용자 정보 로드됨 - 초기 위치 설정");
+      const lat = Number(user.latitude);
+      const lng = Number(user.longitude);
+      setCenter({ lat, lng });
+      setZoomLevel(4);
+      setDebouncedZoomLevel(4);
+    }
+  }, [user?.latitude, user?.longitude]);
+
+  // 지도 인스턴스가 준비되면 사용자 위치로 이동 (지도가 이미 올바른 위치에 있으면 이동하지 않음)
   useEffect(() => {
     if (mapRef.current && user?.latitude && user?.longitude) {
-      console.log("🚀 지도 준비됨 - 사용자 위치로 이동");
-      moveToUserLocation();
+      const currentCenter = mapRef.current.getCenter();
+      const userLat = Number(user.latitude);
+      const userLng = Number(user.longitude);
+      
+      // 현재 지도 중심과 사용자 위치가 다르면 이동
+      if (Math.abs(currentCenter.getLat() - userLat) > 0.001 || Math.abs(currentCenter.getLng() - userLng) > 0.001) {
+        console.log("🚀 지도 준비됨 - 사용자 위치로 이동");
+        moveToUserLocation();
+      }
     }
   }, [mapRef.current, user?.latitude, user?.longitude, moveToUserLocation]);
 
