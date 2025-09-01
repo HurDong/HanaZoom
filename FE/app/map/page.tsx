@@ -68,6 +68,7 @@ export default function MapPage() {
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
   const [selectedStock, setSelectedStock] = useState<TopStock | null>(null);
+  const mapRef = useRef<kakao.maps.Map | null>(null);
   const router = useRouter();
 
 
@@ -87,15 +88,50 @@ export default function MapPage() {
 
   // 위치 선택 핸들러 (검색 결과에서 사용)
   const handleLocationSelect = useCallback((lat: number, lng: number) => {
+    console.log("🗺️ 지도 위치 변경:", { lat, lng });
     setCenter({ lat, lng });
     setZoomLevel(4);
     setDebouncedZoomLevel(4);
   }, []);
 
+  // 지도 상태 초기화 (내 위치 버튼 클릭 시)
+  const handleResetMap = useCallback(() => {
+    console.log("🔄 지도 상태 초기화");
+    setSelectedRegion(null);
+    setTopStocks([]);
+    setSelectedStock(null);
+    // 사용자 위치로 이동 (새로고침과 동일한 효과)
+    if (user?.latitude && user?.longitude && mapRef.current) {
+      const lat = Number(user.latitude);
+      const lng = Number(user.longitude);
+      console.log("📍 지도 중심 이동:", { lat, lng });
+      
+      // 카카오맵 API를 사용하여 지도 중심 이동
+      const newCenter = new kakao.maps.LatLng(lat, lng);
+      mapRef.current.panTo(newCenter);
+      mapRef.current.setLevel(4);
+      
+      // 상태도 업데이트
+      setCenter({ lat, lng });
+      setZoomLevel(4);
+      setDebouncedZoomLevel(4);
+    }
+  }, [user?.latitude, user?.longitude]);
+
   // 사용자 위치로 이동하는 함수
   const moveToUserLocation = useCallback(() => {
-    if (user?.latitude && user?.longitude) {
-      setCenter({ lat: Number(user.latitude), lng: Number(user.longitude) });
+    if (user?.latitude && user?.longitude && mapRef.current) {
+      const lat = Number(user.latitude);
+      const lng = Number(user.longitude);
+      console.log("📍 초기 사용자 위치로 이동:", { lat, lng });
+      
+      // 카카오맵 API를 사용하여 지도 중심 이동
+      const newCenter = new kakao.maps.LatLng(lat, lng);
+      mapRef.current.panTo(newCenter);
+      mapRef.current.setLevel(4);
+      
+      // 상태도 업데이트
+      setCenter({ lat, lng });
       setZoomLevel(4);
       setDebouncedZoomLevel(4);
     }
@@ -106,12 +142,13 @@ export default function MapPage() {
   const [center, setCenter] = useState(initialCenter);
   const [zoomLevel, setZoomLevel] = useState(9);
 
-  // 컴포넌트 마운트 또는 새로고침 시 사용자 위치로 이동
+  // 지도 인스턴스가 준비되면 사용자 위치로 이동
   useEffect(() => {
-    if (user?.latitude && user?.longitude) {
+    if (mapRef.current && user?.latitude && user?.longitude) {
+      console.log("🚀 지도 준비됨 - 사용자 위치로 이동");
       moveToUserLocation();
     }
-  }, [user, moveToUserLocation]);
+  }, [mapRef.current, user?.latitude, user?.longitude, moveToUserLocation]);
 
 
 
@@ -295,7 +332,11 @@ export default function MapPage() {
       </div>
 
       {/* 검색·점프 기능 */}
-      <SearchJump regions={regions} onLocationSelect={handleLocationSelect} />
+      <SearchJump 
+        regions={regions} 
+        onLocationSelect={handleLocationSelect} 
+        onResetMap={handleResetMap}
+      />
 
       <main className="relative z-10 pt-44">
         <div className="w-full px-6 py-4 h-[calc(100vh-12rem)] flex gap-6">
@@ -663,11 +704,18 @@ export default function MapPage() {
               center={center}
               style={{ width: "100%", height: "100%" }}
               level={zoomLevel}
+
               onZoomChanged={(map) => {
                 handleZoomChange(map.getLevel());
                 updateBounds(map);
               }}
-              onCenterChanged={(map) => updateBounds(map)}
+              onCenterChanged={(map) => {
+                updateBounds(map);
+                if (!mapRef.current) {
+                  console.log("🗺️ 카카오맵 인스턴스 저장");
+                  mapRef.current = map;
+                }
+              }}
               onBoundsChanged={(map) => updateBounds(map)}
               onTileLoaded={(map: kakao.maps.Map) => updateBounds(map)}
             >
