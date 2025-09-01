@@ -55,8 +55,6 @@ interface TopStock {
   rank?: number; // 지역 내 순위
 }
 
-
-
 const KAKAO_MAP_API_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY;
 
 export default function MapPage() {
@@ -70,8 +68,6 @@ export default function MapPage() {
   const [selectedStock, setSelectedStock] = useState<TopStock | null>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const router = useRouter();
-
-
 
   // LOD 최적화 hooks
   const { viewport, updateBounds, isPointInBounds } = useMapBounds();
@@ -105,12 +101,12 @@ export default function MapPage() {
       const lat = Number(user.latitude);
       const lng = Number(user.longitude);
       console.log("📍 지도 중심 이동:", { lat, lng });
-      
+
       // 카카오맵 API를 사용하여 지도 중심 이동
       const newCenter = new kakao.maps.LatLng(lat, lng);
       mapRef.current.panTo(newCenter);
       mapRef.current.setLevel(4);
-      
+
       // 상태도 업데이트
       setCenter({ lat, lng });
       setZoomLevel(4);
@@ -124,12 +120,12 @@ export default function MapPage() {
       const lat = Number(user.latitude);
       const lng = Number(user.longitude);
       console.log("📍 초기 사용자 위치로 이동:", { lat, lng });
-      
+
       // 카카오맵 API를 사용하여 지도 중심 이동
       const newCenter = new kakao.maps.LatLng(lat, lng);
       mapRef.current.panTo(newCenter);
       mapRef.current.setLevel(4);
-      
+
       // 상태도 업데이트
       setCenter({ lat, lng });
       setZoomLevel(4);
@@ -159,16 +155,17 @@ export default function MapPage() {
       const currentCenter = mapRef.current.getCenter();
       const userLat = Number(user.latitude);
       const userLng = Number(user.longitude);
-      
+
       // 현재 지도 중심과 사용자 위치가 다르면 이동
-      if (Math.abs(currentCenter.getLat() - userLat) > 0.001 || Math.abs(currentCenter.getLng() - userLng) > 0.001) {
+      if (
+        Math.abs(currentCenter.getLat() - userLat) > 0.001 ||
+        Math.abs(currentCenter.getLng() - userLng) > 0.001
+      ) {
         console.log("🚀 지도 준비됨 - 사용자 위치로 이동");
         moveToUserLocation();
       }
     }
   }, [mapRef.current, user?.latitude, user?.longitude, moveToUserLocation]);
-
-
 
   // 지역 데이터를 불러옵니다.
   useEffect(() => {
@@ -350,11 +347,33 @@ export default function MapPage() {
       </div>
 
       {/* 검색·점프 기능 */}
-      <SearchJump 
-        regions={regions} 
-        onLocationSelect={handleLocationSelect} 
+      <SearchJump
+        regions={regions}
+        onLocationSelect={handleLocationSelect}
         onResetMap={handleResetMap}
       />
+
+      {/* 매달린 캐릭터 오버레이 - 지도보다 위에 배치 */}
+      <div className="fixed top-8 left-72 z-[5] pointer-events-none">
+        <div className="relative">
+          {/* 매달린 줄 효과 - 더 자연스럽게 */}
+          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-1 h-12 bg-gradient-to-b from-gray-500 via-gray-400 to-transparent rounded-full"></div>
+          {/* 그림자 효과 - 지도 위에 떨어지는 그림자 */}
+          <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-64 h-12 bg-black/15 rounded-full blur-sm"></div>
+        </div>
+      </div>
+
+      {/* 캐릭터 이미지만 별도로 높은 z-index로 배치 */}
+      <div className="fixed top-32 left-80 z-[20] pointer-events-none">
+        <img
+          src="/starpro_hang.png"
+          alt="매달린 캐릭터"
+          className="w-80 h-20 object-contain"
+          style={{
+            transform: "translateY(-8px)",
+          }}
+        />
+      </div>
 
       <main className="relative z-10 pt-44">
         <div className="w-full px-6 py-4 h-[calc(100vh-12rem)] flex gap-6">
@@ -722,7 +741,6 @@ export default function MapPage() {
               center={center}
               style={{ width: "100%", height: "100%" }}
               level={zoomLevel}
-
               onZoomChanged={(map) => {
                 handleZoomChange(map.getLevel());
                 updateBounds(map);
