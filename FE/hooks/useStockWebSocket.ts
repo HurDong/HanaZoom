@@ -181,11 +181,6 @@ export function useStockWebSocket({
                 });
 
                 onStockUpdate?.(stockData);
-                console.log(
-                  "📈 실시간 데이터 수신:",
-                  stockData.stockCode,
-                  stockData.currentPrice
-                );
               }
               break;
 

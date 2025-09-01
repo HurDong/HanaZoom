@@ -61,18 +61,13 @@ export function StockTicker() {
 
   // 깜빡임 없는 부드러운 업데이트
   const updateStockDisplayWithMap = useCallback((stockDataMap: Map<string, any>): void => {
-    console.log('updateStockDisplayWithMap called, stockDataMap size:', stockDataMap.size);
-    console.log('stockDataMap contents:', Object.fromEntries(stockDataMap));
-
     if (stockDataMap.size === 0) {
-      console.log('stockDataMap is empty, returning early');
       return;
     }
 
     // 즉시 업데이트, 깜빡임 없음
     const newStocks: StockTicker[] = TICKER_STOCKS.map((tickerStock) => {
       const stockData = stockDataMap.get(tickerStock.symbol);
-      console.log(`Processing ${tickerStock.symbol}:`, stockData);
       
       if (!stockData) {
         // 데이터가 없으면 기본값 반환
@@ -104,8 +99,6 @@ export function StockTicker() {
       };
     });
 
-    console.log('New stocks to be set:', newStocks);
-
     setStocks((prev) => {
       // 동일 데이터로 인한 불필요한 렌더를 한 번 더 방지
       const sameLength = prev.length === newStocks.length;
@@ -117,9 +110,6 @@ export function StockTicker() {
             p.price === newStocks[i].price &&
             p.change === newStocks[i].change
         );
-      
-      console.log('Previous stocks:', prev);
-      console.log('Same data check:', sameAll);
       
       return sameAll ? prev : newStocks;
     });
@@ -130,19 +120,14 @@ export function StockTicker() {
     // getStockDataMap은 훅에서 안정적으로 반환되지만, 의존성으로 넣으면
     // 구현 변경 시 매 렌더마다 바뀌어 효과가 반복될 수 있어 내부에서 호출만 함
     const stockDataMap = getStockDataMap();
-    
-    console.log('updateStockDisplay called, stockDataMap size:', stockDataMap.size);
-    console.log('stockDataMap contents:', Object.fromEntries(stockDataMap));
 
     if (stockDataMap.size === 0) {
-      console.log('stockDataMap is empty, returning early');
       return;
     }
 
     // 즉시 업데이트, 깜빡임 없음
     const newStocks: StockTicker[] = TICKER_STOCKS.map((tickerStock) => {
       const stockData = stockDataMap.get(tickerStock.symbol);
-      console.log(`Processing ${tickerStock.symbol}:`, stockData);
       
       if (!stockData) {
         // 데이터가 없으면 기본값 반환
@@ -174,8 +159,6 @@ export function StockTicker() {
       };
     });
 
-    console.log('New stocks to be set:', newStocks);
-
     setStocks((prev) => {
       // 동일 데이터로 인한 불필요한 렌더를 한 번 더 방지
       const sameLength = prev.length === newStocks.length;
@@ -187,9 +170,6 @@ export function StockTicker() {
             p.price === newStocks[i].price &&
             p.change === newStocks[i].change
         );
-      
-      console.log('Previous stocks:', prev);
-      console.log('Same data check:', sameAll);
       
       return sameAll ? prev : newStocks;
     });
@@ -201,15 +181,11 @@ export function StockTicker() {
   }, []);
 
   useEffect(() => {
-    console.log('useEffect triggered - wsConnected:', wsConnected, 'lastUpdate:', lastUpdate);
     if (wsConnected) {
       const map = getStockDataMap();
-      console.log('Map from getStockDataMap:', map.size, Object.fromEntries(map));
       if (map.size > 0) {
         // Map을 직접 전달하여 일관성 보장
         updateStockDisplayWithMap(map);
-      } else {
-        console.log('Map is empty, not calling updateStockDisplay');
       }
     }
     // 의존성으로 함수 레퍼런스를 두지 않고, 신호성 값들만 둔다

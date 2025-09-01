@@ -83,9 +83,9 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
   ];
 
   const minuteTimeframes = [
-    { label: "1분", value: "1M" },
-    { label: "5분", value: "5M" },
-    { label: "15분", value: "15M" },
+    { label: "1분", value: "15M" },  // 1분봉 버튼 → 15분봉 API 요청
+    { label: "5분", value: "1M" },   // 5분봉 버튼 → 1분봉 API 요청
+    { label: "15분", value: "5M" },  // 15분봉 버튼 → 5분봉 API 요청
   ];
 
   // 과거 차트 데이터 로드
@@ -96,7 +96,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
       let data: ChartDataPoint[] = [];
 
-      if (timeframe === "1M" || timeframe === "5M" || timeframe === "15M") {
+      if (timeframe === "1M" || timeframe === "5M" || timeframe === "15M" || timeframe === "1H") {
         // 분봉 데이터 사용
         console.log("분봉 차트 요청됨:", timeframe);
         const dataLimit = 100;
@@ -446,7 +446,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         currentPriceY + 4
       );
     }
-  }, [chartData, hoveredCandle, timeframe]);
+  }, [chartData, timeframe, hoveredCandle, tooltipData]);
 
   // 차트 클릭 핸들러
   const handleChartClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -705,7 +705,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
   useEffect(() => {
     renderChart();
     renderVolumeChart();
-  }, [renderChart, renderVolumeChart]);
+  }, [chartData, timeframe, hoveredCandle, hoveredVolume, tooltipData]);
 
   // 윈도우 리사이즈 핸들러
   useEffect(() => {
@@ -716,14 +716,14 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [renderChart, renderVolumeChart]);
+  }, [chartData, timeframe, hoveredCandle, hoveredVolume, tooltipData]);
 
   // 차트 데이터 변경 시 거래량 차트도 함께 업데이트
   useEffect(() => {
     if (chartData.length > 0) {
       renderVolumeChart();
     }
-  }, [chartData, renderVolumeChart]);
+  }, [chartData, timeframe, hoveredVolume]);
 
   if (loading) {
     return (

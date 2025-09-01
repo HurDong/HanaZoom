@@ -4,7 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, TrendingUp, TrendingDown } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { createOrder, type OrderRequest } from "@/lib/api/order";
+import { useAuthStore } from "@/app/utils/auth";
+import { toast } from "sonner";
 
 interface TradingOrderPanelProps {
   stockCode: string;
@@ -14,10 +17,17 @@ interface TradingOrderPanelProps {
 
 export const TradingOrderPanel = forwardRef<any, TradingOrderPanelProps>(
   ({ stockCode, currentPrice, orderBookData }, ref) => {
+    const { accessToken } = useAuthStore();
     const [orderType, setOrderType] = useState<"BUY" | "SELL">("BUY");
     const [price, setPrice] = useState("");
     const [quantity, setQuantity] = useState("");
     const [orderMethod, setOrderMethod] = useState<"LIMIT" | "MARKET">("LIMIT");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [lastOrderResult, setLastOrderResult] = useState<{
+      success: boolean;
+      message: string;
+      orderId?: number;
+    } | null>(null);
 
     // ref를 통해 외부에서 호출할 수 있는 메서드들
     useImperativeHandle(ref, () => ({
@@ -45,24 +55,65 @@ export const TradingOrderPanel = forwardRef<any, TradingOrderPanelProps>(
     };
 
     // 주문 실행
-    const handleOrder = () => {
-      if (!price || !quantity) {
-        alert("가격과 수량을 입력해주세요.");
+    const handleOrder = async () => {
+      if (!accessToken) {
+        toast.error("주문을 하려면 로그인이 필요합니다.");
         return;
       }
 
-      const orderData = {
-        stockCode,
-        orderType,
-        orderMethod,
-        price: parseFloat(price),
-        quantity: parseInt(quantity),
-        totalAmount: parseFloat(price) * parseInt(quantity),
-      };
+      if (!quantity) {
+        toast.error("수량을 입력해주세요.");
+        return;
+      }
 
-      console.log("주문 실행:", orderData);
-      // TODO: 실제 주문 API 호출
-      alert(`${orderType === "BUY" ? "매수" : "매도"} 주문이 접수되었습니다.`);
+      if (orderMethod === "LIMIT" && (!price || parseFloat(price) <= 0)) {
+        toast.error("지정가 주문에서는 가격을 입력해주세요.");
+        return;
+      }
+
+      if (parseInt(quantity) <= 0) {
+        toast.error("수량은 1 이상이어야 합니다.");
+        return;
+      }
+
+      setIsSubmitting(true);
+      setLastOrderResult(null);
+
+      try {
+        const orderRequest: OrderRequest = {
+          stockCode,
+          orderType,
+          orderMethod,
+          price: orderMethod === "MARKET" ? parseFloat(currentPrice || "0") : parseFloat(price),
+          quantity: parseInt(quantity),
+        };
+
+        const result = await createOrder(orderRequest);
+        
+        setLastOrderResult({
+          success: true,
+          message: `${orderType === "BUY" ? "매수" : "매도"} 주문이 성공적으로 접수되었습니다.`,
+          orderId: result.id,
+        });
+
+        toast.success(`${orderType === "BUY" ? "매수" : "매도"} 주문이 접수되었습니다. (주문번호: ${result.id})`);
+        
+        // 주문 성공 후 입력 필드 초기화
+        setPrice("");
+        setQuantity("");
+        
+      } catch (error: any) {
+        const errorMessage = error.response?.data?.message || "주문 처리 중 오류가 발생했습니다.";
+        
+        setLastOrderResult({
+          success: false,
+          message: errorMessage,
+        });
+
+        toast.error(errorMessage);
+      } finally {
+        setIsSubmitting(false);
+      }
     };
 
     return (
@@ -134,12 +185,17 @@ export const TradingOrderPanel = forwardRef<any, TradingOrderPanelProps>(
             <Input
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              placeholder="주문 가격"
+              placeholder={orderMethod === "MARKET" ? "시장가" : "주문 가격"}
               disabled={orderMethod === "MARKET"}
               type="number"
               min="0"
               step="1"
             />
+            {orderMethod === "MARKET" && currentPrice && (
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                현재가: {parseInt(currentPrice).toLocaleString()}원
+              </div>
+            )}
           </div>
 
           <div>
@@ -155,13 +211,17 @@ export const TradingOrderPanel = forwardRef<any, TradingOrderPanelProps>(
           </div>
 
           {/* 예상 금액 표시 */}
-          {price && quantity && (
+          {((price && quantity) || (orderMethod === "MARKET" && currentPrice && quantity)) && (
             <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 예상 주문 금액
               </div>
               <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                {(parseFloat(price) * parseInt(quantity)).toLocaleString()}원
+                {(() => {
+                  const orderPrice = orderMethod === "MARKET" ? parseFloat(currentPrice || "0") : parseFloat(price || "0");
+                  const orderQuantity = parseInt(quantity || "0");
+                  return (orderPrice * orderQuantity).toLocaleString();
+                })()}원
               </div>
             </div>
           )}
@@ -170,14 +230,49 @@ export const TradingOrderPanel = forwardRef<any, TradingOrderPanelProps>(
         {/* 주문 실행 버튼 */}
         <Button
           onClick={handleOrder}
+          disabled={isSubmitting}
           className={`w-full py-3 text-lg font-bold ${
             orderType === "BUY"
-              ? "bg-red-600 hover:bg-red-700"
-              : "bg-blue-600 hover:bg-blue-700"
+              ? "bg-red-600 hover:bg-red-700 disabled:bg-red-400"
+              : "bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400"
           }`}
         >
-          {orderType === "BUY" ? "매수" : "매도"} 주문
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              주문 처리 중...
+            </>
+          ) : (
+            `${orderType === "BUY" ? "매수" : "매도"} 주문`
+          )}
         </Button>
+
+        {/* 주문 결과 표시 */}
+        {lastOrderResult && (
+          <div className={`p-3 rounded-lg border ${
+            lastOrderResult.success 
+              ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700" 
+              : "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700"
+          }`}>
+            <div className="flex items-center gap-2">
+              {lastOrderResult.success ? (
+                <CheckCircle className="w-4 h-4 text-green-600" />
+              ) : (
+                <XCircle className="w-4 h-4 text-red-600" />
+              )}
+              <span className={`text-sm ${
+                lastOrderResult.success ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"
+              }`}>
+                {lastOrderResult.message}
+              </span>
+            </div>
+            {lastOrderResult.orderId && (
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                주문번호: {lastOrderResult.orderId}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 계좌 정보 (간단 표시) */}
         <Card className="bg-gray-50 dark:bg-gray-800">

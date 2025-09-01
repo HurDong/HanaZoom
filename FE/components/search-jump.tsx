@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuthStore } from "@/app/utils/auth";
+import { useRouter } from "next/navigation";
 
 // 검색 결과 타입
 interface SearchResult {
@@ -42,10 +43,16 @@ interface RecentSearch {
 interface SearchJumpProps {
   regions: any[];
   onLocationSelect: (lat: number, lng: number) => void;
+  onResetMap?: () => void; // 지도 상태 초기화를 위한 추가 콜백
 }
 
-export function SearchJump({ regions, onLocationSelect }: SearchJumpProps) {
+export function SearchJump({ regions, onLocationSelect, onResetMap }: SearchJumpProps) {
   const user = useAuthStore((state) => state.user);
+  const router = useRouter();
+  
+  // 디버깅: 사용자 정보 출력
+  console.log("🔍 SearchJump 컴포넌트 - 사용자 정보:", user);
+  console.log("🔍 SearchJump 컴포넌트 - 사용자 좌표:", user?.latitude, user?.longitude);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -212,23 +219,38 @@ export function SearchJump({ regions, onLocationSelect }: SearchJumpProps) {
     setShowRecentSearches(false);
   }, [onLocationSelect]);
 
-  // 내 위치로 이동
+  // 내 위치로 이동 (지도 페이지 새로고침과 동일한 로직)
   const moveToUserLocation = useCallback(() => {
     console.log("📍 내 위치 버튼 클릭됨");
     console.log("📍 사용자 정보:", user);
     console.log("📍 사용자 좌표:", user?.latitude, user?.longitude);
     
+    if (!user) {
+      console.log("❌ 로그인이 필요합니다.");
+      if (confirm("로그인이 필요합니다. 로그인 페이지로 이동하시겠습니까?")) {
+        router.push("/login");
+      }
+      return;
+    }
+    
     if (user?.latitude && user?.longitude) {
       const lat = Number(user.latitude);
       const lng = Number(user.longitude);
       console.log("📍 지도 이동:", { lat, lng });
-      onLocationSelect(lat, lng);
+      
+      // 지도 페이지 새로고침과 동일한 로직 적용 (onResetMap에서 모든 처리)
+      console.log("🔄 지도 상태 초기화 (새로고침 효과)");
+      if (onResetMap) {
+        onResetMap();
+      }
     } else {
       console.log("❌ 사용자 위치 정보가 없습니다.");
-      // 사용자에게 알림
-      alert("저장된 위치 정보가 없습니다. 마이페이지에서 위치를 설정해주세요.");
+      // 사용자에게 알림 및 마이페이지로 이동 제안
+      if (confirm("저장된 위치 정보가 없습니다. 마이페이지에서 위치를 설정하시겠습니까?")) {
+        router.push("/mypage");
+      }
     }
-  }, [user?.latitude, user?.longitude, onLocationSelect]);
+  }, [user?.latitude, user?.longitude, onLocationSelect, user, router]);
 
   // 컴포넌트 언마운트 시 타임아웃 클리어
   useEffect(() => {
@@ -267,8 +289,12 @@ export function SearchJump({ regions, onLocationSelect }: SearchJumpProps) {
           {/* 내 위치 버튼 */}
           <Button
             onClick={moveToUserLocation}
-            disabled={!user?.latitude || !user?.longitude}
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 px-3 bg-green-500 hover:bg-green-600 text-white text-xs"
+            disabled={!user || !user?.latitude || !user?.longitude}
+            className={`absolute right-2 top-1/2 transform -translate-y-1/2 h-8 px-3 text-xs ${
+              user && user?.latitude && user?.longitude
+                ? "bg-green-500 hover:bg-green-600 text-white"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            }`}
           >
             <Navigation className="w-4 h-4 mr-1" />
             내 위치
