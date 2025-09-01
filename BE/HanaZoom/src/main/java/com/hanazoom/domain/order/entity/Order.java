@@ -41,7 +41,7 @@ public class Order {
     @Column(name = "order_method", nullable = false)
     private OrderMethod orderMethod; // LIMIT, MARKET
 
-    @Column(name = "price", precision = 15, scale = 2, nullable = false)
+    @Column(name = "price", precision = 15, scale = 2)
     private BigDecimal price;
 
     @Column(name = "quantity", nullable = false)
