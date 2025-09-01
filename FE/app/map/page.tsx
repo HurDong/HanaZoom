@@ -30,6 +30,7 @@ import { MouseFollower } from "@/components/mouse-follower";
 import { useRouter } from "next/navigation";
 import { useMapBounds } from "@/app/hooks/useMapBounds";
 import { filterMarkersByLOD } from "@/app/utils/lodUtils";
+import { SearchJump } from "@/components/search-jump";
 
 // 백엔드 RegionResponse DTO와 일치하는 타입 정의
 export interface Region {
@@ -54,6 +55,8 @@ interface TopStock {
   rank?: number; // 지역 내 순위
 }
 
+
+
 const KAKAO_MAP_API_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY;
 
 export default function MapPage() {
@@ -67,6 +70,8 @@ export default function MapPage() {
   const [selectedStock, setSelectedStock] = useState<TopStock | null>(null);
   const router = useRouter();
 
+
+
   // LOD 최적화 hooks
   const { viewport, updateBounds, isPointInBounds } = useMapBounds();
 
@@ -79,6 +84,13 @@ export default function MapPage() {
     appkey: KAKAO_MAP_API_KEY!,
     libraries: ["services"],
   });
+
+  // 위치 선택 핸들러 (검색 결과에서 사용)
+  const handleLocationSelect = useCallback((lat: number, lng: number) => {
+    setCenter({ lat, lng });
+    setZoomLevel(4);
+    setDebouncedZoomLevel(4);
+  }, []);
 
   // 사용자 위치로 이동하는 함수
   const moveToUserLocation = useCallback(() => {
@@ -100,6 +112,8 @@ export default function MapPage() {
       moveToUserLocation();
     }
   }, [user, moveToUserLocation]);
+
+
 
   // 지역 데이터를 불러옵니다.
   useEffect(() => {
@@ -280,8 +294,11 @@ export default function MapPage() {
         <StockTicker />
       </div>
 
-      <main className="relative z-10 pt-36">
-        <div className="w-full px-6 py-4 h-[calc(100vh-10rem)] flex gap-6">
+      {/* 검색·점프 기능 */}
+      <SearchJump regions={regions} onLocationSelect={handleLocationSelect} />
+
+      <main className="relative z-10 pt-44">
+        <div className="w-full px-6 py-4 h-[calc(100vh-12rem)] flex gap-6">
           {/* 비치명적 경고 배너 */}
           {error && (
             <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-2 rounded-md bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border border-yellow-300/60 dark:border-yellow-700/60 shadow">
