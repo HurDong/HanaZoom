@@ -45,3 +45,4 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Double getTotalFilledAmountByMember(@Param("member") Member member);
 }
 
+

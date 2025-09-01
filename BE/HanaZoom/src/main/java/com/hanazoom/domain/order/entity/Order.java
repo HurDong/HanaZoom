@@ -52,12 +52,15 @@ public class Order {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private OrderStatus status; // PENDING, PARTIAL_FILLED, FILLED, CANCELLED, REJECTED
+    @Builder.Default
+    private OrderStatus status = OrderStatus.PENDING; // PENDING, PARTIAL_FILLED, FILLED, CANCELLED, REJECTED
 
     @Column(name = "filled_quantity", nullable = false)
+    @Builder.Default
     private Integer filledQuantity = 0;
 
     @Column(name = "filled_amount", precision = 15, scale = 2, nullable = false)
+    @Builder.Default
     private BigDecimal filledAmount = BigDecimal.ZERO;
 
     @Column(name = "average_filled_price", precision = 15, scale = 2)

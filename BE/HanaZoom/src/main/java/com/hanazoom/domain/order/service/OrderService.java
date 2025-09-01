@@ -62,3 +62,4 @@ public interface OrderService {
     boolean checkStockHolding(Member member, String stockSymbol, Integer quantity);
 }
 
+
