@@ -107,7 +107,7 @@ export default function StockDetailPage() {
         // 종목 이름으로 표시
         const stockName = stockData?.stockName || stockInfo?.name || stockCode;
         const josa = getKoreanJosa(stockName);
-        toast.warning(`${stockName}${josa} 관심종목에서 제거되었습니다.`);
+        toast.success(`${stockName}이(가) 관심종목에서 제거되었습니다.`);
       } else {
         await addToWatchlist({ stockSymbol: stockCode });
         setIsInWatchlist(true);
@@ -529,24 +529,37 @@ export default function StockDetailPage() {
                   </h1>
                   {displayPriceStr && (
                     <div className="mt-1 flex items-center gap-2">
-                      <span className={`text-xl font-semibold ${titlePriceColor}`}>
+                      <span
+                        className={`text-xl font-semibold ${titlePriceColor}`}
+                      >
                         {parseInt(displayPriceStr).toLocaleString()}원
                       </span>
                       {stockData?.changeSign && (
                         <span className="inline-flex items-center gap-1 text-sm">
                           {getPriceChangeIcon(stockData.changeSign)}
-                          <span className={getPriceChangeColor(stockData.changeSign)}>
-                            {parseInt(stockData.changePrice || "0").toLocaleString()}원
+                          <span
+                            className={getPriceChangeColor(
+                              stockData.changeSign
+                            )}
+                          >
+                            {parseInt(
+                              stockData.changePrice || "0"
+                            ).toLocaleString()}
+                            원
                             {stockData.changeRate && (
                               <>
-                                {" "}({parseFloat(stockData.changeRate).toFixed(2)}%)
+                                {" "}
+                                ({parseFloat(stockData.changeRate).toFixed(2)}%)
                               </>
                             )}
                           </span>
                         </span>
                       )}
                       {isPriceFromClose && (
-                        <Badge variant="outline" className="text-xs text-gray-500 border-gray-400">
+                        <Badge
+                          variant="outline"
+                          className="text-xs text-gray-500 border-gray-400"
+                        >
                           종가
                         </Badge>
                       )}

@@ -1,18 +1,38 @@
 "use client";
 import { getAccessToken } from "@/app/utils/auth";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/app/utils/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, TrendingUp, TrendingDown, MapPin } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  MessageSquare,
+  TrendingUp,
+  TrendingDown,
+  MapPin,
+  Search,
+  Filter,
+  Star,
+  Users,
+  Activity,
+  Minus,
+  Heart,
+} from "lucide-react";
 import NavBar from "@/app/components/Navbar";
 import { MouseFollower } from "@/components/mouse-follower";
 import { StockTicker } from "@/components/stock-ticker";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import api from "@/app/config/api";
+import {
+  addToWatchlist,
+  removeFromWatchlist,
+  checkIsInWatchlist,
+} from "@/lib/api/watchlist";
+import { toast } from "sonner";
 
 interface Stock {
   symbol: string;
@@ -22,12 +42,36 @@ interface Stock {
   changePercent?: number;
   logoUrl?: string;
   emoji?: string; // fallback용
+  sector?: string; // 업종 정보 추가
+  volume?: number; // 거래량 정보 추가
 }
 
 interface UserRegionInfo {
   regionId: number;
   roomName: string;
 }
+
+// 업종별 색상 매핑
+const sectorColors: { [key: string]: string } = {
+  IT: "bg-gradient-to-r from-blue-400 to-cyan-400 text-white dark:from-blue-500 dark:to-cyan-500 shadow-lg",
+  금융: "bg-gradient-to-r from-emerald-400 to-green-400 text-white dark:from-emerald-500 dark:to-green-500 shadow-lg",
+  제조업:
+    "bg-gradient-to-r from-violet-400 to-purple-400 text-white dark:from-violet-500 dark:to-purple-500 shadow-lg",
+  에너지:
+    "bg-gradient-to-r from-orange-400 to-red-400 text-white dark:from-orange-500 dark:to-red-500 shadow-lg",
+  소비재:
+    "bg-gradient-to-r from-pink-400 to-rose-400 text-white dark:from-pink-500 dark:to-rose-500 shadow-lg",
+  헬스케어:
+    "bg-gradient-to-r from-red-400 to-pink-400 text-white dark:from-red-500 dark:to-pink-500 shadow-lg",
+  바이오:
+    "bg-gradient-to-r from-teal-400 to-cyan-400 text-white dark:from-teal-500 dark:to-cyan-500 shadow-lg",
+  반도체:
+    "bg-gradient-to-r from-indigo-400 to-blue-400 text-white dark:from-indigo-500 dark:to-blue-500 shadow-lg",
+  자동차:
+    "bg-gradient-to-r from-slate-400 to-gray-400 text-white dark:from-slate-500 dark:to-gray-500 shadow-lg",
+  건설: "bg-gradient-to-r from-amber-400 to-orange-400 text-white dark:from-amber-500 dark:to-orange-500 shadow-lg",
+  기타: "bg-gradient-to-r from-gray-400 to-slate-400 text-white dark:from-gray-500 dark:to-slate-500 shadow-lg",
+};
 
 export default function CommunityPage() {
   const router = useRouter();
@@ -37,6 +81,19 @@ export default function CommunityPage() {
   const [userRegion, setUserRegion] = useState<UserRegionInfo | null>(null);
   const [isLoadingRegion, setIsLoadingRegion] = useState(false);
   const [isLoadingStocks, setIsLoadingStocks] = useState(false);
+
+  // 새로운 상태들
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSector, setSelectedSector] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"name" | "change" | "volume">("name");
+
+  // 관심종목 관련 상태
+  const [watchlistStatus, setWatchlistStatus] = useState<{
+    [key: string]: boolean;
+  }>({});
+  const [watchlistLoading, setWatchlistLoading] = useState<{
+    [key: string]: boolean;
+  }>({});
 
   // 백엔드에서 종목 데이터 가져오기
   const fetchStocks = async () => {
@@ -60,6 +117,8 @@ export default function CommunityPage() {
             : undefined,
           logoUrl: stock.logoUrl,
           emoji: stock.emoji || "📈", // fallback
+          sector: stock.sector || "기타", // 업종 정보
+          volume: stock.volume || Math.floor(Math.random() * 1000000) + 100000, // 거래량 (임시)
         }));
         setAllStocks(stocks);
       }
@@ -76,6 +135,15 @@ export default function CommunityPage() {
   useEffect(() => {
     fetchStocks();
   }, []);
+
+  // 종목 데이터가 로드된 후 관심종목 상태 확인
+  useEffect(() => {
+    if (allStocks.length > 0 && user) {
+      allStocks.forEach((stock) => {
+        checkWatchlistStatus(stock.symbol);
+      });
+    }
+  }, [allStocks, user]);
 
   useEffect(() => {
     // 위치 정보가 없는 경우 최신 사용자 정보 조회
@@ -142,6 +210,94 @@ export default function CommunityPage() {
     fetchUserRegion();
   }, [activeTab]);
 
+  // 필터링 및 정렬된 종목 목록
+  const filteredAndSortedStocks = useMemo(() => {
+    let filtered = allStocks.filter((stock) => {
+      const matchesSearch =
+        stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        stock.symbol.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSector =
+        selectedSector === "all" || stock.sector === selectedSector;
+      return matchesSearch && matchesSector;
+    });
+
+    // 정렬
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "change":
+          return (b.changePercent || 0) - (a.changePercent || 0);
+        case "volume":
+          return (b.volume || 0) - (a.volume || 0);
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  }, [allStocks, searchQuery, selectedSector, sortBy]);
+
+  // 고유한 업종 목록
+  const uniqueSectors = useMemo(() => {
+    const sectors = [...new Set(allStocks.map((stock) => stock.sector))];
+    return sectors.sort();
+  }, [allStocks]);
+
+  // 관심종목 상태 확인
+  const checkWatchlistStatus = async (stockSymbol: string) => {
+    if (!user) return;
+
+    try {
+      const status = await checkIsInWatchlist(stockSymbol);
+      setWatchlistStatus((prev) => ({ ...prev, [stockSymbol]: status }));
+    } catch (error) {
+      console.error("관심종목 상태 확인 실패:", error);
+    }
+  };
+
+  // 관심종목 토글
+  const toggleWatchlist = async (stockSymbol: string, stockName: string) => {
+    if (!user) {
+      toast.error("관심종목을 관리하려면 로그인이 필요합니다.");
+      return;
+    }
+
+    setWatchlistLoading((prev) => ({ ...prev, [stockSymbol]: true }));
+    try {
+      if (watchlistStatus[stockSymbol]) {
+        await removeFromWatchlist(stockSymbol);
+        setWatchlistStatus((prev) => ({ ...prev, [stockSymbol]: false }));
+        toast.success(`${stockName}이(가) 관심종목에서 제거되었습니다.`);
+      } else {
+        await addToWatchlist({ stockSymbol });
+        setWatchlistStatus((prev) => ({ ...prev, [stockSymbol]: true }));
+        toast.success(`${stockName}이(가) 관심종목에 추가되었습니다.`);
+      }
+    } catch (error) {
+      console.error("관심종목 토글 실패:", error);
+      toast.error("관심종목 변경에 실패했습니다. 다시 시도해주세요.");
+    } finally {
+      setWatchlistLoading((prev) => ({ ...prev, [stockSymbol]: false }));
+    }
+  };
+
+  // 한국어 조사 결정 함수
+  const getKoreanJosa = (word: string) => {
+    if (!word) return "이";
+
+    const lastChar = word.charAt(word.length - 1);
+    const lastCharCode = lastChar.charCodeAt(0);
+
+    if (lastCharCode >= 44032 && lastCharCode <= 55203) {
+      const hangulCode = lastCharCode - 44032;
+      const finalConsonant = hangulCode % 28;
+      return finalConsonant === 0 ? "가" : "이";
+    }
+
+    return "이";
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 transition-colors duration-500">
       <MouseFollower />
@@ -152,14 +308,15 @@ export default function CommunityPage() {
       </div>
 
       <main className="container mx-auto px-4 py-8 pt-36">
-        <div className="mb-8 text-center">
-          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-6">
-            <span className="text-3xl">💬</span>
+        {/* 헤더 섹션 */}
+        <div className="mb-12 text-center">
+          <div className="mx-auto w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-2xl mb-8 transform hover:scale-105 transition-transform duration-300">
+            <span className="text-4xl">💬</span>
           </div>
-          <h1 className="text-4xl font-bold text-green-900 dark:text-green-100 mb-4">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 dark:from-green-300 dark:to-emerald-300 bg-clip-text text-transparent mb-6">
             HanaZoom 커뮤니티
           </h1>
-          <p className="text-lg text-green-700 dark:text-green-300 max-w-2xl mx-auto">
+          <p className="text-xl text-green-700 dark:text-green-300 max-w-3xl mx-auto leading-relaxed">
             지역별 투자 정보와 종목별 토론방에서 다양한 의견을 나눠보세요!
           </p>
         </div>
@@ -171,17 +328,17 @@ export default function CommunityPage() {
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-green-200 dark:border-green-700 shadow-lg">
+            <TabsList className="grid w-full grid-cols-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border border-green-200 dark:border-green-700 shadow-xl rounded-2xl p-1">
               <TabsTrigger
                 value="stocks"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all duration-300 font-semibold"
               >
                 <TrendingUp className="w-5 h-5 mr-2" />
                 종목별 토론
               </TabsTrigger>
               <TabsTrigger
                 value="regions"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all duration-300 font-semibold"
               >
                 <MapPin className="w-5 h-5 mr-2" />
                 지역별 채팅
@@ -193,95 +350,240 @@ export default function CommunityPage() {
         {/* 종목별 토론방 목록 */}
         {activeTab === "stocks" && (
           <div>
-            {isLoadingStocks ? (
-              <div className="text-center py-16">
-                <div className="mx-auto w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-6">
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
+            {/* 검색 및 필터 섹션 */}
+            <div className="mb-8 space-y-4">
+              {/* 검색바 */}
+              <div className="relative max-w-md mx-auto">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Input
+                  type="text"
+                  placeholder="종목명 또는 심볼 검색..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 pr-4 py-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-green-200 dark:border-green-700 rounded-xl shadow-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* 필터 및 정렬 */}
+              <div className="flex flex-wrap justify-center gap-3">
+                {/* 업종 필터 */}
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-green-600" />
+                  <select
+                    value={selectedSector}
+                    onChange={(e) => setSelectedSector(e.target.value)}
+                    className="px-3 py-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border border-green-200 dark:border-green-700 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="all">전체 업종</option>
+                    {uniqueSectors.map((sector) => (
+                      <option key={sector} value={sector}>
+                        {sector}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <p className="text-xl text-green-700 dark:text-green-300 font-medium">
+
+                {/* 정렬 옵션 */}
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-green-600" />
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="px-3 py-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border border-green-200 dark:border-green-700 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="name">이름순</option>
+                    <option value="change">등락률순</option>
+                    <option value="volume">거래량순</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {isLoadingStocks ? (
+              <div className="text-center py-20">
+                <div className="mx-auto w-32 h-32 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-2xl mb-8">
+                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-white border-t-transparent"></div>
+                </div>
+                <p className="text-2xl text-green-700 dark:text-green-300 font-medium">
                   종목 정보를 불러오는 중...
+                </p>
+                <p className="text-lg text-green-600 dark:text-green-400 mt-2">
+                  잠시만 기다려주세요
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {allStocks.map((stock) => (
-                  <Link href={`/community/${stock.symbol}`} key={stock.symbol}>
-                    <Card className="hover:shadow-xl hover:scale-105 transition-all duration-300 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-green-200 dark:border-green-700">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center space-x-2">
-                            {stock.logoUrl ? (
-                              <img
-                                src={stock.logoUrl}
-                                alt={stock.name}
-                                className="w-8 h-8 rounded-full object-contain"
-                                onError={(e) => {
-                                  // 로고 로드 실패시 이모지로 대체
-                                  (e.target as HTMLImageElement).style.display =
-                                    "none";
-                                  const parent = (e.target as HTMLImageElement)
-                                    .parentElement;
-                                  if (parent && stock.emoji) {
-                                    const span = document.createElement("span");
-                                    span.className = "text-2xl";
-                                    span.textContent = stock.emoji;
-                                    parent.appendChild(span);
-                                  }
-                                }}
-                              />
-                            ) : stock.emoji ? (
-                              <span className="text-2xl">{stock.emoji}</span>
-                            ) : (
-                              <span className="text-2xl">📈</span>
-                            )}
-                            <div>
-                              <h3 className="text-xl font-bold text-green-800 dark:text-green-200">
-                                {stock.name}
-                              </h3>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">
-                                {stock.symbol}
-                              </p>
+              <div className="columns-1 md:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6">
+                {filteredAndSortedStocks.map((stock) => (
+                  <div key={stock.symbol} className="break-inside-avoid">
+                    <Link href={`/community/${stock.symbol}`}>
+                      <Card className="group hover:shadow-2xl hover:scale-105 transition-all duration-500 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-green-200 dark:border-green-700 rounded-2xl overflow-hidden cursor-pointer">
+                        <CardContent className="p-6">
+                          {/* 종목 헤더 */}
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center space-x-3 flex-1">
+                              {stock.logoUrl ? (
+                                <div className="relative">
+                                  <img
+                                    src={stock.logoUrl}
+                                    alt={stock.name}
+                                    className="w-12 h-12 rounded-xl object-contain bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/50 dark:to-emerald-900/50 p-1"
+                                    onError={(e) => {
+                                      (
+                                        e.target as HTMLImageElement
+                                      ).style.display = "none";
+                                      const parent = (
+                                        e.target as HTMLImageElement
+                                      ).parentElement;
+                                      if (parent && stock.emoji) {
+                                        const span =
+                                          document.createElement("span");
+                                        span.className =
+                                          "text-3xl w-12 h-12 flex items-center justify-center bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-800/50 dark:to-emerald-800/50 rounded-xl";
+                                        span.textContent = stock.emoji;
+                                        parent.appendChild(span);
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              ) : stock.emoji ? (
+                                <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-800/50 dark:to-emerald-800/50 rounded-xl flex items-center justify-center">
+                                  <span className="text-3xl">
+                                    {stock.emoji}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-800/50 dark:to-emerald-800/50 rounded-xl flex items-center justify-center">
+                                  <span className="text-3xl">📈</span>
+                                </div>
+                              )}
+
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-lg font-bold text-green-800 dark:text-green-200 truncate group-hover:text-green-600 dark:group-hover:text-green-300 transition-colors">
+                                  {stock.name}
+                                </h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">
+                                  {stock.symbol}
+                                </p>
+                              </div>
                             </div>
+
+                            {/* 등락률 배지 */}
+                            {stock.changePercent !== undefined && (
+                              <div
+                                className={`flex items-center px-3 py-1.5 rounded-full text-sm font-bold shadow-lg ${
+                                  stock.change && stock.change > 0
+                                    ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 dark:from-green-900/50 dark:to-emerald-900/50 dark:text-green-300"
+                                    : stock.change && stock.change < 0
+                                    ? "bg-gradient-to-r from-red-100 to-pink-100 text-red-700 dark:from-red-900/50 dark:to-pink-900/50 dark:text-red-300"
+                                    : "bg-gradient-to-r from-gray-100 to-slate-100 text-gray-700 dark:from-gray-800/50 dark:to-slate-800/50 dark:text-gray-300"
+                                }`}
+                              >
+                                {stock.change && stock.change > 0 ? (
+                                  <TrendingUp className="w-4 h-4 mr-1" />
+                                ) : stock.change && stock.change < 0 ? (
+                                  <TrendingDown className="w-4 h-4 mr-1" />
+                                ) : (
+                                  <Minus className="w-4 h-4 mr-1" />
+                                )}
+                                <span>
+                                  {stock.change && stock.change > 0 ? "+" : ""}
+                                  {stock.changePercent.toFixed(2)}%
+                                </span>
+                              </div>
+                            )}
                           </div>
-                          {stock.changePercent !== undefined && (
-                            <div
-                              className={`flex items-center px-3 py-1 rounded-full ${
-                                stock.change && stock.change >= 0
-                                  ? "bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400"
-                                  : "bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400"
+
+                          {/* 업종 태그 */}
+                          <div className="mb-4">
+                            <Badge
+                              className={`${
+                                sectorColors[stock.sector || "기타"]
+                              } text-xs font-medium px-2 py-1 rounded-lg`}
+                            >
+                              {stock.sector || "기타"}
+                            </Badge>
+                          </div>
+
+                          {/* 가격 정보 */}
+                          <div className="mb-4">
+                            <div className="text-2xl font-bold text-green-800 dark:text-green-200 mb-1">
+                              {stock.price
+                                ? `₩${stock.price.toLocaleString()}`
+                                : "가격 정보 없음"}
+                            </div>
+                            {stock.volume && (
+                              <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
+                                <Users className="w-3 h-3 mr-1" />
+                                거래량: {stock.volume.toLocaleString()}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 액션 버튼 */}
+                          <div className="flex justify-between items-center pt-4 border-t border-green-100 dark:border-green-800">
+                            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                              <MessageSquare className="w-4 h-4 mr-1" />
+                              <span>토론방 입장</span>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                toggleWatchlist(stock.symbol, stock.name);
+                              }}
+                              disabled={watchlistLoading[stock.symbol]}
+                              className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
+                                watchlistStatus[stock.symbol]
+                                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 hover:bg-pink-200 dark:hover:bg-pink-900/50"
+                                  : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+                              } ${
+                                watchlistLoading[stock.symbol]
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : "cursor-pointer"
                               }`}
                             >
-                              {stock.change && stock.change >= 0 ? (
-                                <TrendingUp className="w-4 h-4 mr-1" />
+                              {watchlistLoading[stock.symbol] ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-pink-500"></div>
                               ) : (
-                                <TrendingDown className="w-4 h-4 mr-1" />
+                                <Heart
+                                  className={`w-4 h-4 ${
+                                    watchlistStatus[stock.symbol]
+                                      ? "fill-current"
+                                      : ""
+                                  }`}
+                                />
                               )}
-                              <span className="font-bold">
-                                {stock.change && stock.change >= 0 ? "+" : ""}
-                                {stock.changePercent.toFixed(2)}%
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex justify-between items-center mt-4">
-                          <span className="text-xl font-bold text-green-800 dark:text-green-200">
-                            {stock.price
-                              ? `₩${stock.price.toLocaleString()}`
-                              : "가격 정보 없음"}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 hover:bg-green-50 dark:hover:bg-green-900/50 transition-colors"
-                          >
-                            <MessageSquare className="w-4 h-4 mr-1" />
-                            토론방 입장
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                            </button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  </div>
                 ))}
+              </div>
+            )}
+
+            {/* 검색 결과가 없을 때 */}
+            {!isLoadingStocks && filteredAndSortedStocks.length === 0 && (
+              <div className="text-center py-20">
+                <div className="mx-auto w-32 h-32 bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 rounded-full flex items-center justify-center shadow-2xl mb-8">
+                  <span className="text-5xl">🔍</span>
+                </div>
+                <p className="text-2xl text-gray-600 dark:text-gray-400 font-medium mb-4">
+                  검색 결과가 없습니다
+                </p>
+                <p className="text-lg text-gray-500 dark:text-gray-500">
+                  다른 검색어나 필터를 시도해보세요
+                </p>
+                <Button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedSector("all");
+                    setSortBy("name");
+                  }}
+                  className="mt-6 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  필터 초기화
+                </Button>
               </div>
             )}
           </div>
@@ -297,64 +599,64 @@ export default function CommunityPage() {
             user.latitude === 0 ||
             user.longitude === 0 ? (
               // 위치 정보가 없는 경우 또는 좌표가 0인 경우
-              <Card className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-green-200 dark:border-green-700">
-                <CardContent className="p-8 text-center">
-                  <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-4">
-                    <MapPin className="w-8 h-8 text-white" />
+              <Card className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-green-200 dark:border-green-700 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300">
+                <CardContent className="p-12 text-center">
+                  <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-2xl mb-6">
+                    <MapPin className="w-10 h-10 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-green-800 dark:text-green-200 mb-2">
+                  <h3 className="text-2xl font-bold text-green-800 dark:text-green-200 mb-3">
                     위치 정보 설정 필요
                   </h3>
-                  <p className="text-lg text-gray-600 dark:text-gray-300 mb-4">
+                  <p className="text-lg text-gray-600 dark:text-gray-300 mb-4 leading-relaxed">
                     지역별 채팅방을 이용하려면 위치 정보를 설정해주세요
                   </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                     최초 1회만 설정하면 됩니다
                   </p>
                   <Button
                     onClick={() => router.push("/auth/location-setup")}
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-2 shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                   >
-                    <MapPin className="w-4 h-4 mr-2" />
+                    <MapPin className="w-5 h-5 mr-2" />
                     위치 설정하기
                   </Button>
                 </CardContent>
               </Card>
             ) : isLoadingRegion ? (
-              <Card className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-green-200 dark:border-green-700">
-                <CardContent className="p-12 text-center">
-                  <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-6">
-                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-white border-t-transparent"></div>
+              <Card className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-green-200 dark:border-green-700 rounded-2xl shadow-xl">
+                <CardContent className="p-16 text-center">
+                  <div className="mx-auto w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-2xl mb-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                   </div>
-                  <p className="text-lg text-green-700 dark:text-green-300 font-medium">
+                  <p className="text-xl text-green-700 dark:text-green-300 font-medium">
                     지역 정보를 불러오는 중...
                   </p>
                 </CardContent>
               </Card>
             ) : userRegion ? (
-              <Card className="hover:shadow-xl hover:scale-105 transition-all duration-300 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-green-200 dark:border-green-700">
-                <CardContent className="p-8">
-                  <div className="text-center space-y-4">
-                    <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-4">
-                      <MapPin className="w-10 h-10 text-white" />
+              <Card className="hover:shadow-2xl hover:scale-105 transition-all duration-500 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-green-200 dark:border-green-700 rounded-2xl shadow-xl">
+                <CardContent className="p-12">
+                  <div className="text-center space-y-6">
+                    <div className="mx-auto w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-2xl mb-6">
+                      <MapPin className="w-12 h-12 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-bold text-green-800 dark:text-green-200 mb-2">
+                      <h3 className="text-3xl font-bold text-green-800 dark:text-green-200 mb-3">
                         나의 지역 채팅방
                       </h3>
-                      <p className="text-lg text-gray-600 dark:text-gray-300 mb-4">
+                      <p className="text-xl text-gray-600 dark:text-gray-300 mb-4">
                         {userRegion.roomName}
                       </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                      <p className="text-lg text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
                         같은 지역 주민들과 실시간으로 투자 정보를 공유해보세요
                       </p>
                     </div>
                     <Link href={`/community/region/${userRegion.regionId}`}>
                       <Button
                         size="lg"
-                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-3 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-10 py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-lg font-semibold"
                       >
-                        <MessageSquare className="w-5 h-5 mr-2" />
+                        <MessageSquare className="w-6 h-6 mr-2" />
                         채팅방 입장하기
                       </Button>
                     </Link>
@@ -362,15 +664,15 @@ export default function CommunityPage() {
                 </CardContent>
               </Card>
             ) : (
-              <Card className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-green-200 dark:border-green-700 hover:shadow-lg transition-all duration-300">
-                <CardContent className="p-8 text-center">
-                  <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-lg mb-4">
-                    <MapPin className="w-8 h-8 text-white" />
+              <Card className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-green-200 dark:border-green-700 rounded-2xl shadow-xl hover:shadow-lg transition-all duration-300">
+                <CardContent className="p-12 text-center">
+                  <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-2xl mb-6">
+                    <MapPin className="w-10 h-10 text-white" />
                   </div>
-                  <p className="text-lg text-gray-600 dark:text-gray-300 mb-2">
+                  <p className="text-xl text-gray-600 dark:text-gray-300 mb-3">
                     지역 정보를 불러올 수 없습니다.
                   </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-lg text-gray-500 dark:text-gray-400">
                     로그인 후 이용해주세요.
                   </p>
                 </CardContent>
@@ -383,14 +685,14 @@ export default function CommunityPage() {
         {activeTab === "stocks" &&
           allStocks.length === 0 &&
           !isLoadingStocks && (
-            <div className="text-center py-16">
-              <div className="mx-auto w-20 h-20 bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 rounded-full flex items-center justify-center shadow-lg mb-6">
-                <span className="text-3xl">🔍</span>
+            <div className="text-center py-20">
+              <div className="mx-auto w-32 h-32 bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 rounded-full flex items-center justify-center shadow-2xl mb-8">
+                <span className="text-5xl">🔍</span>
               </div>
-              <p className="text-lg text-gray-600 dark:text-gray-400 font-medium">
+              <p className="text-2xl text-gray-600 dark:text-gray-400 font-medium mb-4">
                 표시할 종목이 없습니다.
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+              <p className="text-lg text-gray-500 dark:text-gray-500">
                 잠시 후 다시 시도해주세요.
               </p>
             </div>

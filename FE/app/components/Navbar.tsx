@@ -191,7 +191,7 @@ export default function NavBar() {
       const stockName = stock?.stockName || stockSymbol;
       const josa = getKoreanJosa(stockName);
 
-      toast.warning(`${stockName}${josa} 관심종목에서 제거되었습니다.`);
+      toast.success(`${stockName}이(가) 관심종목에서 제거되었습니다.`);
     } catch (error) {
       console.error("관심종목 제거 실패:", error);
       toast.error("관심종목 제거에 실패했습니다. 다시 시도해주세요.");
