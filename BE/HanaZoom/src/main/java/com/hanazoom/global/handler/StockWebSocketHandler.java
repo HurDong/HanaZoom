@@ -504,27 +504,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                                 totalAskQuantity = orderBookResponse.getTotalAskQuantity();
                                 totalBidQuantity = orderBookResponse.getTotalBidQuantity();
                                 
-                                // 호가창 데이터 로그 출력
-                                log.info("📊 호가창 데이터 수신: {} - 현재가: {}원", stockCode, currentPrice);
-                                log.info("📊 매도호가: {}개, 매수호가: {}개", askOrders.size(), bidOrders.size());
-                                
-                                // 매도호가 상위 3개 출력
-                                if (!askOrders.isEmpty()) {
-                                    log.info("📊 매도호가 상위 3개:");
-                                    for (int i = 0; i < Math.min(3, askOrders.size()); i++) {
-                                        OrderBookItem ask = askOrders.get(i);
-                                        log.info("  {}호가: {}원 ({})", ask.getRank(), ask.getPrice(), ask.getQuantity());
-                                    }
-                                }
-                                
-                                // 매수호가 상위 3개 출력
-                                if (!bidOrders.isEmpty()) {
-                                    log.info("📊 매수호가 상위 3개:");
-                                    for (int i = 0; i < Math.min(3, bidOrders.size()); i++) {
-                                        OrderBookItem bid = bidOrders.get(i);
-                                        log.info("  {}호가: {}원 ({})", bid.getRank(), bid.getPrice(), bid.getQuantity());
-                                    }
-                                }
+                                // 호가창 데이터 처리
                                 
                                 // 현재가와 호가창 데이터 동기화 검증
                                 long currentPriceLong = Long.parseLong(currentPrice);
@@ -535,8 +515,6 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                                 
                                 // 호가창 데이터가 현재가와 맞지 않으면 현재가 기준으로 조정
                                 if (!hasValidAskOrders || !hasValidBidOrders) {
-                                    log.info("📊 현재가 기준으로 호가창 데이터 조정: {} (현재가: {}원)", stockCode, currentPrice);
-                                    
                                     // 현재가 기준으로 호가창 데이터 재생성
                                     askOrders = generateOrderBookAroundCurrentPrice(currentPrice, true);
                                     bidOrders = generateOrderBookAroundCurrentPrice(currentPrice, false);
@@ -546,8 +524,6 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                                         .mapToLong(order -> Long.parseLong(order.getQuantity())).sum());
                                     totalBidQuantity = String.valueOf(bidOrders.stream()
                                         .mapToLong(order -> Long.parseLong(order.getQuantity())).sum());
-                                    
-                                    log.info("📊 조정된 호가창 - 매도: {}개, 매수: {}개", askOrders.size(), bidOrders.size());
                                 }
                                 
                                 // 호가창 데이터를 Redis에 캐시 (1초로 단축 - 실시간성 향상)
@@ -609,6 +585,10 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                             // 캔들 차트 데이터 업데이트
                             stockChartService.updateCurrentCandle(stockCode, currentPrice, volume);
 
+                            // 누적 거래량 캐시 저장 (분봉 계산용)
+                            String volumeCacheKey = "cumulative_volume:" + stockCode + ":" + System.currentTimeMillis();
+                            redisTemplate.opsForValue().set(volumeCacheKey, volume, Duration.ofMinutes(5));
+                            
                             // 분봉 데이터 업데이트 (1분, 5분, 15분)
                             try {
                                 stockMinutePriceService.updateCurrentMinutePrice(stockCode, 
