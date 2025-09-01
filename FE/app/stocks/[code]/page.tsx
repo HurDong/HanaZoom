@@ -501,8 +501,8 @@ export default function StockDetailPage() {
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">
-                    {stockData?.stockName ||
-                      stockInfo?.name ||
+                    {stockInfo?.name ||
+                      stockData?.stockName ||
                       `종목 ${stockCode}`}
                   </h1>
                   <div className="flex items-center gap-3 mt-1">

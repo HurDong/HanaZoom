@@ -9,6 +9,8 @@ import com.hanazoom.domain.stock.service.StockChartService;
 import com.hanazoom.domain.stock.service.StockMinutePriceService;
 import com.hanazoom.domain.stock.service.StockService;
 import com.hanazoom.domain.stock.entity.StockMinutePrice;
+import com.hanazoom.domain.stock.entity.Stock;
+import com.hanazoom.domain.stock.repository.StockRepository;
 import com.hanazoom.global.config.KisConfig;
 import com.hanazoom.global.service.KisApiService;
 import com.hanazoom.global.util.MarketTimeUtils;
@@ -48,6 +50,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
     private final MarketTimeUtils marketTimeUtils;
     private final StockMinutePriceService stockMinutePriceService;
     private final StockService stockService;
+    private final StockRepository stockRepository;
 
     // KIS 웹소켓 연결용
     private WebSocketSession kisWebSocketSession;
@@ -714,6 +717,18 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                     return cachedName;
                 }
 
+                // DB에서 종목명 조회
+                try {
+                    Stock stock = stockRepository.findBySymbol(stockCode).orElse(null);
+                    if (stock != null && stock.getName() != null) {
+                        // Redis에 캐시
+                        redisTemplate.opsForValue().set("stock:name:" + stockCode, stock.getName(), Duration.ofHours(24));
+                        return stock.getName();
+                    }
+                } catch (Exception e) {
+                    log.warn("⚠️ DB에서 종목명 조회 실패: {}", stockCode, e);
+                }
+
                 // 기본 종목명 매핑 (티커 종목들)
                 switch (stockCode) {
                     case "005930":
@@ -736,7 +751,8 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                         return "카카오뱅크";
                     case "373220":
                         return "LG에너지솔루션";
-                    // 기타 종목들
+                    case "000810":
+                        return "삼성화재";
                     case "034020":
                         return "쿠팡";
                     case "042660":
