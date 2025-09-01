@@ -314,7 +314,7 @@ public class StockServiceImpl implements StockService {
 
         @Override
         public OrderBookResponse getOrderBook(String stockCode) {
-                log.info("Fetching order book for stock code: {}", stockCode);
+                // 로그 제거 - 너무 많이 찍힘
 
                 try {
                         String response = kisApiService.getOrderBook(stockCode);
@@ -338,6 +338,7 @@ public class StockServiceImpl implements StockService {
                                                 .quantity(askQuantity)
                                                 .orderCount(String.valueOf(i))
                                                 .orderType("매도")
+                                                .rank(i)
                                                 .build());
                         }
 
@@ -352,6 +353,7 @@ public class StockServiceImpl implements StockService {
                                                 .quantity(bidQuantity)
                                                 .orderCount(String.valueOf(i))
                                                 .orderType("매수")
+                                                .rank(i)
                                                 .build());
                         }
 

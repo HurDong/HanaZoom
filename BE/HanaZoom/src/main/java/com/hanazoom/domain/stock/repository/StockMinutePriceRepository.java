@@ -80,3 +80,4 @@ public interface StockMinutePriceRepository extends JpaRepository<StockMinutePri
      */
     void deleteByTimestampBefore(LocalDateTime timestamp);
 }
+

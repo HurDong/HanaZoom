@@ -354,7 +354,7 @@ public class KisApiService {
                     .bodyToMono(String.class)
                     .block();
 
-            log.info("Successfully fetched order book for stock: {}", stockCode);
+            // 로그 제거 - 너무 많이 찍힘
             return response;
 
         } catch (Exception e) {

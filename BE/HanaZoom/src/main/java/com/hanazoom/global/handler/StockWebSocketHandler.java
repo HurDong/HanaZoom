@@ -3,8 +3,11 @@ package com.hanazoom.global.handler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hanazoom.domain.stock.dto.StockPriceResponse;
 import com.hanazoom.domain.stock.dto.OrderBookItem;
+import com.hanazoom.domain.stock.dto.OrderBookResponse;
+import java.time.Duration;
 import com.hanazoom.domain.stock.service.StockChartService;
 import com.hanazoom.domain.stock.service.StockMinutePriceService;
+import com.hanazoom.domain.stock.service.StockService;
 import com.hanazoom.domain.stock.entity.StockMinutePrice;
 import com.hanazoom.global.config.KisConfig;
 import com.hanazoom.global.service.KisApiService;
@@ -28,6 +31,7 @@ import java.net.URI;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Random;
 
 @Slf4j
 @Component
@@ -43,6 +47,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
     private final StockChartService stockChartService;
     private final MarketTimeUtils marketTimeUtils;
     private final StockMinutePriceService stockMinutePriceService;
+    private final StockService stockService;
 
     // KIS 웹소켓 연결용
     private WebSocketSession kisWebSocketSession;
@@ -482,13 +487,84 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
 
                             }
 
-                            // 호가창 데이터 생성
-                            List<OrderBookItem> askOrders = generateAskOrders(askPrice, volume);
-                            List<OrderBookItem> bidOrders = generateBidOrders(bidPrice, volume);
+                            // 호가창 데이터 생성 - 현재가와 동기화된 실시간 호가창 데이터
+                            List<OrderBookItem> askOrders = new ArrayList<>();
+                            List<OrderBookItem> bidOrders = new ArrayList<>();
+                            String totalAskQuantity = "0";
+                            String totalBidQuantity = "0";
                             
-                            // 총 잔량 계산
-                            String totalAskQuantity = calculateTotalQuantity(askOrders);
-                            String totalBidQuantity = calculateTotalQuantity(bidOrders);
+                            try {
+                                // 현재가 기준으로 실시간 호가창 데이터 조회
+                                OrderBookResponse orderBookResponse = stockService.getOrderBook(stockCode);
+                                askOrders = orderBookResponse.getAskOrders();
+                                bidOrders = orderBookResponse.getBidOrders();
+                                totalAskQuantity = orderBookResponse.getTotalAskQuantity();
+                                totalBidQuantity = orderBookResponse.getTotalBidQuantity();
+                                
+                                // 호가창 데이터 로그 출력
+                                log.info("📊 호가창 데이터 수신: {} - 현재가: {}원", stockCode, currentPrice);
+                                log.info("📊 매도호가: {}개, 매수호가: {}개", askOrders.size(), bidOrders.size());
+                                
+                                // 매도호가 상위 3개 출력
+                                if (!askOrders.isEmpty()) {
+                                    log.info("📊 매도호가 상위 3개:");
+                                    for (int i = 0; i < Math.min(3, askOrders.size()); i++) {
+                                        OrderBookItem ask = askOrders.get(i);
+                                        log.info("  {}호가: {}원 ({})", ask.getRank(), ask.getPrice(), ask.getQuantity());
+                                    }
+                                }
+                                
+                                // 매수호가 상위 3개 출력
+                                if (!bidOrders.isEmpty()) {
+                                    log.info("📊 매수호가 상위 3개:");
+                                    for (int i = 0; i < Math.min(3, bidOrders.size()); i++) {
+                                        OrderBookItem bid = bidOrders.get(i);
+                                        log.info("  {}호가: {}원 ({})", bid.getRank(), bid.getPrice(), bid.getQuantity());
+                                    }
+                                }
+                                
+                                // 현재가와 호가창 데이터 동기화 검증
+                                long currentPriceLong = Long.parseLong(currentPrice);
+                                boolean hasValidAskOrders = askOrders.stream()
+                                    .anyMatch(ask -> Long.parseLong(ask.getPrice()) > currentPriceLong);
+                                boolean hasValidBidOrders = bidOrders.stream()
+                                    .anyMatch(bid -> Long.parseLong(bid.getPrice()) < currentPriceLong);
+                                
+                                // 호가창 데이터가 현재가와 맞지 않으면 현재가 기준으로 조정
+                                if (!hasValidAskOrders || !hasValidBidOrders) {
+                                    log.info("📊 현재가 기준으로 호가창 데이터 조정: {} (현재가: {}원)", stockCode, currentPrice);
+                                    
+                                    // 현재가 기준으로 호가창 데이터 재생성
+                                    askOrders = generateOrderBookAroundCurrentPrice(currentPrice, true);
+                                    bidOrders = generateOrderBookAroundCurrentPrice(currentPrice, false);
+                                    
+                                    // 총 잔량 재계산
+                                    totalAskQuantity = String.valueOf(askOrders.stream()
+                                        .mapToLong(order -> Long.parseLong(order.getQuantity())).sum());
+                                    totalBidQuantity = String.valueOf(bidOrders.stream()
+                                        .mapToLong(order -> Long.parseLong(order.getQuantity())).sum());
+                                    
+                                    log.info("📊 조정된 호가창 - 매도: {}개, 매수: {}개", askOrders.size(), bidOrders.size());
+                                }
+                                
+                                // 호가창 데이터를 Redis에 캐시 (1초로 단축 - 실시간성 향상)
+                                String orderBookCacheKey = "orderbook:" + stockCode;
+                                OrderBookResponse adjustedResponse = OrderBookResponse.builder()
+                                    .stockCode(stockCode)
+                                    .stockName(stockName)
+                                    .currentPrice(currentPrice)
+                                    .askOrders(askOrders)
+                                    .bidOrders(bidOrders)
+                                    .totalAskQuantity(totalAskQuantity)
+                                    .totalBidQuantity(totalBidQuantity)
+                                    .build();
+                                redisTemplate.opsForValue().set(orderBookCacheKey, objectMapper.writeValueAsString(adjustedResponse), Duration.ofSeconds(1));
+                                
+                                // 로그 제거 - 너무 많이 찍힘
+                            } catch (Exception e) {
+                                log.warn("⚠️ 실시간 호가창 데이터 조회 실패: {} - {}", stockCode, e.getMessage());
+                                // 호가창 데이터 조회 실패 시 빈 리스트로 처리
+                            }
                             
                             // StockPriceResponse 객체 생성
                             StockPriceResponse stockData = StockPriceResponse.builder()
@@ -550,7 +626,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                                 log.warn("⚠️ 분봉 데이터 업데이트 실패: 종목={}", stockCode, e);
                             }
 
-                            log.info("📈 실시간 데이터 처리 완료: {} = {}원 ({}%)", stockCode, currentPrice, changeRate);
+                            // 로그 제거 - 너무 많이 찍힘
                         } else {
                             log.warn("⚠️ KIS 데이터 필드 부족: 예상 15개, 실제 {}개", dataParts.length);
                         }
@@ -584,67 +660,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
         }
 
         /**
-         * 매도 호가 생성
-         */
-        private List<OrderBookItem> generateAskOrders(String askPrice, String volume) {
-            List<OrderBookItem> askOrders = new ArrayList<>();
-            try {
-                long basePrice = Long.parseLong(askPrice);
-                long baseVolume = Long.parseLong(volume);
-                
-                for (int i = 0; i < 10; i++) {
-                    long price = basePrice + (i * 100); // 100원씩 증가
-                    long quantity = baseVolume + (i * 1000); // 1000주씩 증가
-                    
-                    OrderBookItem item = OrderBookItem.builder()
-                            .price(String.valueOf(price))
-                            .quantity(String.valueOf(quantity))
-                            .orderCount(String.valueOf(1 + i))
-                            .orderType("매도")
-                            .rank(i + 1)
-                            .build();
-                    
-                    askOrders.add(item);
-                    log.debug("매도호가 생성: rank={}, price={}, quantity={}", item.getRank(), item.getPrice(), item.getQuantity());
-                }
-            } catch (Exception e) {
-                log.warn("매도 호가 생성 실패: {}", e.getMessage());
-            }
-            return askOrders;
-        }
-
-        /**
-         * 매수 호가 생성
-         */
-        private List<OrderBookItem> generateBidOrders(String bidPrice, String volume) {
-            List<OrderBookItem> bidOrders = new ArrayList<>();
-            try {
-                long basePrice = Long.parseLong(bidPrice);
-                long baseVolume = Long.parseLong(volume);
-                
-                for (int i = 0; i < 10; i++) {
-                    long price = basePrice - (i * 100); // 100원씩 감소
-                    long quantity = baseVolume + (i * 1000); // 1000주씩 증가
-                    
-                    OrderBookItem item = OrderBookItem.builder()
-                            .price(String.valueOf(price))
-                            .quantity(String.valueOf(quantity))
-                            .orderCount(String.valueOf(1 + i))
-                            .orderType("매수")
-                            .rank(i + 1)
-                            .build();
-                    
-                    bidOrders.add(item);
-                    log.debug("매수호가 생성: rank={}, price={}, quantity={}", item.getRank(), item.getPrice(), item.getQuantity());
-                }
-            } catch (Exception e) {
-                log.warn("매수 호가 생성 실패: {}", e.getMessage());
-            }
-            return bidOrders;
-        }
-
-        /**
-         * 총 잔량 계산
+         * 총 잔량 계산 (백업용)
          */
         private String calculateTotalQuantity(List<OrderBookItem> orders) {
             try {
@@ -656,6 +672,38 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                 log.warn("총 잔량 계산 실패: {}", e.getMessage());
                 return "0";
             }
+        }
+
+        /**
+         * 현재가 기준으로 호가창 데이터 생성
+         */
+        private List<OrderBookItem> generateOrderBookAroundCurrentPrice(String currentPrice, boolean isAsk) {
+            List<OrderBookItem> orders = new ArrayList<>();
+            long basePrice = Long.parseLong(currentPrice);
+            Random random = new Random();
+            
+            for (int i = 1; i <= 10; i++) {
+                long price;
+                if (isAsk) {
+                    price = basePrice + (i * 50); // 매도호가: 현재가 + 50원씩 증가
+                } else {
+                    price = basePrice - (i * 50); // 매수호가: 현재가 - 50원씩 감소
+                }
+                
+                // 가격이 멀어질수록 수량이 적어지는 현실적인 패턴
+                int baseQuantity = 500 - (i * 30);
+                long quantity = Math.max(baseQuantity + random.nextInt(200), 50);
+                
+                orders.add(OrderBookItem.builder()
+                    .price(String.valueOf(price))
+                    .quantity(String.valueOf(quantity))
+                    .orderCount(String.valueOf(i))
+                    .orderType(isAsk ? "매도" : "매수")
+                    .rank(i)
+                    .build());
+            }
+            
+            return orders;
         }
 
         private String getStockNameFromCache(String stockCode) {
