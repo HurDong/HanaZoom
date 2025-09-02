@@ -2,8 +2,9 @@ package com.hanazoom.domain.order.service;
 
 import com.hanazoom.domain.order.entity.Order;
 import com.hanazoom.domain.order.repository.OrderRepository;
-import com.hanazoom.domain.portfolio.entity.Portfolio;
-import com.hanazoom.domain.portfolio.repository.PortfolioRepository;
+import com.hanazoom.domain.portfolio.entity.PortfolioStock;
+import com.hanazoom.domain.portfolio.repository.PortfolioStockRepository;
+import com.hanazoom.domain.portfolio.service.PortfolioService;
 import com.hanazoom.domain.stock.service.StockService;
 import com.hanazoom.domain.stock.dto.OrderBookItem;
 
@@ -36,7 +37,8 @@ import java.util.UUID;
 public class OrderMatchingService {
 
     private final OrderRepository orderRepository;
-    private final PortfolioRepository portfolioRepository;
+    private final PortfolioStockRepository portfolioStockRepository;
+    private final PortfolioService portfolioService;
     private final StockService stockService;
 
     /**
@@ -136,28 +138,33 @@ public class OrderMatchingService {
         try {
             String stockCode = order.getStock().getSymbol();
             UUID memberId = order.getMember().getId();
-            Long quantity = Long.valueOf(order.getQuantity());
+            Integer quantity = order.getQuantity();
             BigDecimal totalAmount = executionPrice.multiply(BigDecimal.valueOf(quantity));
 
-            // 기존 포트폴리오 조회
-            Optional<Portfolio> existingPortfolio = portfolioRepository
-                .findByMemberAndStock(order.getMember(), order.getStock());
+            // 회원의 계좌 조회
+            com.hanazoom.domain.portfolio.entity.Account account = portfolioService.getAccountByMemberId(memberId);
+            
+            // 기존 포트폴리오 주식 조회
+            Optional<PortfolioStock> existingPortfolioStock = portfolioStockRepository
+                .findByAccountIdAndStockSymbol(account.getId(), stockCode);
 
             if (order.getOrderType() == Order.OrderType.BUY) {
                 // 매수: 주식 수량 증가, 현금 감소
-                if (existingPortfolio.isPresent()) {
-                    Portfolio portfolio = existingPortfolio.get();
-                    portfolio.addQuantity(quantity);
-                    portfolio.updateAveragePrice(executionPrice, quantity);
+                if (existingPortfolioStock.isPresent()) {
+                    PortfolioStock portfolioStock = existingPortfolioStock.get();
+                    portfolioStock.buy(quantity, executionPrice);
+                    portfolioStockRepository.save(portfolioStock);
                 } else {
-                    // 새로운 포트폴리오 생성
-                    Portfolio newPortfolio = Portfolio.builder()
-                        .member(order.getMember())
-                        .stock(order.getStock())
+                    // 새로운 포트폴리오 주식 생성
+                    PortfolioStock newPortfolioStock = PortfolioStock.builder()
+                        .accountId(account.getId())
+                        .stockSymbol(stockCode)
                         .quantity(quantity)
-                        .averagePrice(executionPrice)
+                        .avgPurchasePrice(executionPrice)
+                        .totalPurchaseAmount(totalAmount)
                         .build();
-                    portfolioRepository.save(newPortfolio);
+                    newPortfolioStock.updateCurrentPrice(executionPrice);
+                    portfolioStockRepository.save(newPortfolioStock);
                 }
                 
                 // 현금 차감 (실제로는 계좌 서비스와 연동 필요)
@@ -165,15 +172,18 @@ public class OrderMatchingService {
                 
             } else {
                 // 매도: 주식 수량 감소, 현금 증가
-                if (existingPortfolio.isPresent()) {
-                    Portfolio portfolio = existingPortfolio.get();
-                    if (portfolio.getQuantity() >= quantity) {
-                        portfolio.subtractQuantity(quantity);
-                        if (portfolio.getQuantity() == 0) {
-                            portfolioRepository.delete(portfolio);
+                if (existingPortfolioStock.isPresent()) {
+                    PortfolioStock portfolioStock = existingPortfolioStock.get();
+                    if (portfolioStock.hasQuantity(quantity)) {
+                        portfolioStock.sell(quantity);
+                        portfolioStockRepository.save(portfolioStock);
+                        
+                        // 보유 수량이 0이 되면 삭제
+                        if (portfolioStock.getQuantity() == 0) {
+                            portfolioStockRepository.delete(portfolioStock);
                         }
                     } else {
-                        log.warn("⚠️ 매도 수량 부족: 보유={}, 매도요청={}", portfolio.getQuantity(), quantity);
+                        log.warn("⚠️ 매도 수량 부족: 보유={}, 매도요청={}", portfolioStock.getQuantity(), quantity);
                         return;
                     }
                 } else {
