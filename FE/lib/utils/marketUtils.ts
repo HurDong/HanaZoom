@@ -156,3 +156,37 @@ export function getMinutesToMarketClose(): number {
   }
   return 0;
 }
+
+/**
+ * KRX 호가단위(틱) 계산 (보통주 기준)
+ * 참고 규칙(일반):
+ * < 1,000: 1원
+ * 1,000 ~ 4,990: 5원
+ * 5,000 ~ 9,990: 10원
+ * 10,000 ~ 49,950: 50원
+ * 50,000 ~ 99,900: 100원
+ * 100,000 ~ 499,500: 500원
+ * 500,000 ~ 999,000: 1,000원
+ * 1,000,000 이상: 2,000원
+ */
+export function getTickSizeKRX(price: number): number {
+  if (!isFinite(price) || price <= 0) return 1;
+  if (price < 1000) return 1;
+  if (price < 5000) return 5;
+  if (price < 10000) return 10;
+  if (price < 50000) return 50;
+  if (price < 100000) return 100;
+  if (price < 500000) return 500;
+  if (price < 1000000) return 1000;
+  return 2000;
+}
+
+/**
+ * 가격을 호가단위에 맞춰 증감
+ */
+export function stepByTick(price: number, steps: number): number {
+  const tick = getTickSizeKRX(price);
+  const next = price + steps * tick;
+  const aligned = Math.max(Math.round(next / tick) * tick, 0);
+  return aligned;
+}
