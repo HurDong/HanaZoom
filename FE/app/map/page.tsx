@@ -94,6 +94,18 @@ export default function MapPage() {
     stockCodes,
     onStockUpdate: (data: StockPriceData) => {
       console.log("📊 실시간 주식 데이터 업데이트:", data);
+      
+      // 롯데쇼핑 데이터인 경우 특별 로그
+      if (data.stockCode === "023530") {
+        console.log("🏪 롯데쇼핑 실시간 데이터 수신:", {
+          stockCode: data.stockCode,
+          stockName: data.stockName,
+          currentPrice: data.currentPrice,
+          changeRate: data.changeRate,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
       // 실시간 데이터로 상위 주식 정보 업데이트
       setTopStocks(prevStocks => 
         prevStocks.map((stock: TopStock) => {
@@ -101,7 +113,7 @@ export default function MapPage() {
             return {
               ...stock,
               price: data.currentPrice,
-              change: data.changeRate,
+              change: data.changeRate?.replace('%', '') || '0.00',
               realtimeData: data,
               lastUpdated: new Date(),
             };
@@ -312,14 +324,14 @@ export default function MapPage() {
         // 웹소켓에서 실시간 데이터가 있는지 확인
         const realtimeData = getStockData(stock.symbol);
         
-        return {
-          ...stock,
-          // 실시간 데이터가 있으면 우선 사용, 없으면 DB 데이터 사용 (null 처리 포함)
-          price: realtimeData?.currentPrice || (stock.price === "null" ? "데이터 없음" : stock.price),
-          change: realtimeData?.changeRate || (stock.change === "nu%" ? "0.00%" : stock.change),
-          realtimeData: realtimeData || undefined,
-          lastUpdated: realtimeData ? new Date() : new Date(),
-        };
+                  return {
+            ...stock,
+            // 실시간 데이터가 있으면 우선 사용, 없으면 DB 데이터 사용 (null 처리 포함)
+            price: realtimeData?.currentPrice || (stock.price === "null" ? "데이터 없음" : stock.price),
+            change: realtimeData?.changeRate || (stock.change === "nu%" ? "0.00" : stock.change),
+            realtimeData: realtimeData || undefined,
+            lastUpdated: realtimeData ? new Date() : new Date(),
+          };
       });
       
       setTopStocks(stocksWithRealtime);
@@ -328,7 +340,16 @@ export default function MapPage() {
       if (isRealtimeMode && wsConnected && stocksWithRealtime.length > 0) {
         const symbols = stocksWithRealtime.map((stock: TopStock) => stock.symbol);
         console.log("📡 실시간 모드: 종목 구독 시작", symbols);
+        console.log("📡 웹소켓 연결 상태:", wsConnected);
+        console.log("📡 시장 상태:", marketStatus);
         subscribe(symbols);
+      } else {
+        console.log("📴 구독하지 않는 이유:", {
+          isRealtimeMode,
+          wsConnected,
+          stocksLength: stocksWithRealtime.length,
+          marketStatus
+        });
       }
     } catch (err) {
       console.error("상위 주식 정보를 가져오는 데 실패했습니다.", err);
@@ -345,6 +366,7 @@ export default function MapPage() {
       
       if (isRealtimeMode && wsConnected) {
         console.log("📡 실시간 모드 활성화: 종목 구독", symbols);
+        console.log("📡 롯데쇼핑 포함 여부:", symbols.includes("023530"));
         subscribe(symbols);
       } else {
         console.log("📴 실시간 모드 비활성화: 종목 구독 해제", symbols);
@@ -678,7 +700,7 @@ export default function MapPage() {
 
                             <div className="text-right">
                               <div className="font-bold text-lg text-gray-900 dark:text-gray-100">
-                                {stock.price}
+                                {stock.price === "데이터 없음" ? stock.price : `₩${Number(stock.price).toLocaleString()}`}
                               </div>
                               <div
                                 className={`text-sm font-semibold ${
@@ -687,7 +709,9 @@ export default function MapPage() {
                                     : "text-blue-500 dark:text-blue-400"
                                 }`}
                               >
-                                {stock.change}
+                                {stock.change === "0.00%" ? stock.change : 
+                                 stock.change.startsWith("-") ? `${stock.change}%` : 
+                                 stock.change.includes("%") ? stock.change : `${stock.change}%`}
                               </div>
                               {/* 실시간 데이터 업데이트 시간 표시 */}
                               {stock.realtimeData && stock.lastUpdated && (
@@ -779,7 +803,7 @@ export default function MapPage() {
                             </div>
                             <div className="text-center relative z-10">
                               <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                                {selectedStock.price}
+                                {selectedStock.price === "데이터 없음" ? selectedStock.price : `₩${Number(selectedStock.price).toLocaleString()}`}
                               </div>
                               <div
                                 className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-base font-bold ${
@@ -795,7 +819,9 @@ export default function MapPage() {
                                       : ""
                                   }`}
                                 />
-                                {selectedStock.change}
+                                {selectedStock.change === "0.00%" ? selectedStock.change : 
+                                 selectedStock.change.startsWith("-") ? `${selectedStock.change}%` : 
+                                 selectedStock.change.includes("%") ? selectedStock.change : `${selectedStock.change}%`}
                               </div>
                               {/* 실시간 데이터 상태 표시 */}
                               {selectedStock.realtimeData && selectedStock.lastUpdated && (
