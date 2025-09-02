@@ -376,9 +376,12 @@ public class RegionStockServiceImpl implements RegionStockService {
                                         return StockTickerDto.builder()
                                                         .symbol(rs.getStock().getSymbol())
                                                         .name(rs.getStock().getName())
-                                                        .price(String.valueOf(rs.getStock().getCurrentPrice()))
-                                                        .change(String.format("%.2f%%",
-                                                                        rs.getStock().getPriceChangePercent()))
+                                                        .price(rs.getStock().getCurrentPrice() != null 
+                                                                ? String.valueOf(rs.getStock().getCurrentPrice())
+                                                                : "데이터 없음")
+                                                        .change(rs.getStock().getPriceChangePercent() != null
+                                                                ? String.format("%.2f", rs.getStock().getPriceChangePercent())
+                                                                : "0.00")
                                                         .logoUrl(rs.getStock().getLogoUrl())
                                                         .sector(sector)
                                                         .build();

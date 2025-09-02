@@ -112,6 +112,15 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
     private void handleKisSessionError() {
         try {
             log.info("🔄 KIS WebSocket 재연결 시도 중...");
+            
+            // Redis 연결 상태 확인
+            if (!isRedisConnectionAvailable()) {
+                log.warn("⚠️ Redis 연결이 불안정합니다. 웹소켓 재연결을 지연합니다.");
+                // Redis 연결이 불안정한 경우 재연결을 지연
+                scheduleReconnection();
+                return;
+            }
+            
             if (kisWebSocketSession != null) {
                 try {
                     kisWebSocketSession.close();
@@ -470,7 +479,28 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
             // 자동 재연결 시도 (정상 종료가 아닌 경우)
             if (status.getCode() != CloseStatus.NORMAL.getCode()) {
                 log.info("🔄 KIS WebSocket 비정상 종료로 인한 재연결 시도");
-                scheduleReconnection();
+                
+                // Redis 연결 상태 확인 후 재연결 결정
+                if (isRedisConnectionAvailable()) {
+                    scheduleReconnection();
+                } else {
+                    log.warn("⚠️ Redis 연결이 불안정하여 웹소켓 재연결을 지연합니다.");
+                    // Redis 연결이 불안정한 경우 더 긴 지연 후 재연결 시도
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(30000); // 30초 대기
+                            if (isRedisConnectionAvailable()) {
+                                connectToKis();
+                            } else {
+                                log.warn("⚠️ Redis 연결이 여전히 불안정합니다. 재연결을 포기합니다.");
+                            }
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        } catch (Exception e) {
+                            log.error("❌ 지연된 KIS WebSocket 재연결 실패", e);
+                        }
+                    }).start();
+                }
             }
         }
 
@@ -588,23 +618,35 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                                         .mapToLong(order -> Long.parseLong(order.getQuantity())).sum());
                                 }
                                 
-                                // 호가창 데이터를 Redis에 캐시 (1초로 단축 - 실시간성 향상)
-                                String orderBookCacheKey = "orderbook:" + stockCode;
-                                OrderBookResponse adjustedResponse = OrderBookResponse.builder()
-                                    .stockCode(stockCode)
-                                    .stockName(stockName)
-                                    .currentPrice(currentPrice)
-                                    .askOrders(askOrders)
-                                    .bidOrders(bidOrders)
-                                    .totalAskQuantity(totalAskQuantity)
-                                    .totalBidQuantity(totalBidQuantity)
-                                    .build();
-                                redisTemplate.opsForValue().set(orderBookCacheKey, objectMapper.writeValueAsString(adjustedResponse), Duration.ofSeconds(1));
+                                // Redis 연결이 가능한 경우에만 호가창 데이터 캐시
+                                if (isRedisConnectionAvailable()) {
+                                    try {
+                                        String orderBookCacheKey = "orderbook:" + stockCode;
+                                        OrderBookResponse adjustedResponse = OrderBookResponse.builder()
+                                            .stockCode(stockCode)
+                                            .stockName(stockName)
+                                            .currentPrice(currentPrice)
+                                            .askOrders(askOrders)
+                                            .bidOrders(bidOrders)
+                                            .totalAskQuantity(totalAskQuantity)
+                                            .totalBidQuantity(totalBidQuantity)
+                                            .build();
+                                        redisTemplate.opsForValue().set(orderBookCacheKey, objectMapper.writeValueAsString(adjustedResponse), Duration.ofSeconds(1));
+                                    } catch (Exception e) {
+                                        log.debug("Redis 호가창 캐시 저장 실패 (무시): {}", stockCode);
+                                    }
+                                }
                                 
                                 // 로그 제거 - 너무 많이 찍힘
                             } catch (Exception e) {
-                                log.warn("⚠️ 실시간 호가창 데이터 조회 실패: {} - {}", stockCode, e.getMessage());
-                                // 호가창 데이터 조회 실패 시 빈 리스트로 처리
+                                log.debug("⚠️ 실시간 호가창 데이터 조회 실패: {} - {}", stockCode, e.getMessage());
+                                // 호가창 데이터 조회 실패 시 현재가 기준으로 생성
+                                askOrders = generateOrderBookAroundCurrentPrice(currentPrice, true);
+                                bidOrders = generateOrderBookAroundCurrentPrice(currentPrice, false);
+                                totalAskQuantity = String.valueOf(askOrders.stream()
+                                    .mapToLong(order -> Long.parseLong(order.getQuantity())).sum());
+                                totalBidQuantity = String.valueOf(bidOrders.stream()
+                                    .mapToLong(order -> Long.parseLong(order.getQuantity())).sum());
                             }
                             
                             // StockPriceResponse 객체 생성
@@ -637,15 +679,21 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                             stockData.calculateSpread();
                             stockData.calculateImbalanceRatio();
 
-                            // Redis에 캐시
-                            String key = "stock:realtime:" + stockCode;
-                            redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(stockData));
+                            // Redis 연결이 가능한 경우에만 캐시 저장
+                            if (isRedisConnectionAvailable()) {
+                                try {
+                                    String key = "stock:realtime:" + stockCode;
+                                    redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(stockData));
 
-                            // 장종료 시점에 종가 데이터를 별도로 영구 보관
-                            if (isAfterMarketClose) {
-                                String closingPriceKey = "stock:closing:" + stockCode;
-                                redisTemplate.opsForValue().set(closingPriceKey, objectMapper.writeValueAsString(stockData));
-                                log.info("장종료 종가 데이터 저장: 종목={}, 종가={}", stockCode, currentPrice);
+                                    // 장종료 시점에 종가 데이터를 별도로 영구 보관
+                                    if (isAfterMarketClose) {
+                                        String closingPriceKey = "stock:closing:" + stockCode;
+                                        redisTemplate.opsForValue().set(closingPriceKey, objectMapper.writeValueAsString(stockData));
+                                        log.info("장종료 종가 데이터 저장: 종목={}, 종가={}", stockCode, currentPrice);
+                                    }
+                                } catch (Exception e) {
+                                    log.debug("Redis 실시간 데이터 캐시 저장 실패 (무시): {}", stockCode);
+                                }
                             }
 
                             // 구독자들에게 브로드캐스트
@@ -654,9 +702,15 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                             // 캔들 차트 데이터 업데이트
                             stockChartService.updateCurrentCandle(stockCode, currentPrice, volume);
 
-                            // 누적 거래량 캐시 저장 (분봉 계산용)
-                            String volumeCacheKey = "cumulative_volume:" + stockCode + ":" + System.currentTimeMillis();
-                            redisTemplate.opsForValue().set(volumeCacheKey, volume, Duration.ofMinutes(5));
+                            // 누적 거래량 캐시 저장 (분봉 계산용) - Redis 연결 가능한 경우에만
+                            if (isRedisConnectionAvailable()) {
+                                try {
+                                    String volumeCacheKey = "cumulative_volume:" + stockCode + ":" + System.currentTimeMillis();
+                                    redisTemplate.opsForValue().set(volumeCacheKey, volume, Duration.ofMinutes(5));
+                                } catch (Exception e) {
+                                    log.debug("Redis 거래량 캐시 저장 실패 (무시): {}", stockCode);
+                                }
+                            }
                             
                             // 분봉 데이터 업데이트 (1분, 5분, 15분)
                             try {
@@ -760,18 +814,28 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
 
         private String getStockNameFromCache(String stockCode) {
             try {
-                // Redis에서 종목명 조회
-                String cachedName = (String) redisTemplate.opsForValue().get("stock:name:" + stockCode);
-                if (cachedName != null) {
-                    return cachedName;
+                // Redis 연결 상태 확인 후 조회
+                if (isRedisConnectionAvailable()) {
+                    String cachedName = (String) redisTemplate.opsForValue().get("stock:name:" + stockCode);
+                    if (cachedName != null) {
+                        return cachedName;
+                    }
+                } else {
+                    log.debug("Redis 연결 불가 - 캐시 조회 건너뛰기: {}", stockCode);
                 }
 
                 // DB에서 종목명 조회
                 try {
                     Stock stock = stockRepository.findBySymbol(stockCode).orElse(null);
                     if (stock != null && stock.getName() != null) {
-                        // Redis에 캐시
-                        redisTemplate.opsForValue().set("stock:name:" + stockCode, stock.getName(), Duration.ofHours(24));
+                        // Redis 연결이 가능한 경우에만 캐시 저장
+                        if (isRedisConnectionAvailable()) {
+                            try {
+                                redisTemplate.opsForValue().set("stock:name:" + stockCode, stock.getName(), Duration.ofHours(24));
+                            } catch (Exception e) {
+                                log.debug("Redis 캐시 저장 실패 (무시): {}", stockCode);
+                            }
+                        }
                         return stock.getName();
                     }
                 } catch (Exception e) {
