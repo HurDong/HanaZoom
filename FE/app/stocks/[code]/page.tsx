@@ -70,11 +70,7 @@ export default function StockDetailPage() {
   } = useStockWebSocket({
     stockCodes: validateStockCode(stockCode) ? [stockCode] : [],
     onStockUpdate: (data) => {
-      console.log(
-        "📈 웹소켓 데이터 업데이트:",
-        data.stockCode,
-        data.currentPrice
-      );
+      // 로그 제거 - 너무 많이 찍힘
     },
     autoReconnect: true,
     reconnectInterval: 3000,
@@ -111,7 +107,7 @@ export default function StockDetailPage() {
         // 종목 이름으로 표시
         const stockName = stockData?.stockName || stockInfo?.name || stockCode;
         const josa = getKoreanJosa(stockName);
-        toast.warning(`${stockName}${josa} 관심종목에서 제거되었습니다.`);
+        toast.success(`${stockName}이(가) 관심종목에서 제거되었습니다.`);
       } else {
         await addToWatchlist({ stockSymbol: stockCode });
         setIsInWatchlist(true);
@@ -336,6 +332,28 @@ export default function StockDetailPage() {
     }
   };
 
+  // 제목 옆 가격 표시용 데이터 계산 (현재가 우선, 없으면 종가)
+  const livePriceStr =
+    stockData?.currentPrice ||
+    orderBookData?.currentPrice ||
+    (stockInfo?.currentPrice != null ? String(stockInfo.currentPrice) : null);
+  const closePriceStr = stockData?.previousClose || null;
+  const displayPriceStr = livePriceStr || closePriceStr || null;
+  const isPriceFromClose = !livePriceStr && !!closePriceStr;
+
+  let titlePriceColor = "text-gray-700 dark:text-gray-300";
+  if (stockData?.changeSign) {
+    titlePriceColor = getPriceChangeColor(stockData.changeSign);
+  } else if (livePriceStr && closePriceStr) {
+    const diff = parseInt(livePriceStr) - parseInt(closePriceStr);
+    titlePriceColor =
+      diff > 0
+        ? "text-red-600 dark:text-red-400"
+        : diff < 0
+        ? "text-blue-600 dark:text-blue-400"
+        : "text-gray-600 dark:text-gray-400";
+  }
+
   if (loading || (initialLoad && wsConnecting)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950">
@@ -505,10 +523,48 @@ export default function StockDetailPage() {
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">
-                    {stockData?.stockName ||
-                      stockInfo?.name ||
+                    {stockInfo?.name ||
+                      stockData?.stockName ||
                       `종목 ${stockCode}`}
                   </h1>
+                  {displayPriceStr && (
+                    <div className="mt-1 flex items-center gap-2">
+                      <span
+                        className={`text-xl font-semibold ${titlePriceColor}`}
+                      >
+                        {parseInt(displayPriceStr).toLocaleString()}원
+                      </span>
+                      {stockData?.changeSign && (
+                        <span className="inline-flex items-center gap-1 text-sm">
+                          {getPriceChangeIcon(stockData.changeSign)}
+                          <span
+                            className={getPriceChangeColor(
+                              stockData.changeSign
+                            )}
+                          >
+                            {parseInt(
+                              stockData.changePrice || "0"
+                            ).toLocaleString()}
+                            원
+                            {stockData.changeRate && (
+                              <>
+                                {" "}
+                                ({parseFloat(stockData.changeRate).toFixed(2)}%)
+                              </>
+                            )}
+                          </span>
+                        </span>
+                      )}
+                      {isPriceFromClose && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs text-gray-500 border-gray-400"
+                        >
+                          종가
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center gap-3 mt-1">
                     <p className="text-sm text-green-600 dark:text-green-400">
                       {stockCode}

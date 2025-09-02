@@ -21,6 +21,9 @@ interface WebSocketState {
   error: string | null;
   stockData: Map<string, StockPriceData>;
   lastUpdate: number;
+  lastDataReceived: number;
+  isMarketOpen: boolean;
+  pingInterval: number;
 }
 
 export function useStockWebSocket({
@@ -35,12 +38,46 @@ export function useStockWebSocket({
     error: null,
     stockData: new Map(),
     lastUpdate: 0,
+    lastDataReceived: 0,
+    isMarketOpen: false,
+    pingInterval: 10000, // 10초마다 ping
   });
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const mountedRef = useRef(true);
   const subscribedCodesRef = useRef<Set<string>>(new Set());
+  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const dataTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 데이터 수신 상태 추적 및 장 열림/종료 상태 결정
+  const updateDataReceivedStatus = useCallback(() => {
+    const now = Date.now();
+    setState((prev) => ({
+      ...prev,
+      lastDataReceived: now,
+    }));
+
+    // 데이터 수신 타임아웃 설정 (30초)
+    if (dataTimeoutRef.current) {
+      clearTimeout(dataTimeoutRef.current);
+    }
+    
+    dataTimeoutRef.current = setTimeout(() => {
+      setState((prev) => ({
+        ...prev,
+        isMarketOpen: false,
+      }));
+    }, 30000); // 30초 동안 데이터가 없으면 장 종료로 간주
+  }, []);
+
+  // 장 열림 상태로 설정
+  const setMarketOpen = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      isMarketOpen: true,
+    }));
+  }, []);
 
   const connect = useCallback(async () => {
     if (state.connecting || wsRef.current?.readyState === WebSocket.OPEN) {
@@ -177,20 +214,19 @@ export function useStockWebSocket({
                     ...prev,
                     stockData: newStockData,
                     lastUpdate: Date.now(),
+                    isMarketOpen: true, // 데이터가 들어오면 장 열림 상태
                   };
                 });
 
+                // 데이터 수신 상태 업데이트
+                updateDataReceivedStatus();
                 onStockUpdate?.(stockData);
-                console.log(
-                  "📈 실시간 데이터 수신:",
-                  stockData.stockCode,
-                  stockData.currentPrice
-                );
               }
               break;
 
             case "PONG":
-              // 하트비트 응답
+              // 하트비트 응답 - 서버가 살아있음을 확인
+              updateDataReceivedStatus();
               break;
 
             case "ERROR":
@@ -284,6 +320,7 @@ export function useStockWebSocket({
           connected: false,
           connecting: false,
           error: closeMessage,
+          // 기존 주식 데이터는 유지 (장종료 후에도 표시하기 위해)
         }));
 
         subscribedCodesRef.current.clear();
@@ -451,18 +488,36 @@ export function useStockWebSocket({
     }
   }, [stockCodes, state.connected]);
 
-  // 주기적 하트비트 (30초마다)
+  // 주기적 하트비트 및 데이터 수신 상태 확인
   useEffect(() => {
     if (state.connected) {
-      const heartbeat = setInterval(() => {
+      // ping 전송
+      pingIntervalRef.current = setInterval(() => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           ping();
         }
-      }, 30000);
+      }, state.pingInterval);
 
-      return () => clearInterval(heartbeat);
+      return () => {
+        if (pingIntervalRef.current) {
+          clearInterval(pingIntervalRef.current);
+          pingIntervalRef.current = null;
+        }
+      };
     }
-  }, [state.connected, ping]);
+  }, [state.connected, state.pingInterval, ping]);
+
+  // 컴포넌트 언마운트 시 모든 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+      }
+      if (dataTimeoutRef.current) {
+        clearTimeout(dataTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return {
     // 상태
@@ -471,6 +526,8 @@ export function useStockWebSocket({
     error: state.error,
     stockData: state.stockData,
     lastUpdate: state.lastUpdate,
+    lastDataReceived: state.lastDataReceived,
+    isMarketOpen: state.isMarketOpen,
     subscribedCodes: [...subscribedCodesRef.current],
 
     // 메서드
@@ -479,6 +536,7 @@ export function useStockWebSocket({
     subscribe,
     unsubscribe,
     ping,
+    setMarketOpen,
 
     // 유틸리티
     getStockData: (stockCode: string) => state.stockData.get(stockCode),

@@ -30,7 +30,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
-import java.util.Arrays;
+
 import java.util.Map;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -76,7 +76,7 @@ public class RegionStockServiceImpl implements RegionStockService {
                 if (lastCsvCacheUpdate == null || !lastCsvCacheUpdate.equals(today)) {
                         try {
                                 Resource resource = new ClassPathResource(
-                                                "data/region/recommended_stocks_by_region2.csv");
+                                        "data/region/recommended_stocks_by_region.csv");
                                 BufferedReader reader = new BufferedReader(
                                                 new InputStreamReader(resource.getInputStream(),
                                                                 StandardCharsets.UTF_8));
@@ -376,9 +376,12 @@ public class RegionStockServiceImpl implements RegionStockService {
                                         return StockTickerDto.builder()
                                                         .symbol(rs.getStock().getSymbol())
                                                         .name(rs.getStock().getName())
-                                                        .price(String.valueOf(rs.getStock().getCurrentPrice()))
-                                                        .change(String.format("%.2f%%",
-                                                                        rs.getStock().getPriceChangePercent()))
+                                                        .price(rs.getStock().getCurrentPrice() != null 
+                                                                ? String.valueOf(rs.getStock().getCurrentPrice())
+                                                                : "데이터 없음")
+                                                        .change(rs.getStock().getPriceChangePercent() != null
+                                                                ? String.format("%.2f", rs.getStock().getPriceChangePercent())
+                                                                : "0.00")
                                                         .logoUrl(rs.getStock().getLogoUrl())
                                                         .sector(sector)
                                                         .build();

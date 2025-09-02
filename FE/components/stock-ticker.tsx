@@ -40,6 +40,8 @@ export function StockTicker() {
     connected: wsConnected,
     stockData: wsStockData,
     lastUpdate,
+    lastDataReceived,
+    isMarketOpen,
     getStockDataMap,
   } = useStockWebSocket({
     stockCodes: TICKER_STOCKS.map((stock) => stock.symbol),
@@ -61,18 +63,13 @@ export function StockTicker() {
 
   // 깜빡임 없는 부드러운 업데이트
   const updateStockDisplayWithMap = useCallback((stockDataMap: Map<string, any>): void => {
-    console.log('updateStockDisplayWithMap called, stockDataMap size:', stockDataMap.size);
-    console.log('stockDataMap contents:', Object.fromEntries(stockDataMap));
-
     if (stockDataMap.size === 0) {
-      console.log('stockDataMap is empty, returning early');
       return;
     }
 
     // 즉시 업데이트, 깜빡임 없음
     const newStocks: StockTicker[] = TICKER_STOCKS.map((tickerStock) => {
       const stockData = stockDataMap.get(tickerStock.symbol);
-      console.log(`Processing ${tickerStock.symbol}:`, stockData);
       
       if (!stockData) {
         // 데이터가 없으면 기본값 반환
@@ -104,8 +101,6 @@ export function StockTicker() {
       };
     });
 
-    console.log('New stocks to be set:', newStocks);
-
     setStocks((prev) => {
       // 동일 데이터로 인한 불필요한 렌더를 한 번 더 방지
       const sameLength = prev.length === newStocks.length;
@@ -117,9 +112,6 @@ export function StockTicker() {
             p.price === newStocks[i].price &&
             p.change === newStocks[i].change
         );
-      
-      console.log('Previous stocks:', prev);
-      console.log('Same data check:', sameAll);
       
       return sameAll ? prev : newStocks;
     });
@@ -130,19 +122,14 @@ export function StockTicker() {
     // getStockDataMap은 훅에서 안정적으로 반환되지만, 의존성으로 넣으면
     // 구현 변경 시 매 렌더마다 바뀌어 효과가 반복될 수 있어 내부에서 호출만 함
     const stockDataMap = getStockDataMap();
-    
-    console.log('updateStockDisplay called, stockDataMap size:', stockDataMap.size);
-    console.log('stockDataMap contents:', Object.fromEntries(stockDataMap));
 
     if (stockDataMap.size === 0) {
-      console.log('stockDataMap is empty, returning early');
       return;
     }
 
     // 즉시 업데이트, 깜빡임 없음
     const newStocks: StockTicker[] = TICKER_STOCKS.map((tickerStock) => {
       const stockData = stockDataMap.get(tickerStock.symbol);
-      console.log(`Processing ${tickerStock.symbol}:`, stockData);
       
       if (!stockData) {
         // 데이터가 없으면 기본값 반환
@@ -174,8 +161,6 @@ export function StockTicker() {
       };
     });
 
-    console.log('New stocks to be set:', newStocks);
-
     setStocks((prev) => {
       // 동일 데이터로 인한 불필요한 렌더를 한 번 더 방지
       const sameLength = prev.length === newStocks.length;
@@ -187,9 +172,6 @@ export function StockTicker() {
             p.price === newStocks[i].price &&
             p.change === newStocks[i].change
         );
-      
-      console.log('Previous stocks:', prev);
-      console.log('Same data check:', sameAll);
       
       return sameAll ? prev : newStocks;
     });
@@ -201,15 +183,11 @@ export function StockTicker() {
   }, []);
 
   useEffect(() => {
-    console.log('useEffect triggered - wsConnected:', wsConnected, 'lastUpdate:', lastUpdate);
     if (wsConnected) {
       const map = getStockDataMap();
-      console.log('Map from getStockDataMap:', map.size, Object.fromEntries(map));
       if (map.size > 0) {
         // Map을 직접 전달하여 일관성 보장
         updateStockDisplayWithMap(map);
-      } else {
-        console.log('Map is empty, not calling updateStockDisplay');
       }
     }
     // 의존성으로 함수 레퍼런스를 두지 않고, 신호성 값들만 둔다
@@ -285,12 +263,32 @@ export function StockTicker() {
     );
   }
 
+  // 연결 상태와 장 열림/종료 상태에 따른 UI 결정
+  const getConnectionStatus = () => {
+    if (!wsConnected) {
+      return { status: 'disconnected', bgColor: 'from-red-600 via-red-500 to-red-600', icon: WifiOff, text: '연결이 끊어졌습니다. 재연결 중...' };
+    }
+    
+    if (wsConnected && !isMarketOpen) {
+      return { status: 'market-closed', bgColor: 'from-yellow-600 via-yellow-500 to-yellow-600', icon: WifiOff, text: '장종료' };
+    }
+    
+    if (wsConnected && isMarketOpen) {
+      return { status: 'market-open', bgColor: 'from-green-600 via-emerald-600 to-green-600', icon: Wifi, text: '장 열림' };
+    }
+    
+    return { status: 'loading', bgColor: 'from-yellow-600 via-yellow-500 to-yellow-600', icon: Wifi, text: '주식 데이터 로딩 중...' };
+  };
+
+  const connectionStatus = getConnectionStatus();
+
   if (!wsConnected) {
+    // 웹소켓 연결이 끊어진 경우
     return (
-      <div className="w-full bg-gradient-to-r from-red-600 via-red-500 to-red-600 dark:from-red-700 dark:via-red-600 dark:to-red-700 text-white py-2 overflow-hidden relative shadow-lg">
+      <div className={`w-full bg-gradient-to-r ${connectionStatus.bgColor} dark:from-red-700 dark:via-red-600 dark:to-red-700 text-white py-2 overflow-hidden relative shadow-lg`}>
         <div className="flex items-center justify-center gap-2 h-8">
-          <WifiOff className="w-3 h-3" />
-          <span className="text-sm">연결이 끊어졌습니다. 재연결 중...</span>
+          <connectionStatus.icon className="w-3 h-3" />
+          <span className="text-sm">{connectionStatus.text}</span>
         </div>
       </div>
     );
@@ -298,17 +296,17 @@ export function StockTicker() {
 
   if (stocks.length === 0) {
     return (
-      <div className="w-full bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 dark:from-yellow-700 dark:via-yellow-600 dark:to-yellow-700 text-white py-2 overflow-hidden relative shadow-lg">
+      <div className={`w-full bg-gradient-to-r ${connectionStatus.bgColor} dark:from-yellow-700 dark:via-yellow-600 dark:to-yellow-700 text-white py-2 overflow-hidden relative shadow-lg`}>
         <div className="flex items-center justify-center gap-2 h-8">
-          <Wifi className="w-3 h-3 animate-pulse" />
-          <span className="text-sm">주식 데이터 로딩 중...</span>
+          <connectionStatus.icon className={`w-3 h-3 ${isMarketOpen ? 'animate-pulse' : ''}`} />
+          <span className="text-sm">{connectionStatus.text}</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full bg-gradient-to-r from-green-600 via-emerald-600 to-green-600 dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-2 overflow-hidden relative shadow-lg">
+    <div className={`w-full bg-gradient-to-r ${connectionStatus.bgColor} dark:from-green-700 dark:via-emerald-700 dark:to-green-700 text-white py-2 overflow-hidden relative shadow-lg`}>
       {/* 배경 패턴 */}
       <div className="absolute inset-0 opacity-20">
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
@@ -323,8 +321,8 @@ export function StockTicker() {
 
       {/* 연결 상태 표시 */}
       <div className="absolute top-1 right-2 flex items-center gap-1 text-xs opacity-80">
-        <Wifi className="w-3 h-3 animate-pulse" />
-        <span>장 열림</span>
+        <connectionStatus.icon className={`w-3 h-3 ${isMarketOpen ? 'animate-pulse' : ''}`} />
+        <span>{connectionStatus.text}</span>
       </div>
 
       {/* 스크롤링 티커 - 애니메이션 중단 방지 */}

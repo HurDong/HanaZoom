@@ -191,7 +191,7 @@ export default function NavBar() {
       const stockName = stock?.stockName || stockSymbol;
       const josa = getKoreanJosa(stockName);
 
-      toast.warning(`${stockName}${josa} 관심종목에서 제거되었습니다.`);
+      toast.success(`${stockName}이(가) 관심종목에서 제거되었습니다.`);
     } catch (error) {
       console.error("관심종목 제거 실패:", error);
       toast.error("관심종목 제거에 실패했습니다. 다시 시도해주세요.");
@@ -636,6 +636,14 @@ export default function NavBar() {
                   >
                     <span className="mr-2">💼</span>
                     포트폴리오 보기
+                  </Link>
+                  <Link
+                    href="/orders"
+                    onClick={() => setShowProfileModal(false)}
+                    className="w-full border-2 border-purple-500 text-purple-600 dark:text-purple-400 bg-transparent hover:bg-purple-50 dark:hover:bg-purple-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm flex items-center justify-center"
+                  >
+                    <span className="mr-2">📋</span>
+                    주문 내역
                   </Link>
                   <div className="flex gap-2">
                     <button className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800 font-medium py-2 px-3 rounded-lg transition-all duration-200 font-['Pretendard'] text-xs">

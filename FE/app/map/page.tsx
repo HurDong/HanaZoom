@@ -30,6 +30,10 @@ import { MouseFollower } from "@/components/mouse-follower";
 import { useRouter } from "next/navigation";
 import { useMapBounds } from "@/app/hooks/useMapBounds";
 import { filterMarkersByLOD } from "@/app/utils/lodUtils";
+import { SearchJump } from "@/components/search-jump";
+import { useStockWebSocket } from "@/hooks/useStockWebSocket";
+import { getMarketStatus, isMarketOpen } from "@/lib/utils/marketUtils";
+import type { StockPriceData } from "@/lib/api/stock";
 
 // 백엔드 RegionResponse DTO와 일치하는 타입 정의
 export interface Region {
@@ -52,6 +56,9 @@ interface TopStock {
   sector: string; // 섹터 정보 (required로 변경)
   currentPrice?: number; // 현재가 (숫자)
   rank?: number; // 지역 내 순위
+  // 실시간 데이터 필드들
+  realtimeData?: StockPriceData;
+  lastUpdated?: Date;
 }
 
 const KAKAO_MAP_API_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY;
@@ -65,7 +72,57 @@ export default function MapPage() {
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
   const [selectedStock, setSelectedStock] = useState<TopStock | null>(null);
+  const mapRef = useRef<kakao.maps.Map | null>(null);
   const router = useRouter();
+
+  // 시장 상태 관리
+  const [marketStatus, setMarketStatus] = useState(getMarketStatus());
+  const [isRealtimeMode, setIsRealtimeMode] = useState(isMarketOpen());
+
+  // 웹소켓을 통한 실시간 데이터 관리
+  const stockCodes = useMemo(() => {
+    return topStocks.map((stock: TopStock) => stock.symbol);
+  }, [topStocks]);
+
+  const { 
+    connected: wsConnected, 
+    stockData: wsStockData, 
+    subscribe, 
+    unsubscribe,
+    getStockData
+  } = useStockWebSocket({
+    stockCodes,
+    onStockUpdate: (data: StockPriceData) => {
+      console.log("📊 실시간 주식 데이터 업데이트:", data);
+      
+      // 롯데쇼핑 데이터인 경우 특별 로그
+      if (data.stockCode === "023530") {
+        console.log("🏪 롯데쇼핑 실시간 데이터 수신:", {
+          stockCode: data.stockCode,
+          stockName: data.stockName,
+          currentPrice: data.currentPrice,
+          changeRate: data.changeRate,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // 실시간 데이터로 상위 주식 정보 업데이트
+      setTopStocks(prevStocks => 
+        prevStocks.map((stock: TopStock) => {
+          if (stock.symbol === data.stockCode) {
+            return {
+              ...stock,
+              price: data.currentPrice,
+              change: data.changeRate?.replace('%', '') || '0.00',
+              realtimeData: data,
+              lastUpdated: new Date(),
+            };
+          }
+          return stock;
+        })
+      );
+    }
+  });
 
   // LOD 최적화 hooks
   const { viewport, updateBounds, isPointInBounds } = useMapBounds();
@@ -80,26 +137,116 @@ export default function MapPage() {
     libraries: ["services"],
   });
 
+  // 위치 선택 핸들러 (검색 결과에서 사용)
+  const handleLocationSelect = useCallback((lat: number, lng: number) => {
+    console.log("🗺️ 지도 위치 변경:", { lat, lng });
+    setCenter({ lat, lng });
+    setZoomLevel(4);
+    setDebouncedZoomLevel(4);
+  }, []);
+
+  // 지도 상태 초기화 (내 위치 버튼 클릭 시)
+  const handleResetMap = useCallback(() => {
+    console.log("🔄 지도 상태 초기화");
+    setSelectedRegion(null);
+    setTopStocks([]);
+    setSelectedStock(null);
+    // 사용자 위치로 이동 (새로고침과 동일한 효과)
+    if (user?.latitude && user?.longitude && mapRef.current) {
+      const lat = Number(user.latitude);
+      const lng = Number(user.longitude);
+      console.log("📍 지도 중심 이동:", { lat, lng });
+
+      // 카카오맵 API를 사용하여 지도 중심 이동
+      const newCenter = new kakao.maps.LatLng(lat, lng);
+      mapRef.current.panTo(newCenter);
+      mapRef.current.setLevel(4);
+
+      // 상태도 업데이트
+      setCenter({ lat, lng });
+      setZoomLevel(4);
+      setDebouncedZoomLevel(4);
+    }
+  }, [user?.latitude, user?.longitude]);
+
   // 사용자 위치로 이동하는 함수
   const moveToUserLocation = useCallback(() => {
-    if (user?.latitude && user?.longitude) {
-      setCenter({ lat: Number(user.latitude), lng: Number(user.longitude) });
+    if (user?.latitude && user?.longitude && mapRef.current) {
+      const lat = Number(user.latitude);
+      const lng = Number(user.longitude);
+      console.log("📍 초기 사용자 위치로 이동:", { lat, lng });
+
+      // 카카오맵 API를 사용하여 지도 중심 이동
+      const newCenter = new kakao.maps.LatLng(lat, lng);
+      mapRef.current.panTo(newCenter);
+      mapRef.current.setLevel(4);
+
+      // 상태도 업데이트
+      setCenter({ lat, lng });
       setZoomLevel(4);
       setDebouncedZoomLevel(4);
     }
   }, [user?.latitude, user?.longitude]);
 
   // 초기 중심점 설정
-  const initialCenter = { lat: 37.5665, lng: 126.978 }; // 서울시청
-  const [center, setCenter] = useState(initialCenter);
-  const [zoomLevel, setZoomLevel] = useState(9);
+  const [center, setCenter] = useState({ lat: 37.5665, lng: 126.978 }); // 서울시청 (기본값)
+  const [zoomLevel, setZoomLevel] = useState(9); // 기본값
 
-  // 컴포넌트 마운트 또는 새로고침 시 사용자 위치로 이동
+  // 사용자 정보가 로드되면 초기 위치 설정
   useEffect(() => {
     if (user?.latitude && user?.longitude) {
-      moveToUserLocation();
+      console.log("👤 사용자 정보 로드됨 - 초기 위치 설정");
+      const lat = Number(user.latitude);
+      const lng = Number(user.longitude);
+      setCenter({ lat, lng });
+      setZoomLevel(4);
+      setDebouncedZoomLevel(4);
     }
-  }, [user, moveToUserLocation]);
+  }, [user?.latitude, user?.longitude]);
+
+  // 시장 상태 주기적 체크 (1분마다)
+  useEffect(() => {
+    const checkMarketStatus = () => {
+      const newStatus = getMarketStatus();
+      const newIsRealtimeMode = isMarketOpen();
+      
+      setMarketStatus(newStatus);
+      setIsRealtimeMode(newIsRealtimeMode);
+      
+      console.log("📈 시장 상태 체크:", {
+        status: newStatus.marketStatus,
+        isOpen: newStatus.isMarketOpen,
+        isRealtimeMode: newIsRealtimeMode,
+        wsConnected,
+      });
+    };
+
+    // 즉시 체크
+    checkMarketStatus();
+    
+    // 1분마다 체크
+    const interval = setInterval(checkMarketStatus, 60000);
+    
+    return () => clearInterval(interval);
+  }, [wsConnected]);
+
+  // 지도 인스턴스가 준비되면 사용자 위치로 이동 (지도가 이미 올바른 위치에 있으면 이동하지 않음)
+  useEffect(() => {
+    if (mapRef.current && user?.latitude && user?.longitude) {
+      const currentCenter = mapRef.current.getCenter();
+      const userLat = Number(user.latitude);
+      const userLng = Number(user.longitude);
+
+      // 현재 지도 중심과 사용자 위치가 다르면 이동
+      if (
+        Math.abs(currentCenter.getLat() - userLat) > 0.001 ||
+        Math.abs(currentCenter.getLng() - userLng) > 0.001
+      ) {
+        console.log("🚀 지도 준비됨 - 사용자 위치로 이동");
+        moveToUserLocation();
+      }
+    }
+  }, [mapRef.current, user?.latitude, user?.longitude, moveToUserLocation]);
 
   // 지역 데이터를 불러옵니다.
   useEffect(() => {
@@ -171,14 +318,62 @@ export default function MapPage() {
       const response = await getTopStocksByRegion(regionId);
       console.log("🔍 받아온 주식 데이터:", response.data);
       console.log("🔍 첫 번째 주식 섹터:", response.data[0]?.sector);
-      setTopStocks(response.data);
+      
+      // 기본 데이터 설정 (실시간 데이터 우선 사용)
+      const stocksWithRealtime = response.data.map((stock: any) => {
+        // 웹소켓에서 실시간 데이터가 있는지 확인
+        const realtimeData = getStockData(stock.symbol);
+        
+                  return {
+            ...stock,
+            // 실시간 데이터가 있으면 우선 사용, 없으면 DB 데이터 사용 (null 처리 포함)
+            price: realtimeData?.currentPrice || (stock.price === "null" ? "데이터 없음" : stock.price),
+            change: realtimeData?.changeRate || (stock.change === "nu%" ? "0.00" : stock.change),
+            realtimeData: realtimeData || undefined,
+            lastUpdated: realtimeData ? new Date() : new Date(),
+          };
+      });
+      
+      setTopStocks(stocksWithRealtime);
+      
+      // 실시간 모드이고 웹소켓이 연결된 경우 구독
+      if (isRealtimeMode && wsConnected && stocksWithRealtime.length > 0) {
+        const symbols = stocksWithRealtime.map((stock: TopStock) => stock.symbol);
+        console.log("📡 실시간 모드: 종목 구독 시작", symbols);
+        console.log("📡 웹소켓 연결 상태:", wsConnected);
+        console.log("📡 시장 상태:", marketStatus);
+        subscribe(symbols);
+      } else {
+        console.log("📴 구독하지 않는 이유:", {
+          isRealtimeMode,
+          wsConnected,
+          stocksLength: stocksWithRealtime.length,
+          marketStatus
+        });
+      }
     } catch (err) {
       console.error("상위 주식 정보를 가져오는 데 실패했습니다.", err);
       setTopStocks([]);
     } finally {
       setLoadingStocks(false);
     }
-  }, []);
+  }, [isRealtimeMode, wsConnected, subscribe]);
+
+  // 실시간 모드 변경 시 웹소켓 구독 관리
+  useEffect(() => {
+    if (topStocks.length > 0) {
+      const symbols = topStocks.map((stock: TopStock) => stock.symbol);
+      
+      if (isRealtimeMode && wsConnected) {
+        console.log("📡 실시간 모드 활성화: 종목 구독", symbols);
+        console.log("📡 롯데쇼핑 포함 여부:", symbols.includes("023530"));
+        subscribe(symbols);
+      } else {
+        console.log("📴 실시간 모드 비활성화: 종목 구독 해제", symbols);
+        unsubscribe(symbols);
+      }
+    }
+  }, [isRealtimeMode, wsConnected, topStocks, subscribe, unsubscribe]);
 
   // 마커 클릭 핸들러 최적화
   const handleMarkerClick = useCallback(
@@ -280,8 +475,37 @@ export default function MapPage() {
         <StockTicker />
       </div>
 
-      <main className="relative z-10 pt-36">
-        <div className="w-full px-6 py-4 h-[calc(100vh-10rem)] flex gap-6">
+      {/* 검색·점프 기능 */}
+      <SearchJump
+        regions={regions}
+        onLocationSelect={handleLocationSelect}
+        onResetMap={handleResetMap}
+      />
+
+      {/* 매달린 캐릭터 오버레이 - 지도보다 위에 배치 */}
+      <div className="fixed top-8 left-72 z-[5] pointer-events-none">
+        <div className="relative">
+          {/* 매달린 줄 효과 - 더 자연스럽게 */}
+          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-1 h-12 bg-gradient-to-b from-gray-500 via-gray-400 to-transparent rounded-full"></div>
+          {/* 그림자 효과 - 지도 위에 떨어지는 그림자 */}
+          <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-64 h-12 bg-black/15 rounded-full blur-sm"></div>
+        </div>
+      </div>
+
+      {/* 캐릭터 이미지만 별도로 높은 z-index로 배치 */}
+      <div className="fixed top-32 left-80 z-[20] pointer-events-none">
+        <img
+          src="/starpro_hang.png"
+          alt="매달린 캐릭터"
+          className="w-80 h-20 object-contain"
+          style={{
+            transform: "translateY(-8px)",
+          }}
+        />
+      </div>
+
+      <main className="relative z-10 pt-44">
+        <div className="w-full px-6 py-4 h-[calc(100vh-12rem)] flex gap-6">
           {/* 비치명적 경고 배너 */}
           {error && (
             <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-2 rounded-md bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border border-yellow-300/60 dark:border-yellow-700/60 shadow">
@@ -337,14 +561,52 @@ export default function MapPage() {
               </div>
 
               <div className="space-y-4 pt-4 border-t border-green-200/50 dark:border-green-800/50">
-                <h4 className="font-bold text-lg flex items-center gap-2 text-green-800 dark:text-green-200">
-                  <Flame className="w-5 h-5" />
-                  <span>
-                    {selectedRegion
-                      ? `${selectedRegion.name} 인기 종목`
-                      : "지역을 선택하세요"}
-                  </span>
-                </h4>
+                <div className="space-y-2">
+                  <h4 className="font-bold text-lg flex items-center gap-2 text-green-800 dark:text-green-200">
+                    <Flame className="w-5 h-5" />
+                    <span>
+                      {selectedRegion
+                        ? `${selectedRegion.name} 인기 종목`
+                        : "지역을 선택하세요"}
+                    </span>
+                  </h4>
+                  
+                  {/* 시장 상태 및 실시간 데이터 상태 표시 */}
+                  {selectedRegion && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className={`px-2 py-1 rounded-full text-white font-semibold ${
+                        marketStatus.isMarketOpen 
+                          ? 'bg-green-500' 
+                          : marketStatus.isAfterMarketClose 
+                          ? 'bg-gray-500' 
+                          : 'bg-blue-500'
+                      }`}>
+                        {marketStatus.marketStatus}
+                      </div>
+                      
+                      {isRealtimeMode && wsConnected && (
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">
+                          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                          <span>실시간</span>
+                        </div>
+                      )}
+                      
+                      {isRealtimeMode && !wsConnected && (
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300">
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                          <span>연결중</span>
+                        </div>
+                      )}
+                      
+                      {!isRealtimeMode && (
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                          <span>DB 데이터</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {/* 항상 종목 리스트 먼저 표시 */}
                 {loadingStocks ? (
@@ -438,7 +700,7 @@ export default function MapPage() {
 
                             <div className="text-right">
                               <div className="font-bold text-lg text-gray-900 dark:text-gray-100">
-                                {stock.price}
+                                {stock.price === "데이터 없음" ? stock.price : `₩${Number(stock.price).toLocaleString()}`}
                               </div>
                               <div
                                 className={`text-sm font-semibold ${
@@ -447,8 +709,20 @@ export default function MapPage() {
                                     : "text-blue-500 dark:text-blue-400"
                                 }`}
                               >
-                                {stock.change}
+                                {stock.change === "0.00%" ? stock.change : 
+                                 stock.change.startsWith("-") ? `${stock.change}%` : 
+                                 stock.change.includes("%") ? stock.change : `${stock.change}%`}
                               </div>
+                              {/* 실시간 데이터 업데이트 시간 표시 */}
+                              {stock.realtimeData && stock.lastUpdated && (
+                                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                  {stock.lastUpdated.toLocaleTimeString('ko-KR', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                  })}
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -529,7 +803,7 @@ export default function MapPage() {
                             </div>
                             <div className="text-center relative z-10">
                               <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                                {selectedStock.price}
+                                {selectedStock.price === "데이터 없음" ? selectedStock.price : `₩${Number(selectedStock.price).toLocaleString()}`}
                               </div>
                               <div
                                 className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-base font-bold ${
@@ -545,8 +819,19 @@ export default function MapPage() {
                                       : ""
                                   }`}
                                 />
-                                {selectedStock.change}
+                                {selectedStock.change === "0.00%" ? selectedStock.change : 
+                                 selectedStock.change.startsWith("-") ? `${selectedStock.change}%` : 
+                                 selectedStock.change.includes("%") ? selectedStock.change : `${selectedStock.change}%`}
                               </div>
+                              {/* 실시간 데이터 상태 표시 */}
+                              {selectedStock.realtimeData && selectedStock.lastUpdated && (
+                                <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                                    <span>실시간 업데이트: {selectedStock.lastUpdated.toLocaleTimeString('ko-KR')}</span>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -650,7 +935,13 @@ export default function MapPage() {
                 handleZoomChange(map.getLevel());
                 updateBounds(map);
               }}
-              onCenterChanged={(map) => updateBounds(map)}
+              onCenterChanged={(map) => {
+                updateBounds(map);
+                if (!mapRef.current) {
+                  console.log("🗺️ 카카오맵 인스턴스 저장");
+                  mapRef.current = map;
+                }
+              }}
               onBoundsChanged={(map) => updateBounds(map)}
               onTileLoaded={(map: kakao.maps.Map) => updateBounds(map)}
             >

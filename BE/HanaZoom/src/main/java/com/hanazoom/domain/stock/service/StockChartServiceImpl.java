@@ -379,7 +379,15 @@ public class StockChartServiceImpl implements StockChartService {
         try {
             // StockMinutePriceService를 통해 분봉 데이터 조회
             StockMinutePrice.MinuteInterval interval = convertToMinuteInterval(timeframe);
+            log.info("🔍 분봉 데이터 조회 요청: 종목={}, 시간봉={}, 간격={}, 제한={}", stockCode, timeframe, interval, limit);
+            
             List<StockMinutePrice> minutePrices = stockMinutePriceService.getRecentMinutePrices(stockCode, interval, limit);
+            log.info("📊 분봉 데이터 조회 결과: 종목={}, 시간봉={}, 조회된 데이터={}개", stockCode, timeframe, minutePrices.size());
+            
+            if (!minutePrices.isEmpty()) {
+                log.info("📊 첫 번째 데이터: 시간={}, 간격={}", minutePrices.get(0).getTimestamp(), minutePrices.get(0).getMinuteInterval());
+                log.info("📊 마지막 데이터: 시간={}, 간격={}", minutePrices.get(minutePrices.size()-1).getTimestamp(), minutePrices.get(minutePrices.size()-1).getMinuteInterval());
+            }
             
             return minutePrices.stream()
                     .map(this::convertToCandleData)
@@ -428,7 +436,7 @@ public class StockChartServiceImpl implements StockChartService {
         return CandleData.builder()
                 .stockCode(minutePrice.getStockSymbol())
                 .dateTime(minutePrice.getTimestamp())
-                .timeframe(minutePrice.getMinuteInterval().name())
+                .timeframe(convertMinuteIntervalToTimeframe(minutePrice.getMinuteInterval()))
                 .openPrice(minutePrice.getOpenPrice().toString())
                 .highPrice(minutePrice.getHighPrice().toString())
                 .lowPrice(minutePrice.getLowPrice().toString())
@@ -451,6 +459,18 @@ public class StockChartServiceImpl implements StockChartService {
             case "5M": return StockMinutePrice.MinuteInterval.FIVE_MINUTES;
             case "15M": return StockMinutePrice.MinuteInterval.FIFTEEN_MINUTES;
             default: return StockMinutePrice.MinuteInterval.FIVE_MINUTES;
+        }
+    }
+
+    /**
+     * MinuteInterval을 시간봉으로 변환
+     */
+    private String convertMinuteIntervalToTimeframe(StockMinutePrice.MinuteInterval interval) {
+        switch (interval) {
+            case ONE_MINUTE: return "1M";
+            case FIVE_MINUTES: return "5M";
+            case FIFTEEN_MINUTES: return "15M";
+            default: return "5M";
         }
     }
 }
