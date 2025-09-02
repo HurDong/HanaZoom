@@ -7,6 +7,7 @@ import com.hanazoom.domain.order.repository.OrderRepository;
 import com.hanazoom.domain.member.entity.Member;
 import com.hanazoom.domain.stock.entity.Stock;
 import com.hanazoom.domain.stock.repository.StockRepository;
+import com.hanazoom.domain.stock.service.StockService;
 import com.hanazoom.global.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,6 +30,8 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final StockRepository stockRepository;
+    private final OrderMatchingService orderMatchingService;
+    private final StockService stockService;
 
     @Override
     @Transactional
@@ -52,6 +56,17 @@ public class OrderServiceImpl implements OrderService {
         
         Order savedOrder = orderRepository.save(order);
         log.info("주문 생성 완료: orderId={}, memberId={}, stockCode={}", savedOrder.getId(), member.getId(), request.getStockCode());
+        
+        // 시장가 주문인 경우 즉시 체결 처리
+        if (request.getOrderMethod() == Order.OrderMethod.MARKET) {
+            try {
+                // 현재가 조회 (실제로는 실시간 가격 서비스에서 가져와야 함)
+                String currentPrice = stockService.getRealTimePrice(request.getStockCode()).getCurrentPrice();
+                orderMatchingService.executeMarketOrder(savedOrder, new BigDecimal(currentPrice));
+            } catch (Exception e) {
+                log.error("시장가 주문 즉시 체결 실패: orderId={}, error={}", savedOrder.getId(), e.getMessage());
+            }
+        }
         
         return OrderResponse.from(savedOrder);
     }

@@ -11,6 +11,8 @@ import com.hanazoom.domain.stock.service.StockService;
 import com.hanazoom.domain.stock.entity.StockMinutePrice;
 import com.hanazoom.domain.stock.entity.Stock;
 import com.hanazoom.domain.stock.repository.StockRepository;
+import org.springframework.context.ApplicationEventPublisher;
+import com.hanazoom.domain.order.event.OrderMatchingEvent;
 import com.hanazoom.global.config.KisConfig;
 import com.hanazoom.global.service.KisApiService;
 import com.hanazoom.global.util.MarketTimeUtils;
@@ -54,6 +56,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
     private final StockMinutePriceService stockMinutePriceService;
     private final StockService stockService;
     private final StockRepository stockRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     // KIS 웹소켓 연결용
     private WebSocketSession kisWebSocketSession;
@@ -659,6 +662,14 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                                     .mapToLong(order -> Long.parseLong(order.getQuantity())).sum());
                             }
                             
+                            // 주문 매칭 이벤트 발행 (실시간 가격 변동 시)
+                            try {
+                                OrderMatchingEvent event = new OrderMatchingEvent(this, stockCode, displayCurrentPrice, askOrders, bidOrders);
+                                eventPublisher.publishEvent(event);
+                            } catch (Exception e) {
+                                log.error("❌ 주문 매칭 이벤트 발행 실패: {}", stockCode, e);
+                            }
+
                             // StockPriceResponse 객체 생성
                             StockPriceResponse stockData = StockPriceResponse.builder()
                                     .stockCode(stockCode)
@@ -943,19 +954,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
         T execute();
     }
 
-    /**
-     * Redis 연결 상태 확인
-     */
-    private boolean isRedisConnectionAvailable() {
-        try {
-            redisTemplate.getConnectionFactory().getConnection().ping();
-            return true;
-        } catch (Exception e) {
-            // Redis 연결 실패는 일반적인 상황이므로 DEBUG 레벨로 변경
-            log.debug("Redis 연결 상태 확인 실패: {}", e.getMessage());
-            return false;
-        }
-    }
+
 
     /**
      * 안전한 Redis 작업 수행
@@ -1015,6 +1014,45 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
             
         } catch (Exception e) {
             log.error("❌ 장종료 감지 스케줄러 오류", e);
+        }
+    }
+
+    /**
+     * 주문 체결 알림 전송
+     */
+    public void sendOrderExecutionNotification(UUID memberId, Long orderId, String message) {
+        try {
+            // 특정 사용자에게 체결 알림 전송
+            String notificationMessage = String.format(
+                "{\"type\":\"ORDER_EXECUTION\",\"orderId\":%d,\"message\":\"%s\",\"timestamp\":%d}",
+                orderId, message, System.currentTimeMillis()
+            );
+            
+            // TODO: 사용자별 세션 관리 구현 필요
+            // 현재는 모든 연결된 클라이언트에게 전송
+            broadcastToAllClients(notificationMessage);
+            
+        } catch (Exception e) {
+            log.error("❌ 주문 체결 알림 전송 실패: memberId={}, orderId={}", memberId, orderId, e);
+        }
+    }
+
+    /**
+     * 모든 클라이언트에게 브로드캐스트
+     */
+    private void broadcastToAllClients(String message) {
+        for (WebSocketSession session : clientSessions) {
+            try {
+                if (session.isOpen()) {
+                    synchronized (session) {
+                        if (session.isOpen()) {
+                            session.sendMessage(new TextMessage(message));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("⚠️ 브로드캐스트 전송 실패: {}", session.getId(), e);
+            }
         }
     }
 }
