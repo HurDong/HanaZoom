@@ -139,5 +139,15 @@ public class Order {
         if (this.quantity == 0) return 0.0;
         return (double) this.filledQuantity / this.quantity * 100;
     }
+    
+    // 주문 상태 업데이트
+    public void updateStatus(OrderStatus status) {
+        this.status = status;
+    }
+    
+    // 취소 시간 업데이트
+    public void updateCancelledAt(LocalDateTime cancelledAt) {
+        this.cancelTime = cancelledAt;
+    }
 }
 

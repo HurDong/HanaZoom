@@ -9,40 +9,38 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
-
-    // 사용자의 주문 목록 조회 (최신순)
+    
+    /**
+     * 회원과 주문 ID로 주문 조회
+     */
+    Optional<Order> findByIdAndMember(Long orderId, Member member);
+    
+    /**
+     * 회원의 주문 목록 조회 (생성일 기준 내림차순)
+     */
     Page<Order> findByMemberOrderByCreatedAtDesc(Member member, Pageable pageable);
-
-    // 사용자의 특정 종목 주문 목록 조회
-    Page<Order> findByMemberAndStockSymbolOrderByCreatedAtDesc(Member member, String stockSymbol, Pageable pageable);
-
-    // 사용자의 특정 상태 주문 목록 조회
-    Page<Order> findByMemberAndStatusOrderByCreatedAtDesc(Member member, Order.OrderStatus status, Pageable pageable);
-
-    // 사용자의 미체결 주문 목록 조회 (PENDING, PARTIAL_FILLED)
-    @Query("SELECT o FROM Order o WHERE o.member = :member AND o.status IN ('PENDING', 'PARTIAL_FILLED') ORDER BY o.createdAt DESC")
-    List<Order> findPendingOrdersByMember(@Param("member") Member member);
-
-    // 특정 종목의 미체결 주문 목록 조회
-    @Query("SELECT o FROM Order o WHERE o.stock.symbol = :stockSymbol AND o.status IN ('PENDING', 'PARTIAL_FILLED') ORDER BY o.price ASC")
-    List<Order> findPendingOrdersByStockSymbol(@Param("stockSymbol") String stockSymbol);
-
-    // 사용자의 오늘 주문 목록 조회
-    @Query("SELECT o FROM Order o WHERE o.member = :member AND DATE(o.createdAt) = DATE(:today) ORDER BY o.createdAt DESC")
-    List<Order> findTodayOrdersByMember(@Param("member") Member member, @Param("today") LocalDateTime today);
-
-    // 사용자의 주문 통계
+    
+    /**
+     * 회원과 종목코드로 주문 목록 조회 (생성일 기준 내림차순)
+     */
+    @Query("SELECT o FROM Order o WHERE o.member = :member AND o.stock.symbol = :stockSymbol ORDER BY o.createdAt DESC")
+    Page<Order> findByMemberAndStockSymbolOrderByCreatedAtDesc(@Param("member") Member member, @Param("stockSymbol") String stockSymbol, Pageable pageable);
+    
+    /**
+     * 회원의 미체결 주문 목록 조회 (생성일 기준 내림차순)
+     */
+    List<Order> findByMemberAndStatusOrderByCreatedAtDesc(Member member, Order.OrderStatus status);
+    
+    /**
+     * 회원의 특정 상태 주문 개수 조회
+     */
     @Query("SELECT COUNT(o) FROM Order o WHERE o.member = :member AND o.status = :status")
     long countByMemberAndStatus(@Param("member") Member member, @Param("status") Order.OrderStatus status);
-
-    // 사용자의 총 주문 금액 (체결된 주문만)
-    @Query("SELECT SUM(o.filledAmount) FROM Order o WHERE o.member = :member AND o.status = 'FILLED'")
-    Double getTotalFilledAmountByMember(@Param("member") Member member);
 }
 
 

@@ -34,6 +34,8 @@ public class BusinessException extends RuntimeException {
                 return "잔고가 부족합니다.";
             case "INSUFFICIENT_STOCK":
                 return "보유 주식이 부족합니다.";
+            case "STOCK_NOT_FOUND":
+                return "주식을 찾을 수 없습니다.";
             default:
                 return "비즈니스 오류가 발생했습니다.";
         }
