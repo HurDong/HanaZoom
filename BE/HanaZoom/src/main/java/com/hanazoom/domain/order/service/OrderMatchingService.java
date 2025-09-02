@@ -2,8 +2,13 @@ package com.hanazoom.domain.order.service;
 
 import com.hanazoom.domain.order.entity.Order;
 import com.hanazoom.domain.order.repository.OrderRepository;
+import com.hanazoom.domain.portfolio.entity.AccountBalance;
 import com.hanazoom.domain.portfolio.entity.PortfolioStock;
+import com.hanazoom.domain.portfolio.entity.TradeHistory;
+import com.hanazoom.domain.portfolio.entity.TradeType;
+import com.hanazoom.domain.portfolio.repository.AccountBalanceRepository;
 import com.hanazoom.domain.portfolio.repository.PortfolioStockRepository;
+import com.hanazoom.domain.portfolio.repository.TradeHistoryRepository;
 import com.hanazoom.domain.portfolio.service.PortfolioService;
 import com.hanazoom.domain.stock.service.StockService;
 import com.hanazoom.domain.stock.dto.OrderBookItem;
@@ -17,7 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.hanazoom.domain.order.event.OrderMatchingEvent;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,6 +45,8 @@ public class OrderMatchingService {
 
     private final OrderRepository orderRepository;
     private final PortfolioStockRepository portfolioStockRepository;
+    private final TradeHistoryRepository tradeHistoryRepository;
+    private final AccountBalanceRepository accountBalanceRepository;
     private final PortfolioService portfolioService;
     private final StockService stockService;
 
@@ -167,7 +176,16 @@ public class OrderMatchingService {
                     portfolioStockRepository.save(newPortfolioStock);
                 }
                 
-                // 현금 차감 (실제로는 계좌 서비스와 연동 필요)
+                // 수수료와 세금 계산
+                BigDecimal[] fees = calculateFees(totalAmount, TradeType.BUY);
+                BigDecimal totalCost = totalAmount.add(fees[0]).add(fees[1]); // 거래금액 + 수수료 + 세금
+                
+                // 거래내역 저장
+                saveTradeHistory(account.getId(), stockCode, TradeType.BUY, quantity, executionPrice, totalAmount, fees[0], fees[1]);
+                
+                // 계좌 잔고 업데이트 (매수: 현금 차감)
+                updateAccountBalance(account.getId(), totalCost, TradeType.BUY);
+                
                 log.info("💰 매수 체결: {}주 × {}원 = {}원 차감", quantity, executionPrice, totalAmount);
                 
             } else {
@@ -177,6 +195,16 @@ public class OrderMatchingService {
                     if (portfolioStock.hasQuantity(quantity)) {
                         portfolioStock.sell(quantity);
                         portfolioStockRepository.save(portfolioStock);
+                        
+                        // 수수료와 세금 계산
+                        BigDecimal[] fees = calculateFees(totalAmount, TradeType.SELL);
+                        BigDecimal netAmount = totalAmount.subtract(fees[0]).subtract(fees[1]); // 거래금액 - 수수료 - 세금
+                        
+                        // 거래내역 저장
+                        saveTradeHistory(account.getId(), stockCode, TradeType.SELL, quantity, executionPrice, totalAmount, fees[0], fees[1]);
+                        
+                        // 계좌 잔고 업데이트 (매도: 현금 증가)
+                        updateAccountBalance(account.getId(), netAmount, TradeType.SELL);
                         
                         // 보유 수량이 0이 되면 삭제
                         if (portfolioStock.getQuantity() == 0) {
@@ -191,12 +219,111 @@ public class OrderMatchingService {
                     return;
                 }
                 
-                // 현금 증가 (실제로는 계좌 서비스와 연동 필요)
                 log.info("💰 매도 체결: {}주 × {}원 = {}원 증가", quantity, executionPrice, totalAmount);
             }
 
         } catch (Exception e) {
             log.error("❌ 포트폴리오 업데이트 실패: orderId={}, error={}", order.getId(), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 계좌 잔고 업데이트
+     */
+    private void updateAccountBalance(Long accountId, BigDecimal tradeAmount, TradeType tradeType) {
+        try {
+            // 최신 계좌 잔고 조회
+            Optional<AccountBalance> latestBalanceOpt = accountBalanceRepository
+                .findLatestBalanceByAccountIdOrderByDateDesc(accountId);
+            
+            if (latestBalanceOpt.isPresent()) {
+                AccountBalance currentBalance = latestBalanceOpt.get();
+                
+                // 매수: 현금 차감, 매도: 현금 증가
+                BigDecimal newAvailableCash;
+                if (tradeType == TradeType.BUY) {
+                    newAvailableCash = currentBalance.getAvailableCash().subtract(tradeAmount);
+                } else {
+                    newAvailableCash = currentBalance.getAvailableCash().add(tradeAmount);
+                }
+                
+                // 새로운 잔고 정보로 업데이트
+                currentBalance.setAvailableCash(newAvailableCash);
+                currentBalance.calculateTotalBalance();
+                currentBalance.setBalanceDate(LocalDate.now());
+                
+                accountBalanceRepository.save(currentBalance);
+                
+                log.info("💳 계좌 잔고 업데이트: 계좌={}, {} {}원, 잔고={}원", 
+                    accountId, tradeType.getDescription(), tradeAmount, newAvailableCash);
+                    
+            } else {
+                log.warn("⚠️ 계좌 잔고를 찾을 수 없음: 계좌={}", accountId);
+            }
+            
+        } catch (Exception e) {
+            log.error("❌ 계좌 잔고 업데이트 실패: 계좌={}, error={}", accountId, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 수수료와 세금 계산
+     */
+    private BigDecimal[] calculateFees(BigDecimal totalAmount, TradeType tradeType) {
+        // 수수료 계산 (한국 주식 시장 기준: 거래금액의 0.015%, 최소 15원)
+        BigDecimal commissionRate = new BigDecimal("0.00015");
+        BigDecimal commission = totalAmount.multiply(commissionRate);
+        if (commission.compareTo(new BigDecimal("15")) < 0) {
+            commission = new BigDecimal("15");
+        }
+        
+        // 세금 계산 (증권거래세: 매도 시에만 거래금액의 0.23%)
+        BigDecimal tax = BigDecimal.ZERO;
+        if (tradeType == TradeType.SELL) {
+            tax = totalAmount.multiply(new BigDecimal("0.0023"));
+        }
+        
+        return new BigDecimal[]{commission, tax};
+    }
+
+    /**
+     * 거래내역 저장
+     */
+    private void saveTradeHistory(Long accountId, String stockCode, TradeType tradeType, 
+                                 Integer quantity, BigDecimal executionPrice, BigDecimal totalAmount,
+                                 BigDecimal commission, BigDecimal tax) {
+        try {
+            
+            // 거래 후 잔고 정보 계산 (실제 계좌 잔고에서 조회)
+            Optional<AccountBalance> latestBalanceOpt = accountBalanceRepository
+                .findLatestBalanceByAccountIdOrderByDateDesc(accountId);
+            BigDecimal balanceAfterTrade = latestBalanceOpt.map(AccountBalance::getAvailableCash)
+                .orElse(BigDecimal.ZERO);
+            Integer stockQuantityAfterTrade = quantity; // 임시로 거래 수량으로 설정
+            
+            TradeHistory tradeHistory = TradeHistory.builder()
+                .accountId(accountId)
+                .stockSymbol(stockCode)
+                .tradeType(tradeType)
+                .tradeDate(LocalDate.now())
+                .tradeTime(LocalTime.now())
+                .quantity(quantity)
+                .pricePerShare(executionPrice)
+                .totalAmount(totalAmount)
+                .commission(commission)
+                .tax(tax)
+                .balanceAfterTrade(balanceAfterTrade)
+                .stockQuantityAfterTrade(stockQuantityAfterTrade)
+                .tradeMemo(tradeType == TradeType.BUY ? "매수 체결" : "매도 체결")
+                .build();
+            
+            tradeHistoryRepository.save(tradeHistory);
+            
+            log.info("📝 거래내역 저장 완료: 계좌={}, 종목={}, {} {}주, 체결가={}원", 
+                accountId, stockCode, tradeType.getDescription(), quantity, executionPrice);
+                
+        } catch (Exception e) {
+            log.error("❌ 거래내역 저장 실패: 계좌={}, 종목={}, error={}", accountId, stockCode, e.getMessage(), e);
         }
     }
 

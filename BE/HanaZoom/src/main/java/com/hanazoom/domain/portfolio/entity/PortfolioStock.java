@@ -101,7 +101,7 @@ public class PortfolioStock {
 
         // 평균 매수가 재계산
         this.avgPurchasePrice = newTotalAmount.divide(BigDecimal.valueOf(newTotalQuantity), 2,
-                BigDecimal.ROUND_HALF_UP);
+                java.math.RoundingMode.HALF_UP);
         this.totalPurchaseAmount = newTotalAmount;
         this.quantity = newTotalQuantity;
         this.availableQuantity += quantity;
@@ -143,7 +143,7 @@ public class PortfolioStock {
 
             if (this.totalPurchaseAmount.compareTo(BigDecimal.ZERO) > 0) {
                 this.profitLossRate = this.profitLoss
-                        .divide(this.totalPurchaseAmount, 4, BigDecimal.ROUND_HALF_UP)
+                        .divide(this.totalPurchaseAmount, 4, java.math.RoundingMode.HALF_UP)
                         .multiply(BigDecimal.valueOf(100));
             }
         } else {

@@ -10,6 +10,8 @@ import com.hanazoom.domain.portfolio.repository.AccountRepository;
 import com.hanazoom.domain.portfolio.repository.AccountBalanceRepository;
 import com.hanazoom.domain.portfolio.repository.PortfolioStockRepository;
 import com.hanazoom.domain.portfolio.repository.TradeHistoryRepository;
+import com.hanazoom.domain.stock.service.StockService;
+import com.hanazoom.domain.stock.dto.StockPriceResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,27 +26,30 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class PortfolioService {
 
     private final AccountRepository accountRepository;
     private final AccountBalanceRepository accountBalanceRepository;
     private final PortfolioStockRepository portfolioStockRepository;
     private final TradeHistoryRepository tradeHistoryRepository;
+    private final StockService stockService;
 
     // 회원 ID로 계좌 조회
+    @Transactional(readOnly = true)
     public Account getAccountByMemberId(java.util.UUID memberId) {
         return accountRepository.findByMemberId(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다: " + memberId));
     }
 
     // 회원 ID로 포트폴리오 요약 정보 조회
+    @Transactional(readOnly = true)
     public PortfolioSummaryResponse getPortfolioSummaryByMemberId(java.util.UUID memberId) {
         Account account = getAccountByMemberId(memberId);
         return getPortfolioSummary(account.getId());
     }
 
     // 포트폴리오 요약 정보 조회
+    @Transactional(readOnly = true)
     public PortfolioSummaryResponse getPortfolioSummary(Long accountId) {
         log.info("포트폴리오 요약 조회: 계좌={}", accountId);
 
@@ -52,16 +57,14 @@ public class PortfolioService {
         AccountBalance balance = getAccountBalance(account);
         List<PortfolioStock> stocks = portfolioStockRepository.findHoldingStocksByAccountId(account.getId());
 
-        // 각 주식의 현재가 설정 및 손익 계산
+        // 각 주식의 실시간 현재가 업데이트 및 손익 계산
         BigDecimal actualTotalStockValue = BigDecimal.ZERO;
         BigDecimal actualTotalProfitLoss = BigDecimal.ZERO;
         BigDecimal totalStockInvestment = BigDecimal.ZERO;
 
         for (PortfolioStock stock : stocks) {
-            // 임시로 평균 매수가를 현재가로 설정 (실제로는 실시간 주식 가격 API 사용)
-            if (stock.getCurrentPrice() == null) {
-                stock.updateCurrentPrice(stock.getAvgPurchasePrice());
-            }
+            // 실시간 주식 가격 조회 및 업데이트
+            updateStockCurrentPrice(stock);
 
             // 손익 계산
             stock.updateCurrentValue();
@@ -115,17 +118,26 @@ public class PortfolioService {
     }
 
     // 회원 ID로 포트폴리오 보유 주식 목록 조회
+    @Transactional(readOnly = true)
     public List<PortfolioStockResponse> getPortfolioStocksByMemberId(java.util.UUID memberId) {
         Account account = getAccountByMemberId(memberId);
         return getPortfolioStocks(account.getId());
     }
 
     // 포트폴리오 보유 주식 목록 조회
+    @Transactional(readOnly = true)
     public List<PortfolioStockResponse> getPortfolioStocks(Long accountId) {
         log.info("포트폴리오 보유 주식 조회: 계좌={}", accountId);
 
         Account account = getAccount(accountId);
         List<PortfolioStock> stocks = portfolioStockRepository.findHoldingStocksByAccountId(account.getId());
+        
+        // 각 주식의 실시간 현재가 업데이트
+        for (PortfolioStock stock : stocks) {
+            updateStockCurrentPrice(stock);
+            stock.updateCurrentValue();
+        }
+        
         BigDecimal totalStockValue = portfolioStockRepository.findTotalStockValueByAccountId(account.getId());
 
         return stocks.stream()
@@ -134,6 +146,7 @@ public class PortfolioService {
     }
 
     // 거래 내역 조회
+    @Transactional(readOnly = true)
     public List<TradeHistory> getTradeHistory(Long accountId) {
         log.info("거래 내역 조회: 계좌={}", accountId);
         return tradeHistoryRepository.findByAccountIdOrderByTradeDateDescTradeTimeDesc(accountId);
@@ -218,5 +231,33 @@ public class PortfolioService {
     private AccountBalance getAccountBalance(Account account) {
         return accountBalanceRepository.findLatestBalanceByAccountIdOrderByDateDesc(account.getId())
                 .orElseThrow(() -> new IllegalArgumentException("계좌 잔고를 찾을 수 없습니다: " + account.getAccountNumber()));
+    }
+
+    /**
+     * 주식의 실시간 현재가 업데이트 (별도 트랜잭션)
+     */
+    @Transactional
+    public void updateStockCurrentPrice(PortfolioStock portfolioStock) {
+        try {
+            // KIS API를 통해 실시간 현재가 조회
+            StockPriceResponse priceResponse = stockService.getRealTimePrice(portfolioStock.getStockSymbol());
+            
+            if (priceResponse != null && priceResponse.getCurrentPrice() != null) {
+                BigDecimal currentPrice = new BigDecimal(priceResponse.getCurrentPrice());
+                portfolioStock.updateCurrentPrice(currentPrice);
+                
+                log.debug("📈 실시간 가격 업데이트: 종목={}, 현재가={}원", 
+                    portfolioStock.getStockSymbol(), currentPrice);
+            } else {
+                // API 조회 실패 시 기존 가격 유지
+                log.warn("⚠️ 실시간 가격 조회 실패: 종목={}, 기존 가격 유지", 
+                    portfolioStock.getStockSymbol());
+            }
+            
+        } catch (Exception e) {
+            // API 호출 실패 시 기존 가격 유지
+            log.warn("⚠️ 실시간 가격 업데이트 실패: 종목={}, error={}", 
+                portfolioStock.getStockSymbol(), e.getMessage());
+        }
     }
 }
