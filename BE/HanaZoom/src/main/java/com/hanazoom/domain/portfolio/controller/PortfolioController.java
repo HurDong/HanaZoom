@@ -4,6 +4,7 @@ import com.hanazoom.domain.portfolio.dto.PortfolioSummaryResponse;
 import com.hanazoom.domain.portfolio.dto.PortfolioStockResponse;
 import com.hanazoom.domain.portfolio.dto.TradeResult;
 import com.hanazoom.domain.portfolio.entity.Account;
+import com.hanazoom.domain.portfolio.entity.AccountBalance;
 import com.hanazoom.domain.portfolio.entity.TradeHistory;
 import com.hanazoom.domain.portfolio.service.PortfolioService;
 import com.hanazoom.domain.portfolio.service.VirtualTradingService;
@@ -18,7 +19,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/portfolio")
+@RequestMapping("/api/v1/portfolio")
 @RequiredArgsConstructor
 public class PortfolioController {
 
@@ -249,12 +250,13 @@ public class PortfolioController {
 
     // 계좌 잔고 조회
     @GetMapping("/account/balance")
-    public ResponseEntity<Object> getAccountBalance(
+    public ResponseEntity<AccountBalance> getAccountBalance(
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
         try {
             log.info("계좌 잔고 조회 요청: 회원={}", member.getEmail());
-            // 임시로 빈 결과 반환 (실제 구현 필요)
-            return ResponseEntity.ok().build();
+            Account account = portfolioService.getAccountByMemberId(member.getId());
+            AccountBalance balance = portfolioService.getAccountBalance(account.getId());
+            return ResponseEntity.ok(balance);
         } catch (Exception e) {
             log.error("계좌 잔고 조회 실패: 회원={}", member.getId(), e);
             return ResponseEntity.badRequest().build();

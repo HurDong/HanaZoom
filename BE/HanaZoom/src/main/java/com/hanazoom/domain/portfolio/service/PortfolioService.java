@@ -228,9 +228,14 @@ public class PortfolioService {
     }
 
     // 계좌 잔고 조회
+    public AccountBalance getAccountBalance(Long accountId) {
+        return accountBalanceRepository.findLatestBalanceByAccountIdOrderByDateDesc(accountId)
+                .orElseThrow(() -> new IllegalArgumentException("계좌 잔고를 찾을 수 없습니다: " + accountId));
+    }
+    
+    // 계좌 잔고 조회 (Account 객체로)
     private AccountBalance getAccountBalance(Account account) {
-        return accountBalanceRepository.findLatestBalanceByAccountIdOrderByDateDesc(account.getId())
-                .orElseThrow(() -> new IllegalArgumentException("계좌 잔고를 찾을 수 없습니다: " + account.getAccountNumber()));
+        return getAccountBalance(account.getId());
     }
 
     /**
