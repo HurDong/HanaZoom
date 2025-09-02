@@ -1,4 +1,4 @@
-import { useState, forwardRef, useImperativeHandle } from "react";
+import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Wallet, TrendingUp, TrendingDown, Loader2, CheckCircle, XCircle } from 
 import { createOrder, type OrderRequest } from "@/lib/api/order";
 import { useAuthStore } from "@/app/utils/auth";
 import { toast } from "sonner";
+import { getAccountBalance, getStockQuantity, type AccountBalance } from "@/lib/api/portfolio";
 
 interface TradingOrderPanelProps {
   stockCode: string;
@@ -28,6 +29,36 @@ export const TradingOrderPanel = forwardRef<any, TradingOrderPanelProps>(
       message: string;
       orderId?: number;
     } | null>(null);
+    
+    // 계좌 정보 상태
+    const [accountBalance, setAccountBalance] = useState<AccountBalance | null>(null);
+    const [stockQuantity, setStockQuantity] = useState<number>(0);
+    const [isLoadingAccount, setIsLoadingAccount] = useState(false);
+
+    // 계좌 정보 로드
+    const loadAccountInfo = async () => {
+      if (!accessToken) return;
+      
+      setIsLoadingAccount(true);
+      try {
+        const [balance, quantity] = await Promise.all([
+          getAccountBalance(),
+          getStockQuantity(stockCode)
+        ]);
+        setAccountBalance(balance);
+        setStockQuantity(quantity);
+      } catch (error) {
+        console.error('계좌 정보 로드 실패:', error);
+        toast.error('계좌 정보를 불러올 수 없습니다.');
+      } finally {
+        setIsLoadingAccount(false);
+      }
+    };
+
+    // 컴포넌트 마운트 시 계좌 정보 로드
+    useEffect(() => {
+      loadAccountInfo();
+    }, [accessToken, stockCode]);
 
     // ref를 통해 외부에서 호출할 수 있는 메서드들
     useImperativeHandle(ref, () => ({
@@ -101,6 +132,9 @@ export const TradingOrderPanel = forwardRef<any, TradingOrderPanelProps>(
         // 주문 성공 후 입력 필드 초기화
         setPrice("");
         setQuantity("");
+        
+        // 계좌 정보 새로고침
+        loadAccountInfo();
         
       } catch (error: any) {
         const errorMessage = error.response?.data?.message || "주문 처리 중 오류가 발생했습니다.";
@@ -274,24 +308,42 @@ export const TradingOrderPanel = forwardRef<any, TradingOrderPanelProps>(
           </div>
         )}
 
-        {/* 계좌 정보 (간단 표시) */}
+        {/* 계좌 정보 (실제 데이터) */}
         <Card className="bg-gray-50 dark:bg-gray-800">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <Wallet className="w-4 h-4" />
               계좌 정보
+              {isLoadingAccount && (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             <div className="text-xs space-y-1">
               <div className="flex justify-between">
                 <span>보유 현금:</span>
-                <span className="font-medium">1,000,000원</span>
+                <span className="font-medium">
+                  {accountBalance ? 
+                    `${accountBalance.availableCash.toLocaleString()}원` : 
+                    isLoadingAccount ? '로딩 중...' : '조회 실패'
+                  }
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>보유 주식:</span>
-                <span className="font-medium">100주</span>
+                <span className="font-medium">
+                  {isLoadingAccount ? '로딩 중...' : `${stockQuantity}주`}
+                </span>
               </div>
+              {accountBalance && (
+                <div className="flex justify-between">
+                  <span>총 자산:</span>
+                  <span className="font-medium text-green-600 dark:text-green-400">
+                    {accountBalance.totalBalance.toLocaleString()}원
+                  </span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

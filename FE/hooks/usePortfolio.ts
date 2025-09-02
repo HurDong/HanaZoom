@@ -51,7 +51,7 @@ export const usePortfolio = () => {
           throw new Error("인증 토큰이 없습니다.");
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/portfolio/summary`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/portfolio/summary`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -93,7 +93,7 @@ export const usePortfolio = () => {
           throw new Error("인증 토큰이 없습니다.");
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/portfolio/stocks`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/portfolio/stocks`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -137,7 +137,7 @@ export const usePortfolio = () => {
         }
 
         console.log("🔑 JWT 토큰 확인됨, API 호출 시작");
-        const response = await fetch(`${API_BASE_URL}/api/portfolio/trades`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/portfolio/trades`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -186,7 +186,7 @@ export const usePortfolio = () => {
         }
 
         const response = await fetch(
-          `${API_BASE_URL}/api/portfolio/trade-result`,
+          `${API_BASE_URL}/api/v1/portfolio/trade-result`,
           {
             method: "GET",
             headers: {
@@ -232,7 +232,7 @@ export const usePortfolio = () => {
           }
 
           const response = await fetch(
-            `${API_BASE_URL}/api/portfolio/settlement-schedule`,
+            `${API_BASE_URL}/api/v1/portfolio/settlement-schedule`,
             {
               method: "GET",
               headers: {
@@ -278,7 +278,7 @@ export const usePortfolio = () => {
           throw new Error("인증 토큰이 없습니다.");
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/portfolio/account`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/portfolio/account`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -321,7 +321,7 @@ export const usePortfolio = () => {
         }
 
         const response = await fetch(
-          `${API_BASE_URL}/api/portfolio/account/balance`,
+          `${API_BASE_URL}/api/v1/portfolio/account/balance`,
           {
             method: "GET",
             headers: {
@@ -369,7 +369,7 @@ export const usePortfolio = () => {
           throw new Error("인증 토큰이 없습니다.");
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/portfolio/buy`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/portfolio/buy`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -414,7 +414,7 @@ export const usePortfolio = () => {
           throw new Error("인증 토큰이 없습니다.");
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/portfolio/sell`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/portfolio/sell`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -458,7 +458,7 @@ export const usePortfolio = () => {
         }
 
         const response = await fetch(
-          `${API_BASE_URL}/api/portfolio/stock/${stockCode}`,
+          `${API_BASE_URL}/api/v1/portfolio/stock/${stockCode}`,
           {
             method: "GET",
             headers: {
@@ -501,7 +501,7 @@ export const usePortfolio = () => {
         }
 
         const response = await fetch(
-          `${API_BASE_URL}/api/portfolio/search-stocks?keyword=${keyword}`,
+          `${API_BASE_URL}/api/v1/portfolio/search-stocks?keyword=${keyword}`,
           {
             method: "GET",
             headers: {
