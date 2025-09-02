@@ -49,7 +49,7 @@ export interface Region {
 interface TopStock {
   symbol: string;
   name: string;
-  price: string;
+  price: string | null; // null 허용
   change: string;
   logoUrl?: string;
   emoji?: string; // 임시로 유지
@@ -112,7 +112,7 @@ export default function MapPage() {
           if (stock.symbol === data.stockCode) {
             return {
               ...stock,
-              price: data.currentPrice,
+              price: data.currentPrice || "데이터 없음",
               change: data.changeRate?.replace('%', '') || '0.00',
               realtimeData: data,
               lastUpdated: new Date(),
@@ -327,7 +327,7 @@ export default function MapPage() {
                   return {
             ...stock,
             // 실시간 데이터가 있으면 우선 사용, 없으면 DB 데이터 사용 (null 처리 포함)
-            price: realtimeData?.currentPrice || (stock.price === "null" ? "데이터 없음" : stock.price),
+            price: realtimeData?.currentPrice || (stock.price === null || stock.price === "null" || stock.price === "데이터 없음" ? "데이터 없음" : stock.price),
             change: realtimeData?.changeRate || (stock.change === "nu%" ? "0.00" : stock.change),
             realtimeData: realtimeData || undefined,
             lastUpdated: realtimeData ? new Date() : new Date(),
@@ -700,7 +700,7 @@ export default function MapPage() {
 
                             <div className="text-right">
                               <div className="font-bold text-lg text-gray-900 dark:text-gray-100">
-                                {stock.price === "데이터 없음" ? stock.price : `₩${Number(stock.price).toLocaleString()}`}
+                                {stock.price === "데이터 없음" || stock.price === null ? "데이터 없음" : `₩${Number(stock.price).toLocaleString()}`}
                               </div>
                               <div
                                 className={`text-sm font-semibold ${
@@ -803,7 +803,7 @@ export default function MapPage() {
                             </div>
                             <div className="text-center relative z-10">
                               <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                                {selectedStock.price === "데이터 없음" ? selectedStock.price : `₩${Number(selectedStock.price).toLocaleString()}`}
+                                {selectedStock.price === "데이터 없음" || selectedStock.price === null ? "데이터 없음" : `₩${Number(selectedStock.price).toLocaleString()}`}
                               </div>
                               <div
                                 className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-base font-bold ${

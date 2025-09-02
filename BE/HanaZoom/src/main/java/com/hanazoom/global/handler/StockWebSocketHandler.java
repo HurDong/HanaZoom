@@ -60,6 +60,16 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
 
     // 장종료 플래그
     private boolean marketClosedToday = false;
+    
+    // Redis 연결 상태 체크
+    private boolean isRedisConnectionAvailable() {
+        try {
+            redisTemplate.opsForValue().get("connection_test");
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     @PostConstruct
     public void connectToKis() {
@@ -699,8 +709,12 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                             // 구독자들에게 브로드캐스트
                             broadcastToSubscribers(stockCode, stockData);
 
-                            // 캔들 차트 데이터 업데이트
-                            stockChartService.updateCurrentCandle(stockCode, currentPrice, volume);
+                            // 캔들 차트 데이터 업데이트 (Redis 에러 무시)
+                            try {
+                                stockChartService.updateCurrentCandle(stockCode, currentPrice, volume);
+                            } catch (Exception e) {
+                                log.debug("Redis 캔들 업데이트 실패 (무시): 종목={}", stockCode);
+                            }
 
                             // 누적 거래량 캐시 저장 (분봉 계산용) - Redis 연결 가능한 경우에만
                             if (isRedisConnectionAvailable()) {

@@ -8,7 +8,7 @@ import lombok.Getter;
 public class StockTickerDto {
     private String symbol;
     private String name;
-    private String price;
+    private String price; // null 허용
     private String change;
     private String logoUrl;
     private String sector;
