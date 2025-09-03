@@ -61,7 +61,7 @@ export function StockTicker() {
     reconnectInterval: 3000,
   });
 
-  // 깜빡임 없는 부드러운 업데이트
+  // 깜빡임 없는 부드러운 업데이트 (메모이제이션으로 무한 루프 방지)
   const updateStockDisplayWithMap = useCallback((stockDataMap: Map<string, any>): void => {
     if (stockDataMap.size === 0) {
       return;
@@ -115,7 +115,7 @@ export function StockTicker() {
       
       return sameAll ? prev : newStocks;
     });
-  }, []);
+  }, []); // 빈 의존성 배열로 함수 안정화
 
   // 기존 updateStockDisplay 함수는 웹소켓 콜백용으로 유지
   const updateStockDisplay = useCallback((): void => {
@@ -182,16 +182,16 @@ export function StockTicker() {
     setIsMounted(true);
   }, []);
 
+  // 웹소켓 데이터 변경 시에만 업데이트 (무한 루프 방지)
   useEffect(() => {
-    if (wsConnected) {
+    if (wsConnected && lastUpdate) {
       const map = getStockDataMap();
       if (map.size > 0) {
         // Map을 직접 전달하여 일관성 보장
         updateStockDisplayWithMap(map);
       }
     }
-    // 의존성으로 함수 레퍼런스를 두지 않고, 신호성 값들만 둔다
-  }, [wsConnected, lastUpdate]);
+  }, [wsConnected, lastUpdate, updateStockDisplayWithMap]);
 
   // 컴포넌트 언마운트 시 타이머 정리
   useEffect(() => {

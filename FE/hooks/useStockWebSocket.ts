@@ -53,10 +53,18 @@ export function useStockWebSocket({
   // 데이터 수신 상태 추적 및 장 열림/종료 상태 결정
   const updateDataReceivedStatus = useCallback(() => {
     const now = Date.now();
-    setState((prev) => ({
-      ...prev,
-      lastDataReceived: now,
-    }));
+    setState((prev) => {
+      // 1초 이내에 이미 업데이트된 경우 불필요한 업데이트 방지
+      if (prev.isMarketOpen === true && (now - prev.lastDataReceived < 1000)) {
+        return prev;
+      }
+      
+      return {
+        ...prev,
+        lastDataReceived: now,
+        isMarketOpen: true, // 데이터가 수신되면 장 열림 상태로 간주
+      };
+    });
 
     // 데이터 수신 타임아웃 설정 (30초)
     if (dataTimeoutRef.current) {
@@ -64,19 +72,31 @@ export function useStockWebSocket({
     }
     
     dataTimeoutRef.current = setTimeout(() => {
-      setState((prev) => ({
-        ...prev,
-        isMarketOpen: false,
-      }));
+      setState((prev) => {
+        // 이미 장이 닫힌 상태라면 업데이트하지 않음
+        if (prev.isMarketOpen === false) {
+          return prev;
+        }
+        return {
+          ...prev,
+          isMarketOpen: false,
+        };
+      });
     }, 30000); // 30초 동안 데이터가 없으면 장 종료로 간주
   }, []);
 
   // 장 열림 상태로 설정
   const setMarketOpen = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      isMarketOpen: true,
-    }));
+    setState((prev) => {
+      // 이미 장이 열린 상태라면 업데이트하지 않음
+      if (prev.isMarketOpen === true) {
+        return prev;
+      }
+      return {
+        ...prev,
+        isMarketOpen: true,
+      };
+    });
   }, []);
 
   const connect = useCallback(async () => {
@@ -84,7 +104,11 @@ export function useStockWebSocket({
       return;
     }
 
-    setState((prev) => ({ ...prev, connecting: true, error: null }));
+    setState((prev) => {
+      // 이미 연결 중이면 상태 변경하지 않음
+      if (prev.connecting) return prev;
+      return { ...prev, connecting: true, error: null };
+    });
 
     // 서버 상태 확인 (선택적)
     try {
@@ -179,27 +203,19 @@ export function useStockWebSocket({
               break;
 
             case "SUBSCRIBED":
-              console.log("📡 구독 완료:", message.data?.stockCodes);
               if (message.data?.stockCodes) {
                 // 서버에서 확인된 구독 코드들만 추가
                 message.data.stockCodes.forEach((code: string) => {
                   subscribedCodesRef.current.add(code);
                 });
-                console.log("📡 현재 구독 중인 종목:", [
-                  ...subscribedCodesRef.current,
-                ]);
               }
               break;
 
             case "UNSUBSCRIBED":
-              console.log("📴 구독 해제 완료:", message.data?.stockCodes);
               if (message.data?.stockCodes) {
                 message.data.stockCodes.forEach((code: string) => {
                   subscribedCodesRef.current.delete(code);
                 });
-                console.log("📴 현재 구독 중인 종목:", [
-                  ...subscribedCodesRef.current,
-                ]);
               }
               break;
 
@@ -208,6 +224,15 @@ export function useStockWebSocket({
                 const stockData: StockPriceData = message.data.stockData;
 
                 setState((prev) => {
+                  // 동일한 데이터인지 확인하여 불필요한 업데이트 방지
+                  const existingData = prev.stockData.get(stockData.stockCode);
+                  if (existingData && 
+                      existingData.currentPrice === stockData.currentPrice &&
+                      existingData.changePrice === stockData.changePrice &&
+                      existingData.changeRate === stockData.changeRate) {
+                    return prev; // 동일한 데이터면 상태 변경하지 않음
+                  }
+
                   const newStockData = new Map(prev.stockData);
                   newStockData.set(stockData.stockCode, stockData);
                   return {
@@ -280,13 +305,7 @@ export function useStockWebSocket({
 
       ws.onclose = (event) => {
         clearTimeout(connectionTimeout);
-        console.log("📴 웹소켓 연결 종료:", {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean,
-          url: wsUrl,
-          timestamp: new Date().toISOString(),
-        });
+
 
         // 연결 종료 코드별 상세 메시지
         let closeMessage = null;
@@ -366,12 +385,16 @@ export function useStockWebSocket({
 
     subscribedCodesRef.current.clear();
 
-    setState((prev) => ({
-      ...prev,
-      connected: false,
-      connecting: false,
-      stockData: new Map(), // 연결 해제시 데이터도 클리어
-    }));
+    setState((prev) => {
+      // 이미 연결 해제된 상태면 변경하지 않음
+      if (!prev.connected && !prev.connecting) return prev;
+      return {
+        ...prev,
+        connected: false,
+        connecting: false,
+        stockData: new Map(), // 연결 해제시 데이터도 클리어
+      };
+    });
   }, []);
 
   const sendMessage = useCallback((message: any) => {
@@ -401,7 +424,6 @@ export function useStockWebSocket({
       });
 
       if (success) {
-        console.log("📡 종목 구독 요청:", uniqueCodes);
         // 구독 상태는 서버 응답(SUBSCRIBED)에서만 업데이트
       }
 
@@ -423,7 +445,6 @@ export function useStockWebSocket({
       });
 
       if (success) {
-        console.log("📴 종목 구독 해제:", validCodes);
         // 구독 해제 상태는 서버 응답(UNSUBSCRIBED)에서만 업데이트
       }
 
@@ -460,10 +481,6 @@ export function useStockWebSocket({
         [...requestedCodes].some((code) => !currentCodes.has(code));
 
       if (hasDifference) {
-        console.log("📡 종목 구독 변경 감지:", {
-          current: [...currentCodes],
-          requested: [...requestedCodes],
-        });
 
         // 기존 구독 해제 (필요한 경우에만)
         const codesToUnsubscribe = [...currentCodes].filter(
@@ -542,6 +559,6 @@ export function useStockWebSocket({
     getStockData: (stockCode: string) => state.stockData.get(stockCode),
     hasStockData: (stockCode: string) => state.stockData.has(stockCode),
     getAllStockData: () => Array.from(state.stockData.values()),
-    getStockDataMap: () => new Map(state.stockData),
+    getStockDataMap: () => state.stockData,
   };
 }

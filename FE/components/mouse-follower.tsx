@@ -21,19 +21,23 @@ export function MouseFollower() {
 
     const handleMouseMove = (e: MouseEvent) => {
       const now = Date.now();
-      setLastMoveTime(now);
-      setIsMoving(true);
+      
+      // 상태 업데이트를 배치로 처리
+      requestAnimationFrame(() => {
+        setLastMoveTime(now);
+        setIsMoving(true);
 
-      const newTrail: StockTrail = {
-        id: idCounter.current++,
-        x: e.clientX,
-        y: e.clientY,
-        timestamp: now,
-      };
+        const newTrail: StockTrail = {
+          id: idCounter.current++,
+          x: e.clientX,
+          y: e.clientY,
+          timestamp: now,
+        };
 
-      setTrail((prev) => [...prev.slice(-8), newTrail]);
+        setTrail((prev) => [...prev.slice(-8), newTrail]);
+      });
 
-      // 메인 커서 위치 직접 업데이트
+      // 메인 커서 위치 직접 업데이트 (DOM 조작은 즉시)
       if (cursorRef.current) {
         cursorRef.current.style.transform = `translate(${e.clientX - 8}px, ${
           e.clientY - 8
@@ -57,16 +61,22 @@ export function MouseFollower() {
     const interval = setInterval(() => {
       const now = Date.now();
       setTrail((previousTrail) => {
+        // 빈 배열이면 필터링하지 않음
+        if (previousTrail.length === 0) {
+          return previousTrail;
+        }
+        
         const filtered = previousTrail.filter(
           (point) => now - point.timestamp < 800
         );
+        
         // 상태가 변경되지 않았다면 동일 참조를 반환하여 불필요한 렌더 방지
         if (filtered.length === previousTrail.length) {
           return previousTrail;
         }
         return filtered;
       });
-    }, 50);
+    }, 100); // 50ms에서 100ms로 변경하여 성능 개선
 
     return () => clearInterval(interval);
   }, []);
