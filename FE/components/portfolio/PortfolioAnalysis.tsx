@@ -28,7 +28,9 @@ import {
   Clock,
   Zap,
   Info,
+  MapPin,
 } from "lucide-react";
+import RegionPortfolioComparison from "./RegionPortfolioComparison";
 
 interface PortfolioAnalysisProps {
   portfolioSummary: any;
@@ -57,6 +59,9 @@ export default function PortfolioAnalysis({
   const [diversificationScore, setDiversificationScore] = useState<number>(0);
   const [diversificationDetails, setDiversificationDetails] =
     useState<any>(null);
+  const [activeAnalysisTab, setActiveAnalysisTab] = useState<
+    "basic" | "region"
+  >("basic");
 
   useEffect(() => {
     if (portfolioSummary && portfolioStocks) {
@@ -259,293 +264,335 @@ export default function PortfolioAnalysis({
 
   return (
     <div className="space-y-6">
-      {/* 자산 배분 차트 */}
-      <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
-        <CardHeader>
-          <CardTitle className="text-xl text-green-900 dark:text-green-100 flex items-center gap-2">
-            <PieChart className="w-5 h-5" />
-            자산 배분 현황
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* 도넛 차트 */}
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={120}
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+      {/* 분석 탭 */}
+      <div className="flex gap-2 border-b border-green-200 dark:border-green-800">
+        <button
+          onClick={() => setActiveAnalysisTab("basic")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeAnalysisTab === "basic"
+              ? "border-green-600 text-green-600 dark:text-green-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 inline mr-2" />
+          기본 분석
+        </button>
+        <button
+          onClick={() => setActiveAnalysisTab("region")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeAnalysisTab === "region"
+              ? "border-green-600 text-green-600 dark:text-green-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+          }`}
+        >
+          <MapPin className="w-4 h-4 inline mr-2" />
+          지역별 비교
+        </button>
+      </div>
 
-            {/* 범례 및 상세 정보 */}
-            <div className="space-y-4">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                총 자산:{" "}
-                <span className="font-semibold text-green-900 dark:text-green-100">
-                  {portfolioSummary.totalBalance?.toLocaleString()}원
-                </span>
-              </div>
+      {activeAnalysisTab === "basic" && (
+        <>
+          {/* 자산 배분 차트 */}
+          <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+            <CardHeader>
+              <CardTitle className="text-xl text-green-900 dark:text-green-100 flex items-center gap-2">
+                <PieChart className="w-5 h-5" />
+                자산 배분 현황
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* 도넛 차트 */}
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={chartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={120}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
 
-              <div className="space-y-2">
-                {chartData.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                  >
-                    <div className="flex items-center gap-2">
+                {/* 범례 및 상세 정보 */}
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    총 자산:{" "}
+                    <span className="font-semibold text-green-900 dark:text-green-100">
+                      {portfolioSummary.totalBalance?.toLocaleString()}원
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {chartData.map((item, index) => (
                       <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <div className="flex flex-col">
-                        <span className="font-medium text-gray-900 dark:text-gray-100">
-                          {item.name}
-                        </span>
-                        {item.type === "stock" && item.stockSymbol && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {item.stockSymbol}
-                          </span>
-                        )}
+                        key={index}
+                        className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-900 dark:text-gray-100">
+                              {item.name}
+                            </span>
+                            {item.type === "stock" && item.stockSymbol && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {item.stockSymbol}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-gray-900 dark:text-green-100">
+                            {item.percentage}%
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                            {item.value.toLocaleString()}원
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 포트폴리오 분석 지표 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* 위험도 */}
+            <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg text-green-900 dark:text-green-100 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5" />
+                  위험도
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Badge className={`text-sm ${getRiskColor(riskLevel)}`}>
+                  {riskLevel}
+                </Badge>
+                <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  주식 비중: {portfolioSummary.stockAllocationRate?.toFixed(1)}%
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 다양성 점수 */}
+            <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg text-green-900 dark:text-green-100 flex items-center gap-2">
+                  <Target className="w-5 h-5" />
+                  다양성 점수
+                  <div className="relative group">
+                    <Info className="w-4 h-4 text-gray-500 cursor-help" />
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 min-w-80">
+                      <div className="font-semibold mb-3 text-center">
+                        HHI (Herfindahl-Hirschman Index)
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                        <div className="col-span-2 text-center text-gray-300 mb-2">
+                          포트폴리오 집중도를 측정하는 업계 표준 지수
+                        </div>
+                        <div className="text-center">
+                          <div className="font-medium text-green-400">
+                            0에 가까울수록
+                          </div>
+                          <div className="text-gray-300">잘 분산</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="font-medium text-red-400">
+                            1에 가까울수록
+                          </div>
+                          <div className="text-gray-300">집중</div>
+                        </div>
+                        <div className="col-span-2 text-center mt-2 p-2 bg-gray-700 rounded">
+                          <div className="font-medium text-blue-400">
+                            HHI = Σ(각 종목 비중²)
+                          </div>
+                          <div className="text-gray-300 mt-1">
+                            효과적 종목 수 = 1 / HHI
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-gray-900 dark:text-green-100">
-                        {item.percentage}%
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="text-3xl">
+                    {diversificationScore >= 80
+                      ? "🌈"
+                      : diversificationScore >= 60
+                      ? "⚖️"
+                      : diversificationScore >= 40
+                      ? "🎯"
+                      : "💥"}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      className={`text-lg px-3 py-1 ${getDiversificationColor(
+                        diversificationScore
+                      )}`}
+                    >
+                      {diversificationScore.toFixed(0)}점
+                    </Badge>
+                    <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      {diversificationDetails?.level || ""}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-sm">
+                  <div className="text-gray-600 dark:text-gray-400">
+                    보유 종목: {portfolioSummary.totalStockCount}종목
+                  </div>
+                  <div className="text-gray-600 dark:text-gray-400">
+                    {diversificationDetails?.description || ""}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 수익률 */}
+            <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg text-green-900 dark:text-green-100 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  수익률
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className={`text-2xl font-bold ${
+                    (portfolioSummary.totalProfitLoss || 0) >= 0
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-blue-600 dark:text-blue-400"
+                  }`}
+                >
+                  {portfolioSummary.totalProfitLossRate?.toFixed(2)}%
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  손익: {portfolioSummary.totalProfitLoss?.toLocaleString()}원
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 종목별 성과 분석 */}
+          <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+            <CardHeader>
+              <CardTitle className="text-xl text-green-900 dark:text-green-100 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                종목별 성과 분석
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {portfolioStocks.map((stock, index) => (
+                  <div
+                    key={stock.id}
+                    className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{
+                            backgroundColor: COLORS[index % COLORS.length],
+                          }}
+                        />
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-gray-900 dark:text-gray-100">
+                            {stock.stockName || stock.stockSymbol}
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {stock.stockSymbol}
+                          </span>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {stock.quantity}주
+                        </Badge>
                       </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {item.value.toLocaleString()}원
+                      <div className="text-right">
+                        <div
+                          className={`font-semibold ${
+                            stock.profitLoss >= 0
+                              ? "text-red-600"
+                              : "text-blue-600"
+                          }`}
+                        >
+                          {stock.profitLoss >= 0 ? "+" : ""}
+                          {stock.profitLoss.toLocaleString()}원
+                        </div>
+                        <div
+                          className={`text-sm ${
+                            stock.profitLossRate >= 0
+                              ? "text-red-600"
+                              : "text-blue-600"
+                          }`}
+                        >
+                          {stock.profitLossRate >= 0 ? "+" : ""}
+                          {stock.profitLossRate.toFixed(2)}%
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="text-gray-600 dark:text-gray-400">
+                          평균 매수가
+                        </div>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">
+                          {stock.avgPurchasePrice?.toLocaleString()}원
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-600 dark:text-gray-400">
+                          현재가
+                        </div>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">
+                          {stock.currentPrice?.toLocaleString()}원
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-600 dark:text-gray-400">
+                          평가금액
+                        </div>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">
+                          {stock.currentValue?.toLocaleString()}원
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
-      {/* 포트폴리오 분석 지표 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* 위험도 */}
-        <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg text-green-900 dark:text-green-100 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5" />
-              위험도
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Badge className={`text-sm ${getRiskColor(riskLevel)}`}>
-              {riskLevel}
-            </Badge>
-            <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              주식 비중: {portfolioSummary.stockAllocationRate?.toFixed(1)}%
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 다양성 점수 */}
-        <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg text-green-900 dark:text-green-100 flex items-center gap-2">
-              <Target className="w-5 h-5" />
-              다양성 점수
-              <div className="relative group">
-                <Info className="w-4 h-4 text-gray-500 cursor-help" />
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 min-w-80">
-                  <div className="font-semibold mb-3 text-center">
-                    HHI (Herfindahl-Hirschman Index)
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                    <div className="col-span-2 text-center text-gray-300 mb-2">
-                      포트폴리오 집중도를 측정하는 업계 표준 지수
-                    </div>
-                    <div className="text-center">
-                      <div className="font-medium text-green-400">
-                        0에 가까울수록
-                      </div>
-                      <div className="text-gray-300">잘 분산</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-medium text-red-400">
-                        1에 가까울수록
-                      </div>
-                      <div className="text-gray-300">집중</div>
-                    </div>
-                    <div className="col-span-2 text-center mt-2 p-2 bg-gray-700 rounded">
-                      <div className="font-medium text-blue-400">
-                        HHI = Σ(각 종목 비중²)
-                      </div>
-                      <div className="text-gray-300 mt-1">
-                        효과적 종목 수 = 1 / HHI
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="text-3xl">
-                {diversificationScore >= 80
-                  ? "🌈"
-                  : diversificationScore >= 60
-                  ? "⚖️"
-                  : diversificationScore >= 40
-                  ? "🎯"
-                  : "💥"}
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge
-                  className={`text-lg px-3 py-1 ${getDiversificationColor(
-                    diversificationScore
-                  )}`}
-                >
-                  {diversificationScore.toFixed(0)}점
-                </Badge>
-                <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  {diversificationDetails?.level || ""}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2 text-sm">
-              <div className="text-gray-600 dark:text-gray-400">
-                보유 종목: {portfolioSummary.totalStockCount}종목
-              </div>
-              <div className="text-gray-600 dark:text-gray-400">
-                {diversificationDetails?.description || ""}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 수익률 */}
-        <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg text-green-900 dark:text-green-100 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" />
-              수익률
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-2xl font-bold ${
-                (portfolioSummary.totalProfitLoss || 0) >= 0
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-blue-600 dark:text-blue-400"
-              }`}
-            >
-              {portfolioSummary.totalProfitLossRate?.toFixed(2)}%
-            </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              손익: {portfolioSummary.totalProfitLoss?.toLocaleString()}원
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 종목별 성과 분석 */}
-      <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
-        <CardHeader>
-          <CardTitle className="text-xl text-green-900 dark:text-green-100 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" />
-            종목별 성과 분석
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {portfolioStocks.map((stock, index) => (
-              <div
-                key={stock.id}
-                className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-gray-900 dark:text-gray-100">
-                        {stock.stockName || stock.stockSymbol}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {stock.stockSymbol}
-                      </span>
-                    </div>
-                    <Badge variant="outline" className="text-xs">
-                      {stock.quantity}주
-                    </Badge>
-                  </div>
-                  <div className="text-right">
-                    <div
-                      className={`font-semibold ${
-                        stock.profitLoss >= 0 ? "text-red-600" : "text-blue-600"
-                      }`}
-                    >
-                      {stock.profitLoss >= 0 ? "+" : ""}
-                      {stock.profitLoss.toLocaleString()}원
-                    </div>
-                    <div
-                      className={`text-sm ${
-                        stock.profitLossRate >= 0
-                          ? "text-red-600"
-                          : "text-blue-600"
-                      }`}
-                    >
-                      {stock.profitLossRate >= 0 ? "+" : ""}
-                      {stock.profitLossRate.toFixed(2)}%
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <div className="text-gray-600 dark:text-gray-400">
-                      평균 매수가
-                    </div>
-                    <div className="font-medium text-gray-900 dark:text-gray-100">
-                      {stock.avgPurchasePrice?.toLocaleString()}원
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-gray-600 dark:text-gray-400">
-                      현재가
-                    </div>
-                    <div className="font-medium text-gray-900 dark:text-gray-100">
-                      {stock.currentPrice?.toLocaleString()}원
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-gray-600 dark:text-gray-400">
-                      평가금액
-                    </div>
-                    <div className="font-medium text-gray-900 dark:text-gray-100">
-                      {stock.currentValue?.toLocaleString()}원
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {activeAnalysisTab === "region" && (
+        <RegionPortfolioComparison
+          portfolioSummary={portfolioSummary}
+          portfolioStocks={portfolioStocks}
+          userRegion="강남구"
+        />
+      )}
     </div>
   );
 }

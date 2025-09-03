@@ -12,10 +12,13 @@ import PortfolioStocksTable from "./PortfolioStocksTable";
 import TradeHistoryTable from "./TradeHistoryTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, History, Wallet } from "lucide-react";
+import { TrendingUp, History, Wallet, Users, X } from "lucide-react";
 import PortfolioAnalysis from "./PortfolioAnalysis";
+import { useRouter } from "next/navigation";
+import ConsultationBooking from "../pb/ConsultationBooking";
 
 export default function PortfolioDashboard() {
+  const router = useRouter();
   const {
     loading,
     error,
@@ -32,6 +35,7 @@ export default function PortfolioDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
+  const [showConsultationModal, setShowConsultationModal] = useState(false);
 
   useEffect(() => {
     loadPortfolioData();
@@ -128,6 +132,15 @@ export default function PortfolioDashboard() {
           <p className="text-green-700 dark:text-green-300 mt-2 text-lg">
             하나증권 계좌 현황 및 거래 관리
           </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowConsultationModal(true)}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+          >
+            <Users className="w-4 h-4" />
+            PB 상담하기
+          </button>
         </div>
       </div>
 
@@ -309,6 +322,32 @@ export default function PortfolioDashboard() {
           />
         </TabsContent>
       </Tabs>
+
+      {/* 상담 예약 모달 */}
+      {showConsultationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                PB 상담 예약
+              </h2>
+              <button
+                onClick={() => setShowConsultationModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <ConsultationBooking
+              pbId="pb-001"
+              onBookingComplete={(booking) => {
+                console.log("예약 완료:", booking);
+                setShowConsultationModal(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
