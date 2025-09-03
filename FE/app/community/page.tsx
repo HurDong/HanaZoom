@@ -21,6 +21,9 @@ import {
   Activity,
   Minus,
   Heart,
+  Wifi,
+  WifiOff,
+  RefreshCw,
 } from "lucide-react";
 import NavBar from "@/app/components/Navbar";
 import { MouseFollower } from "@/components/mouse-follower";
@@ -33,6 +36,8 @@ import {
   checkIsInWatchlist,
 } from "@/lib/api/watchlist";
 import { toast } from "sonner";
+import { useStockWebSocket } from "@/hooks/useStockWebSocket";
+import type { StockPriceData } from "@/lib/api/stock";
 
 interface Stock {
   symbol: string;
@@ -44,6 +49,11 @@ interface Stock {
   emoji?: string; // fallback용
   sector?: string; // 업종 정보 추가
   volume?: number; // 거래량 정보 추가
+  // 실시간 데이터용 필드들
+  currentPrice?: string;
+  priceChange?: string;
+  changeRate?: string;
+  changeSign?: string;
 }
 
 interface UserRegionInfo {
@@ -95,6 +105,33 @@ export default function CommunityPage() {
     [key: string]: boolean;
   }>({});
 
+  // 모든 종목 코드 추출 (웹소켓용)
+  const stockCodes = allStocks.map((stock) => stock.symbol);
+
+  // 웹소켓으로 실시간 주식 데이터 수신
+  const {
+    connected: wsConnected,
+    connecting: wsConnecting,
+    error: wsError,
+    stockData: wsStockData,
+    lastUpdate,
+    subscribedCodes,
+    connect: wsConnect,
+    disconnect: wsDisconnect,
+    getStockDataMap,
+  } = useStockWebSocket({
+    stockCodes: stockCodes,
+    onStockUpdate: (data) => {
+      console.log(
+        "📈 커뮤니티 페이지 실시간 데이터:",
+        data.stockCode,
+        data.currentPrice
+      );
+    },
+    autoReconnect: true,
+    reconnectInterval: 3000,
+  });
+
   // 백엔드에서 종목 데이터 가져오기
   const fetchStocks = async () => {
     try {
@@ -118,7 +155,12 @@ export default function CommunityPage() {
           logoUrl: stock.logoUrl,
           emoji: stock.emoji || "📈", // fallback
           sector: stock.sector || "기타", // 업종 정보
-          volume: stock.volume || Math.floor(Math.random() * 1000000) + 100000, // 거래량 (임시)
+          volume: stock.volume || 0, // 거래량 - 실시간 데이터에서 가져올 예정
+          // 실시간 데이터용 필드들 (초기값)
+          currentPrice: stock.currentPrice || stock.price || "0",
+          priceChange: stock.priceChange || "0",
+          changeRate: stock.changeRate || "0",
+          changeSign: stock.changeSign || "3", // 기본값: 보합
         }));
         setAllStocks(stocks);
       }
@@ -144,6 +186,35 @@ export default function CommunityPage() {
       });
     }
   }, [allStocks, user]);
+
+  // 실시간 데이터로 주식 정보 업데이트
+  useEffect(() => {
+    if (wsStockData && allStocks.length > 0) {
+      const stockPricesMap = getStockDataMap();
+      
+      setAllStocks((prevStocks) =>
+        prevStocks.map((stock) => {
+          const realtimeData = stockPricesMap.get(stock.symbol);
+          if (realtimeData) {
+            return {
+              ...stock,
+              // 실시간 데이터로 업데이트
+              currentPrice: realtimeData.currentPrice,
+              priceChange: realtimeData.changePrice,
+              changeRate: realtimeData.changeRate,
+              changeSign: realtimeData.changeSign,
+              volume: realtimeData.volume ? parseInt(realtimeData.volume) : stock.volume,
+              // 기존 price 필드도 업데이트 (호환성)
+              price: realtimeData.currentPrice ? parseInt(realtimeData.currentPrice) : stock.price,
+              change: realtimeData.changePrice ? parseInt(realtimeData.changePrice) : stock.change,
+              changePercent: realtimeData.changeRate ? parseFloat(realtimeData.changeRate) : stock.changePercent,
+            };
+          }
+          return stock;
+        })
+      );
+    }
+  }, [wsStockData, allStocks.length, getStockDataMap]);
 
   useEffect(() => {
     // 위치 정보가 없는 경우 최신 사용자 정보 조회
@@ -282,6 +353,16 @@ export default function CommunityPage() {
     }
   };
 
+  // 수동 새로고침 (웹소켓 재연결)
+  const handleRefresh = () => {
+    if (wsConnected) {
+      wsDisconnect();
+      setTimeout(() => wsConnect(), 1000);
+    } else {
+      wsConnect();
+    }
+  };
+
   // 한국어 조사 결정 함수
   const getKoreanJosa = (word: string) => {
     if (!word) return "이";
@@ -316,9 +397,49 @@ export default function CommunityPage() {
           <h1 className="text-5xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 dark:from-green-300 dark:to-emerald-300 bg-clip-text text-transparent mb-6">
             HanaZoom 커뮤니티
           </h1>
-          <p className="text-xl text-green-700 dark:text-green-300 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-xl text-green-700 dark:text-green-300 max-w-3xl mx-auto leading-relaxed mb-4">
             지역별 투자 정보와 종목별 토론방에서 다양한 의견을 나눠보세요!
           </p>
+          
+          {/* 웹소켓 연결 상태 표시 */}
+          <div className="flex items-center justify-center gap-4 mb-4">
+            {wsConnected ? (
+              <>
+                <Wifi className="w-5 h-5 text-green-600 animate-pulse" />
+                <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                  실시간 연결
+                </Badge>
+              </>
+            ) : wsConnecting ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600"></div>
+                <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                  연결 중...
+                </Badge>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-5 h-5 text-red-600" />
+                <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                  연결 안됨
+                </Badge>
+              </>
+            )}
+            <Button
+              onClick={handleRefresh}
+              variant="outline"
+              size="sm"
+              disabled={wsConnecting}
+              className="border-green-600 text-green-600 hover:bg-green-50"
+            >
+              <RefreshCw
+                className={`w-4 h-4 mr-1 ${
+                  wsConnecting ? "animate-spin" : ""
+                }`}
+              />
+              {wsConnected ? "재연결" : "연결"}
+            </Button>
+          </div>
         </div>
 
         {/* 탭 선택 인터페이스 */}
@@ -399,6 +520,24 @@ export default function CommunityPage() {
               </div>
             </div>
 
+            {/* 웹소켓 오류 메시지 */}
+            {wsError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
+                  <WifiOff className="w-4 h-4" />
+                  <span className="text-sm">{wsError}</span>
+                  <Button
+                    onClick={handleRefresh}
+                    variant="outline"
+                    size="sm"
+                    className="ml-auto border-red-600 text-red-600 hover:bg-red-50"
+                  >
+                    다시 시도
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {isLoadingStocks ? (
               <div className="text-center py-20">
                 <div className="mx-auto w-32 h-32 bg-gradient-to-br from-green-400 to-emerald-500 dark:from-green-500 dark:to-emerald-400 rounded-full flex items-center justify-center shadow-2xl mb-8">
@@ -468,26 +607,33 @@ export default function CommunityPage() {
                             </div>
 
                             {/* 등락률 배지 */}
-                            {stock.changePercent !== undefined && (
+                            {(stock.changePercent !== undefined || stock.changeRate) && (
                               <div
                                 className={`flex items-center px-3 py-1.5 rounded-full text-sm font-bold shadow-lg ${
-                                  stock.change && stock.change > 0
-                                    ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 dark:from-green-900/50 dark:to-emerald-900/50 dark:text-green-300"
-                                    : stock.change && stock.change < 0
+                                  (stock.changeSign === "1" || stock.changeSign === "2") || 
+                                  (stock.change && stock.change > 0)
                                     ? "bg-gradient-to-r from-red-100 to-pink-100 text-red-700 dark:from-red-900/50 dark:to-pink-900/50 dark:text-red-300"
+                                    : (stock.changeSign === "4" || stock.changeSign === "5") || 
+                                      (stock.change && stock.change < 0)
+                                    ? "bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 dark:from-blue-900/50 dark:to-cyan-900/50 dark:text-blue-300"
                                     : "bg-gradient-to-r from-gray-100 to-slate-100 text-gray-700 dark:from-gray-800/50 dark:to-slate-800/50 dark:text-gray-300"
                                 }`}
                               >
-                                {stock.change && stock.change > 0 ? (
+                                {(stock.changeSign === "1" || stock.changeSign === "2") || 
+                                 (stock.change && stock.change > 0) ? (
                                   <TrendingUp className="w-4 h-4 mr-1" />
-                                ) : stock.change && stock.change < 0 ? (
+                                ) : (stock.changeSign === "4" || stock.changeSign === "5") || 
+                                      (stock.change && stock.change < 0) ? (
                                   <TrendingDown className="w-4 h-4 mr-1" />
                                 ) : (
                                   <Minus className="w-4 h-4 mr-1" />
                                 )}
                                 <span>
-                                  {stock.change && stock.change > 0 ? "+" : ""}
-                                  {stock.changePercent.toFixed(2)}%
+                                  {(stock.changeSign === "1" || stock.changeSign === "2") || 
+                                   (stock.change && stock.change > 0) ? "+" : ""}
+                                  {stock.changeRate 
+                                    ? parseFloat(stock.changeRate).toFixed(2)
+                                    : stock.changePercent?.toFixed(2) || "0.00"}%
                                 </span>
                               </div>
                             )}
@@ -507,14 +653,21 @@ export default function CommunityPage() {
                           {/* 가격 정보 */}
                           <div className="mb-4">
                             <div className="text-2xl font-bold text-green-800 dark:text-green-200 mb-1">
-                              {stock.price
+                              {stock.currentPrice && stock.currentPrice !== "0"
+                                ? `₩${parseInt(stock.currentPrice).toLocaleString()}`
+                                : stock.price
                                 ? `₩${stock.price.toLocaleString()}`
                                 : "가격 정보 없음"}
                             </div>
-                            {stock.volume && (
+                            {stock.volume && stock.volume > 0 && (
                               <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
                                 <Users className="w-3 h-3 mr-1" />
                                 거래량: {stock.volume.toLocaleString()}
+                                {wsConnected && (
+                                  <span className="ml-2 text-xs text-green-600 dark:text-green-400">
+                                    실시간
+                                  </span>
+                                )}
                               </div>
                             )}
                           </div>
