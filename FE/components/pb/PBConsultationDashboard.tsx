@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ConsultationCalendar from "./ConsultationCalendar";
 import {
   Users,
   Calendar,
@@ -65,13 +66,16 @@ export default function PBConsultationDashboard({
   const loadMockData = () => {
     setLoading(true);
 
-    // 모의 상담 데이터
+    // 모의 상담 데이터 (더 많은 데이터로 캘린더 테스트)
+    const today = new Date();
     const mockConsultations: Consultation[] = [
       {
         id: "1",
         clientName: "김철수",
         clientRegion: "강남구",
-        scheduledTime: "2024-01-15 14:00",
+        scheduledTime: new Date(
+          today.getTime() + 24 * 60 * 60 * 1000
+        ).toISOString(), // 내일
         status: "scheduled",
         type: "video",
         duration: 60,
@@ -80,7 +84,9 @@ export default function PBConsultationDashboard({
         id: "2",
         clientName: "이영희",
         clientRegion: "서초구",
-        scheduledTime: "2024-01-15 16:00",
+        scheduledTime: new Date(
+          today.getTime() + 2 * 24 * 60 * 60 * 1000
+        ).toISOString(), // 모레
         status: "scheduled",
         type: "phone",
         duration: 30,
@@ -89,12 +95,103 @@ export default function PBConsultationDashboard({
         id: "3",
         clientName: "박민수",
         clientRegion: "송파구",
-        scheduledTime: "2024-01-14 10:00",
+        scheduledTime: new Date(
+          today.getTime() - 24 * 60 * 60 * 1000
+        ).toISOString(), // 어제
         status: "completed",
         type: "video",
         duration: 45,
         rating: 5,
         notes: "포트폴리오 리밸런싱 상담 완료",
+      },
+      {
+        id: "today-1",
+        clientName: "오늘상담1",
+        clientRegion: "강남구",
+        scheduledTime: new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate(),
+          14,
+          0,
+          0
+        ).toISOString(), // 오늘 오후 2시
+        status: "scheduled",
+        type: "video",
+        duration: 60,
+        notes: "오늘 오후 2시 화상 상담",
+      },
+      {
+        id: "today-2",
+        clientName: "오늘상담2",
+        clientRegion: "서초구",
+        scheduledTime: new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate(),
+          16,
+          30,
+          0
+        ).toISOString(), // 오늘 오후 4시 30분
+        status: "scheduled",
+        type: "phone",
+        duration: 30,
+        notes: "오늘 오후 4시 30분 전화 상담",
+      },
+      {
+        id: "4",
+        clientName: "최지영",
+        clientRegion: "마포구",
+        scheduledTime: new Date(
+          today.getTime() + 3 * 24 * 60 * 60 * 1000
+        ).toISOString(), // 3일 후
+        status: "scheduled",
+        type: "chat",
+        duration: 20,
+      },
+      {
+        id: "5",
+        clientName: "정수현",
+        clientRegion: "영등포구",
+        scheduledTime: new Date(
+          today.getTime() + 4 * 24 * 60 * 60 * 1000
+        ).toISOString(), // 4일 후
+        status: "scheduled",
+        type: "video",
+        duration: 90,
+      },
+      {
+        id: "6",
+        clientName: "한미영",
+        clientRegion: "강동구",
+        scheduledTime: new Date(
+          today.getTime() + 5 * 24 * 60 * 60 * 1000
+        ).toISOString(), // 5일 후
+        status: "scheduled",
+        type: "phone",
+        duration: 40,
+      },
+      {
+        id: "7",
+        clientName: "윤태호",
+        clientRegion: "노원구",
+        scheduledTime: new Date(
+          today.getTime() + 6 * 24 * 60 * 60 * 1000
+        ).toISOString(), // 6일 후
+        status: "scheduled",
+        type: "video",
+        duration: 60,
+      },
+      {
+        id: "8",
+        clientName: "김서연",
+        clientRegion: "은평구",
+        scheduledTime: new Date(
+          today.getTime() + 7 * 24 * 60 * 60 * 1000
+        ).toISOString(), // 7일 후
+        status: "scheduled",
+        type: "chat",
+        duration: 25,
       },
     ];
 
@@ -194,9 +291,15 @@ export default function PBConsultationDashboard({
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
+    <div className="container mx-auto px-4 py-4 space-y-4 relative z-10">
+      {/* 배경 장식 */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[10%] -right-[10%] w-[40%] h-[40%] bg-green-300/20 dark:bg-green-700/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-[10%] -left-[10%] w-[30%] h-[30%] bg-emerald-300/20 dark:bg-emerald-700/10 rounded-full blur-3xl"></div>
+      </div>
+
       {/* 헤더 */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center relative z-10">
         <div>
           <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-green-900 dark:text-green-100">
             PB 상담 대시보드
@@ -220,58 +323,57 @@ export default function PBConsultationDashboard({
             <Video className="w-4 h-4 mr-2" />
             화상 상담 시작
           </Button>
-          <Button
-            variant="outline"
-            className="border-green-600 text-green-600 hover:bg-green-50"
-          >
-            <Calendar className="w-4 h-4 mr-2" />
-            상담 예약
-          </Button>
         </div>
       </div>
 
       {/* 요약 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
+        <Card className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border-green-200 dark:border-green-800 shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-700 dark:text-green-300 text-sm font-medium">
+              <div className="space-y-2">
+                <p className="text-green-600 dark:text-green-400 text-sm font-medium uppercase tracking-wide">
                   오늘 예정 상담
                 </p>
-                <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                <p className="text-4xl font-black text-green-900 dark:text-green-100 leading-none">
                   {consultations.filter((c) => c.status === "scheduled").length}
                 </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">건</p>
               </div>
-              <Calendar className="h-8 w-8 text-green-600" />
+              <div className="p-3 bg-green-100 dark:bg-green-900/50 rounded-full">
+                <Calendar className="h-10 w-10 text-green-600 dark:text-green-400" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+        <Card className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border-green-200 dark:border-green-800 shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-700 dark:text-green-300 text-sm font-medium">
+              <div className="space-y-2">
+                <p className="text-blue-600 dark:text-blue-400 text-sm font-medium uppercase tracking-wide">
                   총 고객 수
                 </p>
-                <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                <p className="text-4xl font-black text-green-900 dark:text-green-100 leading-none">
                   {clients.length}
                 </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">명</p>
               </div>
-              <Users className="h-8 w-8 text-green-600" />
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-full">
+                <Users className="h-10 w-10 text-blue-600 dark:text-blue-400" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+        <Card className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border-green-200 dark:border-green-800 shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-700 dark:text-green-300 text-sm font-medium">
+              <div className="space-y-2">
+                <p className="text-yellow-600 dark:text-yellow-400 text-sm font-medium uppercase tracking-wide">
                   평균 만족도
                 </p>
-                <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                <p className="text-4xl font-black text-green-900 dark:text-green-100 leading-none">
                   {consultations.filter((c) => c.rating).length > 0
                     ? (
                         consultations
@@ -281,30 +383,37 @@ export default function PBConsultationDashboard({
                       ).toFixed(1)
                     : "0.0"}
                 </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  / 5.0
+                </p>
               </div>
-              <Star className="h-8 w-8 text-green-600" />
+              <div className="p-3 bg-yellow-100 dark:bg-yellow-900/50 rounded-full">
+                <Star className="h-10 w-10 text-yellow-600 dark:text-yellow-400 fill-current" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+        <Card className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border-green-200 dark:border-green-800 shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-700 dark:text-green-300 text-sm font-medium">
+              <div className="space-y-2">
+                <p className="text-emerald-600 dark:text-emerald-400 text-sm font-medium uppercase tracking-wide">
                   관리 자산 총액
                 </p>
-                <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                <p className="text-4xl font-black text-green-900 dark:text-green-100 leading-none">
                   {(
                     clients.reduce(
                       (sum, client) => sum + client.totalAssets,
                       0
                     ) / 100000000
                   ).toFixed(1)}
-                  억
                 </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">억원</p>
               </div>
-              <TrendingUp className="h-8 w-8 text-green-600" />
+              <div className="p-3 bg-emerald-100 dark:bg-emerald-900/50 rounded-full">
+                <TrendingUp className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -314,9 +423,9 @@ export default function PBConsultationDashboard({
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
-        className="space-y-4"
+        className="space-y-4 relative z-10"
       >
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
             개요
@@ -325,8 +434,12 @@ export default function PBConsultationDashboard({
             value="consultations"
             className="flex items-center gap-2"
           >
-            <Calendar className="w-4 h-4" />
+            <MessageSquare className="w-4 h-4" />
             상담 관리
+          </TabsTrigger>
+          <TabsTrigger value="calendar" className="flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            상담 일정
           </TabsTrigger>
           <TabsTrigger value="clients" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
@@ -341,7 +454,7 @@ export default function PBConsultationDashboard({
         <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 오늘의 상담 일정 */}
-            <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+            <Card className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border-green-200 dark:border-green-800 shadow-lg">
               <CardHeader>
                 <CardTitle className="text-lg text-green-900 dark:text-green-100 flex items-center gap-2">
                   <Clock className="w-5 h-5" />
@@ -391,7 +504,7 @@ export default function PBConsultationDashboard({
             </Card>
 
             {/* 고객 포트폴리오 현황 */}
-            <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+            <Card className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border-green-200 dark:border-green-800 shadow-lg">
               <CardHeader>
                 <CardTitle className="text-lg text-green-900 dark:text-green-100 flex items-center gap-2">
                   <MapPin className="w-5 h-5" />
@@ -436,8 +549,18 @@ export default function PBConsultationDashboard({
           </div>
         </TabsContent>
 
+        <TabsContent value="calendar" className="space-y-4">
+          <ConsultationCalendar
+            consultations={consultations}
+            onEventClick={(event) => {
+              console.log("상담 이벤트 클릭:", event);
+              // 상담 상세 정보 모달이나 페이지로 이동
+            }}
+          />
+        </TabsContent>
+
         <TabsContent value="consultations" className="space-y-4">
-          <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+          <Card className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border-green-200 dark:border-green-800 shadow-lg">
             <CardHeader>
               <CardTitle className="text-lg text-green-900 dark:text-green-100">
                 상담 내역
@@ -503,7 +626,7 @@ export default function PBConsultationDashboard({
         </TabsContent>
 
         <TabsContent value="clients" className="space-y-4">
-          <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+          <Card className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border-green-200 dark:border-green-800 shadow-lg">
             <CardHeader>
               <CardTitle className="text-lg text-green-900 dark:text-green-100">
                 고객 목록
@@ -560,7 +683,7 @@ export default function PBConsultationDashboard({
 
         <TabsContent value="analytics" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+            <Card className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border-green-200 dark:border-green-800 shadow-lg">
               <CardHeader>
                 <CardTitle className="text-lg text-green-900 dark:text-green-100">
                   상담 통계
@@ -616,7 +739,7 @@ export default function PBConsultationDashboard({
               </CardContent>
             </Card>
 
-            <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
+            <Card className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border-green-200 dark:border-green-800 shadow-lg">
               <CardHeader>
                 <CardTitle className="text-lg text-green-900 dark:text-green-100">
                   고객 분석

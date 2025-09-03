@@ -115,10 +115,25 @@ export default function NavBar() {
 
     try {
       const response = await api.get("/members/me");
+      console.log("🔍 PB 정보 API 응답:", response.data);
+
       if (response.data && response.data.success) {
         const memberData = response.data.data;
-        setIsPb(memberData.isPb || false);
-        if (memberData.isPb) {
+        console.log("🔍 회원 데이터:", memberData);
+        console.log("🔍 isPb 값:", memberData.isPb);
+        console.log("🔍 pbStatus 값:", memberData.pbStatus);
+        console.log("🔍 pbRating 값:", memberData.pbRating);
+        console.log(
+          "🔍 pbTotalConsultations 값:",
+          memberData.pbTotalConsultations
+        );
+
+        // 임시: 강제로 PB 설정 (테스트용)
+        const forcePb = memberData.email === "pb@pb.com";
+        setIsPb(forcePb || memberData.isPb || false);
+
+        if (forcePb || memberData.isPb) {
+          console.log("✅ PB로 인식됨, PB 정보 설정 중...");
           setPbInfo({
             rating: memberData.pbRating || 0.0,
             totalConsultations: memberData.pbTotalConsultations || 0,
@@ -126,10 +141,13 @@ export default function NavBar() {
             specialties: memberData.pbSpecialties || "[]",
             status: memberData.pbStatus || "INACTIVE",
           });
+          console.log("✅ PB 정보 설정 완료");
+        } else {
+          console.log("❌ PB가 아닌 사용자로 인식됨");
         }
       }
     } catch (error) {
-      console.error("PB 정보 로드 실패:", error);
+      console.error("❌ PB 정보 로드 실패:", error);
       setIsPb(false);
       setPbInfo(null);
     }
@@ -720,6 +738,7 @@ export default function NavBar() {
 
                 {/* 액션 버튼들 - PB/일반회원 구분 */}
                 <div className="space-y-2 mb-4">
+                  {console.log("🔍 UI 렌더링 - isPb 값:", isPb)}
                   {isPb ? (
                     // PB 전용 버튼들
                     <>

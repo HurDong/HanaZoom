@@ -3,6 +3,9 @@
 import { useState } from "react";
 import ConsultationBooking from "@/components/pb/ConsultationBooking";
 
+// 컴포넌트 import 확인
+console.log("🔍 ConsultationBooking 컴포넌트:", ConsultationBooking);
+
 export default function PBPage() {
   const [showBooking, setShowBooking] = useState(false);
 
@@ -11,7 +14,10 @@ export default function PBPage() {
     setShowBooking(false);
   };
 
+  console.log("🔍 PB 페이지 렌더링 - showBooking:", showBooking);
+
   if (showBooking) {
+    console.log("🔍 ConsultationBooking 컴포넌트 렌더링 중...");
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-900 dark:to-gray-800">
         <ConsultationBooking
@@ -32,7 +38,11 @@ export default function PBPage() {
           전문 PB와의 맞춤형 투자 상담을 받아보세요
         </p>
         <button
-          onClick={() => setShowBooking(true)}
+          onClick={() => {
+            console.log("🔍 상담 예약하기 버튼 클릭됨");
+            setShowBooking(true);
+            console.log("🔍 showBooking 상태 변경:", true);
+          }}
           className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-md font-medium transition-colors"
         >
           상담 예약하기
