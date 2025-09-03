@@ -9,9 +9,9 @@ import { MessageSquare, TrendingUp, TrendingDown, LogIn } from "lucide-react";
 import NavBar from "@/app/components/Navbar";
 import { OpinionForm } from "@/components/opinion-form";
 import { TossPostCard } from "@/components/toss-post-card";
-import { StockInfoCard } from "@/components/stock-info-card";
-import { StockTicker } from "@/components/stock-ticker";
-import CommentSection from "@/components/comment-section";
+
+import TickerStrip from "@/components/TickerStrip";
+
 import { getStock } from "@/lib/api/stock";
 import {
   getPosts,
@@ -25,6 +25,8 @@ import { useAuthStore } from "@/app/utils/auth";
 import type { Stock } from "@/lib/api/stock";
 import type { Post, PostSentiment, VoteOption } from "@/lib/api/community";
 import { toast } from "sonner";
+import { useStockWebSocket } from "@/hooks/useStockWebSocket";
+import type { StockPriceData } from "@/lib/api/stock";
 
 export default function StockDiscussionPage() {
   const { symbol } = useParams();
@@ -38,11 +40,32 @@ export default function StockDiscussionPage() {
 
   const [stock, setStock] = useState<Stock | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  
+  // 실시간 주식 데이터 상태
+  const [realtimeData, setRealtimeData] = useState<StockPriceData | null>(null);
 
   // 클라이언트 사이드에서만 실행되도록 보장
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // WebSocket 연결 (현재 종목만 구독)
+  const {
+    connected: wsConnected,
+    connecting: wsConnecting,
+    error: wsError,
+    stockData: wsStockData,
+    lastUpdate,
+    getStockDataMap,
+  } = useStockWebSocket({
+    stockCodes: symbol ? [symbol as string] : [],
+    onStockUpdate: (data: StockPriceData) => {
+      console.log("📊 실시간 데이터 수신:", data);
+      setRealtimeData(data);
+    },
+    autoReconnect: true,
+    reconnectInterval: 3000,
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -297,12 +320,33 @@ export default function StockDiscussionPage() {
       <NavBar />
 
       <div className="fixed top-16 left-0 right-0 z-[60]">
-        <StockTicker />
+        <TickerStrip
+          logoUrl={stock?.logoUrl || "/placeholder-logo.svg"}
+          name={stock?.name || "종목명"}
+          ticker={stock?.symbol || "000000"}
+          price={
+            realtimeData?.currentPrice 
+              ? parseInt(realtimeData.currentPrice) 
+              : stock?.currentPrice || 0
+          }
+          change={
+            realtimeData?.changePrice 
+              ? parseInt(realtimeData.changePrice) 
+              : stock?.priceChange || 0
+          }
+          changeRate={
+            realtimeData?.changeRate 
+              ? parseFloat(realtimeData.changeRate) / 100 
+              : stock?.priceChangePercent ? stock.priceChangePercent / 100 : 0
+          }
+          marketState="정규장"
+          lastUpdatedSec={wsConnected ? Math.floor((Date.now() - (lastUpdate || 0)) / 1000) : 0}
+          realtimeOrderable={wsConnected}
+        />
       </div>
 
-      <main className="container mx-auto px-4 py-8 pt-28">
-        {/* 주식 정보 카드 */}
-        <StockInfoCard stock={stock} className="mb-8" />
+      <main className="container mx-auto px-4 py-8 pt-40">
+
 
         {/* 의견 작성 버튼 */}
         <div className="flex justify-between items-center mb-6">
