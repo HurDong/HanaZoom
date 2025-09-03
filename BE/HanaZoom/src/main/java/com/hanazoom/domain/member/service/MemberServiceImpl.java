@@ -3,6 +3,7 @@ package com.hanazoom.domain.member.service;
 import com.hanazoom.domain.member.dto.*;
 import com.hanazoom.domain.member.entity.LoginType;
 import com.hanazoom.domain.member.entity.Member;
+import com.hanazoom.domain.member.entity.PbStatus;
 import com.hanazoom.domain.member.entity.SocialAccount;
 import com.hanazoom.domain.member.entity.SocialProvider;
 import com.hanazoom.domain.member.repository.MemberRepository;
@@ -149,6 +150,8 @@ public class MemberServiceImpl implements MemberService {
                         .address(member.getAddress())
                         .latitude(member.getLatitude())
                         .longitude(member.getLongitude())
+                        .isPb(member.isPb())
+                        .pbStatus(member.getPbStatus() != null ? member.getPbStatus().name() : null)
                         .build();
             }
 
@@ -206,6 +209,8 @@ public class MemberServiceImpl implements MemberService {
                     .address(null) // 위치 정보 없음
                     .latitude(null)
                     .longitude(null)
+                    .isPb(newMember.isPb())
+                    .pbStatus(newMember.getPbStatus() != null ? newMember.getPbStatus().name() : null)
                     .build();
 
         } catch (Exception e) {
@@ -248,7 +253,8 @@ public class MemberServiceImpl implements MemberService {
             log.info("🎉 로그인 성공 - 이메일: {}, ID: {}", request.getEmail(), member.getId());
             return new LoginResponse(member.getId(), member.getEmail(), member.getName(),
                     member.getAddress(), member.getLatitude(), member.getLongitude(),
-                    accessToken, refreshToken);
+                    accessToken, refreshToken, member.isPb(),
+                    member.getPbStatus() != null ? member.getPbStatus().name() : null);
         } catch (Exception e) {
             log.error("❌ 로그인 처리 중 오류 발생: {}", e.getMessage(), e);
             throw e;
@@ -454,6 +460,17 @@ public class MemberServiceImpl implements MemberService {
                 .latitude(member.getLatitude())
                 .longitude(member.getLongitude())
                 .regionId(member.getRegionId())
+                // PB 관련 정보 추가
+                .isPb(member.isPb())
+                .pbLicenseNumber(member.getPbLicenseNumber())
+                .pbExperienceYears(member.getPbExperienceYears())
+                .pbSpecialties(member.getPbSpecialties())
+                .pbRegion(member.getPbRegion())
+                .pbRating(member.getPbRating())
+                .pbTotalConsultations(member.getPbTotalConsultations())
+                .pbStatus(member.getPbStatus() != null ? member.getPbStatus().name() : null)
+                .pbApprovedAt(member.getPbApprovedAt() != null ? member.getPbApprovedAt().toString() : null)
+                .pbApprovedBy(member.getPbApprovedBy())
                 .build();
     }
 }
