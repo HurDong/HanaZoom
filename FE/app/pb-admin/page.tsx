@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PBConsultationDashboard from "@/components/pb/PBConsultationDashboard";
 import VideoConsultation from "@/components/pb/VideoConsultation";
 import Navbar from "@/app/components/Navbar";
@@ -11,6 +11,13 @@ export default function PBAdminPage() {
     "dashboard"
   );
   const [consultationData, setConsultationData] = useState<any>(null);
+  const [pbId, setPbId] = useState<string>("");
+
+  // 실제로는 인증된 사용자의 PB ID를 가져와야 함
+  useEffect(() => {
+    // 임시로 하드코딩된 PB ID 사용 (실제로는 JWT 토큰에서 추출)
+    setPbId("pb-001");
+  }, []);
 
   const handleStartConsultation = (consultation: any) => {
     setConsultationData(consultation);
@@ -61,9 +68,9 @@ export default function PBAdminPage() {
 
       {/* Main Content */}
       <main className="relative z-10 pt-16">
-        {currentView === "dashboard" && (
+        {currentView === "dashboard" && pbId && (
           <PBConsultationDashboard
-            pbId="pb-001"
+            pbId={pbId}
             onStartConsultation={handleStartConsultation}
           />
         )}

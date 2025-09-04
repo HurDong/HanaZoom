@@ -30,14 +30,30 @@ interface ConsultationEvent {
 interface ConsultationCalendarProps {
   consultations: ConsultationEvent[];
   onEventClick?: (event: ConsultationEvent) => void;
+  onDateRangeChange?: (startDate: string, endDate: string) => void;
 }
 
 export default function ConsultationCalendar({
   consultations,
   onEventClick,
+  onDateRangeChange,
 }: ConsultationCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  // 컴포넌트가 처음 로드될 때 현재 월의 상담 데이터를 로드
+  useEffect(() => {
+    if (onDateRangeChange) {
+      // 로컬 시간 기준으로 날짜 범위 생성 (UTC 변환 방지)
+      const startDateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const endDateObj = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      
+      const startDate = `${startDateObj.getFullYear()}-${String(startDateObj.getMonth() + 1).padStart(2, '0')}-${String(startDateObj.getDate()).padStart(2, '0')}`;
+      const endDate = `${endDateObj.getFullYear()}-${String(endDateObj.getMonth() + 1).padStart(2, '0')}-${String(endDateObj.getDate()).padStart(2, '0')}`;
+      
+      onDateRangeChange(startDate, endDate);
+    }
+  }, []); // 빈 의존성 배열로 컴포넌트 마운트 시에만 실행
 
   // 현재 월의 첫 번째 날과 마지막 날 계산
   const firstDayOfMonth = new Date(
@@ -74,11 +90,15 @@ export default function ConsultationCalendar({
 
   // 특정 날짜의 상담 이벤트 가져오기
   const getEventsForDate = (date: Date) => {
-    const dateStr = date.toISOString().split("T")[0];
+    // 로컬 시간 기준으로 날짜 문자열 생성 (UTC 변환 방지)
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
     return consultations.filter((consultation) => {
-      const consultationDate = new Date(consultation.scheduledTime)
-        .toISOString()
-        .split("T")[0];
+      // scheduledTime이 이미 로컬 시간 형식이므로 직접 날짜 추출
+      const consultationDate = consultation.scheduledTime.split('T')[0];
       return consultationDate === dateStr;
     });
   };
@@ -129,16 +149,36 @@ export default function ConsultationCalendar({
 
   // 이전 달로 이동
   const goToPreviousMonth = () => {
-    setCurrentDate(
-      new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-    );
+    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    setCurrentDate(newDate);
+    
+    // 날짜 범위 변경 콜백 호출 (로컬 시간 기준)
+    if (onDateRangeChange) {
+      const startDateObj = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
+      const endDateObj = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0);
+      
+      const startDate = `${startDateObj.getFullYear()}-${String(startDateObj.getMonth() + 1).padStart(2, '0')}-${String(startDateObj.getDate()).padStart(2, '0')}`;
+      const endDate = `${endDateObj.getFullYear()}-${String(endDateObj.getMonth() + 1).padStart(2, '0')}-${String(endDateObj.getDate()).padStart(2, '0')}`;
+      
+      onDateRangeChange(startDate, endDate);
+    }
   };
 
   // 다음 달로 이동
   const goToNextMonth = () => {
-    setCurrentDate(
-      new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
-    );
+    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    setCurrentDate(newDate);
+    
+    // 날짜 범위 변경 콜백 호출 (로컬 시간 기준)
+    if (onDateRangeChange) {
+      const startDateObj = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
+      const endDateObj = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0);
+      
+      const startDate = `${startDateObj.getFullYear()}-${String(startDateObj.getMonth() + 1).padStart(2, '0')}-${String(startDateObj.getDate()).padStart(2, '0')}`;
+      const endDate = `${endDateObj.getFullYear()}-${String(endDateObj.getMonth() + 1).padStart(2, '0')}-${String(endDateObj.getDate()).padStart(2, '0')}`;
+      
+      onDateRangeChange(startDate, endDate);
+    }
   };
 
   // 오늘로 이동
@@ -146,6 +186,17 @@ export default function ConsultationCalendar({
     const today = new Date();
     setCurrentDate(today);
     setSelectedDate(today);
+    
+    // 날짜 범위 변경 콜백 호출 (로컬 시간 기준)
+    if (onDateRangeChange) {
+      const startDateObj = new Date(today.getFullYear(), today.getMonth(), 1);
+      const endDateObj = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      
+      const startDate = `${startDateObj.getFullYear()}-${String(startDateObj.getMonth() + 1).padStart(2, '0')}-${String(startDateObj.getDate()).padStart(2, '0')}`;
+      const endDate = `${endDateObj.getFullYear()}-${String(endDateObj.getMonth() + 1).padStart(2, '0')}-${String(endDateObj.getDate()).padStart(2, '0')}`;
+      
+      onDateRangeChange(startDate, endDate);
+    }
   };
 
   // 달력 날짜 생성
@@ -285,7 +336,7 @@ export default function ConsultationCalendar({
           <div className="grid grid-cols-7">
             {calendarDays.map((day, index) => (
               <div
-                key={index}
+                key={`${day.date.getFullYear()}-${day.date.getMonth()}-${day.date.getDate()}-${index}`}
                 className={`
                   min-h-[100px] border-r border-b border-gray-200 dark:border-gray-700 p-1
                   ${
@@ -321,9 +372,9 @@ export default function ConsultationCalendar({
 
                   {/* 상담 이벤트들 */}
                   <div className="flex-1 space-y-1">
-                    {day.events.slice(0, 3).map((event) => (
+                    {day.events.slice(0, 3).map((event, eventIndex) => (
                       <div
-                        key={event.id}
+                        key={`${event.id}-${day.date.getDate()}-${eventIndex}`}
                         className={`
                           text-xs p-1 rounded border-l-2 cursor-pointer
                           ${getTypeColor(event.type)} ${getStatusColor(
@@ -343,13 +394,7 @@ export default function ConsultationCalendar({
                           </span>
                         </div>
                         <div className="text-xs font-medium opacity-90">
-                          {new Date(event.scheduledTime).toLocaleTimeString(
-                            "ko-KR",
-                            {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }
-                          )}
+                          {event.scheduledTime.split('T')[1]?.substring(0, 5) || '00:00'}
                         </div>
                       </div>
                     ))}
@@ -384,9 +429,9 @@ export default function ConsultationCalendar({
           <CardContent className="pt-0">
             {getEventsForDate(selectedDate).length > 0 ? (
               <div className="space-y-3">
-                {getEventsForDate(selectedDate).map((event) => (
+                {getEventsForDate(selectedDate).map((event, index) => (
                   <div
-                    key={event.id}
+                    key={`${event.id}-detail-${index}`}
                     className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     <div className="flex items-start justify-between">
@@ -426,13 +471,7 @@ export default function ConsultationCalendar({
                           <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                             <div className="flex items-center gap-1">
                               <Clock className="w-4 h-4" />
-                              {new Date(event.scheduledTime).toLocaleTimeString(
-                                "ko-KR",
-                                {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                }
-                              )}{" "}
+                              {event.scheduledTime.split('T')[1]?.substring(0, 5) || '00:00'}{" "}
                               ({event.duration}분)
                             </div>
                             <div className="flex items-center gap-1">

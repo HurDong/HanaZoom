@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuthStore } from "@/app/utils/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -53,185 +54,195 @@ export default function PBConsultationDashboard({
   pbId,
   onStartConsultation,
 }: PBConsultationDashboardProps) {
+  const { accessToken } = useAuthStore();
   const [activeTab, setActiveTab] = useState("overview");
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 실제로는 API 호출로 데이터를 가져와야 함
-    loadMockData();
+    // 실제 백엔드 API 호출로 데이터를 가져옴
+    loadDashboardData();
   }, [pbId]);
 
-  const loadMockData = () => {
+  const loadDashboardData = async () => {
     setLoading(true);
+    try {
+      // PB 대시보드 데이터 조회
+      const response = await fetch('/api/consultations/pb-dashboard', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        const dashboardData = data.data;
+        
+        // 상담 데이터 변환 (중복 제거)
+        const allConsultations = [
+          ...dashboardData.todayConsultations.map((c: any) => ({
+            id: c.id,
+            clientName: c.clientName,
+            clientRegion: c.clientName, // 실제로는 clientRegion 필드가 있어야 함
+            scheduledTime: c.scheduledAt,
+            status: mapStatusToFrontend(c.status),
+            type: mapTypeToFrontend(c.consultationType),
+            duration: c.durationMinutes,
+            rating: undefined,
+            notes: c.clientMessage
+          })),
+          ...dashboardData.pendingConsultations.map((c: any) => ({
+            id: c.id,
+            clientName: c.clientName,
+            clientRegion: c.clientName,
+            scheduledTime: c.scheduledAt,
+            status: mapStatusToFrontend(c.status),
+            type: mapTypeToFrontend(c.consultationType),
+            duration: c.durationMinutes,
+            rating: undefined,
+            notes: c.clientMessage
+          })),
+          ...dashboardData.recentConsultations.map((c: any) => ({
+            id: c.id,
+            clientName: c.clientName,
+            clientRegion: c.clientName,
+            scheduledTime: c.scheduledAt,
+            status: mapStatusToFrontend(c.status),
+            type: mapTypeToFrontend(c.consultationType),
+            duration: c.durationMinutes,
+            rating: undefined,
+            notes: c.clientMessage
+          }))
+        ];
 
-    // 모의 상담 데이터 (더 많은 데이터로 캘린더 테스트)
-    const today = new Date();
-    const mockConsultations: Consultation[] = [
-      {
-        id: "1",
-        clientName: "김철수",
-        clientRegion: "강남구",
-        scheduledTime: new Date(
-          today.getTime() + 24 * 60 * 60 * 1000
-        ).toISOString(), // 내일
-        status: "scheduled",
-        type: "video",
-        duration: 60,
-      },
-      {
-        id: "2",
-        clientName: "이영희",
-        clientRegion: "서초구",
-        scheduledTime: new Date(
-          today.getTime() + 2 * 24 * 60 * 60 * 1000
-        ).toISOString(), // 모레
-        status: "scheduled",
-        type: "phone",
-        duration: 30,
-      },
-      {
-        id: "3",
-        clientName: "박민수",
-        clientRegion: "송파구",
-        scheduledTime: new Date(
-          today.getTime() - 24 * 60 * 60 * 1000
-        ).toISOString(), // 어제
-        status: "completed",
-        type: "video",
-        duration: 45,
-        rating: 5,
-        notes: "포트폴리오 리밸런싱 상담 완료",
-      },
-      {
-        id: "today-1",
-        clientName: "오늘상담1",
-        clientRegion: "강남구",
-        scheduledTime: new Date(
-          today.getFullYear(),
-          today.getMonth(),
-          today.getDate(),
-          14,
-          0,
-          0
-        ).toISOString(), // 오늘 오후 2시
-        status: "scheduled",
-        type: "video",
-        duration: 60,
-        notes: "오늘 오후 2시 화상 상담",
-      },
-      {
-        id: "today-2",
-        clientName: "오늘상담2",
-        clientRegion: "서초구",
-        scheduledTime: new Date(
-          today.getFullYear(),
-          today.getMonth(),
-          today.getDate(),
-          16,
-          30,
-          0
-        ).toISOString(), // 오늘 오후 4시 30분
-        status: "scheduled",
-        type: "phone",
-        duration: 30,
-        notes: "오늘 오후 4시 30분 전화 상담",
-      },
-      {
-        id: "4",
-        clientName: "최지영",
-        clientRegion: "마포구",
-        scheduledTime: new Date(
-          today.getTime() + 3 * 24 * 60 * 60 * 1000
-        ).toISOString(), // 3일 후
-        status: "scheduled",
-        type: "chat",
-        duration: 20,
-      },
-      {
-        id: "5",
-        clientName: "정수현",
-        clientRegion: "영등포구",
-        scheduledTime: new Date(
-          today.getTime() + 4 * 24 * 60 * 60 * 1000
-        ).toISOString(), // 4일 후
-        status: "scheduled",
-        type: "video",
-        duration: 90,
-      },
-      {
-        id: "6",
-        clientName: "한미영",
-        clientRegion: "강동구",
-        scheduledTime: new Date(
-          today.getTime() + 5 * 24 * 60 * 60 * 1000
-        ).toISOString(), // 5일 후
-        status: "scheduled",
-        type: "phone",
-        duration: 40,
-      },
-      {
-        id: "7",
-        clientName: "윤태호",
-        clientRegion: "노원구",
-        scheduledTime: new Date(
-          today.getTime() + 6 * 24 * 60 * 60 * 1000
-        ).toISOString(), // 6일 후
-        status: "scheduled",
-        type: "video",
-        duration: 60,
-      },
-      {
-        id: "8",
-        clientName: "김서연",
-        clientRegion: "은평구",
-        scheduledTime: new Date(
-          today.getTime() + 7 * 24 * 60 * 60 * 1000
-        ).toISOString(), // 7일 후
-        status: "scheduled",
-        type: "chat",
-        duration: 25,
-      },
-    ];
+        // 중복 제거 (ID 기준)
+        const consultationsData: Consultation[] = allConsultations.filter((consultation, index, self) => 
+          index === self.findIndex(c => c.id === consultation.id)
+        );
 
-    // 모의 고객 데이터
-    const mockClients: Client[] = [
-      {
-        id: "1",
-        name: "김철수",
-        region: "강남구",
-        totalAssets: 50000000,
-        riskLevel: "보통",
-        lastConsultation: "2024-01-10",
-        nextScheduled: "2024-01-15",
-        portfolioScore: 75,
-      },
-      {
-        id: "2",
-        name: "이영희",
-        region: "서초구",
-        totalAssets: 30000000,
-        riskLevel: "낮음",
-        lastConsultation: "2024-01-08",
-        nextScheduled: "2024-01-15",
-        portfolioScore: 85,
-      },
-      {
-        id: "3",
-        name: "박민수",
-        region: "송파구",
-        totalAssets: 80000000,
-        riskLevel: "높음",
-        lastConsultation: "2024-01-14",
-        nextScheduled: "2024-01-20",
-        portfolioScore: 65,
-      },
-    ];
+        // 고객 데이터는 임시로 상담 데이터에서 추출 (실제로는 별도 API 필요)
+        const clientsData: Client[] = consultationsData
+          .filter((c, index, self) => 
+            index === self.findIndex(consultation => consultation.clientName === c.clientName)
+          )
+          .map((c, index) => ({
+            id: c.id,
+            name: c.clientName,
+            region: c.clientRegion,
+            totalAssets: 50000000 + (index * 10000000), // 임시 데이터
+            riskLevel: index % 3 === 0 ? "높음" : index % 3 === 1 ? "보통" : "낮음",
+            lastConsultation: new Date().toISOString().split('T')[0],
+            nextScheduled: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            portfolioScore: 70 + (index * 5)
+          }));
 
-    setConsultations(mockConsultations);
-    setClients(mockClients);
-    setLoading(false);
+        setConsultations(consultationsData);
+        setClients(clientsData);
+      } else {
+        console.error('대시보드 데이터 로드 실패:', data.message);
+        // 에러 시 빈 데이터로 설정
+        setConsultations([]);
+        setClients([]);
+      }
+    } catch (error) {
+      console.error('대시보드 데이터 로드 실패:', error);
+      // 네트워크 오류 시 빈 데이터로 설정
+      setConsultations([]);
+      setClients([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCalendarConsultations = async (startDate?: string, endDate?: string) => {
+    try {
+      let url = '/api/consultations/pb-calendar';
+      const params = new URLSearchParams();
+      
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // 캘린더용 상담 데이터 변환
+        const calendarConsultations: Consultation[] = data.data.map((consultation: any) => ({
+          id: consultation.id,
+          clientName: consultation.clientName,
+          clientRegion: consultation.clientRegion || "정보 없음",
+          scheduledTime: consultation.scheduledAt,
+          type: mapTypeToFrontend(consultation.consultationType),
+          duration: consultation.durationMinutes,
+          status: mapStatusToFrontend(consultation.status),
+          rating: consultation.clientRating,
+          notes: consultation.clientMessage
+        }));
+        
+        // 캘린더용 상담 데이터로 완전히 교체
+        setConsultations(calendarConsultations);
+      } else {
+        console.error('캘린더 상담 데이터 로드 실패:', data.message);
+      }
+    } catch (error) {
+      console.error('캘린더 상담 데이터 로드 실패:', error);
+    }
+  };
+
+  // 백엔드 상태를 프론트엔드 상태로 매핑
+  const mapStatusToFrontend = (backendStatus: string): "scheduled" | "in-progress" | "completed" | "cancelled" => {
+    switch (backendStatus) {
+      case "PENDING":
+      case "APPROVED":
+        return "scheduled";
+      case "IN_PROGRESS":
+        return "in-progress";
+      case "COMPLETED":
+        return "completed";
+      case "CANCELLED":
+      case "REJECTED":
+        return "cancelled";
+      default:
+        return "scheduled";
+    }
+  };
+
+  // 백엔드 상담 유형을 프론트엔드 유형으로 매핑
+  const mapTypeToFrontend = (backendType: string): "video" | "phone" | "chat" => {
+    switch (backendType) {
+      case "PORTFOLIO_ANALYSIS":
+      case "STOCK_CONSULTATION":
+      case "PRODUCT_CONSULTATION":
+        return "video";
+      case "GENERAL_CONSULTATION":
+        return "phone";
+      case "INSURANCE_CONSULTATION":
+      case "TAX_CONSULTATION":
+        return "chat";
+      default:
+        return "video";
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -311,12 +322,32 @@ export default function PBConsultationDashboard({
         <div className="flex gap-2">
           <Button
             className="bg-green-600 hover:bg-green-700 text-white"
-            onClick={() => {
+            onClick={async () => {
               const nextConsultation = consultations.find(
                 (c) => c.status === "scheduled"
               );
               if (nextConsultation && onStartConsultation) {
-                onStartConsultation(nextConsultation);
+                try {
+                  // 상담 시작 API 호출
+                  const response = await fetch(`/api/consultations/${nextConsultation.id}/start`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${accessToken}`,
+                      'Content-Type': 'application/json',
+                    },
+                  });
+                  
+                  const data = await response.json();
+                  if (data.success) {
+                    onStartConsultation(nextConsultation);
+                    // 대시보드 데이터 새로고침
+                    loadDashboardData();
+                  } else {
+                    console.error('상담 시작 실패:', data.message);
+                  }
+                } catch (error) {
+                  console.error('상담 시작 실패:', error);
+                }
               }
             }}
           >
@@ -484,12 +515,7 @@ export default function PBConsultationDashboard({
                         </div>
                         <div className="text-right">
                           <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {new Date(
-                              consultation.scheduledTime
-                            ).toLocaleTimeString("ko-KR", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                            {consultation.scheduledTime.split('T')[1]?.substring(0, 5) || '00:00'}
                           </div>
                           <Badge
                             className={getStatusColor(consultation.status)}
@@ -556,6 +582,10 @@ export default function PBConsultationDashboard({
               console.log("상담 이벤트 클릭:", event);
               // 상담 상세 정보 모달이나 페이지로 이동
             }}
+            onDateRangeChange={(startDate, endDate) => {
+              // 날짜 범위가 변경되면 해당 기간의 상담 데이터를 다시 로드
+              loadCalendarConsultations(startDate, endDate);
+            }}
           />
         </TabsContent>
 
@@ -598,12 +628,7 @@ export default function PBConsultationDashboard({
                           ).toLocaleDateString("ko-KR")}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(
-                            consultation.scheduledTime
-                          ).toLocaleTimeString("ko-KR", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {consultation.scheduledTime.split('T')[1]?.substring(0, 5) || '00:00'}
                         </div>
                         {consultation.rating && (
                           <div className="flex items-center gap-1 mt-1">
