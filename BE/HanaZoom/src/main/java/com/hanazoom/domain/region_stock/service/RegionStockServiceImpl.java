@@ -76,7 +76,7 @@ public class RegionStockServiceImpl implements RegionStockService {
                 if (lastCsvCacheUpdate == null || !lastCsvCacheUpdate.equals(today)) {
                         try {
                                 Resource resource = new ClassPathResource(
-                                        "data/region/recommended_stocks_by_region3.csv");
+                                        "data/region/recommended_stocks_by_region.csv");
                                 BufferedReader reader = new BufferedReader(
                                                 new InputStreamReader(resource.getInputStream(),
                                                                 StandardCharsets.UTF_8));
