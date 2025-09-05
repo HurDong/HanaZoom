@@ -320,33 +320,161 @@ export default function PBConsultationDashboard({
           </p>
         </div>
         <div className="flex gap-2">
+          {/* 상담 승인 버튼 */}
+          {consultations.some(c => c.status === "pending") && (
+            <Button
+              onClick={async () => {
+                const pendingConsultation = consultations.find(
+                  (c) => c.status === "pending"
+                );
+                if (pendingConsultation) {
+                  try {
+                    let currentToken = accessToken;
+
+                    // 토큰이 없으면 갱신 시도
+                    if (!currentToken) {
+                      try {
+                        const { refreshAccessToken } = await import('@/app/utils/auth');
+                        currentToken = await refreshAccessToken();
+                      } catch (refreshError) {
+                        console.error('토큰 갱신 실패:', refreshError);
+                        alert('인증이 필요합니다. 다시 로그인해주세요.');
+                        return;
+                      }
+                    }
+
+                    // 상담 승인 API 호출
+                    const response = await fetch(`/api/consultations/${pendingConsultation.id}/approve`, {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        consultationId: pendingConsultation.id,
+                        approved: true,
+                        pbMessage: "상담을 승인합니다."
+                      }),
+                    });
+
+                    if (response.ok) {
+                      const data = await response.json();
+                      if (data.success) {
+                        alert('상담이 승인되었습니다.');
+                        loadDashboardData();
+                      } else {
+                        console.error('상담 승인 실패:', data.message);
+                        alert('상담 승인에 실패했습니다: ' + data.message);
+                      }
+                    } else {
+                      const data = await response.json();
+                      console.error('상담 승인 실패:', data.message);
+                      alert('상담 승인에 실패했습니다: ' + data.message);
+                    }
+                  } catch (error) {
+                    console.error('상담 승인 실패:', error);
+                    alert('상담 승인 중 오류가 발생했습니다.');
+                  }
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white mr-2"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              상담 승인
+            </Button>
+          )}
+
           <Button
             className="bg-green-600 hover:bg-green-700 text-white"
+            disabled={!consultations.some((c) => c.status === "scheduled")}
             onClick={async () => {
               const nextConsultation = consultations.find(
                 (c) => c.status === "scheduled"
               );
-              if (nextConsultation && onStartConsultation) {
+              if (!nextConsultation) {
+                alert('시작 가능한 예약 상담이 없습니다. 상담을 승인하거나 예약을 확인해주세요.');
+                return;
+              }
+              if (onStartConsultation) {
                 try {
-                  // 상담 시작 API 호출
+                  let currentToken = accessToken;
+                  
+                  // 토큰이 없으면 갱신 시도
+                  if (!currentToken) {
+                    try {
+                      const { refreshAccessToken } = await import('@/app/utils/auth');
+                      currentToken = await refreshAccessToken();
+                    } catch (refreshError) {
+                      console.error('토큰 갱신 실패:', refreshError);
+                      alert('인증이 필요합니다. 다시 로그인해주세요.');
+                      return;
+                    }
+                  }
+                  
+                  // 상담 시작 API 호출 (가능 상태가 아니면 서버에서 거절될 수 있음)
                   const response = await fetch(`/api/consultations/${nextConsultation.id}/start`, {
                     method: 'POST',
                     headers: {
-                      'Authorization': `Bearer ${accessToken}`,
+                      'Authorization': `Bearer ${currentToken}`,
                       'Content-Type': 'application/json',
                     },
                   });
                   
-                  const data = await response.json();
-                  if (data.success) {
-                    onStartConsultation(nextConsultation);
-                    // 대시보드 데이터 새로고침
-                    loadDashboardData();
+                  // 403 오류 시 권한 없음 처리
+                  if (response.status === 403) {
+                    const data = await response.json();
+                    console.error('상담 시작 권한 없음:', data.message);
+                    alert('해당 상담을 시작할 권한이 없습니다: ' + (data.message || '권한이 없습니다'));
+                    return;
+                  }
+                  
+                  // 401 오류 시 토큰 갱신 후 재시도
+                  if (response.status === 401) {
+                    try {
+                      const { refreshAccessToken } = await import('@/app/utils/auth');
+                      const newToken = await refreshAccessToken();
+                      
+                      const retryResponse = await fetch(`/api/consultations/${nextConsultation.id}/start`, {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${newToken}`,
+                          'Content-Type': 'application/json',
+                        },
+                      });
+                      
+                      const retryData = await retryResponse.json();
+                      if (retryData.success) {
+                        onStartConsultation(nextConsultation);
+                        loadDashboardData();
+                      } else {
+                        console.error('상담 시작 실패:', retryData.message);
+                        alert('상담 시작에 실패했습니다: ' + retryData.message);
+                      }
+                    } catch (refreshError) {
+                      console.error('토큰 갱신 실패:', refreshError);
+                      alert('인증이 필요합니다. 다시 로그인해주세요.');
+                    }
                   } else {
-                    console.error('상담 시작 실패:', data.message);
+                    try {
+                      const data = await response.json();
+                      if (data.success) {
+                        onStartConsultation(nextConsultation);
+                        loadDashboardData();
+                      } else {
+                        console.error('상담 시작 실패:', data.message);
+                        alert('상담 시작에 실패했습니다: ' + data.message);
+                      }
+                    } catch (jsonError) {
+                      // JSON 파싱 실패 시 텍스트 응답 확인
+                      const textResponse = await response.text();
+                      console.error('상담 시작 실패 - JSON 파싱 오류:', jsonError);
+                      console.error('서버 응답:', textResponse);
+                      alert('상담 시작에 실패했습니다. 서버 응답: ' + textResponse);
+                    }
                   }
                 } catch (error) {
                   console.error('상담 시작 실패:', error);
+                  alert('상담 시작 중 오류가 발생했습니다.');
                 }
               }
             }}

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import PBConsultationDashboard from "@/components/pb/PBConsultationDashboard";
 import VideoConsultation from "@/components/pb/VideoConsultation";
 import Navbar from "@/app/components/Navbar";
 import { MouseFollower } from "@/components/mouse-follower";
 
 export default function PBAdminPage() {
+  const router = useRouter();
   const [currentView, setCurrentView] = useState<"dashboard" | "consultation">(
     "dashboard"
   );
@@ -19,9 +21,31 @@ export default function PBAdminPage() {
     setPbId("pb-001");
   }, []);
 
+  // 디버깅을 위한 상태 로깅
+  useEffect(() => {
+    console.log("현재 뷰:", currentView);
+    console.log("상담 데이터:", consultationData);
+  }, [currentView, consultationData]);
+
   const handleStartConsultation = (consultation: any) => {
-    setConsultationData(consultation);
-    setCurrentView("consultation");
+    console.log("상담 시작 요청:", consultation);
+    
+    // consultation 객체가 없거나 필요한 필드가 없는 경우 테스트용 데이터 사용
+    const consultationData = {
+      id: consultation?.id || "15103a9c-8427-4295-8dab-a02c50a47e38", // 유효한 UUID 형식
+      clientName: consultation?.clientName || "테스트 고객",
+      clientRegion: consultation?.clientRegion || "서울시 강남구",
+      pbName: "김영희 PB"
+    };
+    
+    console.log("화상상담 데이터:", consultationData);
+    // 실제 페이지 라우팅으로 화상방 진입
+    const qs = new URLSearchParams({
+      clientName: consultationData.clientName,
+      clientRegion: consultationData.clientRegion,
+      pbName: consultationData.pbName,
+    }).toString();
+    router.push(`/pb/room/${consultationData.id}?${qs}`);
   };
 
   const handleEndConsultation = () => {
@@ -69,17 +93,30 @@ export default function PBAdminPage() {
       {/* Main Content */}
       <main className="relative z-10 pt-16">
         {currentView === "dashboard" && pbId && (
-          <PBConsultationDashboard
-            pbId={pbId}
-            onStartConsultation={handleStartConsultation}
-          />
+          <div>
+            {/* 테스트용 버튼 */}
+            <div className="p-4 bg-yellow-100 border border-yellow-400 rounded-lg m-4">
+              <h3 className="text-lg font-semibold mb-2">테스트용 화상상담 시작</h3>
+              <button
+                onClick={() => handleStartConsultation(null)}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+              >
+                테스트 화상상담 시작
+              </button>
+            </div>
+            
+            <PBConsultationDashboard
+              pbId={pbId}
+              onStartConsultation={handleStartConsultation}
+            />
+          </div>
         )}
         {currentView === "consultation" && consultationData && (
           <VideoConsultation
             consultationId={consultationData.id}
             clientName={consultationData.clientName}
             clientRegion={consultationData.clientRegion}
-            pbName="김영희 PB"
+            pbName={consultationData.pbName}
             onEndConsultation={handleEndConsultation}
           />
         )}

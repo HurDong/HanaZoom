@@ -322,10 +322,16 @@ export default function ConsultationCalendar({
         <CardContent className="p-0">
           {/* 요일 헤더 */}
           <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
-            {dayNames.map((day) => (
+            {dayNames.map((day, index) => (
               <div
                 key={day}
-                className="p-2 text-center font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800"
+                className={`p-2 text-center font-semibold bg-gray-50 dark:bg-gray-800 ${
+                  index === 0 // 일요일
+                    ? "text-red-600 dark:text-red-400"
+                    : index === 6 // 토요일
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-gray-600 dark:text-gray-400"
+                }`}
               >
                 {day}
               </div>

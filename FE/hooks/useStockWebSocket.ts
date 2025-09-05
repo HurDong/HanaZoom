@@ -300,14 +300,15 @@ export function useStockWebSocket({
           error: errorMessage,
         }));
 
-        // 자동 재연결 시도
+        // 자동 재연결 시도 (더 빠른 재연결)
         if (autoReconnect && mountedRef.current) {
-          console.log(`🔄 ${reconnectInterval / 1000}초 후 재연결 시도...`);
+          console.log(`🔄 3초 후 재연결 시도...`);
           reconnectTimeoutRef.current = setTimeout(() => {
             if (mountedRef.current) {
+              console.log("🔄 재연결 시도 중...");
               connect();
             }
-          }, reconnectInterval);
+          }, 3000); // 3초로 단축
         }
       };
 
@@ -352,14 +353,15 @@ export function useStockWebSocket({
 
         subscribedCodesRef.current.clear();
 
-        // 자동 재연결
+        // 자동 재연결 (더 빠른 재연결)
         if (autoReconnect && mountedRef.current && !event.wasClean) {
-          console.log(`🔄 ${reconnectInterval / 1000}초 후 재연결 시도...`);
+          console.log(`🔄 3초 후 재연결 시도...`);
           reconnectTimeoutRef.current = setTimeout(() => {
             if (mountedRef.current) {
+              console.log("🔄 재연결 시도 중...");
               connect();
             }
-          }, reconnectInterval);
+          }, 3000); // 3초로 단축
         }
       };
     } catch (error) {
@@ -568,5 +570,14 @@ export function useStockWebSocket({
     hasStockData: (stockCode: string) => state.stockData.has(stockCode),
     getAllStockData: () => Array.from(state.stockData.values()),
     getStockDataMap: () => state.stockData,
+    
+    // 수동 재연결 함수 추가
+    reconnect: () => {
+      console.log("🔄 수동 재연결 시도...");
+      disconnect();
+      setTimeout(() => {
+        connect();
+      }, 1000);
+    },
   };
 }
