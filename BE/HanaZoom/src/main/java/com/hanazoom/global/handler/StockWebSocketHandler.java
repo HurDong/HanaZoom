@@ -717,9 +717,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                                 }
                             }
 
-                            // 거래량 데이터 디버깅 로그
-                            log.info("📊 거래량 데이터 브로드캐스트: 종목={}, 거래량={}, 타입={}", 
-                                stockCode, volume, volume != null ? volume.getClass().getSimpleName() : "null");
+                            // 거래량 데이터 디버깅 로그 제거 (너무 많이 찍힘)
                             
                             // 구독자들에게 브로드캐스트
                             broadcastToSubscribers(stockCode, stockData);

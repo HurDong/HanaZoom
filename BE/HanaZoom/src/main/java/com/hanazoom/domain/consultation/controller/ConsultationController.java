@@ -70,13 +70,37 @@ public class ConsultationController {
             @PathVariable String consultationId) {
         
         UUID pbId = getCurrentUserId();
-        log.info("상담 시작: pbId={}, consultationId={}", pbId, consultationId);
+        log.info("상담 시작 요청: pbId={}, consultationId={}", pbId, consultationId);
 
-        ConsultationResponseDto response = consultationService.startConsultation(
+        try {
+            // 상담 정보 조회하여 디버깅 정보 출력
+            var consultation = consultationService.getConsultationById(
                 UUID.fromString(consultationId), pbId);
-        
-        return ResponseEntity.ok(ApiResponse.success(response, "상담이 시작되었습니다"));
+            log.info("상담 정보 조회 성공: consultationId={}, pbId={}, clientId={}", 
+                consultationId, consultation.getPbId(), consultation.getClientId());
+            
+            ConsultationResponseDto response = consultationService.startConsultation(
+                    UUID.fromString(consultationId), pbId);
+            
+            return ResponseEntity.ok(ApiResponse.success(response, "상담이 시작되었습니다"));
+        } catch (IllegalArgumentException e) {
+            log.error("상담 시작 실패 - 권한 없음: pbId={}, consultationId={}, error={}", 
+                pbId, consultationId, e.getMessage());
+            return ResponseEntity.status(403).body(
+                ApiResponse.error("해당 상담을 시작할 권한이 없습니다: " + e.getMessage()));
+        } catch (IllegalStateException e) {
+            log.error("상담 시작 실패 - 상태 오류: pbId={}, consultationId={}, error={}", 
+                pbId, consultationId, e.getMessage());
+            return ResponseEntity.status(400).body(
+                ApiResponse.error("상담을 시작할 수 없습니다: " + e.getMessage()));
+        } catch (Exception e) {
+            log.error("상담 시작 실패: pbId={}, consultationId={}, error={}", 
+                pbId, consultationId, e.getMessage(), e);
+            return ResponseEntity.status(500).body(
+                ApiResponse.error("상담 시작에 실패했습니다: " + e.getMessage()));
+        }
     }
+
 
     /**
      * 상담 종료 (PB)
@@ -186,7 +210,6 @@ public class ConsultationController {
     @GetMapping("/pb-dashboard")
     public ResponseEntity<ApiResponse<PbDashboardDto>> getPbDashboard() {
         UUID pbId = getCurrentUserId();
-        log.info("PB 대시보드 조회: pbId={}", pbId);
 
         PbDashboardDto dashboard = consultationService.getPbDashboard(pbId);
         
@@ -228,12 +251,13 @@ public class ConsultationController {
     @GetMapping("/available-times")
     public ResponseEntity<ApiResponse<List<String>>> getAvailableTimes(
             @RequestParam String pbId,
-            @RequestParam String date) {
+            @RequestParam String date,
+            @RequestParam(defaultValue = "60") Integer durationMinutes) {
         
-        log.info("가능한 상담 시간 조회: pbId={}, date={}", pbId, date);
+        log.info("가능한 상담 시간 조회: pbId={}, date={}, durationMinutes={}", pbId, date, durationMinutes);
 
         try {
-            List<String> availableTimes = consultationService.getAvailableTimes(pbId, date);
+            List<String> availableTimes = consultationService.getAvailableTimes(pbId, date, durationMinutes);
             return ResponseEntity.ok(ApiResponse.success(availableTimes, "가능한 상담 시간을 조회했습니다"));
         } catch (Exception e) {
             log.error("가능한 상담 시간 조회 실패", e);
@@ -247,12 +271,13 @@ public class ConsultationController {
     @GetMapping("/time-slots")
     public ResponseEntity<ApiResponse<Map<String, Boolean>>> getTimeSlotsWithStatus(
             @RequestParam String pbId,
-            @RequestParam String date) {
+            @RequestParam String date,
+            @RequestParam(defaultValue = "60") Integer durationMinutes) {
         
         log.info("시간 슬롯 상태 조회: pbId={}, date={}", pbId, date);
 
         try {
-            Map<String, Boolean> timeSlotsStatus = consultationService.getTimeSlotsWithStatus(pbId, date);
+            Map<String, Boolean> timeSlotsStatus = consultationService.getTimeSlotsWithStatus(pbId, date, durationMinutes);
             return ResponseEntity.ok(ApiResponse.success(timeSlotsStatus, "시간 슬롯 상태를 조회했습니다"));
         } catch (Exception e) {
             log.error("시간 슬롯 상태 조회 실패", e);
@@ -318,10 +343,18 @@ public class ConsultationController {
     // Helper method to get current user ID
     private UUID getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof Member) {
-            Member member = (Member) authentication.getPrincipal();
-            return member.getId();
+        
+        if (authentication != null) {
+            if (authentication.getPrincipal() instanceof Member) {
+                Member member = (Member) authentication.getPrincipal();
+                return member.getId();
+            } else {
+                log.error("인증 주체가 Member 타입이 아님: {}", authentication.getPrincipal());
+            }
+        } else {
+            log.error("SecurityContext에서 인증 정보를 찾을 수 없음");
         }
+        
         throw new IllegalStateException("인증된 사용자 정보를 찾을 수 없습니다");
     }
 

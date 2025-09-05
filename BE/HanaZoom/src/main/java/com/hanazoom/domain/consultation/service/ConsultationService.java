@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -143,8 +144,12 @@ public class ConsultationService {
         }
 
         // 상태 확인
+        log.info("상담 상태 확인: status={}, isApproved={}, isPending={}, isCancelled={}, isCompleted={}", 
+            consultation.getStatus(), consultation.isApproved(), consultation.isPending(), 
+            consultation.isCancelled(), consultation.isCompleted());
+        
         if (!consultation.canBeStarted()) {
-            throw new IllegalStateException("상담을 시작할 수 없는 상태입니다");
+            throw new IllegalStateException("상담을 시작할 수 없는 상태입니다. 현재 상태: " + consultation.getStatus());
         }
 
         // 미팅 URL 생성 (실제로는 화상회의 서비스 연동)
@@ -156,6 +161,7 @@ public class ConsultationService {
 
         return convertToResponseDto(consultation);
     }
+
 
     /**
      * 상담 종료
@@ -394,7 +400,7 @@ public class ConsultationService {
     /**
      * 가능한 상담 시간 조회
      */
-    public List<String> getAvailableTimes(String pbId, String date) {
+    public List<String> getAvailableTimes(String pbId, String date, Integer durationMinutes) {
         log.info("가능한 상담 시간 조회: pbId={}, date={}", pbId, date);
 
         try {
@@ -409,20 +415,15 @@ public class ConsultationService {
             List<Consultation> existingConsultations = consultationRepository
                     .findBookedConsultationsByPbIdAndScheduledAtBetween(pbUuid, startOfDay, endOfDay);
 
-            // 기본 가능한 시간 목록
-            List<String> allTimeSlots = List.of(
-                    "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-                    "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
-                    "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
-                    "18:00", "18:30", "19:00", "19:30", "20:00"
-            );
+            // 상담 시간을 고려한 가능한 시간 슬롯 생성
+            List<String> allTimeSlots = generateAvailableTimeSlots(durationMinutes);
 
             // 예약된 시간을 제외한 가능한 시간 목록 생성
             List<String> availableTimes = allTimeSlots.stream()
                     .filter(timeSlot -> {
                         LocalDateTime slotDateTime = LocalDateTime.parse(date + "T" + timeSlot + ":00");
-                        // 기본 상담 시간을 60분으로 가정 (실제로는 상담 유형에 따라 다를 수 있음)
-                        LocalDateTime slotEndTime = slotDateTime.plusMinutes(60);
+                        // 상담 시간에 따른 종료 시간
+                        LocalDateTime slotEndTime = slotDateTime.plusMinutes(durationMinutes);
                         
                         return existingConsultations.stream()
                                 .noneMatch(consultation -> {
@@ -447,8 +448,8 @@ public class ConsultationService {
     /**
      * 모든 시간 슬롯과 예약 상태 조회 (예약된 시간 포함)
      */
-    public Map<String, Boolean> getTimeSlotsWithStatus(String pbId, String date) {
-        log.info("시간 슬롯 상태 조회: pbId={}, date={}", pbId, date);
+    public Map<String, Boolean> getTimeSlotsWithStatus(String pbId, String date, Integer durationMinutes) {
+        log.info("시간 슬롯 상태 조회: pbId={}, date={}, durationMinutes={}", pbId, date, durationMinutes);
 
         try {
             UUID pbUuid = UUID.fromString(pbId);
@@ -505,13 +506,8 @@ public class ConsultationService {
                         consultation.getStatus());
             }
 
-            // 모든 가능한 시간 슬롯
-            List<String> allTimeSlots = List.of(
-                    "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-                    "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
-                    "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
-                    "18:00", "18:30", "19:00", "19:30", "20:00"
-            );
+            // 상담 시간을 고려한 가능한 시간 슬롯 생성
+            List<String> allTimeSlots = generateAvailableTimeSlots(durationMinutes);
 
             // 수동 필터링된 상담을 사용하여 시간 슬롯 상태 계산
             List<Consultation> consultationsToCheck = manualFiltered.isEmpty() ? existingConsultations : manualFiltered;
@@ -521,10 +517,14 @@ public class ConsultationService {
             
             for (String timeSlot : allTimeSlots) {
                 LocalDateTime slotDateTime = LocalDateTime.parse(date + "T" + timeSlot + ":00");
-                LocalDateTime slotEndTime = slotDateTime.plusMinutes(60); // 기본 상담 시간 60분
+                LocalDateTime slotEndTime = slotDateTime.plusMinutes(durationMinutes); // 상담 시간에 따른 종료 시간
                 
-                boolean isAvailable = consultationsToCheck.stream()
-                        .noneMatch(consultation -> {
+                // 1. 상담 시간을 고려한 퇴근 시간 체크 (18시를 넘으면 비활성화)
+                boolean exceedsWorkingHours = slotEndTime.isAfter(LocalDateTime.parse(date + "T18:00:00"));
+                
+                // 2. 기존 예약과의 충돌 체크
+                boolean hasConflict = consultationsToCheck.stream()
+                        .anyMatch(consultation -> {
                             LocalDateTime consultationStart = consultation.getScheduledAt();
                             LocalDateTime consultationEnd = consultationStart.plusMinutes(consultation.getDurationMinutes());
                             
@@ -538,11 +538,18 @@ public class ConsultationService {
                             return hasOverlap;
                         });
                 
+                // 퇴근 시간 초과 또는 기존 예약과 충돌하면 비활성화
+                boolean isAvailable = !exceedsWorkingHours && !hasConflict;
+                
                 timeSlotsStatus.put(timeSlot, isAvailable);
                 
                 // 디버깅을 위한 로그
                 if (!isAvailable) {
-                    log.info("시간 슬롯 {} 예약 불가: 기존 상담과 충돌", timeSlot);
+                    if (exceedsWorkingHours) {
+                        log.info("시간 슬롯 {} 예약 불가: 퇴근 시간 초과 (종료시간: {})", timeSlot, slotEndTime);
+                    } else if (hasConflict) {
+                        log.info("시간 슬롯 {} 예약 불가: 기존 상담과 충돌", timeSlot);
+                    }
                 }
             }
 
@@ -628,5 +635,27 @@ public class ConsultationService {
                 .canBeStarted(consultation.canBeStarted())
                 .canBeEnded(consultation.canBeEnded())
                 .build();
+    }
+
+    /**
+     * 상담 시간을 고려한 시간 슬롯 생성 (모든 시간 슬롯 + 상태)
+     */
+    private List<String> generateAvailableTimeSlots(Integer durationMinutes) {
+        List<String> timeSlots = new ArrayList<>();
+        
+        // 9시부터 18시까지 30분 단위로 모든 시간 생성
+        for (int hour = 9; hour < 18; hour++) {
+            for (int minute = 0; minute < 60; minute += 30) {
+                String timeSlot = String.format("%02d:%02d", hour, minute);
+                timeSlots.add(timeSlot);
+            }
+        }
+        
+        // 시간 순서대로 정렬
+        timeSlots.sort(String::compareTo);
+        
+        log.info("생성된 시간 슬롯 (durationMinutes={}): {}", durationMinutes, timeSlots);
+        
+        return timeSlots;
     }
 }

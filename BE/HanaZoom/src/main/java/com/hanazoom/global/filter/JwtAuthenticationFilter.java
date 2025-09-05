@@ -35,11 +35,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(member,
                                 null, member.getAuthorities());
                         SecurityContextHolder.getContext().setAuthentication(authentication);
+                        // JWT 인증 성공 로그 제거 (너무 많이 찍힘)
+                    } else {
+                        System.out.println("JWT 토큰은 유효하지만 사용자 정보를 찾을 수 없음: " + memberId);
                     }
+                } else {
+                    System.out.println("JWT 토큰이 유효하지 않음");
                 }
             } catch (Exception e) {
-                // JWT 토큰 처리 중 오류 발생 시 로그 없이 처리
+                System.out.println("JWT 토큰 처리 중 오류 발생: " + e.getMessage());
             }
+        } else {
+            System.out.println("Authorization 헤더에서 토큰을 찾을 수 없음");
         }
 
         filterChain.doFilter(request, response);
