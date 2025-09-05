@@ -29,7 +29,8 @@ public class WebRTCSignalingController {
     private final ConsultationService consultationService;
     private final JwtUtil jwtUtil;
 
-    // 활성 상담 세션 관리
+    // 활성 상담 세션 관리 - 클라이언트별로 격리
+    // Key: "clientId:consultationId", Value: ConsultationSession
     private final Map<String, ConsultationSession> activeSessions = new ConcurrentHashMap<>();
 
     @MessageMapping("/consultation/{consultationId}/join")
@@ -39,15 +40,19 @@ public class WebRTCSignalingController {
             SimpMessageHeaderAccessor headerAccessor) {
         
         try {
+            // 클라이언트 ID 추출
+            String clientId = getClientId(headerAccessor);
+            
             // 인증된 사용자 정보 가져오기
             UUID userId = getCurrentUserId(headerAccessor);
             String userRole = getUserRole(consultationId, userId);
             
-            log.info("사용자 {}가 상담 {}에 참여 시도 (역할: {})", userId, consultationId, userRole);
+            log.info("클라이언트 {}에서 사용자 {}가 상담 {}에 참여 시도 (역할: {})", clientId, userId, consultationId, userRole);
             
-            // 상담 세션 생성 또는 참여
-            ConsultationSession session = activeSessions.computeIfAbsent(consultationId, 
-                id -> new ConsultationSession(id));
+            // 클라이언트별 상담 세션 생성 또는 참여
+            String sessionKey = clientId + ":" + consultationId;
+            ConsultationSession session = activeSessions.computeIfAbsent(sessionKey, 
+                key -> new ConsultationSession(consultationId, clientId));
             
             boolean isFirstParticipant = session.getParticipants().isEmpty();
             session.addParticipant(userId.toString(), userRole, headerAccessor.getSessionId());
@@ -127,8 +132,9 @@ public class WebRTCSignalingController {
             SimpMessageHeaderAccessor headerAccessor) {
         
         try {
+            String clientId = getClientId(headerAccessor);
             UUID userId = getCurrentUserId(headerAccessor);
-            log.info("상담 {}에서 사용자 {}가 offer 전송", consultationId, userId);
+            log.info("클라이언트 {}에서 상담 {}의 사용자 {}가 offer 전송", clientId, consultationId, userId);
             
             // 다른 참여자들에게 offer 전달
             OfferEvent event = OfferEvent.builder()
@@ -155,8 +161,9 @@ public class WebRTCSignalingController {
             SimpMessageHeaderAccessor headerAccessor) {
         
         try {
+            String clientId = getClientId(headerAccessor);
             UUID userId = getCurrentUserId(headerAccessor);
-            log.info("상담 {}에서 사용자 {}가 answer 전송", consultationId, userId);
+            log.info("클라이언트 {}에서 상담 {}의 사용자 {}가 answer 전송", clientId, consultationId, userId);
             
             // 다른 참여자들에게 answer 전달
             AnswerEvent event = AnswerEvent.builder()
@@ -183,8 +190,9 @@ public class WebRTCSignalingController {
             SimpMessageHeaderAccessor headerAccessor) {
         
         try {
+            String clientId = getClientId(headerAccessor);
             UUID userId = getCurrentUserId(headerAccessor);
-            log.info("상담 {}에서 사용자 {}가 ICE candidate 전송", consultationId, userId);
+            log.info("클라이언트 {}에서 상담 {}의 사용자 {}가 ICE candidate 전송", clientId, consultationId, userId);
             
             // 다른 참여자들에게 ICE candidate 전달
             IceCandidateEvent event = IceCandidateEvent.builder()
@@ -210,11 +218,13 @@ public class WebRTCSignalingController {
             SimpMessageHeaderAccessor headerAccessor) {
         
         try {
+            String clientId = getClientId(headerAccessor);
             UUID userId = getCurrentUserId(headerAccessor);
-            log.info("사용자 {}가 상담 {}에서 나감", userId, consultationId);
+            log.info("클라이언트 {}에서 사용자 {}가 상담 {}에서 나감", clientId, userId, consultationId);
             
-            // 세션에서 참여자 제거
-            ConsultationSession session = activeSessions.get(consultationId);
+            // 클라이언트별 세션에서 참여자 제거
+            String sessionKey = clientId + ":" + consultationId;
+            ConsultationSession session = activeSessions.get(sessionKey);
             if (session != null) {
                 Participant participant = session.getParticipants().get(userId.toString());
                 String userRole = participant != null ? participant.getRole() : null;
@@ -243,7 +253,7 @@ public class WebRTCSignalingController {
                 
                 // 세션이 비어있으면 제거
                 if (session.getParticipants().isEmpty()) {
-                    activeSessions.remove(consultationId);
+                    activeSessions.remove(sessionKey);
                 }
             }
             
@@ -259,8 +269,9 @@ public class WebRTCSignalingController {
             SimpMessageHeaderAccessor headerAccessor) {
         
         try {
+            String clientId = getClientId(headerAccessor);
             UUID userId = getCurrentUserId(headerAccessor);
-            log.info("상담 {}에서 사용자 {}가 채팅 메시지 전송", consultationId, userId);
+            log.info("클라이언트 {}에서 상담 {}의 사용자 {}가 채팅 메시지 전송", clientId, consultationId, userId);
             
             // 채팅 메시지 이벤트 생성
             ChatMessageEvent event = ChatMessageEvent.builder()
@@ -280,6 +291,22 @@ public class WebRTCSignalingController {
         } catch (Exception e) {
             log.error("채팅 메시지 전송 실패: {}", e.getMessage(), e);
         }
+    }
+
+    private String getClientId(SimpMessageHeaderAccessor headerAccessor) {
+        // WebSocket 세션 속성에서 클라이언트 ID 확인
+        if (headerAccessor != null) {
+            Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
+            if (sessionAttributes != null) {
+                String clientId = (String) sessionAttributes.get("CLIENT_ID");
+                if (clientId != null) {
+                    return clientId;
+                }
+            }
+        }
+        
+        // 클라이언트 ID가 없으면 기본값 반환 (기존 호환성)
+        return "default";
     }
 
     private UUID getCurrentUserId(SimpMessageHeaderAccessor headerAccessor) {
@@ -346,10 +373,12 @@ public class WebRTCSignalingController {
     // 내부 클래스들
     public static class ConsultationSession {
         private final String consultationId;
+        private final String clientId;
         private final Map<String, Participant> participants = new ConcurrentHashMap<>();
 
-        public ConsultationSession(String consultationId) {
+        public ConsultationSession(String consultationId, String clientId) {
             this.consultationId = consultationId;
+            this.clientId = clientId;
         }
 
         public void addParticipant(String userId, String role, String sessionId) {

@@ -30,12 +30,20 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // WebSocket 연결 엔드포인트
+        // WebSocket 연결 엔드포인트 - 클라이언트별 구분
+        registry.addEndpoint("/ws/consultation/{clientId}")
+                .setAllowedOriginPatterns("*")
+                .withSockJS();
+        
+        // 일반 WebSocket 엔드포인트 (SockJS 없이) - 클라이언트별 구분
+        registry.addEndpoint("/ws/consultation/{clientId}")
+                .setAllowedOriginPatterns("*");
+        
+        // 기존 호환성을 위한 엔드포인트 (deprecated)
         registry.addEndpoint("/ws/consultation")
                 .setAllowedOriginPatterns("*")
                 .withSockJS();
         
-        // 일반 WebSocket 엔드포인트 (SockJS 없이)
         registry.addEndpoint("/ws/consultation")
                 .setAllowedOriginPatterns("*");
     }

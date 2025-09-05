@@ -34,6 +34,10 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
             // 모든 헤더 로깅
             log.info("WebSocket CONNECT 헤더들: {}", accessor.toNativeHeaderMap());
             
+            // 클라이언트 ID 추출 (URL에서)
+            String clientId = extractClientIdFromDestination(accessor);
+            log.info("추출된 클라이언트 ID: {}", clientId);
+            
             String token = null;
             
             // 1. Authorization 헤더에서 토큰 확인
@@ -80,6 +84,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                             accessor.getSessionAttributes().put("SPRING_SECURITY_CONTEXT", SecurityContextHolder.getContext());
                             accessor.getSessionAttributes().put("USER_ID", memberId.toString());
                             accessor.getSessionAttributes().put("USER_EMAIL", member.getEmail());
+                            accessor.getSessionAttributes().put("CLIENT_ID", clientId);
                             
                             log.info("WebSocket 인증 성공: {} (ID: {})", member.getEmail(), memberId);
                         } else {
@@ -97,5 +102,23 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         }
         
         return message;
+    }
+    
+    private String extractClientIdFromDestination(StompHeaderAccessor accessor) {
+        // destination 헤더에서 클라이언트 ID 추출
+        List<String> destinations = accessor.getNativeHeader("destination");
+        if (destinations != null && !destinations.isEmpty()) {
+            String destination = destinations.get(0);
+            // /ws/consultation/{clientId} 형태에서 clientId 추출
+            if (destination != null && destination.contains("/ws/consultation/")) {
+                String[] parts = destination.split("/");
+                if (parts.length >= 4) {
+                    return parts[3]; // {clientId} 부분
+                }
+            }
+        }
+        
+        // destination에서 추출할 수 없으면 기본값 반환
+        return "default";
     }
 }

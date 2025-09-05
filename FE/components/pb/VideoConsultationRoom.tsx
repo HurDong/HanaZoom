@@ -19,12 +19,14 @@ import {
 } from 'lucide-react';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { cn } from '@/lib/utils';
+import { getCurrentClientId } from '@/lib/utils/clientId';
 
 interface VideoConsultationRoomProps {
   consultationId: string;
   clientName: string;
   clientRegion: string;
   pbName: string;
+  clientId?: string; // 클라이언트 ID 추가
   onEndConsultation: () => void;
 }
 
@@ -33,9 +35,19 @@ export default function VideoConsultationRoom({
   clientName,
   clientRegion,
   pbName,
+  clientId,
   onEndConsultation
 }: VideoConsultationRoomProps) {
-  console.log("VideoConsultationRoom 렌더링:", { consultationId, clientName, clientRegion, pbName });
+  // 클라이언트 ID가 제공되지 않으면 자동 생성
+  const actualClientId = clientId || getCurrentClientId();
+  
+  console.log("VideoConsultationRoom 렌더링:", { 
+    consultationId, 
+    clientName, 
+    clientRegion, 
+    pbName, 
+    clientId: actualClientId 
+  });
   
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
@@ -67,6 +79,7 @@ export default function VideoConsultationRoom({
     setMediaMode
   } = useWebRTC({
     consultationId,
+    clientId: actualClientId,
     onConnectionStateChange: (state) => {
       console.log('연결 상태 변경:', state);
     },

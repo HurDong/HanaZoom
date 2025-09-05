@@ -7,6 +7,7 @@ import { useAuthStore } from '@/app/utils/auth';
 
 interface WebRTCConfig {
   consultationId: string;
+  clientId?: string; // 클라이언트 ID 추가
   onConnectionStateChange?: (state: string) => void;
   onRemoteStream?: (stream: MediaStream) => void;
   onError?: (error: string) => void;
@@ -18,7 +19,7 @@ interface Participant {
   sessionId: string;
 }
 
-export function useWebRTC({ consultationId, onConnectionStateChange, onRemoteStream, onError }: WebRTCConfig) {
+export function useWebRTC({ consultationId, clientId = 'default', onConnectionStateChange, onRemoteStream, onError }: WebRTCConfig) {
   const { accessToken } = useAuthStore();
   
   // WebRTC 관련 refs
@@ -225,8 +226,8 @@ export function useWebRTC({ consultationId, onConnectionStateChange, onRemoteStr
       return;
     }
 
-    // 쿼리 파라미터로 토큰 전달 (SockJS 헤더 문제 해결)
-    const socket = new SockJS(`http://localhost:8080/ws/consultation?token=${encodeURIComponent(accessToken)}`);
+    // 클라이언트 ID를 포함한 WebSocket 연결
+    const socket = new SockJS(`http://localhost:8080/ws/consultation/${clientId}?token=${encodeURIComponent(accessToken)}`);
     const stompClient = new Client({
       webSocketFactory: () => socket,
       connectHeaders: {
@@ -265,7 +266,7 @@ export function useWebRTC({ consultationId, onConnectionStateChange, onRemoteStr
 
     stompClientRef.current = stompClient;
     stompClient.activate();
-  }, [accessToken, consultationId, onError]);
+  }, [accessToken, consultationId, clientId, onError]);
 
   // 이벤트 구독
   const subscribeToEvents = useCallback((client: Client) => {
