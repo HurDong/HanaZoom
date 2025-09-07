@@ -87,157 +87,111 @@ export default function PbRoomVideoConsultation({
   }, []); // 한 번만 실행
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 p-4">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* 헤더 */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-green-900 dark:text-green-100">
-              {isPb ? "PB 개별방 화상상담" : "화상상담 참여"}
-            </h1>
-            <p className="text-green-700 dark:text-green-300">
-              {isPb ? "PB 상담실" : "상담실"}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Badge
-              className={
-                connectionState === "connected"
-                  ? "bg-green-100 text-green-800 border-green-200"
-                  : connectionState === "offline"
-                  ? "bg-yellow-100 text-yellow-800 border-yellow-200"
-                  : "bg-red-100 text-red-800 border-red-200"
-              }
-            >
-              {connectionState === "offline"
-                ? "오프라인 모드"
-                : connectionState}
-            </Badge>
+    <div className="h-full flex flex-col">
+      {/* 메인 비디오 영역 */}
+      <div className="flex-1 relative bg-gray-900 rounded-lg m-2 md:m-4 overflow-hidden">
+        {/* 원격 비디오 */}
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className="w-full h-full object-cover"
+        />
+
+        {/* 로컬 비디오 (작은 화면) */}
+        <div className="absolute top-2 right-2 md:top-4 md:right-4 w-24 h-18 md:w-48 md:h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-green-500">
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+          />
+          {/* 로컬 비디오 오버레이 */}
+          <div className="absolute top-1 left-1 md:top-2 md:left-2 bg-black/50 text-white px-1 py-0.5 md:px-2 md:py-1 rounded text-xs">
+            {isPb ? pbName : "나"}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
-          {/* 메인 화상 영역 */}
-          <div className="space-y-4">
-            {/* 비디오 영역 */}
-            <Card className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border-green-200 dark:border-green-800">
-              <CardContent className="p-4">
-                <div className="relative aspect-video bg-gray-900 rounded-lg overflow-hidden">
-                  {/* 원격 비디오 */}
-                  <video
-                    ref={remoteVideoRef}
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
+        {/* 연결 상태 오버레이 */}
+        {!isConnected && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80">
+            <div className="text-center text-white">
+              <Video className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+              <p className="text-lg font-semibold mb-2">
+                {connectionState === "connecting"
+                  ? "연결 중..."
+                  : connectionState === "offline"
+                  ? "오프라인 모드"
+                  : "연결 대기 중"}
+              </p>
+              <p className="text-sm text-gray-300 max-w-md">
+                {connectionState === "offline"
+                  ? "오프라인 모드: 백엔드 서버가 실행되지 않아 로컬 비디오만 확인 가능합니다."
+                  : "고객이 초대 링크로 접속하면 화상상담이 시작됩니다"}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
-                  {/* 로컬 비디오 (작은 화면) */}
-                  <div className="absolute top-4 right-4 w-32 h-24 bg-gray-800 rounded-lg overflow-hidden">
-                    <video
-                      ref={localVideoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+      {/* 하단 컨트롤 바 */}
+      <div className="absolute bottom-2 md:bottom-4 left-1/2 transform -translate-x-1/2">
+        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-full p-2 md:p-4 shadow-xl border border-emerald-200/30 dark:border-emerald-700/30">
+          <div className="flex items-center gap-2 md:gap-4">
+            <button
+              onClick={toggleAudio}
+              className={`rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center transition-all duration-200 ${
+                isAudioEnabled
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg"
+                  : "bg-red-500 hover:bg-red-600 text-white shadow-lg"
+              }`}
+            >
+              {isAudioEnabled ? (
+                <Mic className="w-4 h-4 md:w-5 md:h-5" />
+              ) : (
+                <MicOff className="w-4 h-4 md:w-5 md:h-5" />
+              )}
+            </button>
 
-                  {/* 연결 상태 오버레이 */}
-                  {!isConnected && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80">
-                      <div className="text-center text-white">
-                        <Video className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                        <p className="text-lg font-semibold mb-2">
-                          {connectionState === "connecting"
-                            ? "연결 중..."
-                            : connectionState === "offline"
-                            ? "오프라인 모드"
-                            : "연결 대기 중"}
-                        </p>
-                        <p className="text-sm text-gray-300">
-                          {connectionState === "offline"
-                            ? "오프라인 모드: 백엔드 서버(Spring Boot)가 실행되지 않아 로컬 비디오만 확인 가능합니다. 실제 화상상담을 위해서는 백엔드 서버를 실행해주세요."
-                            : "고객이 초대 링크로 접속하면 화상상담이 시작됩니다"}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+            <button
+              onClick={toggleVideo}
+              className={`rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center transition-all duration-200 ${
+                isVideoEnabled
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg"
+                  : "bg-red-500 hover:bg-red-600 text-white shadow-lg"
+              }`}
+            >
+              {isVideoEnabled ? (
+                <Video className="w-4 h-4 md:w-5 md:h-5" />
+              ) : (
+                <VideoOff className="w-4 h-4 md:w-5 md:h-5" />
+              )}
+            </button>
 
-                {/* 컨트롤 버튼들 */}
-                <div className="flex justify-center gap-4 mt-4">
-                  <Button
-                    onClick={toggleAudio}
-                    variant={isAudioEnabled ? "default" : "destructive"}
-                    size="lg"
-                    className="rounded-full w-12 h-12"
-                  >
-                    {isAudioEnabled ? (
-                      <Mic className="w-6 h-6" />
-                    ) : (
-                      <MicOff className="w-6 h-6" />
-                    )}
-                  </Button>
+            <button
+              onClick={() => {
+                if (typeof window === "undefined" || !document) return;
+                if (!document.fullscreenElement) {
+                  document.documentElement.requestFullscreen();
+                } else {
+                  document.exitFullscreen();
+                }
+              }}
+              className="rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white shadow-lg transition-all duration-200"
+            >
+              <Monitor className="w-4 h-4 md:w-5 md:h-5" />
+            </button>
 
-                  <Button
-                    onClick={toggleVideo}
-                    variant={isVideoEnabled ? "default" : "destructive"}
-                    size="lg"
-                    className="rounded-full w-12 h-12"
-                  >
-                    {isVideoEnabled ? (
-                      <Video className="w-6 h-6" />
-                    ) : (
-                      <VideoOff className="w-6 h-6" />
-                    )}
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      if (typeof window === "undefined" || !document) return;
-                      if (!document.fullscreenElement) {
-                        document.documentElement.requestFullscreen();
-                      } else {
-                        document.exitFullscreen();
-                      }
-                    }}
-                    variant="outline"
-                    size="lg"
-                    className="rounded-full w-12 h-12"
-                  >
-                    <Monitor className="w-6 h-6" />
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      disconnect();
-                      onEndConsultation();
-                    }}
-                    variant="destructive"
-                    size="lg"
-                    className="rounded-full w-12 h-12"
-                  >
-                    <Phone className="w-6 h-6" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 채팅 영역 (간단한 형태) */}
-            <Card className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border-green-200 dark:border-green-800">
-              <CardHeader>
-                <CardTitle className="text-green-900 dark:text-green-100">
-                  채팅
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-32 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 overflow-y-auto">
-                  <p className="text-sm text-gray-500 text-center">
-                    채팅 기능은 추후 구현 예정입니다
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <button
+              onClick={() => {
+                disconnect();
+                onEndConsultation();
+              }}
+              className="rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white shadow-lg transition-all duration-200"
+            >
+              <Phone className="w-4 h-4 md:w-5 md:h-5" />
+            </button>
           </div>
         </div>
       </div>

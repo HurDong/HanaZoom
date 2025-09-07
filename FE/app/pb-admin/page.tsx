@@ -8,6 +8,7 @@ import { MouseFollower } from "@/components/mouse-follower";
 import { useAuthStore } from "@/app/utils/auth";
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
+import { getMyInfo } from "@/lib/api/members";
 
 export default function PBAdminPage() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function PBAdminPage() {
   const [pbId, setPbId] = useState<string>("");
   const [inviteUrl, setInviteUrl] = useState<string>("");
   const [isCopied, setIsCopied] = useState<boolean>(false);
+  const [userName, setUserName] = useState<string>("PB");
 
   // 실제로는 인증된 사용자의 PB ID를 가져와야 함
   useEffect(() => {
@@ -37,6 +39,24 @@ export default function PBAdminPage() {
       setPbId(validUuid);
     }
   }, [getCurrentUserId, accessToken]);
+
+  // 사용자 정보 가져오기
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      if (accessToken) {
+        try {
+          const userInfo = await getMyInfo();
+          setUserName(userInfo.name);
+          console.log("✅ 사용자 정보 가져오기 성공:", userInfo.name);
+        } catch (error) {
+          console.error("❌ 사용자 정보 가져오기 실패:", error);
+          setUserName("PB"); // 기본값으로 설정
+        }
+      }
+    };
+
+    fetchUserInfo();
+  }, [accessToken]);
 
   const handleStartConsultation = async (consultation: any) => {
     console.log("화상상담 시작 요청:", consultation);
@@ -63,7 +83,11 @@ export default function PBAdminPage() {
           console.log("초대 URL:", inviteUrl);
 
           // 고객용 초대 URL 생성 (기존 page.tsx 사용)
-          const customerInviteUrl = `${window.location.origin}/pb/room/${roomId}?type=pb-room&pbName=김영희 PB&userType=guest`;
+          const customerInviteUrl = `${
+            window.location.origin
+          }/pb/room/${roomId}?type=pb-room&pbName=${encodeURIComponent(
+            userName
+          )}&userType=guest`;
           setInviteUrl(customerInviteUrl);
 
           // 클립보드에 초대 URL 복사
@@ -77,7 +101,9 @@ export default function PBAdminPage() {
 
           // 화상상담방으로 이동 (기존 page.tsx 사용)
           router.push(
-            `/pb/room/${roomId}?type=pb-room&pbName=김영희 PB&userType=pb`
+            `/pb/room/${roomId}?type=pb-room&pbName=${encodeURIComponent(
+              userName
+            )}&userType=pb`
           );
         } else {
           console.error("화상상담 방 생성 실패:", data.message);

@@ -7,7 +7,8 @@ import PbRoomVideoConsultation from "@/components/pb/PbRoomVideoConsultation";
 import Navbar from "@/app/components/Navbar";
 import { useAuthStore } from "@/app/utils/auth";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Users, Settings, X } from "lucide-react";
+import { Copy, Check, Users, Settings, X, MessageSquare } from "lucide-react";
+import { getMyInfo } from "@/lib/api/members";
 
 export default function ConsultationRoomPage() {
   const params = useParams<{ consultationId: string }>();
@@ -18,7 +19,7 @@ export default function ConsultationRoomPage() {
   const originalConsultationId = params.consultationId;
   const clientName = sp.get("clientName") || "고객";
   const clientRegion = sp.get("clientRegion") || "지역 정보 없음";
-  const pbName = sp.get("pbName") || "PB";
+  const pbNameFromUrl = sp.get("pbName") || "PB";
   const roomType = sp.get("type"); // "pb-room" 또는 일반 상담
   const clientId = sp.get("clientId"); // 클라이언트 ID 파라미터
   const userType = sp.get("userType"); // "pb" 또는 "guest"
@@ -41,17 +42,37 @@ export default function ConsultationRoomPage() {
   const [inviteUrl, setInviteUrl] = useState("");
   const [isCopied, setIsCopied] = useState(false);
   const [isRoomOwner, setIsRoomOwner] = useState(false);
+  const [actualPbName, setActualPbName] = useState(pbNameFromUrl);
+  const [showChatPanel, setShowChatPanel] = useState(false);
+
+  // 사용자 정보 가져오기 (PB인 경우)
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      if (isPb && accessToken) {
+        try {
+          const userInfo = await getMyInfo();
+          setActualPbName(userInfo.name);
+          console.log("✅ PB 사용자 정보 가져오기 성공:", userInfo.name);
+        } catch (error) {
+          console.error("❌ PB 사용자 정보 가져오기 실패:", error);
+          setActualPbName(pbNameFromUrl); // URL에서 가져온 값으로 fallback
+        }
+      }
+    };
+
+    fetchUserInfo();
+  }, [isPb, accessToken, pbNameFromUrl]);
 
   // 초대 URL 생성
   useEffect(() => {
     if (isPbRoom && consultationId) {
       const baseUrl = window.location.origin;
       const inviteUrl = `${baseUrl}/pb/room/${consultationId}?type=pb-room&pbName=${encodeURIComponent(
-        pbName
+        actualPbName
       )}&userType=guest`;
       setInviteUrl(inviteUrl);
     }
-  }, [isPbRoom, consultationId, pbName]);
+  }, [isPbRoom, consultationId, actualPbName]);
 
   // PB가 방의 주인인지 확인
   useEffect(() => {
@@ -129,7 +150,7 @@ export default function ConsultationRoomPage() {
         setParticipants([
           {
             id: getCurrentUserId() || "pb-user",
-            name: pbName,
+            name: actualPbName,
             role: "PB",
             joinedAt: new Date().toLocaleTimeString(),
           },
@@ -141,7 +162,7 @@ export default function ConsultationRoomPage() {
     accessToken,
     isGuest,
     isRoomOwner,
-    pbName,
+    actualPbName,
     getCurrentUserId,
     handleGuestJoin,
     router,
@@ -223,22 +244,92 @@ export default function ConsultationRoomPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 overflow-hidden relative transition-colors duration-500">
-      <div className="fixed top-0 left-0 right-0 z-[100]">
-        <Navbar />
+    <div className="h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 overflow-hidden relative transition-colors duration-500">
+      {/* Navbar */}
+      <Navbar />
+
+      {/* 상단 헤더 - 회의방 정보 및 상태 */}
+      <div className="absolute top-16 left-0 right-0 z-[100] bg-gradient-to-r from-emerald-600/95 via-green-600/95 to-emerald-700/95 backdrop-blur-md border-b border-emerald-500/30 shadow-lg">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center space-x-2 md:space-x-4 min-w-0 flex-1">
+            <div className="flex items-center space-x-2 min-w-0">
+              <div className="w-3 h-3 bg-white/90 rounded-full animate-pulse flex-shrink-0 shadow-sm"></div>
+              <h1 className="text-sm md:text-lg font-semibold text-white truncate drop-shadow-sm">
+                {isPbRoom ? `${actualPbName}의 상담방` : "화상 상담"}
+              </h1>
+            </div>
+            <div className="hidden md:flex items-center space-x-4 text-sm text-white/90">
+              <span className="flex items-center space-x-1 bg-white/10 px-2 py-1 rounded-full backdrop-blur-sm">
+                <Users className="w-4 h-4" />
+                <span>{participants.length}명 참여</span>
+              </span>
+              <span className="flex items-center space-x-1 bg-white/10 px-2 py-1 rounded-full backdrop-blur-sm">
+                <div className="w-2 h-2 bg-white/90 rounded-full"></div>
+                <span>연결됨</span>
+              </span>
+            </div>
+          </div>
+
+          {/* 액션 버튼들 */}
+          <div className="flex items-center gap-2">
+            {/* 채팅 토글 버튼 */}
+            <button
+              onClick={() => setShowChatPanel(!showChatPanel)}
+              className={`relative w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2 backdrop-blur-sm rounded-full md:rounded-lg transition-all duration-200 flex items-center justify-center group ${
+                showChatPanel
+                  ? "bg-white/30 text-white"
+                  : "bg-white/20 hover:bg-white/30 text-white"
+              }`}
+            >
+              <MessageSquare className="w-4 h-4 md:mr-2 group-hover:scale-110 transition-transform duration-200" />
+              <span className="hidden md:inline font-medium">채팅</span>
+            </button>
+
+            {/* PB 관리 버튼 */}
+            {isRoomOwner && (
+              <button
+                onClick={() => setShowManagementPanel(!showManagementPanel)}
+                className={`relative w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2 backdrop-blur-sm rounded-full md:rounded-lg transition-all duration-200 flex items-center justify-center group ${
+                  showManagementPanel
+                    ? "bg-white/30 text-white"
+                    : "bg-white/20 hover:bg-white/30 text-white"
+                }`}
+              >
+                <Settings className="w-4 h-4 md:mr-2 group-hover:rotate-90 transition-transform duration-200" />
+                <span className="hidden md:inline font-medium">방 관리</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 모바일용 상태 정보 */}
+        <div className="md:hidden px-4 pb-2">
+          <div className="flex items-center space-x-4 text-xs text-white/90">
+            <span className="flex items-center space-x-1 bg-white/10 px-2 py-1 rounded-full backdrop-blur-sm">
+              <Users className="w-3 h-3" />
+              <span>{participants.length}명 참여</span>
+            </span>
+            <span className="flex items-center space-x-1 bg-white/10 px-2 py-1 rounded-full backdrop-blur-sm">
+              <div className="w-2 h-2 bg-white/90 rounded-full"></div>
+              <span>연결됨</span>
+            </span>
+          </div>
+        </div>
       </div>
-      <main className="relative z-10 pt-16">
-        <div className="flex h-screen">
+
+      {/* 메인 컨텐츠 영역 */}
+      <main className="h-full pt-32 md:pt-36">
+        <div className="flex h-full">
           {/* 메인 화상상담 영역 */}
           <div
             className={`flex-1 transition-all duration-300 ${
-              isRoomOwner && showManagementPanel ? "mr-80" : ""
-            }`}
+              showChatPanel ? "mr-0 md:mr-80" : ""
+            } ${isRoomOwner && showManagementPanel ? "mr-0 md:mr-80" : ""}`}
           >
             {isPbRoom ? (
               <PbRoomVideoConsultation
                 roomId={consultationId}
-                pbName={pbName}
+                pbName={actualPbName}
                 clientId={clientId || undefined}
                 userType={userType || "pb"}
                 isPb={isPb}
@@ -269,144 +360,184 @@ export default function ConsultationRoomPage() {
                 consultationId={consultationId}
                 clientName={clientName}
                 clientRegion={clientRegion}
-                pbName={pbName}
+                pbName={actualPbName}
                 clientId={clientId || undefined}
                 onEndConsultation={() => router.push("/pb-admin")}
               />
             )}
           </div>
 
-          {/* PB 관리 패널 (방의 주인일 때만 표시) */}
-          {isRoomOwner && (
-            <>
-              {/* 관리 패널 토글 버튼 */}
-              <div className="fixed top-20 right-4 z-50">
-                <Button
-                  onClick={() => setShowManagementPanel(!showManagementPanel)}
-                  className="bg-green-600 hover:bg-green-700 text-white shadow-lg"
-                  size="sm"
-                >
-                  <Settings className="w-4 h-4 mr-2" />방 관리
-                </Button>
+          {/* 채팅 패널 */}
+          <div
+            className={`fixed top-32 md:top-36 right-0 h-[calc(100vh-8rem)] md:h-[calc(100vh-9rem)] w-full md:w-80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-2xl transform transition-transform duration-300 z-40 border-l border-emerald-200/30 dark:border-emerald-700/30 ${
+              showChatPanel ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            <div className="p-4 md:p-6 h-full flex flex-col">
+              {/* 채팅 헤더 */}
+              <div className="mb-4 md:mb-6">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">
+                  채팅
+                </h2>
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  실시간 메시지 공유
+                </p>
               </div>
 
-              {/* 관리 패널 사이드바 */}
-              <div
-                className={`fixed top-0 right-0 h-full w-80 bg-white dark:bg-gray-900 shadow-2xl transform transition-transform duration-300 z-40 ${
-                  showManagementPanel ? "translate-x-0" : "translate-x-full"
-                }`}
-              >
-                <div className="p-6 h-full flex flex-col">
-                  {/* 헤더 */}
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                      방 관리
-                    </h2>
-                    <Button
-                      onClick={() => setShowManagementPanel(false)}
-                      variant="ghost"
-                      size="sm"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  {/* 초대 링크 섹션 */}
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
-                      <Users className="w-5 h-5 mr-2" />
-                      고객 초대
-                    </h3>
-                    <div className="space-y-3">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        아래 링크를 고객에게 공유하세요
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={inviteUrl}
-                          readOnly
-                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-800 text-sm font-mono"
+              {/* 채팅 메시지 영역 */}
+              <div className="flex-1 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 mb-4 overflow-y-auto">
+                <div className="space-y-3">
+                  <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                    <div className="w-12 h-12 mx-auto mb-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
+                      <svg
+                        className="w-6 h-6 text-emerald-600 dark:text-emerald-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                         />
-                        <Button
-                          onClick={handleCopyInviteUrl}
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          {isCopied ? (
-                            <Check className="w-4 h-4" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </div>
-                      {isCopied && (
-                        <p className="text-xs text-green-600 dark:text-green-400">
-                          클립보드에 복사되었습니다!
-                        </p>
-                      )}
+                      </svg>
                     </div>
-                  </div>
-
-                  {/* 참여자 목록 섹션 */}
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                      참여자 ({participants.length}명)
-                    </h3>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {participants.map((participant) => (
-                        <div
-                          key={participant.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                                participant.role === "PB"
-                                  ? "bg-green-500 text-white"
-                                  : "bg-blue-500 text-white"
-                              }`}
-                            >
-                              {participant.role === "PB" ? "PB" : "G"}
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">
-                                {participant.name}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {participant.role} • {participant.joinedAt}
-                              </p>
-                            </div>
-                          </div>
-                          {participant.role !== "PB" && (
-                            <Button
-                              onClick={() =>
-                                handleKickParticipant(participant.id)
-                              }
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900 transition-colors"
-                              title="강제 퇴장"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 방 정보 */}
-                  <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      <p>방 ID: {consultationId}</p>
-                      <p>방 유형: PB 개별방</p>
-                      <p>최대 참여자: 2명</p>
-                    </div>
+                    <p className="text-sm">아직 메시지가 없습니다.</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      채팅을 시작해보세요!
+                    </p>
                   </div>
                 </div>
               </div>
-            </>
+
+              {/* 채팅 입력 영역 */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="메시지를 입력하세요..."
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+                />
+                <button className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors duration-200 text-sm font-medium whitespace-nowrap">
+                  전송
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* PB 관리 패널 (방의 주인일 때만 표시) */}
+          {isRoomOwner && (
+            <div
+              className={`fixed top-32 md:top-36 right-0 h-[calc(100vh-8rem)] md:h-[calc(100vh-9rem)] w-full md:w-80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-2xl transform transition-transform duration-300 z-50 border-l border-emerald-200/30 dark:border-emerald-700/30 ${
+                showManagementPanel ? "translate-x-0" : "translate-x-full"
+              }`}
+            >
+              <div className="p-4 md:p-6 h-full flex flex-col">
+                {/* 헤더 */}
+                <div className="mb-4 md:mb-6">
+                  <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">
+                    방 관리
+                  </h2>
+                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    고객 초대 및 참여자 관리
+                  </p>
+                </div>
+
+                {/* 초대 링크 섹션 */}
+                <div className="mb-4 md:mb-6">
+                  <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white mb-2 md:mb-3 flex items-center">
+                    <Users className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+                    고객 초대
+                  </h3>
+                  <div className="space-y-2 md:space-y-3">
+                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                      아래 링크를 고객에게 공유하세요
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={inviteUrl}
+                        readOnly
+                        className="flex-1 px-2 md:px-3 py-1.5 md:py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-800 text-xs md:text-sm font-mono"
+                      />
+                      <Button
+                        onClick={handleCopyInviteUrl}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white px-2 md:px-3"
+                      >
+                        {isCopied ? (
+                          <Check className="w-3 h-3 md:w-4 md:h-4" />
+                        ) : (
+                          <Copy className="w-3 h-3 md:w-4 md:h-4" />
+                        )}
+                      </Button>
+                    </div>
+                    {isCopied && (
+                      <p className="text-xs text-green-600 dark:text-green-400">
+                        클립보드에 복사되었습니다!
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 참여자 목록 섹션 */}
+                <div className="flex-1">
+                  <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white mb-2 md:mb-3">
+                    참여자 ({participants.length}명)
+                  </h3>
+                  <div className="space-y-2 max-h-48 md:max-h-64 overflow-y-auto">
+                    {participants.map((participant) => (
+                      <div
+                        key={participant.id}
+                        className="flex items-center justify-between p-2 md:p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                      >
+                        <div className="flex items-center space-x-2 md:space-x-3">
+                          <div
+                            className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                              participant.role === "PB"
+                                ? "bg-green-500 text-white"
+                                : "bg-blue-500 text-white"
+                            }`}
+                          >
+                            {participant.role === "PB" ? "PB" : "G"}
+                          </div>
+                          <div>
+                            <p className="text-sm md:text-base font-medium text-gray-900 dark:text-white">
+                              {participant.name}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {participant.role} • {participant.joinedAt}
+                            </p>
+                          </div>
+                        </div>
+                        {participant.role !== "PB" && (
+                          <Button
+                            onClick={() =>
+                              handleKickParticipant(participant.id)
+                            }
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900 transition-colors p-1 md:p-2"
+                            title="강제 퇴장"
+                          >
+                            <X className="w-3 h-3 md:w-4 md:h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 방 정보 */}
+                <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                    <p>방 ID: {consultationId}</p>
+                    <p>방 유형: PB 개별방</p>
+                    <p>최대 참여자: 2명</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </main>

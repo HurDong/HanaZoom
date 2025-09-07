@@ -210,276 +210,153 @@ export default function VideoConsultationRoom({
   };
 
   return (
-    <div
-      className={cn(
-        "min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 transition-colors duration-500",
-        isFullscreen && "fixed inset-0 z-50"
-      )}
-    >
-      {/* 헤더 */}
-      <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-green-200 dark:border-green-800 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-green-900 dark:text-green-100">
-                {mediaMode === "text"
-                  ? "텍스트 상담"
-                  : mediaMode === "audio"
-                  ? "음성 상담"
-                  : "화상 상담"}
-              </h1>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {clientName} ({clientRegion})
-                </span>
-                <Badge className={getConnectionBadgeColor(connectionState)}>
-                  {getConnectionStateText(connectionState)}
-                </Badge>
-              </div>
+    <div className="h-full flex flex-col">
+      {/* 메인 비디오 영역 */}
+      <div className="flex-1 relative bg-gray-900 rounded-lg m-2 md:m-4 overflow-hidden">
+        {mediaMode === "text" ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="text-center text-white">
+              <div className="text-6xl mb-4">💬</div>
+              <h3 className="text-xl font-semibold mb-2">텍스트 채팅 모드</h3>
+              <p className="text-gray-300">
+                카메라/마이크 없이 텍스트로 상담을 진행합니다
+              </p>
+              <Button
+                onClick={async () => {
+                  const success = await requestPermissions();
+                  if (success) {
+                    await startConnection();
+                  } else {
+                    setShowPermissionGuide(true);
+                  }
+                }}
+                size="sm"
+                className="mt-4 bg-green-600 hover:bg-green-700 text-white"
+              >
+                카메라 권한 요청
+              </Button>
             </div>
           </div>
+        ) : (
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover"
+          />
+        )}
 
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Users className="w-3 h-3" />
-              {participants.length}명 참여
-            </Badge>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowChat(!showChat)}
-              className="flex items-center gap-2"
-            >
-              <MessageSquare className="w-4 h-4" />
-              채팅
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleFullscreen}
-              className="flex items-center gap-2"
-            >
-              {isFullscreen ? (
-                <Minimize2 className="w-4 h-4" />
-              ) : (
-                <Maximize2 className="w-4 h-4" />
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* 메인 콘텐츠 */}
-      <div className="flex h-[calc(100vh-80px)]">
-        {/* 비디오 영역 */}
-        <div className="flex-1 flex flex-col">
-          {/* 원격 비디오 */}
-          <div className="flex-1 relative bg-gray-900 rounded-lg m-4 overflow-hidden">
-            {mediaMode === "text" ? (
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="text-center text-white">
-                  <div className="text-6xl mb-4">💬</div>
-                  <h3 className="text-xl font-semibold mb-2">
-                    텍스트 채팅 모드
-                  </h3>
-                  <p className="text-gray-300">
-                    카메라/마이크 없이 텍스트로 상담을 진행합니다
-                  </p>
-                  <Button
-                    onClick={async () => {
-                      const success = await requestPermissions();
-                      if (success) {
-                        await startConnection();
-                      } else {
-                        setShowPermissionGuide(true);
-                      }
-                    }}
-                    size="sm"
-                    className="mt-4 bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    카메라 권한 요청
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
-            )}
-
-            {/* 원격 비디오 오버레이 */}
-            <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
-              {clientName}
-            </div>
-
-            {/* 연결 상태 오버레이 */}
-            {!isConnected && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80">
-                <div className="text-center text-white">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                  <p className="text-lg font-medium">
-                    {connectionState === "connecting"
-                      ? "연결 중..."
-                      : connectionState === "offline"
-                      ? "오프라인 모드"
-                      : "연결 대기 중"}
-                  </p>
-                  <p className="text-sm opacity-75">
-                    {connectionState === "offline"
-                      ? "로컬 비디오만 확인 가능합니다"
-                      : "잠시만 기다려주세요"}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 로컬 비디오 */}
-          <div className="absolute bottom-4 right-4 w-64 h-48 bg-gray-900 rounded-lg overflow-hidden border-2 border-green-500">
-            {mediaMode === "text" ? (
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="text-center text-white">
-                  <div className="text-2xl mb-2">📝</div>
-                  <p className="text-xs">텍스트 모드</p>
-                </div>
-              </div>
-            ) : (
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
-            )}
-
-            {/* 로컬 비디오 오버레이 */}
-            <div className="absolute top-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
-              {pbName}
-            </div>
-
-            {/* 비디오/오디오 상태 표시 */}
-            <div className="absolute bottom-2 right-2 flex gap-1">
-              {!isVideoEnabled && (
-                <div className="bg-red-500 text-white p-1 rounded">
-                  <VideoOff className="w-3 h-3" />
-                </div>
-              )}
-              {!isAudioEnabled && (
-                <div className="bg-red-500 text-white p-1 rounded">
-                  <MicOff className="w-3 h-3" />
-                </div>
-              )}
-            </div>
-          </div>
+        {/* 원격 비디오 오버레이 */}
+        <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+          {clientName}
         </div>
 
-        {/* 채팅 사이드바 */}
-        {showChat && (
-          <div className="w-80 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-l border-green-200 dark:border-green-800">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                채팅
-              </h3>
-            </div>
-            <div className="flex-1 p-4 space-y-3 overflow-y-auto">
-              {chatMessages.map((message) => (
-                <div key={message.id} className="flex flex-col">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {message.sender}
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {message.timestamp.toLocaleTimeString()}
-                    </span>
-                  </div>
-                  <div className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg">
-                    <p className="text-sm text-gray-900 dark:text-gray-100">
-                      {message.message}
-                    </p>
-                  </div>
-                </div>
-              ))}
-              {chatMessages.length === 0 && (
-                <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">아직 메시지가 없습니다.</p>
-                </div>
-              )}
-            </div>
-
-            {/* 채팅 입력 */}
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="메시지를 입력하세요..."
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  disabled={!isConnected}
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || !isConnected}
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  전송
-                </Button>
-              </div>
+        {/* 연결 상태 오버레이 */}
+        {!isConnected && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80">
+            <div className="text-center text-white">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+              <p className="text-lg font-medium">
+                {connectionState === "connecting"
+                  ? "연결 중..."
+                  : connectionState === "offline"
+                  ? "오프라인 모드"
+                  : "연결 대기 중"}
+              </p>
+              <p className="text-sm opacity-75">
+                {connectionState === "offline"
+                  ? "로컬 비디오만 확인 가능합니다"
+                  : "잠시만 기다려주세요"}
+              </p>
             </div>
           </div>
         )}
+
+        {/* 로컬 비디오 */}
+        <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-24 h-18 md:w-48 md:h-36 bg-gray-900 rounded-lg overflow-hidden border-2 border-green-500">
+          {mediaMode === "text" ? (
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="text-center text-white">
+                <div className="text-2xl mb-2">📝</div>
+                <p className="text-xs">텍스트 모드</p>
+              </div>
+            </div>
+          ) : (
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+            />
+          )}
+
+          {/* 로컬 비디오 오버레이 */}
+          <div className="absolute top-1 left-1 md:top-2 md:left-2 bg-black/50 text-white px-1 py-0.5 md:px-2 md:py-1 rounded text-xs">
+            {pbName}
+          </div>
+
+          {/* 비디오/오디오 상태 표시 */}
+          <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2 flex gap-1">
+            {!isVideoEnabled && (
+              <div className="bg-red-500 text-white p-0.5 md:p-1 rounded">
+                <VideoOff className="w-2 h-2 md:w-3 md:h-3" />
+              </div>
+            )}
+            {!isAudioEnabled && (
+              <div className="bg-red-500 text-white p-0.5 md:p-1 rounded">
+                <MicOff className="w-2 h-2 md:w-3 md:h-3" />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* 컨트롤 바 */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-        <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-full p-4 shadow-lg border border-green-200 dark:border-green-800">
-          <div className="flex items-center gap-4">
+      {/* 하단 컨트롤 바 */}
+      <div className="absolute bottom-2 md:bottom-4 left-1/2 transform -translate-x-1/2">
+        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-full p-2 md:p-4 shadow-xl border border-emerald-200/30 dark:border-emerald-700/30">
+          <div className="flex items-center gap-2 md:gap-4">
             {/* 비디오 토글 - 텍스트 모드에서는 비활성화 */}
             {mediaMode !== "text" && (
-              <Button
-                variant={isVideoEnabled ? "default" : "destructive"}
-                size="sm"
+              <button
                 onClick={toggleVideo}
-                className="rounded-full w-12 h-12"
+                className={`rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center transition-all duration-200 ${
+                  isVideoEnabled
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg"
+                    : "bg-red-500 hover:bg-red-600 text-white shadow-lg"
+                }`}
               >
                 {isVideoEnabled ? (
-                  <Video className="w-5 h-5" />
+                  <Video className="w-4 h-4 md:w-5 md:h-5" />
                 ) : (
-                  <VideoOff className="w-5 h-5" />
+                  <VideoOff className="w-4 h-4 md:w-5 md:h-5" />
                 )}
-              </Button>
+              </button>
             )}
 
             {/* 오디오 토글 - 텍스트 모드에서는 비활성화 */}
             {mediaMode !== "text" && (
-              <Button
-                variant={isAudioEnabled ? "default" : "destructive"}
-                size="sm"
+              <button
                 onClick={toggleAudio}
-                className="rounded-full w-12 h-12"
+                className={`rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center transition-all duration-200 ${
+                  isAudioEnabled
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg"
+                    : "bg-red-500 hover:bg-red-600 text-white shadow-lg"
+                }`}
               >
                 {isAudioEnabled ? (
-                  <Mic className="w-5 h-5" />
+                  <Mic className="w-4 h-4 md:w-5 md:h-5" />
                 ) : (
-                  <MicOff className="w-5 h-5" />
+                  <MicOff className="w-4 h-4 md:w-5 md:h-5" />
                 )}
-              </Button>
+              </button>
             )}
 
             {/* 텍스트 모드 표시 */}
             {mediaMode === "text" && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900 rounded-full">
-                <MessageSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+              <div className="flex items-center gap-2 px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-full border border-emerald-200 dark:border-emerald-700">
+                <MessageSquare className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
                   텍스트 채팅 모드
                 </span>
               </div>
@@ -487,24 +364,22 @@ export default function VideoConsultationRoom({
 
             {/* 통화 시작 */}
             {!isConnected && (
-              <Button
+              <button
                 onClick={initiateCall}
                 disabled={isConnecting}
-                className="rounded-full w-12 h-12 bg-green-600 hover:bg-green-700"
+                className="rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white shadow-lg transition-all duration-200"
               >
-                <Phone className="w-5 h-5" />
-              </Button>
+                <Phone className="w-4 h-4 md:w-5 md:h-5" />
+              </button>
             )}
 
             {/* 상담 종료 */}
-            <Button
-              variant="destructive"
-              size="sm"
+            <button
               onClick={handleEndConsultation}
-              className="rounded-full w-12 h-12"
+              className="rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white shadow-lg transition-all duration-200"
             >
-              <PhoneOff className="w-5 h-5" />
-            </Button>
+              <PhoneOff className="w-4 h-4 md:w-5 md:h-5" />
+            </button>
           </div>
         </div>
       </div>
