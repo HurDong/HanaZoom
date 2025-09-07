@@ -18,11 +18,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         @Override
         public void configureMessageBroker(MessageBrokerRegistry config) {
-                // PB 방용 메시지 브로커 설정 (단순화)
+                // PB 방용 메시지 브로커 설정 (WebRTC + 채팅)
                 config.enableSimpleBroker("/topic/pb-room", "/queue/pb-room");
 
                 // 클라이언트가 메시지를 보낼 때 사용할 destination prefix
-                config.setApplicationDestinationPrefixes("/app/webrtc");
+                config.setApplicationDestinationPrefixes("/app/webrtc", "/app/chat");
 
                 // 특정 사용자에게 메시지를 보낼 때 사용할 prefix
                 config.setUserDestinationPrefix("/user/pb-room");

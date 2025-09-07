@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -73,16 +74,19 @@ public class PbRoomWebRTCService {
         log.info("참여자 추가: roomId={}, memberId={}, role={}", room.getId(), member.getId(), role);
 
         // 이미 참여 중인지 확인
-        if (participantRepository.existsByRoomIdAndMemberIdAndIsActiveTrue(room.getId(), member.getId())) {
-            throw new IllegalStateException("이미 참여 중입니다");
+        Optional<PbRoomParticipant> existingParticipant = participantRepository
+                .findByRoomIdAndMemberIdAndIsActiveTrue(room.getId(), member.getId());
+
+        if (existingParticipant.isPresent()) {
+            log.info("이미 참여 중인 사용자, 기존 참여자 정보 반환: {}", existingParticipant.get().getId());
+            return existingParticipant.get();
         }
 
-        PbRoomParticipant participant = PbRoomParticipant.builder()
-                .room(room)
-                .member(member)
-                .role(role)
-                .clientSessionId(UUID.randomUUID().toString())
-                .build();
+        PbRoomParticipant participant = new PbRoomParticipant(
+                room,
+                member,
+                role,
+                UUID.randomUUID().toString());
 
         return participantRepository.save(participant);
     }

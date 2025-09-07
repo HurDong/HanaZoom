@@ -327,6 +327,40 @@ public class PbRoomWebRTCController {
         }
     }
 
+    /**
+     * 채팅 메시지 전송 처리
+     */
+    @MessageMapping("/chat/{roomId}/send")
+    public void handleChatMessage(
+            @DestinationVariable UUID roomId,
+            @Payload Map<String, Object> messageData,
+            SimpMessageHeaderAccessor headerAccessor) {
+
+        try {
+            UUID fromUserId = getCurrentUserId(headerAccessor);
+            String message = (String) messageData.get("message");
+            String senderName = (String) messageData.get("senderName");
+            String userType = (String) messageData.get("userType");
+
+            log.info("방 {}에서 사용자 {} ({})가 채팅 메시지 전송: {}", roomId, fromUserId, senderName, message);
+
+            // 모든 참여자들에게 채팅 메시지 전달
+            messagingTemplate.convertAndSend(
+                    "/topic/pb-room/" + roomId + "/chat",
+                    Map.of(
+                            "type", "chat-message",
+                            "messageId", UUID.randomUUID().toString(),
+                            "message", message,
+                            "senderId", fromUserId,
+                            "senderName", senderName,
+                            "userType", userType,
+                            "timestamp", System.currentTimeMillis()));
+
+        } catch (Exception e) {
+            log.error("채팅 메시지 전송 실패", e);
+        }
+    }
+
     private UUID getCurrentUserId(SimpMessageHeaderAccessor headerAccessor) {
         // 1. SecurityContext에서 사용자 정보 확인
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
