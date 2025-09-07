@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useParams, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import VideoConsultation from "@/components/pb/VideoConsultation";
 import PbRoomVideoConsultation from "@/components/pb/PbRoomVideoConsultation";
 import Navbar from "@/app/components/Navbar";
@@ -62,20 +62,90 @@ export default function ConsultationRoomPage() {
     }
   }, [isPb, accessToken, userType]);
 
-  // 참여자 목록 가져오기 (실제로는 WebSocket이나 API를 통해 실시간 업데이트)
-  useEffect(() => {
-    if (isRoomOwner && consultationId) {
-      // 초기 참여자 목록 설정 (PB 포함)
-      setParticipants([
-        {
-          id: getCurrentUserId() || "pb-user",
-          name: pbName,
-          role: "PB",
-          joinedAt: new Date().toLocaleTimeString(),
-        },
-      ]);
+  // 고객 입장 처리
+  const handleGuestJoin = useCallback(async () => {
+    try {
+      console.log("🎯 고객 입장 처리 시작:", consultationId);
+      console.log("🔑 Access Token:", accessToken ? "있음" : "없음");
+
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+
+      // accessToken이 있는 경우에만 Authorization 헤더 추가
+      if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+      }
+
+      const response = await fetch(`/api/pb-rooms/${consultationId}/join`, {
+        method: "POST",
+        headers,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          console.log("✅ 고객 입장 성공:", data);
+        } else {
+          console.error("❌ 고객 입장 실패:", data.error);
+        }
+      } else {
+        const errorData = await response.json();
+        console.error("❌ 고객 입장 API 오류:", errorData);
+      }
+    } catch (error) {
+      console.error("❌ 고객 입장 중 오류:", error);
     }
-  }, [isRoomOwner, consultationId, pbName, getCurrentUserId]);
+  }, [consultationId, accessToken]);
+
+  // 참여자 목록 가져오기 및 고객 입장 처리
+  useEffect(() => {
+    console.log("🔍 useEffect 실행:", {
+      consultationId,
+      isGuest,
+      isRoomOwner,
+      userType,
+      accessToken: accessToken ? "있음" : "없음",
+    });
+
+    if (consultationId) {
+      // 고객이 입장하는 경우 - 로그인 필수
+      if (isGuest) {
+        if (!accessToken) {
+          console.log(
+            "🚫 고객 입장 시 로그인 필요 - 로그인 페이지로 리다이렉트"
+          );
+          alert("화상상담에 참여하려면 로그인이 필요합니다.");
+          router.push("/login");
+          return;
+        }
+        console.log("🎯 고객 입장 감지 - API 호출 시작");
+        handleGuestJoin();
+      }
+
+      // PB인 경우 초기 참여자 목록 설정 (accessToken이 있을 때만)
+      if (isRoomOwner && accessToken) {
+        console.log("👑 PB 방 주인 - 참여자 목록 설정");
+        setParticipants([
+          {
+            id: getCurrentUserId() || "pb-user",
+            name: pbName,
+            role: "PB",
+            joinedAt: new Date().toLocaleTimeString(),
+          },
+        ]);
+      }
+    }
+  }, [
+    consultationId,
+    accessToken,
+    isGuest,
+    isRoomOwner,
+    pbName,
+    getCurrentUserId,
+    handleGuestJoin,
+    router,
+  ]);
 
   // 초대 링크 복사
   const handleCopyInviteUrl = async () => {

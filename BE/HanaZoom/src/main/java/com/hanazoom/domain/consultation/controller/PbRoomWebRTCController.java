@@ -77,13 +77,27 @@ public class PbRoomWebRTCController {
     }
 
     /**
-     * 고객이 초대 링크로 방에 참여
+     * 고객이 초대 링크로 방에 참여 (로그인 없이도 가능)
      */
     @PostMapping("/{roomId}/join")
     public ResponseEntity<?> joinRoom(@PathVariable UUID roomId) {
         try {
-            UUID customerId = getCurrentUserIdFromSecurityContext();
-            log.info("고객 {} 방 {} 참여 요청", customerId, roomId);
+            log.info("=== 고객 입장 API 호출 시작 ===");
+            log.info("roomId: {}", roomId);
+
+            UUID customerId;
+
+            try {
+                // 로그인된 사용자인 경우
+                customerId = getCurrentUserIdFromSecurityContext();
+                log.info("로그인된 고객 {} 방 {} 참여 요청", customerId, roomId);
+            } catch (Exception e) {
+                // 로그인하지 않은 사용자는 입장 불가
+                log.warn("비로그인 사용자 입장 시도 - 거부됨");
+                return ResponseEntity.status(401).body(Map.of(
+                        "success", false,
+                        "error", "로그인이 필요합니다"));
+            }
 
             PbRoom room = pbRoomService.findById(roomId);
             if (room == null) {
@@ -98,14 +112,16 @@ public class PbRoomWebRTCController {
                         "error", "방이 가득 찼습니다"));
             }
 
-            // 참여자 추가
+            // 참여자 추가 (로그인된 사용자만)
+            log.info("참여자 추가 시작: customerId={}, roomId={}", customerId, roomId);
             Member customer = memberRepository.findById(customerId)
                     .orElseThrow(() -> new IllegalStateException("고객 정보를 찾을 수 없습니다"));
 
             PbRoomParticipant participant = pbRoomService.addParticipant(room, customer, ParticipantRole.GUEST);
+            log.info("참여자 추가 성공: participantId={}", participant.getId());
             room.addParticipant();
 
-            log.info("고객 {} 방 {} 참여 성공", customerId, roomId);
+            log.info("고객 {} 방 {} 참여 성공 - participantId: {}", customerId, roomId, participant.getId());
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
