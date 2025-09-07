@@ -39,10 +39,11 @@ export default function PbRoomVideoConsultation({
   // Zustand store에서 accessToken 가져오기
   const { accessToken } = useAuthStore();
 
-  // 디버그 로그
+  // 디버그 로그 - 스토어에서 직접 가져온 토큰으로 확인
+  const currentToken = useAuthStore.getState().accessToken;
   console.log(
     "🔑 PbRoomVideoConsultation accessToken:",
-    accessToken ? "있음" : "없음"
+    currentToken ? "있음" : "없음"
   );
 
   // 새로운 WebRTC 훅 사용
@@ -60,7 +61,7 @@ export default function PbRoomVideoConsultation({
     toggleAudio,
   } = usePbRoomWebRTC({
     roomId: roomId,
-    accessToken: accessToken,
+    accessToken: currentToken,
     userType: userType, // 사용자 타입 전달
     onError: (error) => {
       console.error("WebRTC 에러:", error);
@@ -74,10 +75,10 @@ export default function PbRoomVideoConsultation({
 
   // WebRTC 연결 시작
   useEffect(() => {
-    if (roomId && accessToken) {
+    if (roomId && currentToken) {
       connectWebSocket();
     }
-  }, [roomId, accessToken]); // accessToken이 변경될 때만 실행
+  }, [roomId, currentToken]); // currentToken이 변경될 때만 실행
 
   // 컴포넌트 언마운트 시 정리
   useEffect(() => {

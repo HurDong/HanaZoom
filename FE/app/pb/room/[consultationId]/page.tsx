@@ -9,6 +9,7 @@ import { useAuthStore } from "@/app/utils/auth";
 import { Button } from "@/components/ui/button";
 import { Copy, Check, Users, Settings, X, MessageSquare } from "lucide-react";
 import { getMyInfo } from "@/lib/api/members";
+import { Client } from "@stomp/stompjs";
 
 export default function ConsultationRoomPage() {
   const params = useParams<{ consultationId: string }>();
@@ -45,6 +46,21 @@ export default function ConsultationRoomPage() {
   const [actualPbName, setActualPbName] = useState(pbNameFromUrl);
   const [showChatPanel, setShowChatPanel] = useState(false);
 
+  // 채팅 관련 상태
+  const [chatMessages, setChatMessages] = useState<
+    Array<{
+      id: string;
+      message: string;
+      senderId: string;
+      senderName: string;
+      userType: string;
+      timestamp: number;
+    }>
+  >([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isChatConnected, setIsChatConnected] = useState(false);
+  const [chatStompClient, setChatStompClient] = useState<Client | null>(null);
+
   // 사용자 정보 가져오기 (PB인 경우)
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -74,6 +90,107 @@ export default function ConsultationRoomPage() {
     }
   }, [isPbRoom, consultationId, actualPbName]);
 
+  // 채팅 WebSocket 연결
+  useEffect(() => {
+    if (consultationId && accessToken && showChatPanel) {
+      connectChatWebSocket();
+    }
+
+    return () => {
+      if (chatStompClient) {
+        chatStompClient.deactivate();
+      }
+    };
+  }, [consultationId, accessToken, showChatPanel]);
+
+  // 채팅 WebSocket 연결 함수
+  const connectChatWebSocket = () => {
+    try {
+      // 스토어에서 직접 토큰 가져오기
+      const currentToken = useAuthStore.getState().accessToken;
+
+      const client = new Client({
+        brokerURL: "ws://localhost:8080/ws/pb-room",
+        connectHeaders: {
+          Authorization: `Bearer ${currentToken}`,
+        },
+        debug: (str) => {
+          console.log("채팅 STOMP Debug:", str);
+        },
+        reconnectDelay: 0,
+        heartbeatIncoming: 4000,
+        heartbeatOutgoing: 4000,
+        onConnect: () => {
+          console.log("✅ 채팅 WebSocket 연결 성공");
+          setIsChatConnected(true);
+
+          // 채팅 메시지 구독
+          client.subscribe(
+            `/topic/pb-room/${consultationId}/chat`,
+            (message) => {
+              const data = JSON.parse(message.body);
+              console.log("📥 채팅 메시지 수신:", data);
+
+              if (data.type === "chat-message") {
+                setChatMessages((prev) => [
+                  ...prev,
+                  {
+                    id: data.messageId,
+                    message: data.message,
+                    senderId: data.senderId,
+                    senderName: data.senderName,
+                    userType: data.userType,
+                    timestamp: data.timestamp,
+                  },
+                ]);
+              }
+            }
+          );
+        },
+        onStompError: (frame) => {
+          console.error("❌ 채팅 STOMP 오류:", frame);
+          setIsChatConnected(false);
+        },
+        onWebSocketError: (error) => {
+          console.error("❌ 채팅 WebSocket 오류:", error);
+          setIsChatConnected(false);
+        },
+      });
+
+      client.activate();
+      setChatStompClient(client);
+    } catch (error) {
+      console.error("❌ 채팅 WebSocket 연결 실패:", error);
+      setIsChatConnected(false);
+    }
+  };
+
+  // 채팅 메시지 전송
+  const sendChatMessage = () => {
+    if (!chatInput.trim() || !chatStompClient || !isChatConnected) return;
+
+    const messageData = {
+      message: chatInput.trim(),
+      senderName: actualPbName,
+      userType: isPb ? "pb" : "guest",
+    };
+
+    chatStompClient.publish({
+      destination: `/app/chat/${consultationId}/send`,
+      body: JSON.stringify(messageData),
+    });
+
+    setChatInput("");
+  };
+
+  // Enter 키로 메시지 전송
+  const handleChatKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    }
+  };
+
   // PB가 방의 주인인지 확인
   useEffect(() => {
     if (isPb && accessToken) {
@@ -87,15 +204,18 @@ export default function ConsultationRoomPage() {
   const handleGuestJoin = useCallback(async () => {
     try {
       console.log("🎯 고객 입장 처리 시작:", consultationId);
-      console.log("🔑 Access Token:", accessToken ? "있음" : "없음");
+
+      // 스토어에서 직접 토큰 가져오기
+      const currentToken = useAuthStore.getState().accessToken;
+      console.log("🔑 Access Token:", currentToken ? "있음" : "없음");
 
       const headers: HeadersInit = {
         "Content-Type": "application/json",
       };
 
-      // accessToken이 있는 경우에만 Authorization 헤더 추가
-      if (accessToken) {
-        headers.Authorization = `Bearer ${accessToken}`;
+      // 토큰이 있는 경우에만 Authorization 헤더 추가
+      if (currentToken) {
+        headers.Authorization = `Bearer ${currentToken}`;
       }
 
       const response = await fetch(`/api/pb-rooms/${consultationId}/join`, {
@@ -117,10 +237,11 @@ export default function ConsultationRoomPage() {
     } catch (error) {
       console.error("❌ 고객 입장 중 오류:", error);
     }
-  }, [consultationId, accessToken]);
+  }, [consultationId, accessToken, isGuest, isRoomOwner, userType]);
 
   // 참여자 목록 가져오기 및 고객 입장 처리
   useEffect(() => {
+    const zustandState = useAuthStore.getState();
     console.log("🔍 useEffect 실행:", {
       consultationId,
       isGuest,
@@ -128,11 +249,29 @@ export default function ConsultationRoomPage() {
       userType,
       accessToken: accessToken ? "있음" : "없음",
     });
+    console.log("🔍 Zustand 스토어 상태:", {
+      accessToken: zustandState.accessToken ? "있음" : "없음",
+      user: zustandState.user ? "있음" : "없음",
+      hasUser: !!zustandState.user,
+      userId: zustandState.user?.id,
+    });
+
+    // 하이드레이션 상태 확인
+    const hasHydrated = useAuthStore.persist?.hasHydrated();
+    console.log("🔍 하이드레이션 상태:", hasHydrated);
+
+    // 하이드레이션이 완료되지 않았다면 대기
+    if (!hasHydrated) {
+      console.log("⏳ 하이드레이션 대기 중...");
+      return;
+    }
 
     if (consultationId) {
       // 고객이 입장하는 경우 - 로그인 필수
       if (isGuest) {
-        if (!accessToken) {
+        // 스토어에서 직접 토큰 가져오기
+        const currentToken = zustandState.accessToken;
+        if (!currentToken) {
           console.log(
             "🚫 고객 입장 시 로그인 필요 - 로그인 페이지로 리다이렉트"
           );
@@ -387,27 +526,63 @@ export default function ConsultationRoomPage() {
               {/* 채팅 메시지 영역 */}
               <div className="flex-1 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 mb-4 overflow-y-auto">
                 <div className="space-y-3">
-                  <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-                    <div className="w-12 h-12 mx-auto mb-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
-                      <svg
-                        className="w-6 h-6 text-emerald-600 dark:text-emerald-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                        />
-                      </svg>
+                  {chatMessages.length === 0 ? (
+                    <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                      <div className="w-12 h-12 mx-auto mb-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
+                        <svg
+                          className="w-6 h-6 text-emerald-600 dark:text-emerald-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                          />
+                        </svg>
+                      </div>
+                      <p className="text-sm">아직 메시지가 없습니다.</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        채팅을 시작해보세요!
+                      </p>
                     </div>
-                    <p className="text-sm">아직 메시지가 없습니다.</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      채팅을 시작해보세요!
-                    </p>
-                  </div>
+                  ) : (
+                    chatMessages.map((msg) => (
+                      <div key={msg.id} className="flex flex-col space-y-1">
+                        <div
+                          className={`flex ${
+                            msg.userType === "pb"
+                              ? "justify-end"
+                              : "justify-start"
+                          }`}
+                        >
+                          <div
+                            className={`max-w-[80%] px-3 py-2 rounded-lg ${
+                              msg.userType === "pb"
+                                ? "bg-emerald-600 text-white"
+                                : "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            }`}
+                          >
+                            <p className="text-sm">{msg.message}</p>
+                          </div>
+                        </div>
+                        <div
+                          className={`flex ${
+                            msg.userType === "pb"
+                              ? "justify-end"
+                              : "justify-start"
+                          }`}
+                        >
+                          <p className="text-xs text-gray-500 dark:text-gray-400 px-1">
+                            {msg.senderName} •{" "}
+                            {new Date(msg.timestamp).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -416,9 +591,17 @@ export default function ConsultationRoomPage() {
                 <input
                   type="text"
                   placeholder="메시지를 입력하세요..."
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyPress={handleChatKeyPress}
+                  disabled={!isChatConnected}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <button className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors duration-200 text-sm font-medium whitespace-nowrap">
+                <button
+                  onClick={sendChatMessage}
+                  disabled={!isChatConnected || !chatInput.trim()}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors duration-200 text-sm font-medium whitespace-nowrap"
+                >
                   전송
                 </button>
               </div>
