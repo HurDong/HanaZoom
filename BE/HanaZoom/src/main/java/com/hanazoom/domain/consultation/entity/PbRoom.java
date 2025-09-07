@@ -34,26 +34,11 @@ public class PbRoom {
     @Column(name = "room_name", nullable = false)
     private String roomName;
 
-    @Column(name = "room_description", columnDefinition = "TEXT")
-    private String roomDescription;
-
-    @Column(name = "invite_code", nullable = false, unique = true)
-    private String inviteCode;
-
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
 
-    @Column(name = "max_participants", nullable = false)
-    private Integer maxParticipants = 1; // 최대 1명
-
     @Column(name = "current_participants", nullable = false)
     private Integer currentParticipants = 0;
-
-    @Column(name = "room_password")
-    private String roomPassword;
-
-    @Column(name = "is_private", nullable = false)
-    private boolean isPrivate = false;
 
     @Column(name = "last_activity_at")
     private LocalDateTime lastActivityAt;
@@ -67,14 +52,9 @@ public class PbRoom {
     private LocalDateTime updatedAt;
 
     @Builder
-    public PbRoom(Member pb, String roomName, String roomDescription,
-            String inviteCode, boolean isPrivate, String roomPassword) {
+    public PbRoom(Member pb, String roomName) {
         this.pb = pb;
         this.roomName = roomName;
-        this.roomDescription = roomDescription;
-        this.inviteCode = inviteCode;
-        this.isPrivate = isPrivate;
-        this.roomPassword = roomPassword;
         this.lastActivityAt = LocalDateTime.now();
     }
 
@@ -89,9 +69,9 @@ public class PbRoom {
         this.currentParticipants = 0;
     }
 
-    // 참여자 수 관리
+    // 참여자 수 관리 (1:1 화상상담)
     public boolean canJoin() {
-        return isActive && currentParticipants < maxParticipants;
+        return isActive && currentParticipants < 1; // 최대 1명
     }
 
     public void addParticipant() {
@@ -110,46 +90,12 @@ public class PbRoom {
         }
     }
 
-    // 초대 코드 재생성
-    public void regenerateInviteCode() {
-        this.inviteCode = generateInviteCode();
-        this.lastActivityAt = LocalDateTime.now();
-    }
-
-    // 초대 코드 업데이트
-    public void updateInviteCode(String newInviteCode) {
-        this.inviteCode = newInviteCode;
-        this.lastActivityAt = LocalDateTime.now();
-    }
-
-    // 방 정보 업데이트
-    public void updateRoomInfo(String roomName, String roomDescription, boolean isPrivate, String roomPassword) {
-        this.roomName = roomName;
-        this.roomDescription = roomDescription;
-        this.isPrivate = isPrivate;
-        this.roomPassword = roomPassword;
-        this.lastActivityAt = LocalDateTime.now();
-    }
-
-    // 초대 코드 생성
-    private String generateInviteCode() {
-        return "PB" + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-    }
-
     // 방 상태 확인
     public boolean isEmpty() {
         return currentParticipants == 0;
     }
 
     public boolean isFull() {
-        return currentParticipants >= maxParticipants;
-    }
-
-    // 비밀번호 확인
-    public boolean checkPassword(String password) {
-        if (roomPassword == null || roomPassword.isEmpty()) {
-            return true; // 비밀번호가 없으면 자유 입장
-        }
-        return roomPassword.equals(password);
+        return currentParticipants >= 1;
     }
 }

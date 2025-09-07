@@ -17,9 +17,6 @@ public interface PbRoomRepository extends JpaRepository<PbRoom, UUID> {
     // PB ID로 방 조회
     Optional<PbRoom> findByPbId(UUID pbId);
 
-    // 초대 코드로 방 조회
-    Optional<PbRoom> findByInviteCode(String inviteCode);
-
     // 활성 방 목록 조회
     List<PbRoom> findByIsActiveTrueOrderByLastActivityAtDesc();
 
@@ -28,9 +25,6 @@ public interface PbRoomRepository extends JpaRepository<PbRoom, UUID> {
 
     // 특정 PB의 활성 방 조회
     Optional<PbRoom> findByPbIdAndIsActiveTrue(UUID pbId);
-
-    // 초대 코드로 활성 방 조회
-    Optional<PbRoom> findByInviteCodeAndIsActiveTrue(String inviteCode);
 
     // 방 이름으로 검색
     @Query("SELECT r FROM PbRoom r WHERE r.roomName LIKE %:roomName% AND r.isActive = true")
