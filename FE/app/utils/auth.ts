@@ -19,6 +19,7 @@ interface AuthActions {
   setAuth: (data: { accessToken: string; user: User }) => void;
   updateAccessToken: (accessToken: string) => void;
   clearAuth: () => void;
+  getCurrentUserId: () => string | null;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -31,6 +32,25 @@ export const useAuthStore = create<AuthStore>()(
       setAuth: ({ accessToken, user }) => set({ accessToken, user }),
       updateAccessToken: (accessToken) => set({ accessToken }),
       clearAuth: () => set({ accessToken: null, user: null }),
+      getCurrentUserId: () => {
+        const state = get();
+        if (state.user?.id) {
+          return state.user.id;
+        }
+
+        // JWT 토큰에서 사용자 ID 추출 시도
+        if (state.accessToken) {
+          try {
+            const payload = JSON.parse(atob(state.accessToken.split(".")[1]));
+            return payload.sub || payload.userId || payload.id || null;
+          } catch (error) {
+            console.error("JWT 토큰 파싱 실패:", error);
+            return null;
+          }
+        }
+
+        return null;
+      },
     }),
     {
       name: "auth-storage",

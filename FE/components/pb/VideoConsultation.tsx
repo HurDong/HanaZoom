@@ -7,6 +7,7 @@ interface VideoConsultationProps {
   clientName: string;
   clientRegion: string;
   pbName: string;
+  clientId?: string;
   onEndConsultation: () => void;
 }
 
@@ -15,6 +16,7 @@ export default function VideoConsultation({
   clientName,
   clientRegion,
   pbName,
+  clientId,
   onEndConsultation,
 }: VideoConsultationProps) {
   return (
@@ -23,6 +25,7 @@ export default function VideoConsultation({
       clientName={clientName}
       clientRegion={clientRegion}
       pbName={pbName}
+      clientId={clientId}
       onEndConsultation={onEndConsultation}
     />
   );

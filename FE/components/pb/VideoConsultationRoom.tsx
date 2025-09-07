@@ -1,25 +1,28 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Video, 
-  VideoOff, 
-  Mic, 
-  MicOff, 
-  Phone, 
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Video,
+  VideoOff,
+  Mic,
+  MicOff,
+  Phone,
   PhoneOff,
   Users,
   Settings,
   MessageSquare,
   Maximize2,
-  Minimize2
-} from 'lucide-react';
-import { useWebRTC } from '@/hooks/useWebRTC';
-import { cn } from '@/lib/utils';
-import { getCurrentClientId } from '@/lib/utils/clientId';
+  Minimize2,
+} from "lucide-react";
+import { useWebRTC } from "@/hooks/useWebRTC";
+import { cn } from "@/lib/utils";
+import {
+  getCurrentClientId,
+  generateSharedClientId,
+} from "@/lib/utils/clientId";
 
 interface VideoConsultationRoomProps {
   consultationId: string;
@@ -36,30 +39,36 @@ export default function VideoConsultationRoom({
   clientRegion,
   pbName,
   clientId,
-  onEndConsultation
+  onEndConsultation,
 }: VideoConsultationRoomProps) {
-  // 클라이언트 ID가 제공되지 않으면 자동 생성
-  const actualClientId = clientId || getCurrentClientId();
-  
-  console.log("VideoConsultationRoom 렌더링:", { 
-    consultationId, 
-    clientName, 
-    clientRegion, 
-    pbName, 
-    clientId: actualClientId 
+  // 클라이언트 ID가 제공되지 않으면 공유 클라이언트 ID 생성
+  const actualClientId =
+    clientId ||
+    (typeof window !== "undefined"
+      ? generateSharedClientId(consultationId, "client")
+      : "client-temp");
+
+  console.log("VideoConsultationRoom 렌더링:", {
+    consultationId,
+    clientName,
+    clientRegion,
+    pbName,
+    clientId: actualClientId,
   });
-  
+
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showChat, setShowChat] = useState(false);
-  const [chatMessages, setChatMessages] = useState<Array<{
-    id: string;
-    sender: string;
-    message: string;
-    timestamp: Date;
-  }>>([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [chatMessages, setChatMessages] = useState<
+    Array<{
+      id: string;
+      sender: string;
+      message: string;
+      timestamp: Date;
+    }>
+  >([]);
+  const [newMessage, setNewMessage] = useState("");
   const [showPermissionGuide, setShowPermissionGuide] = useState(false);
 
   const {
@@ -76,26 +85,27 @@ export default function VideoConsultationRoom({
     initiateCall,
     requestPermissions,
     checkDeviceStatus,
-    setMediaMode
+    setMediaMode,
   } = useWebRTC({
     consultationId,
     clientId: actualClientId,
     onConnectionStateChange: (state) => {
-      console.log('연결 상태 변경:', state);
+      console.log("연결 상태 변경:", state);
     },
     onRemoteStream: (stream) => {
-      console.log('원격 스트림 수신:', stream);
+      console.log("원격 스트림 수신:", stream);
     },
     onError: (error) => {
-      console.error('WebRTC 오류:', error);
-      if (error.includes('권한') || error.includes('접근')) {
+      console.error("WebRTC 오류:", error);
+      if (error.includes("권한") || error.includes("접근")) {
         setShowPermissionGuide(true);
       }
-    }
+    },
   });
 
   // 컴포넌트 마운트 시 연결 시작
   useEffect(() => {
+    console.log("🎥 VideoConsultationRoom 마운트 - 연결 시작");
     startConnection();
   }, [startConnection]);
 
@@ -146,26 +156,26 @@ export default function VideoConsultationRoom({
       // WebSocket을 통해 메시지 전송
       const messageData = {
         userName: pbName,
-        message: newMessage.trim()
+        message: newMessage.trim(),
       };
-      
+
       // WebRTC 훅에서 메시지 전송 기능을 사용할 수 있도록 확장 필요
       // 임시로 로컬 상태에 추가
       const newChatMessage = {
         id: Date.now().toString(),
         sender: pbName,
         message: newMessage.trim(),
-        timestamp: new Date()
+        timestamp: new Date(),
       };
-      
-      setChatMessages(prev => [...prev, newChatMessage]);
-      setNewMessage('');
+
+      setChatMessages((prev) => [...prev, newChatMessage]);
+      setNewMessage("");
     }
   };
 
   // Enter 키로 메시지 전송
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -174,44 +184,49 @@ export default function VideoConsultationRoom({
   // 연결 상태에 따른 배지 색상
   const getConnectionBadgeColor = (state: string) => {
     switch (state) {
-      case 'connected':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'connecting':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'disconnected':
-        return 'bg-red-100 text-red-800 border-red-200';
+      case "connected":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "connecting":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "disconnected":
+        return "bg-red-100 text-red-800 border-red-200";
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
   // 연결 상태 텍스트
   const getConnectionStateText = (state: string) => {
     switch (state) {
-      case 'connected':
-        return '연결됨';
-      case 'connecting':
-        return '연결 중';
-      case 'disconnected':
-        return '연결 끊김';
+      case "connected":
+        return "연결됨";
+      case "connecting":
+        return "연결 중";
+      case "disconnected":
+        return "연결 끊김";
       default:
         return state;
     }
   };
 
   return (
-    <div className={cn(
-      "min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 transition-colors duration-500",
-      isFullscreen && "fixed inset-0 z-50"
-    )}>
+    <div
+      className={cn(
+        "min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 transition-colors duration-500",
+        isFullscreen && "fixed inset-0 z-50"
+      )}
+    >
       {/* 헤더 */}
       <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-green-200 dark:border-green-800 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div>
               <h1 className="text-xl font-bold text-green-900 dark:text-green-100">
-                {mediaMode === 'text' ? '텍스트 상담' : 
-                 mediaMode === 'audio' ? '음성 상담' : '화상 상담'}
+                {mediaMode === "text"
+                  ? "텍스트 상담"
+                  : mediaMode === "audio"
+                  ? "음성 상담"
+                  : "화상 상담"}
               </h1>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -223,13 +238,13 @@ export default function VideoConsultationRoom({
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="flex items-center gap-1">
               <Users className="w-3 h-3" />
               {participants.length}명 참여
             </Badge>
-            
+
             <Button
               variant="outline"
               size="sm"
@@ -239,14 +254,18 @@ export default function VideoConsultationRoom({
               <MessageSquare className="w-4 h-4" />
               채팅
             </Button>
-            
+
             <Button
               variant="outline"
               size="sm"
               onClick={toggleFullscreen}
               className="flex items-center gap-2"
             >
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              {isFullscreen ? (
+                <Minimize2 className="w-4 h-4" />
+              ) : (
+                <Maximize2 className="w-4 h-4" />
+              )}
             </Button>
           </div>
         </div>
@@ -258,12 +277,16 @@ export default function VideoConsultationRoom({
         <div className="flex-1 flex flex-col">
           {/* 원격 비디오 */}
           <div className="flex-1 relative bg-gray-900 rounded-lg m-4 overflow-hidden">
-            {mediaMode === 'text' ? (
+            {mediaMode === "text" ? (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="text-center text-white">
                   <div className="text-6xl mb-4">💬</div>
-                  <h3 className="text-xl font-semibold mb-2">텍스트 채팅 모드</h3>
-                  <p className="text-gray-300">카메라/마이크 없이 텍스트로 상담을 진행합니다</p>
+                  <h3 className="text-xl font-semibold mb-2">
+                    텍스트 채팅 모드
+                  </h3>
+                  <p className="text-gray-300">
+                    카메라/마이크 없이 텍스트로 상담을 진행합니다
+                  </p>
                   <Button
                     onClick={async () => {
                       const success = await requestPermissions();
@@ -288,19 +311,29 @@ export default function VideoConsultationRoom({
                 className="w-full h-full object-cover"
               />
             )}
-            
+
             {/* 원격 비디오 오버레이 */}
             <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
               {clientName}
             </div>
-            
+
             {/* 연결 상태 오버레이 */}
             {!isConnected && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80">
                 <div className="text-center text-white">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                  <p className="text-lg font-medium">연결 중...</p>
-                  <p className="text-sm opacity-75">잠시만 기다려주세요</p>
+                  <p className="text-lg font-medium">
+                    {connectionState === "connecting"
+                      ? "연결 중..."
+                      : connectionState === "offline"
+                      ? "오프라인 모드"
+                      : "연결 대기 중"}
+                  </p>
+                  <p className="text-sm opacity-75">
+                    {connectionState === "offline"
+                      ? "로컬 비디오만 확인 가능합니다"
+                      : "잠시만 기다려주세요"}
+                  </p>
                 </div>
               </div>
             )}
@@ -308,7 +341,7 @@ export default function VideoConsultationRoom({
 
           {/* 로컬 비디오 */}
           <div className="absolute bottom-4 right-4 w-64 h-48 bg-gray-900 rounded-lg overflow-hidden border-2 border-green-500">
-            {mediaMode === 'text' ? (
+            {mediaMode === "text" ? (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="text-center text-white">
                   <div className="text-2xl mb-2">📝</div>
@@ -324,12 +357,12 @@ export default function VideoConsultationRoom({
                 className="w-full h-full object-cover"
               />
             )}
-            
+
             {/* 로컬 비디오 오버레이 */}
             <div className="absolute top-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
               {pbName}
             </div>
-            
+
             {/* 비디오/오디오 상태 표시 */}
             <div className="absolute bottom-2 right-2 flex gap-1">
               {!isVideoEnabled && (
@@ -350,7 +383,9 @@ export default function VideoConsultationRoom({
         {showChat && (
           <div className="w-80 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-l border-green-200 dark:border-green-800">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">채팅</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                채팅
+              </h3>
             </div>
             <div className="flex-1 p-4 space-y-3 overflow-y-auto">
               {chatMessages.map((message) => (
@@ -377,7 +412,7 @@ export default function VideoConsultationRoom({
                 </div>
               )}
             </div>
-            
+
             {/* 채팅 입력 */}
             <div className="p-4 border-t border-gray-200 dark:border-gray-700">
               <div className="flex gap-2">
@@ -409,34 +444,44 @@ export default function VideoConsultationRoom({
         <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-full p-4 shadow-lg border border-green-200 dark:border-green-800">
           <div className="flex items-center gap-4">
             {/* 비디오 토글 - 텍스트 모드에서는 비활성화 */}
-            {mediaMode !== 'text' && (
+            {mediaMode !== "text" && (
               <Button
                 variant={isVideoEnabled ? "default" : "destructive"}
                 size="sm"
                 onClick={toggleVideo}
                 className="rounded-full w-12 h-12"
               >
-                {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+                {isVideoEnabled ? (
+                  <Video className="w-5 h-5" />
+                ) : (
+                  <VideoOff className="w-5 h-5" />
+                )}
               </Button>
             )}
 
             {/* 오디오 토글 - 텍스트 모드에서는 비활성화 */}
-            {mediaMode !== 'text' && (
+            {mediaMode !== "text" && (
               <Button
                 variant={isAudioEnabled ? "default" : "destructive"}
                 size="sm"
                 onClick={toggleAudio}
                 className="rounded-full w-12 h-12"
               >
-                {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                {isAudioEnabled ? (
+                  <Mic className="w-5 h-5" />
+                ) : (
+                  <MicOff className="w-5 h-5" />
+                )}
               </Button>
             )}
 
             {/* 텍스트 모드 표시 */}
-            {mediaMode === 'text' && (
+            {mediaMode === "text" && (
               <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900 rounded-full">
                 <MessageSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium text-blue-600 dark:text-blue-400">텍스트 채팅 모드</span>
+                <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                  텍스트 채팅 모드
+                </span>
               </div>
             )}
 
@@ -473,7 +518,7 @@ export default function VideoConsultationRoom({
               <span className="font-medium">연결 오류</span>
             </div>
             <p className="text-sm mt-1">{error}</p>
-            {error.includes('권한') && (
+            {error.includes("권한") && (
               <Button
                 onClick={() => setShowPermissionGuide(true)}
                 className="mt-2 text-xs"
@@ -495,7 +540,7 @@ export default function VideoConsultationRoom({
             </h3>
             <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
               <p>화상 상담을 위해 카메라와 마이크 접근 권한이 필요합니다.</p>
-              
+
               <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
                 <p className="text-green-800 dark:text-green-200 text-xs font-medium">
                   💡 대안: 장치가 없어도 상담 가능
@@ -506,8 +551,8 @@ export default function VideoConsultationRoom({
                   <li>• 화면 공유 기능 활용 가능</li>
                 </ul>
               </div>
-              
-              {error?.includes('찾을 수 없습니다') && (
+
+              {error?.includes("찾을 수 없습니다") && (
                 <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
                   <p className="text-red-800 dark:text-red-200 text-xs font-medium">
                     ⚠️ 장치 연결 문제 감지
@@ -520,7 +565,7 @@ export default function VideoConsultationRoom({
                   </ul>
                 </div>
               )}
-              
+
               <div className="space-y-2">
                 <p className="font-medium">권한 허용 방법:</p>
                 <ol className="list-decimal list-inside space-y-1 ml-2">
@@ -529,7 +574,7 @@ export default function VideoConsultationRoom({
                   <li>페이지를 새로고침하거나 다시 시도</li>
                 </ol>
               </div>
-              
+
               <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                 <p className="text-blue-800 dark:text-blue-200 text-xs font-medium">
                   🔧 장치 문제 해결 방법:
@@ -540,10 +585,11 @@ export default function VideoConsultationRoom({
                   <li>• 브라우저를 완전히 종료 후 재시작</li>
                 </ul>
               </div>
-              
+
               <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
                 <p className="text-yellow-800 dark:text-yellow-200 text-xs">
-                  💡 팁: 다른 애플리케이션에서 카메라/마이크를 사용 중이라면 종료 후 다시 시도해주세요.
+                  💡 팁: 다른 애플리케이션에서 카메라/마이크를 사용 중이라면
+                  종료 후 다시 시도해주세요.
                 </p>
               </div>
             </div>
@@ -564,7 +610,7 @@ export default function VideoConsultationRoom({
                 onClick={() => {
                   setShowPermissionGuide(false);
                   // 텍스트 채팅 모드로 강제 진행
-                  setMediaMode('text');
+                  setMediaMode("text");
                   startConnection();
                 }}
                 variant="outline"
@@ -575,7 +621,13 @@ export default function VideoConsultationRoom({
               <Button
                 onClick={async () => {
                   const status = await checkDeviceStatus();
-                  alert(`장치 상태:\n비디오: ${status.videoCount}개\n오디오: ${status.audioCount}개\n\n비디오 사용 가능: ${status.hasVideo ? '예' : '아니오'}\n오디오 사용 가능: ${status.hasAudio ? '예' : '아니오'}`);
+                  alert(
+                    `장치 상태:\n비디오: ${status.videoCount}개\n오디오: ${
+                      status.audioCount
+                    }개\n\n비디오 사용 가능: ${
+                      status.hasVideo ? "예" : "아니오"
+                    }\n오디오 사용 가능: ${status.hasAudio ? "예" : "아니오"}`
+                  );
                 }}
                 variant="outline"
                 className="flex-1"

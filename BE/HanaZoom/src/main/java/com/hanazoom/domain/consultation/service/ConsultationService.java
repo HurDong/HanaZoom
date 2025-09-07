@@ -39,7 +39,8 @@ public class ConsultationService {
      */
     @Transactional
     public ConsultationResponseDto createConsultation(ConsultationRequestDto requestDto, UUID clientId) {
-        log.info("상담 예약 요청: clientId={}, pbId={}, type={}", clientId, requestDto.getPbId(), requestDto.getConsultationType());
+        log.info("상담 예약 요청: clientId={}, pbId={}, type={}", clientId, requestDto.getPbId(),
+                requestDto.getConsultationType());
 
         // 고객 정보 조회
         Member client = memberRepository.findById(clientId)
@@ -56,16 +57,18 @@ public class ConsultationService {
 
         // 시간 충돌 확인
         LocalDateTime startTime = requestDto.getScheduledAt();
-        LocalDateTime endTime = startTime.plusMinutes(requestDto.getDurationMinutes() != null ? 
-                requestDto.getDurationMinutes() : requestDto.getConsultationType().getDefaultDurationMinutes());
+        LocalDateTime endTime = startTime
+                .plusMinutes(requestDto.getDurationMinutes() != null ? requestDto.getDurationMinutes()
+                        : requestDto.getConsultationType().getDefaultDurationMinutes());
 
-        List<Consultation> conflictingConsultations = consultationRepository.findConflictingConsultations(pb.getId(), startTime, endTime);
-        
+        List<Consultation> conflictingConsultations = consultationRepository.findConflictingConsultations(pb.getId(),
+                startTime, endTime);
+
         // 실제 시간 충돌 검사 (상담 시간을 고려한 정확한 충돌 검사)
         boolean hasConflict = conflictingConsultations.stream().anyMatch(consultation -> {
             LocalDateTime consultationStart = consultation.getScheduledAt();
             LocalDateTime consultationEnd = consultationStart.plusMinutes(consultation.getDurationMinutes());
-            
+
             // 시간 겹침 검사: 새로운 예약이 기존 상담과 겹치는지 확인
             return !(endTime.isBefore(consultationStart) || startTime.isAfter(consultationEnd));
         });
@@ -75,8 +78,8 @@ public class ConsultationService {
         }
 
         // 수수료 설정
-        BigDecimal fee = requestDto.getFee() != null ? requestDto.getFee() : 
-                BigDecimal.valueOf(requestDto.getConsultationType().getDefaultFee());
+        BigDecimal fee = requestDto.getFee() != null ? requestDto.getFee()
+                : BigDecimal.valueOf(requestDto.getConsultationType().getDefaultFee());
 
         // 상담 예약 생성
         Consultation consultation = Consultation.builder()
@@ -84,8 +87,8 @@ public class ConsultationService {
                 .pb(pb)
                 .consultationType(requestDto.getConsultationType())
                 .scheduledAt(requestDto.getScheduledAt())
-                .durationMinutes(requestDto.getDurationMinutes() != null ? 
-                        requestDto.getDurationMinutes() : requestDto.getConsultationType().getDefaultDurationMinutes())
+                .durationMinutes(requestDto.getDurationMinutes() != null ? requestDto.getDurationMinutes()
+                        : requestDto.getConsultationType().getDefaultDurationMinutes())
                 .fee(fee)
                 .clientMessage(requestDto.getClientMessage())
                 .build();
@@ -101,7 +104,7 @@ public class ConsultationService {
      */
     @Transactional
     public ConsultationResponseDto approveConsultation(ConsultationApprovalDto approvalDto, UUID pbId) {
-        log.info("상담 승인/거절: pbId={}, consultationId={}, approved={}", 
+        log.info("상담 승인/거절: pbId={}, consultationId={}, approved={}",
                 pbId, approvalDto.getConsultationId(), approvalDto.isApproved());
 
         Consultation consultation = consultationRepository.findById(UUID.fromString(approvalDto.getConsultationId()))
@@ -144,10 +147,10 @@ public class ConsultationService {
         }
 
         // 상태 확인
-        log.info("상담 상태 확인: status={}, isApproved={}, isPending={}, isCancelled={}, isCompleted={}", 
-            consultation.getStatus(), consultation.isApproved(), consultation.isPending(), 
-            consultation.isCancelled(), consultation.isCompleted());
-        
+        log.info("상담 상태 확인: status={}, isApproved={}, isPending={}, isCancelled={}, isCompleted={}",
+                consultation.getStatus(), consultation.isApproved(), consultation.isPending(),
+                consultation.isCancelled(), consultation.isCompleted());
+
         if (!consultation.canBeStarted()) {
             throw new IllegalStateException("상담을 시작할 수 없는 상태입니다. 현재 상태: " + consultation.getStatus());
         }
@@ -161,7 +164,6 @@ public class ConsultationService {
 
         return convertToResponseDto(consultation);
     }
-
 
     /**
      * 상담 종료
@@ -184,7 +186,7 @@ public class ConsultationService {
         }
 
         consultation.end(consultationNotes);
-        
+
         // PB 상담 횟수 증가
         consultation.getPb().incrementConsultationCount();
         memberRepository.save(consultation.getPb());
@@ -198,16 +200,16 @@ public class ConsultationService {
      * 상담 취소
      */
     @Transactional
-    public ConsultationResponseDto cancelConsultation(UUID consultationId, UUID userId, String reason, boolean isClient) {
+    public ConsultationResponseDto cancelConsultation(UUID consultationId, UUID userId, String reason,
+            boolean isClient) {
         log.info("상담 취소: consultationId={}, userId={}, isClient={}", consultationId, userId, isClient);
 
         Consultation consultation = consultationRepository.findById(consultationId)
                 .orElseThrow(() -> new IllegalArgumentException("상담 정보를 찾을 수 없습니다"));
 
         // 권한 확인
-        boolean hasPermission = isClient ? 
-                consultation.getClient().getId().equals(userId) : 
-                consultation.getPb().getId().equals(userId);
+        boolean hasPermission = isClient ? consultation.getClient().getId().equals(userId)
+                : consultation.getPb().getId().equals(userId);
 
         if (!hasPermission) {
             throw new IllegalArgumentException("해당 상담을 취소할 권한이 없습니다");
@@ -231,7 +233,7 @@ public class ConsultationService {
      */
     @Transactional
     public ConsultationResponseDto rateConsultation(ConsultationRatingDto ratingDto, UUID clientId) {
-        log.info("상담 평가: consultationId={}, clientId={}, rating={}", 
+        log.info("상담 평가: consultationId={}, clientId={}, rating={}",
                 ratingDto.getConsultationId(), clientId, ratingDto.getRating());
 
         Consultation consultation = consultationRepository.findById(UUID.fromString(ratingDto.getConsultationId()))
@@ -279,14 +281,14 @@ public class ConsultationService {
     public List<ConsultationResponseDto> getPbCalendarConsultations(UUID pbId, String startDate, String endDate) {
         LocalDateTime start = null;
         LocalDateTime end = null;
-        
+
         if (startDate != null && !startDate.isEmpty()) {
             start = LocalDateTime.parse(startDate + "T00:00:00");
         }
         if (endDate != null && !endDate.isEmpty()) {
             end = LocalDateTime.parse(endDate + "T23:59:59");
         }
-        
+
         List<Consultation> consultations;
         if (start != null && end != null) {
             consultations = consultationRepository.findByPbIdAndScheduledAtBetween(pbId, start, end);
@@ -299,7 +301,7 @@ public class ConsultationService {
             LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
             consultations = consultationRepository.findByPbIdAndScheduledAtAfter(pbId, thirtyDaysAgo);
         }
-        
+
         return consultations.stream()
                 .map(this::convertToResponseDto)
                 .collect(Collectors.toList());
@@ -340,8 +342,7 @@ public class ConsultationService {
         Map<String, Long> typeStatistics = typeStats.stream()
                 .collect(Collectors.toMap(
                         stat -> ((ConsultationType) stat[0]).getDisplayName(),
-                        stat -> (Long) stat[1]
-                ));
+                        stat -> (Long) stat[1]));
 
         // 다음 예정된 상담
         Consultation nextConsultation = todayConsultations.stream()
@@ -379,8 +380,8 @@ public class ConsultationService {
                 .orElseThrow(() -> new IllegalArgumentException("상담 정보를 찾을 수 없습니다"));
 
         // 권한 확인 (고객 또는 PB)
-        boolean hasPermission = consultation.getClient().getId().equals(userId) || 
-                               consultation.getPb().getId().equals(userId);
+        boolean hasPermission = consultation.getClient().getId().equals(userId) ||
+                consultation.getPb().getId().equals(userId);
 
         if (!hasPermission) {
             throw new IllegalArgumentException("해당 상담 정보를 조회할 권한이 없습니다");
@@ -405,7 +406,7 @@ public class ConsultationService {
 
         try {
             UUID pbUuid = UUID.fromString(pbId);
-            
+
             // 날짜 파싱을 더 안전하게 처리
             LocalDate targetDate = LocalDate.parse(date);
             LocalDateTime startOfDay = targetDate.atStartOfDay();
@@ -424,14 +425,16 @@ public class ConsultationService {
                         LocalDateTime slotDateTime = LocalDateTime.parse(date + "T" + timeSlot + ":00");
                         // 상담 시간에 따른 종료 시간
                         LocalDateTime slotEndTime = slotDateTime.plusMinutes(durationMinutes);
-                        
+
                         return existingConsultations.stream()
                                 .noneMatch(consultation -> {
                                     LocalDateTime consultationStart = consultation.getScheduledAt();
-                                    LocalDateTime consultationEnd = consultationStart.plusMinutes(consultation.getDurationMinutes());
-                                    
+                                    LocalDateTime consultationEnd = consultationStart
+                                            .plusMinutes(consultation.getDurationMinutes());
+
                                     // 시간 겹침 검사: 새로운 예약이 기존 상담과 겹치는지 확인
-                                    return !(slotEndTime.isBefore(consultationStart) || slotDateTime.isAfter(consultationEnd));
+                                    return !(slotEndTime.isBefore(consultationStart)
+                                            || slotDateTime.isAfter(consultationEnd));
                                 });
                     })
                     .toList();
@@ -453,22 +456,24 @@ public class ConsultationService {
 
         try {
             UUID pbUuid = UUID.fromString(pbId);
-            
+
             // 날짜 파싱을 더 안전하게 처리
             LocalDate targetDate = LocalDate.parse(date);
             LocalDateTime startOfDay = targetDate.atStartOfDay();
             LocalDateTime endOfDay = targetDate.plusDays(1).atStartOfDay();
-            
+
             log.info("날짜 파싱 결과: targetDate={}, startOfDay={}, endOfDay={}", targetDate, startOfDay, endOfDay);
-            log.info("조회 조건: pbId={}, targetDate={}, startOfDay={}, endOfDay={}", pbUuid, targetDate, startOfDay, endOfDay);
+            log.info("조회 조건: pbId={}, targetDate={}, startOfDay={}, endOfDay={}", pbUuid, targetDate, startOfDay,
+                    endOfDay);
 
             // 디버깅: 해당 PB의 모든 상담 조회 (날짜 제한 없이)
-            List<Consultation> allConsultations = consultationRepository.findByPbId(pbUuid, Pageable.unpaged()).getContent();
+            List<Consultation> allConsultations = consultationRepository.findByPbId(pbUuid, Pageable.unpaged())
+                    .getContent();
             log.info("해당 PB의 전체 상담 수: {}개", allConsultations.size());
             for (Consultation consultation : allConsultations) {
-                log.info("전체 상담: ID={}, 시간={}, 지속시간={}분, 상태={}", 
-                        consultation.getId(), 
-                        consultation.getScheduledAt(), 
+                log.info("전체 상담: ID={}, 시간={}, 지속시간={}분, 상태={}",
+                        consultation.getId(),
+                        consultation.getScheduledAt(),
                         consultation.getDurationMinutes(),
                         consultation.getStatus());
             }
@@ -476,9 +481,9 @@ public class ConsultationService {
             // 해당 날짜의 예약된 상담 조회 (예약 가능한 시간 계산용)
             List<Consultation> existingConsultations = consultationRepository
                     .findBookedConsultationsByPbIdAndScheduledAtBetween(pbUuid, startOfDay, endOfDay);
-            
+
             log.info("조회된 기존 상담 수: {}개", existingConsultations.size());
-            
+
             // 디버깅: 날짜 범위 내의 상담을 수동으로 필터링해서 확인
             List<Consultation> manualFiltered = allConsultations.stream()
                     .filter(c -> c.getStatus().name().matches("PENDING|APPROVED|IN_PROGRESS"))
@@ -487,19 +492,19 @@ public class ConsultationService {
                         return consultationDate.equals(targetDate);
                     })
                     .collect(Collectors.toList());
-            
+
             log.info("수동 필터링된 상담 수: {}개", manualFiltered.size());
             for (Consultation consultation : manualFiltered) {
-                log.info("수동 필터링 상담: ID={}, 시간={}, 날짜={}, 지속시간={}분, 상태={}", 
-                        consultation.getId(), 
+                log.info("수동 필터링 상담: ID={}, 시간={}, 날짜={}, 지속시간={}분, 상태={}",
+                        consultation.getId(),
                         consultation.getScheduledAt(),
                         consultation.getScheduledAt().toLocalDate(),
                         consultation.getDurationMinutes(),
                         consultation.getStatus());
             }
             for (Consultation consultation : existingConsultations) {
-                log.info("기존 상담: ID={}, 시간={}, 날짜={}, 지속시간={}분, 상태={}", 
-                        consultation.getId(), 
+                log.info("기존 상담: ID={}, 시간={}, 날짜={}, 지속시간={}분, 상태={}",
+                        consultation.getId(),
                         consultation.getScheduledAt(),
                         consultation.getScheduledAt().toLocalDate(),
                         consultation.getDurationMinutes(),
@@ -511,38 +516,40 @@ public class ConsultationService {
 
             // 수동 필터링된 상담을 사용하여 시간 슬롯 상태 계산
             List<Consultation> consultationsToCheck = manualFiltered.isEmpty() ? existingConsultations : manualFiltered;
-            
+
             // 각 시간 슬롯의 예약 가능 여부 확인
             Map<String, Boolean> timeSlotsStatus = new HashMap<>();
-            
+
             for (String timeSlot : allTimeSlots) {
                 LocalDateTime slotDateTime = LocalDateTime.parse(date + "T" + timeSlot + ":00");
                 LocalDateTime slotEndTime = slotDateTime.plusMinutes(durationMinutes); // 상담 시간에 따른 종료 시간
-                
+
                 // 1. 상담 시간을 고려한 퇴근 시간 체크 (18시를 넘으면 비활성화)
                 boolean exceedsWorkingHours = slotEndTime.isAfter(LocalDateTime.parse(date + "T18:00:00"));
-                
+
                 // 2. 기존 예약과의 충돌 체크
                 boolean hasConflict = consultationsToCheck.stream()
                         .anyMatch(consultation -> {
                             LocalDateTime consultationStart = consultation.getScheduledAt();
-                            LocalDateTime consultationEnd = consultationStart.plusMinutes(consultation.getDurationMinutes());
-                            
+                            LocalDateTime consultationEnd = consultationStart
+                                    .plusMinutes(consultation.getDurationMinutes());
+
                             // 시간 겹침 검사: 두 시간대가 겹치는지 확인
                             // 겹치는 조건: slotStart < consultationEnd && slotEnd > consultationStart
-                            boolean hasOverlap = slotDateTime.isBefore(consultationEnd) && slotEndTime.isAfter(consultationStart);
-                            
-                            log.debug("시간 충돌 검사: slot={}-{}, consultation={}-{}, overlap={}", 
+                            boolean hasOverlap = slotDateTime.isBefore(consultationEnd)
+                                    && slotEndTime.isAfter(consultationStart);
+
+                            log.debug("시간 충돌 검사: slot={}-{}, consultation={}-{}, overlap={}",
                                     slotDateTime, slotEndTime, consultationStart, consultationEnd, hasOverlap);
-                            
+
                             return hasOverlap;
                         });
-                
+
                 // 퇴근 시간 초과 또는 기존 예약과 충돌하면 비활성화
                 boolean isAvailable = !exceedsWorkingHours && !hasConflict;
-                
+
                 timeSlotsStatus.put(timeSlot, isAvailable);
-                
+
                 // 디버깅을 위한 로그
                 if (!isAvailable) {
                     if (exceedsWorkingHours) {
@@ -642,7 +649,7 @@ public class ConsultationService {
      */
     private List<String> generateAvailableTimeSlots(Integer durationMinutes) {
         List<String> timeSlots = new ArrayList<>();
-        
+
         // 9시부터 18시까지 30분 단위로 모든 시간 생성
         for (int hour = 9; hour < 18; hour++) {
             for (int minute = 0; minute < 60; minute += 30) {
@@ -650,12 +657,68 @@ public class ConsultationService {
                 timeSlots.add(timeSlot);
             }
         }
-        
+
         // 시간 순서대로 정렬
         timeSlots.sort(String::compareTo);
-        
+
         log.info("생성된 시간 슬롯 (durationMinutes={}): {}", durationMinutes, timeSlots);
-        
+
         return timeSlots;
+    }
+
+    // WebSocket용 메서드들 추가
+
+    /**
+     * WebSocket 상담 참여 처리
+     */
+    public ConsultationJoinResponse joinConsultation(UUID consultationId, String userId, String clientId) {
+        log.info("WebSocket 상담 참여 처리: consultationId={}, userId={}, clientId={}", consultationId, userId, clientId);
+
+        try {
+            // 참여자 정보 생성
+            Map<String, Object> participant = new HashMap<>();
+            participant.put("userId", userId);
+            participant.put("clientId", clientId);
+            participant.put("role", "participant");
+            participant.put("joinedAt", System.currentTimeMillis());
+
+            // 참여자 목록 생성
+            Map<String, Object> participants = new HashMap<>();
+            participants.put(userId, participant);
+
+            // 응답 생성
+            ConsultationJoinResponse response = new ConsultationJoinResponse();
+            response.setSuccess(true);
+            response.setConsultationId(consultationId.toString());
+            response.setParticipants(participants);
+            response.setMessage("상담에 성공적으로 참여했습니다.");
+
+            log.info("WebSocket 상담 참여 성공: consultationId={}, userId={}", consultationId, userId);
+            return response;
+
+        } catch (Exception e) {
+            log.error("WebSocket 상담 참여 처리 중 오류: consultationId={}, userId={}", consultationId, userId, e);
+
+            ConsultationJoinResponse response = new ConsultationJoinResponse();
+            response.setSuccess(false);
+            response.setError("상담 참여에 실패했습니다: " + e.getMessage());
+            return response;
+        }
+    }
+
+    /**
+     * WebSocket 상담 나가기 처리
+     */
+    public void leaveConsultation(UUID consultationId, String userId) {
+        log.info("WebSocket 상담 나가기 처리: consultationId={}, userId={}", consultationId, userId);
+
+        try {
+            // 상담 나가기 로직 구현
+            // 실제로는 데이터베이스에서 참여자 정보를 업데이트하거나 제거
+            log.info("WebSocket 상담 나가기 성공: consultationId={}, userId={}", consultationId, userId);
+
+        } catch (Exception e) {
+            log.error("WebSocket 상담 나가기 처리 중 오류: consultationId={}, userId={}", consultationId, userId, e);
+        }
     }
 }

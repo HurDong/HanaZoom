@@ -14,43 +14,38 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private final WebSocketAuthInterceptor webSocketAuthInterceptor;
+        private final WebSocketAuthInterceptor webSocketAuthInterceptor;
 
-    @Override
-    public void configureMessageBroker(MessageBrokerRegistry config) {
-        // 클라이언트가 구독할 수 있는 destination prefix
-        config.enableSimpleBroker("/topic", "/queue");
-        
-        // 클라이언트가 메시지를 보낼 때 사용할 destination prefix
-        config.setApplicationDestinationPrefixes("/app");
-        
-        // 특정 사용자에게 메시지를 보낼 때 사용할 prefix
-        config.setUserDestinationPrefix("/user");
-    }
+        @Override
+        public void configureMessageBroker(MessageBrokerRegistry config) {
+                // 상담용 메시지 브로커만 활성화 (주식과 완전 분리)
+                config.enableSimpleBroker("/topic/consultation", "/queue/consultation");
 
-    @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // WebSocket 연결 엔드포인트 - 클라이언트별 구분
-        registry.addEndpoint("/ws/consultation/{clientId}")
-                .setAllowedOriginPatterns("*")
-                .withSockJS();
-        
-        // 일반 WebSocket 엔드포인트 (SockJS 없이) - 클라이언트별 구분
-        registry.addEndpoint("/ws/consultation/{clientId}")
-                .setAllowedOriginPatterns("*");
-        
-        // 기존 호환성을 위한 엔드포인트 (deprecated)
-        registry.addEndpoint("/ws/consultation")
-                .setAllowedOriginPatterns("*")
-                .withSockJS();
-        
-        registry.addEndpoint("/ws/consultation")
-                .setAllowedOriginPatterns("*");
-    }
+                // 클라이언트가 메시지를 보낼 때 사용할 destination prefix
+                config.setApplicationDestinationPrefixes("/app/consultation");
 
-    @Override
-    public void configureClientInboundChannel(ChannelRegistration registration) {
-        // WebSocket 인증 인터셉터 등록
-        registration.interceptors(webSocketAuthInterceptor);
-    }
+                // 특정 사용자에게 메시지를 보낼 때 사용할 prefix
+                config.setUserDestinationPrefix("/user/consultation");
+
+                // 주식 관련 메시지 브로커는 비활성화 (완전 분리)
+                // 주식은 별도의 WebSocket 핸들러 사용
+        }
+
+        @Override
+        public void registerStompEndpoints(StompEndpointRegistry registry) {
+                // 상담용 WebSocket 엔드포인트 (SockJS 경로 문제 해결)
+                registry.addEndpoint("/ws/consultation")
+                                .setAllowedOriginPatterns("*")
+                                .withSockJS();
+
+                // 일반 WebSocket 엔드포인트 (SockJS 없이)
+                registry.addEndpoint("/ws/consultation")
+                                .setAllowedOriginPatterns("*");
+        }
+
+        @Override
+        public void configureClientInboundChannel(ChannelRegistration registration) {
+                // WebSocket 인증 인터셉터 등록
+                registration.interceptors(webSocketAuthInterceptor);
+        }
 }

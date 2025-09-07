@@ -16,10 +16,10 @@ public class StockWebSocketConfig implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        // 주식 웹소켓 핸들러 등록
+        // 주식 웹소켓 핸들러 등록 (상담과 완전 분리)
+        // 상담용 WebSocket: /ws/consultation/{clientId} (STOMP 사용)
+        // 주식용 WebSocket: /ws/stocks (일반 WebSocket 사용)
         registry.addHandler(stockWebSocketHandler, "/ws/stocks")
                 .setAllowedOriginPatterns("*");
     }
 }
-
-
