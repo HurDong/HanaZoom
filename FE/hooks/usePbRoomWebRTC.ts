@@ -1,5 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Client } from "@stomp/stompjs";
+import { useAuthStore } from "@/app/utils/auth";
+
+// RTCPeerConnection 타입 확장
+interface ExtendedRTCPeerConnection extends RTCPeerConnection {
+  pendingIceCandidates?: RTCIceCandidateInit[];
+}
 
 interface UsePbRoomWebRTCProps {
   roomId: string;
@@ -7,6 +13,13 @@ interface UsePbRoomWebRTCProps {
   userType?: string; // 사용자 타입 추가
   onError?: (error: Error) => void;
   onRemoteStream?: (stream: MediaStream) => void;
+  onParticipantJoined?: (participant: {
+    id: string;
+    name: string;
+    role: string;
+    joinedAt: string;
+  }) => void;
+  onParticipantLeft?: (participantId: string) => void;
 }
 
 export const usePbRoomWebRTC = ({
@@ -15,15 +28,19 @@ export const usePbRoomWebRTC = ({
   userType = "pb", // 기본값 설정
   onError,
   onRemoteStream,
+  onParticipantJoined,
+  onParticipantLeft,
 }: UsePbRoomWebRTCProps) => {
+  const { getCurrentUserId } = useAuthStore();
   const [isConnected, setIsConnected] = useState(false);
-  const [connectionState, setConnectionState] =
-    useState<RTCPeerConnectionState>("disconnected");
+  const [connectionState, setConnectionState] = useState<
+    RTCPeerConnectionState | "offline"
+  >("disconnected");
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
 
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const peerConnectionRef = useRef<ExtendedRTCPeerConnection | null>(null);
   const stompClientRef = useRef<Client | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -122,6 +139,9 @@ export const usePbRoomWebRTC = ({
               case "user-joined":
                 handleUserJoined(data);
                 break;
+              case "user-kicked":
+                handleUserKicked(data);
+                break;
             }
           });
 
@@ -211,7 +231,9 @@ export const usePbRoomWebRTC = ({
       }
 
       // PeerConnection 생성
-      peerConnectionRef.current = new RTCPeerConnection(rtcConfig);
+      peerConnectionRef.current = new RTCPeerConnection(
+        rtcConfig
+      ) as ExtendedRTCPeerConnection;
 
       // 미디어 스트림 추가
       stream.getTracks().forEach((track) => {
@@ -431,6 +453,14 @@ export const usePbRoomWebRTC = ({
     (data: { userType: string; userId: string }) => {
       console.log("👤 사용자 입장:", data);
 
+      // 참여자 입장 이벤트 발생
+      onParticipantJoined?.({
+        id: data.userId,
+        name: data.userType === "guest" ? "고객" : "PB",
+        role: data.userType === "guest" ? "GUEST" : "PB",
+        joinedAt: new Date().toLocaleTimeString(),
+      });
+
       // PB가 고객 입장을 감지했을 때 재연결 시도
       if (userType === "pb" && data.userType === "guest") {
         console.log("🔄 고객 입장 감지 - WebRTC 재연결 시도");
@@ -447,7 +477,38 @@ export const usePbRoomWebRTC = ({
         }, 1000);
       }
     },
-    [userType, initiateCall]
+    [userType, initiateCall, onParticipantJoined]
+  );
+
+  // 사용자 강제 퇴장 처리
+  const handleUserKicked = useCallback(
+    (data: { participantId: string; kickedBy: string }) => {
+      console.log("👤 사용자 강제 퇴장:", data);
+
+      // 참여자 퇴장 이벤트 발생 (page.tsx에서 처리)
+      onParticipantLeft?.(data.participantId);
+
+      // 본인이 강제 퇴장당한 경우 연결 종료
+      if (data.participantId === getCurrentUserId?.()) {
+        console.log("🚫 본인이 강제 퇴장되었습니다. 연결을 종료합니다.");
+
+        // WebSocket 연결 종료
+        if (stompClientRef.current?.connected) {
+          stompClientRef.current.deactivate();
+        }
+
+        // PeerConnection 종료
+        if (peerConnectionRef.current) {
+          peerConnectionRef.current.close();
+          peerConnectionRef.current = null;
+        }
+
+        // 상태 초기화
+        setIsConnected(false);
+        setConnectionState("disconnected");
+      }
+    },
+    [onParticipantLeft, getCurrentUserId]
   );
 
   // 비디오 토글

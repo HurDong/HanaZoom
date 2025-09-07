@@ -6,7 +6,6 @@ import com.hanazoom.domain.consultation.entity.ParticipantRole;
 import com.hanazoom.domain.consultation.service.PbRoomWebRTCService;
 import com.hanazoom.domain.member.entity.Member;
 import com.hanazoom.domain.member.repository.MemberRepository;
-import com.hanazoom.global.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -116,6 +115,66 @@ public class PbRoomWebRTCController {
 
         } catch (Exception e) {
             log.error("방 참여 실패", e);
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 사용자 강제 퇴장 (PB만 가능) - memberId로 퇴장
+     */
+    @PostMapping("/{roomId}/kick/{memberId}")
+    public ResponseEntity<?> kickParticipant(
+            @PathVariable UUID roomId,
+            @PathVariable UUID memberId) {
+        try {
+            log.info("=== 강제 퇴장 API 호출 시작 ===");
+            log.info("roomId: {}", roomId);
+            log.info("memberId: {}", memberId);
+
+            UUID pbId = getCurrentUserIdFromSecurityContext();
+            log.info("PB {}가 방 {}에서 참여자 {} 강제 퇴장 요청", pbId, roomId, memberId);
+
+            PbRoom room = pbRoomService.findById(roomId);
+            if (room == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "존재하지 않는 방입니다"));
+            }
+
+            // PB가 방의 주인인지 확인
+            if (!room.getPb().getId().equals(pbId)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "방의 주인이 아닙니다"));
+            }
+
+            // 참여자 강제 퇴장
+            try {
+                pbRoomService.removeParticipant(roomId, memberId);
+            } catch (Exception e) {
+                log.error("참여자 강제 퇴장 실패", e);
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "참여자를 찾을 수 없습니다"));
+            }
+
+            // WebSocket으로 강제 퇴장 알림 전송
+            messagingTemplate.convertAndSend(
+                    "/topic/pb-room/" + roomId + "/webrtc",
+                    Map.of(
+                            "type", "user-kicked",
+                            "participantId", memberId,
+                            "kickedBy", pbId));
+
+            log.info("참여자 {} 강제 퇴장 성공", memberId);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "참여자가 강제 퇴장되었습니다"));
+
+        } catch (Exception e) {
+            log.error("참여자 강제 퇴장 실패", e);
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
                     "error", e.getMessage()));

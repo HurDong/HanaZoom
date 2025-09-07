@@ -16,6 +16,13 @@ interface PbRoomVideoConsultationProps {
   isPb?: boolean;
   isGuest?: boolean;
   onEndConsultation: () => void;
+  onParticipantJoined?: (participant: {
+    id: string;
+    name: string;
+    role: string;
+    joinedAt: string;
+  }) => void;
+  onParticipantLeft?: (participantId: string) => void;
 }
 
 export default function PbRoomVideoConsultation({
@@ -26,6 +33,8 @@ export default function PbRoomVideoConsultation({
   isPb = true,
   isGuest = false,
   onEndConsultation,
+  onParticipantJoined,
+  onParticipantLeft,
 }: PbRoomVideoConsultationProps) {
   // Zustand store에서 accessToken 가져오기
   const { accessToken } = useAuthStore();
@@ -59,6 +68,8 @@ export default function PbRoomVideoConsultation({
     onRemoteStream: (stream) => {
       console.log("원격 스트림 수신:", stream);
     },
+    onParticipantJoined: onParticipantJoined,
+    onParticipantLeft: onParticipantLeft,
   });
 
   // WebRTC 연결 시작
