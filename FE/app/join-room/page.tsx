@@ -109,12 +109,12 @@ export default function JoinRoomPage() {
     setJoining(true);
     try {
       // 로그인 상태 확인 (로그인 필수)
-      const token = accessToken || localStorage.getItem("accessToken");
+      const token = accessToken;
       console.log("🔍 토큰 확인:", {
         hasToken: !!token,
         tokenLength: token?.length,
         tokenPreview: token ? token.substring(0, 20) + "..." : "null",
-        source: accessToken ? "zustand" : "localStorage",
+        source: "zustand",
       });
 
       // 로그인하지 않은 경우 에러
@@ -185,10 +185,7 @@ export default function JoinRoomPage() {
   };
 
   // 로그인 상태 확인
-  const isLoggedIn = !!(
-    accessToken ||
-    (typeof window !== "undefined" && localStorage.getItem("accessToken"))
-  );
+  const isLoggedIn = !!accessToken;
 
   if (loading) {
     return (

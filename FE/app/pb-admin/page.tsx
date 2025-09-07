@@ -39,111 +39,61 @@ export default function PBAdminPage() {
   }, [getCurrentUserId, accessToken]);
 
   const handleStartConsultation = async (consultation: any) => {
-    console.log("상담 시작 요청:", consultation);
+    console.log("화상상담 시작 요청:", consultation);
     console.log("🔍 현재 pbId:", pbId);
     console.log("🔍 현재 accessToken:", accessToken ? "존재함" : "없음");
 
     try {
-      // 먼저 기존 활성 방이 있는지 확인
-      console.log("🔍 기존 활성 방 확인 중...");
-      const existingRoomResponse = await fetch(
-        `/api/pb-rooms/pb/${pbId}/active`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      if (existingRoomResponse.ok) {
-        const existingRoomData = await existingRoomResponse.json();
-        if (existingRoomData.success) {
-          // 기존 활성 방이 있으면 해당 방으로 이동
-          console.log("✅ 기존 활성 방 발견:", existingRoomData.data);
-          const roomId = existingRoomData.data.roomId;
-          const inviteCode = existingRoomData.data.inviteCode;
-
-          // PB용 clientId 생성
-          const pbClientId = `pb-${roomId.substring(0, 8)}`;
-
-          // 초대 URL 생성
-          const generatedInviteUrl = `${window.location.origin}/pb/room/${roomId}?type=pb-room&pbName=김영희 PB&inviteCode=${inviteCode}&clientId=${pbClientId}`;
-          console.log("초대 URL:", generatedInviteUrl);
-          setInviteUrl(generatedInviteUrl);
-
-          // 클립보드에 초대 URL 복사
-          try {
-            await navigator.clipboard.writeText(generatedInviteUrl);
-            setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 3000); // 3초 후 복사 상태 초기화
-          } catch (clipboardError) {
-            console.error("클립보드 복사 실패:", clipboardError);
-          }
-
-          // 기존 방으로 이동
-          router.push(`/pb/room/${roomId}?type=pb-room&pbName=김영희 PB`);
-          return;
-        }
-      }
-
-      // 기존 방이 없으면 새로 생성
-      console.log("🆕 새 방 생성 중...");
-      const response = await fetch("/api/pb-rooms", {
+      // 새로운 WebRTC 시스템으로 화상상담 시작
+      console.log("🆕 화상상담 방 생성 중...");
+      const response = await fetch("/api/pb-rooms/start", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          roomName: `상담방-${new Date().toLocaleString()}`,
-          roomDescription: "PB 개별 상담방",
-          isPrivate: false,
-          roomPassword: "",
-        }),
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          const roomId = data.data.roomId;
-          const inviteCode = data.data.inviteCode;
-          console.log("PB 방 생성 성공:", roomId);
-          console.log("초대 코드:", inviteCode);
+          const roomId = data.roomId;
+          const inviteUrl = data.inviteUrl;
+          console.log("화상상담 방 생성 성공:", roomId);
+          console.log("초대 URL:", inviteUrl);
 
-          // PB용 clientId 생성
-          const pbClientId = `pb-${roomId.substring(0, 8)}`;
-
-          // 초대 URL 생성
-          const generatedInviteUrl = `${window.location.origin}/pb/room/${roomId}?type=pb-room&pbName=김영희 PB&inviteCode=${inviteCode}&clientId=${pbClientId}`;
-          console.log("초대 URL:", generatedInviteUrl);
-          setInviteUrl(generatedInviteUrl);
+          // 고객용 초대 URL 생성 (기존 page.tsx 사용)
+          const customerInviteUrl = `${window.location.origin}/pb/room/${roomId}?type=pb-room&pbName=김영희 PB&userType=guest`;
+          setInviteUrl(customerInviteUrl);
 
           // 클립보드에 초대 URL 복사
           try {
-            await navigator.clipboard.writeText(generatedInviteUrl);
+            await navigator.clipboard.writeText(customerInviteUrl);
             setIsCopied(true);
             setTimeout(() => setIsCopied(false), 3000); // 3초 후 복사 상태 초기화
           } catch (clipboardError) {
             console.error("클립보드 복사 실패:", clipboardError);
           }
 
-          // 생성된 방으로 화상상담 페이지 이동
-          router.push(`/pb/room/${roomId}?type=pb-room&pbName=김영희 PB`);
+          // 화상상담방으로 이동 (기존 page.tsx 사용)
+          router.push(
+            `/pb/room/${roomId}?type=pb-room&pbName=김영희 PB&userType=pb`
+          );
         } else {
-          console.error("방 생성 실패:", data.message);
-          alert("방 생성에 실패했습니다: " + data.message);
+          console.error("화상상담 방 생성 실패:", data.message);
+          alert("화상상담 방 생성에 실패했습니다: " + data.message);
         }
       } else {
         const errorData = await response.json();
-        console.error("방 생성 API 오류:", errorData);
+        console.error("화상상담 방 생성 API 오류:", errorData);
         alert(
-          "방 생성에 실패했습니다: " + (errorData.message || "알 수 없는 오류")
+          "화상상담 방 생성에 실패했습니다: " +
+            (errorData.error || "알 수 없는 오류")
         );
       }
     } catch (error) {
-      console.error("방 생성 중 오류:", error);
-      alert("방 생성 중 오류가 발생했습니다.");
+      console.error("화상상담 방 생성 중 오류:", error);
+      alert("화상상담 방 생성 중 오류가 발생했습니다.");
     }
   };
 

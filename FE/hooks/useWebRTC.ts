@@ -46,16 +46,16 @@ export function useWebRTC({
     "video"
   );
 
-  // 토큰 상태 디버깅 (필요시에만 활성화)
-  // console.log("🔍 useWebRTC 초기화:", {
-  //   consultationId,
-  //   clientId,
-  //   hasAccessToken: !!accessToken,
-  //   accessTokenPreview: accessToken
-  //     ? accessToken.substring(0, 20) + "..."
-  //     : "null",
-  //   authStoreState: useAuthStore.getState(),
-  // });
+  // 토큰 상태 디버깅
+  console.log("🔍 useWebRTC 초기화:", {
+    consultationId,
+    clientId,
+    hasAccessToken: !!accessToken,
+    accessTokenPreview: accessToken
+      ? accessToken.substring(0, 20) + "..."
+      : "null",
+    authStoreState: useAuthStore.getState(),
+  });
 
   // WebRTC 설정
   const rtcConfiguration: RTCConfiguration = {
@@ -234,9 +234,7 @@ export function useWebRTC({
     // ICE candidate 처리
     peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
-        // ICE candidate 생성 로그 제거 (너무 많이 출력됨)
-        // console.log("ICE candidate 생성:", event.candidate);
-
+        console.log("ICE candidate 생성:", event.candidate);
         // WebSocket이 연결된 경우에만 전송
         if (stompClientRef.current?.connected) {
           sendIceCandidate(event.candidate);
@@ -251,13 +249,7 @@ export function useWebRTC({
       const state = peerConnection.connectionState;
       setConnectionState(state);
       onConnectionStateChange?.(state);
-      console.log("🔗 WebRTC 연결 상태:", state);
-
-      if (state === "connected") {
-        console.log("✅ WebRTC 연결 성공! 비디오 스트림이 활성화되었습니다.");
-      } else if (state === "failed") {
-        console.log("❌ WebRTC 연결 실패!");
-      }
+      console.log("WebRTC 연결 상태:", state);
     };
 
     peerConnectionRef.current = peerConnection;
@@ -266,7 +258,13 @@ export function useWebRTC({
 
   // WebSocket 연결
   const connectWebSocket = useCallback(async () => {
-    console.log("🔌 WebSocket 연결 시도...");
+    console.log("🔌 WebSocket 연결 시도:", {
+      clientId,
+      hasAccessToken: !!accessToken,
+      accessTokenPreview: accessToken
+        ? accessToken.substring(0, 20) + "..."
+        : "null",
+    });
 
     let currentToken = accessToken;
 
@@ -322,7 +320,15 @@ export function useWebRTC({
     // WebSocket URL 구성 (SockJS 경로 문제 해결)
     const socketUrl = `http://localhost:8080/ws/consultation`;
     console.log("🔗 WebSocket URL:", socketUrl);
-    console.log("🔑 토큰 상태:", currentToken ? "✅ 있음" : "❌ 없음");
+    console.log("🔑 토큰 정보:", {
+      hasToken: !!currentToken,
+      tokenLength: currentToken?.length,
+      tokenPreview: currentToken
+        ? currentToken.substring(0, 50) + "..."
+        : "null",
+      clientId,
+      clientIdLength: clientId?.length,
+    });
 
     const socket = new SockJS(socketUrl);
     const stompClient = new Client({
@@ -334,8 +340,7 @@ export function useWebRTC({
         CLIENT_ID: clientId, // 클라이언트 ID를 헤더로 전달
       },
       debug: (str) => {
-        // STOMP Debug 로그 (필요시에만 활성화)
-        // console.log("STOMP Debug:", str);
+        console.log("STOMP Debug:", str);
       },
       onConnect: (frame) => {
         console.log("✅ WebSocket 연결 성공:", frame);
@@ -355,25 +360,6 @@ export function useWebRTC({
 
         // 이벤트 구독
         subscribeToEvents(stompClient);
-
-        // WebRTC 연결 자동 시작 (연결 후 1초 뒤, 중복 방지)
-        if (connectionState === "disconnected") {
-          setTimeout(() => {
-            console.log("🔄 WebRTC 연결 자동 시작...");
-            initiateCall();
-
-            // 테스트용: 3초 후 자동으로 Answer 생성 (두 번째 참여자가 없는 경우)
-            setTimeout(() => {
-              if (
-                peerConnectionRef.current &&
-                connectionState === "connecting"
-              ) {
-                console.log("🧪 테스트용 자동 Answer 생성...");
-                handleOffer(peerConnectionRef.current.localDescription!);
-              }
-            }, 3000);
-          }, 1000);
-        }
       },
       onStompError: (frame) => {
         console.error("❌ STOMP 오류:", frame);
@@ -452,8 +438,7 @@ export function useWebRTC({
         `/topic/consultation/${consultationId}/offer`,
         (message) => {
           const event = JSON.parse(message.body);
-          console.log("📥 Offer 수신:", event);
-          console.log("📥 Offer 상세:", event.offer);
+          console.log("Offer 수신:", event);
           handleOffer(event.offer);
         }
       );
@@ -463,12 +448,7 @@ export function useWebRTC({
         `/topic/consultation/${consultationId}/answer`,
         (message) => {
           const event = JSON.parse(message.body);
-          console.log("📥 Answer 수신:", event);
-          console.log("📥 Answer 상세:", event.answer);
-          console.log(
-            "📥 Answer SDP:",
-            event.answer?.sdp?.substring(0, 100) + "..."
-          );
+          console.log("Answer 수신:", event);
           handleAnswer(event.answer);
         }
       );
@@ -478,8 +458,7 @@ export function useWebRTC({
         `/topic/consultation/${consultationId}/ice-candidate`,
         (message) => {
           const event = JSON.parse(message.body);
-          // ICE Candidate 수신 로그 제거 (너무 많이 출력됨)
-          // console.log("📥 ICE Candidate 수신:", event);
+          console.log("ICE Candidate 수신:", event);
           handleIceCandidate(event.candidate);
         }
       );
@@ -561,7 +540,6 @@ export function useWebRTC({
         return;
       }
 
-      console.log("📤 Offer 전송:", offer);
       stompClientRef.current.publish({
         destination: `/app/consultation/${consultationId}/offer`,
         body: JSON.stringify({
@@ -581,7 +559,6 @@ export function useWebRTC({
         return;
       }
 
-      console.log("📤 Answer 전송:", answer);
       stompClientRef.current.publish({
         destination: `/app/consultation/${consultationId}/answer`,
         body: JSON.stringify({
@@ -600,9 +577,6 @@ export function useWebRTC({
         console.log("WebSocket 미연결 - ICE Candidate 전송 건너뜀");
         return;
       }
-
-      // ICE Candidate 전송 로그 제거 (너무 많이 출력됨)
-      // console.log("📤 ICE Candidate 전송:", candidate);
 
       stompClientRef.current.publish({
         destination: `/app/consultation/${consultationId}/ice-candidate`,
@@ -787,31 +761,22 @@ export function useWebRTC({
 
   // Offer 생성 및 전송 (다른 참여자와 연결 시작)
   const initiateCall = useCallback(async () => {
-    console.log("🔄 WebRTC 연결 시작...");
-
     if (!peerConnectionRef.current) {
-      console.log("🔧 PeerConnection 생성 중...");
       createPeerConnection();
     }
 
     try {
-      console.log("📝 Offer 생성 중...");
       const offer = await peerConnectionRef.current!.createOffer();
-      console.log("✅ Offer 생성 완료:", offer);
-
-      console.log("💾 Local Description 설정 중...");
       await peerConnectionRef.current!.setLocalDescription(offer);
-      console.log("✅ Local Description 설정 완료");
 
       // WebSocket이 연결된 경우에만 Offer 전송
       if (stompClientRef.current?.connected) {
-        console.log("📤 Offer 전송 중...");
         sendOffer(offer);
       } else {
         console.log("WebSocket 미연결 - Offer 전송 건너뜀 (오프라인 모드)");
       }
     } catch (err) {
-      console.error("❌ 통화 시작 실패:", err);
+      console.error("통화 시작 실패:", err);
       const errorMsg = "통화 시작에 실패했습니다.";
       setError(errorMsg);
       onError?.(errorMsg);
