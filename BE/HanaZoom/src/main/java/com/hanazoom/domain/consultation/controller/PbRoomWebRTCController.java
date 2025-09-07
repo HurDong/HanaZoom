@@ -332,14 +332,14 @@ public class PbRoomWebRTCController {
      */
     @MessageMapping("/chat/{roomId}/send")
     public void handleChatMessage(
-            @DestinationVariable UUID roomId,
+            @DestinationVariable String roomId,
             @Payload Map<String, Object> messageData,
             SimpMessageHeaderAccessor headerAccessor) {
 
-        log.info("=== 채팅 메시지 수신 시작 ===");
-        log.info("roomId: {}", roomId);
-        log.info("messageData: {}", messageData);
-        log.info("headerAccessor: {}", headerAccessor);
+        log.info("🎯 === 채팅 메시지 수신 시작 ===");
+        log.info("🎯 roomId: {}", roomId);
+        log.info("🎯 messageData: {}", messageData);
+        log.info("🎯 headerAccessor: {}", headerAccessor);
 
         try {
             // 인증 정보 확인
@@ -368,6 +368,12 @@ public class PbRoomWebRTCController {
         } catch (Exception e) {
             log.error("채팅 메시지 전송 실패", e);
         }
+    }
+
+    // 테스트용 간단한 메시지 매핑
+    @MessageMapping("/test")
+    public void handleTest(@Payload Map<String, Object> data) {
+        log.info("🧪 테스트 메시지 수신: {}", data);
     }
 
     private UUID getCurrentUserId(SimpMessageHeaderAccessor headerAccessor) {

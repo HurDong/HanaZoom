@@ -247,6 +247,15 @@ export default function ConsultationRoomPage() {
         destination: `/app/chat/${consultationId}/send`,
         body: JSON.stringify(messageData),
       });
+
+      console.log("✅ 메시지 전송 완료");
+
+      // 테스트용 메시지도 전송
+      chatStompClient.publish({
+        destination: "/app/test",
+        body: JSON.stringify({ test: "hello" }),
+      });
+      console.log("🧪 테스트 메시지도 전송");
     } else {
       console.log("⚠️ WebSocket 연결되지 않음 - 로컬에만 저장됨");
     }
