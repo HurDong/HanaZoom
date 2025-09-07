@@ -225,6 +225,33 @@ public class PbRoomWebRTCController {
         }
     }
 
+    /**
+     * 사용자 입장 알림 처리
+     */
+    @MessageMapping("/webrtc/{roomId}/user-joined")
+    public void handleUserJoined(
+            @DestinationVariable UUID roomId,
+            @Payload Map<String, Object> userData,
+            SimpMessageHeaderAccessor headerAccessor) {
+
+        try {
+            UUID fromUserId = getCurrentUserId(headerAccessor);
+            String userType = (String) userData.get("userType");
+            log.info("방 {}에서 사용자 {} ({}) 입장 알림", roomId, fromUserId, userType);
+
+            // 다른 참여자들에게 사용자 입장 알림 전달
+            messagingTemplate.convertAndSend(
+                    "/topic/pb-room/" + roomId + "/webrtc",
+                    Map.of(
+                            "type", "user-joined",
+                            "userType", userType,
+                            "userId", fromUserId));
+
+        } catch (Exception e) {
+            log.error("사용자 입장 알림 전송 실패", e);
+        }
+    }
+
     private UUID getCurrentUserId(SimpMessageHeaderAccessor headerAccessor) {
         // 1. SecurityContext에서 사용자 정보 확인
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

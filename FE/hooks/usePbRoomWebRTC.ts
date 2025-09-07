@@ -119,6 +119,9 @@ export const usePbRoomWebRTC = ({
               case "ice-candidate":
                 handleIceCandidate(data.candidate);
                 break;
+              case "user-joined":
+                handleUserJoined(data);
+                break;
             }
           });
 
@@ -253,6 +256,18 @@ export const usePbRoomWebRTC = ({
         sendOffer(offer);
       } else {
         console.log("🎯 고객 역할 - Answer 대기 중");
+
+        // 고객이 입장했을 때 PB에게 알림 전송
+        if (stompClientRef.current?.connected) {
+          console.log("📤 고객 입장 알림 전송");
+          stompClientRef.current.publish({
+            destination: `/app/webrtc/webrtc/${roomId}/user-joined`,
+            body: JSON.stringify({
+              userType: "guest",
+              userId: "guest-user", // 실제로는 사용자 ID를 사용해야 함
+            }),
+          });
+        }
       }
     } catch (error) {
       console.error("❌ WebRTC 연결 실패:", error);
@@ -409,6 +424,30 @@ export const usePbRoomWebRTC = ({
       }
     },
     [onError]
+  );
+
+  // 사용자 입장 처리
+  const handleUserJoined = useCallback(
+    (data: { userType: string; userId: string }) => {
+      console.log("👤 사용자 입장:", data);
+
+      // PB가 고객 입장을 감지했을 때 재연결 시도
+      if (userType === "pb" && data.userType === "guest") {
+        console.log("🔄 고객 입장 감지 - WebRTC 재연결 시도");
+
+        // 기존 연결이 있다면 정리
+        if (peerConnectionRef.current) {
+          peerConnectionRef.current.close();
+          peerConnectionRef.current = null;
+        }
+
+        // 1초 후 재연결 시도
+        setTimeout(() => {
+          initiateCall();
+        }, 1000);
+      }
+    },
+    [userType, initiateCall]
   );
 
   // 비디오 토글
