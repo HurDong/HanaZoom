@@ -336,7 +336,16 @@ public class PbRoomWebRTCController {
             @Payload Map<String, Object> messageData,
             SimpMessageHeaderAccessor headerAccessor) {
 
+        log.info("=== 채팅 메시지 수신 시작 ===");
+        log.info("roomId: {}", roomId);
+        log.info("messageData: {}", messageData);
+        log.info("headerAccessor: {}", headerAccessor);
+
         try {
+            // 인증 정보 확인
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            log.info("SecurityContext Authentication: {}", authentication);
+
             UUID fromUserId = getCurrentUserId(headerAccessor);
             String message = (String) messageData.get("message");
             String senderName = (String) messageData.get("senderName");
@@ -362,18 +371,27 @@ public class PbRoomWebRTCController {
     }
 
     private UUID getCurrentUserId(SimpMessageHeaderAccessor headerAccessor) {
+        log.info("=== getCurrentUserId 호출 ===");
+
         // 1. SecurityContext에서 사용자 정보 확인
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        log.info("SecurityContext Authentication: {}", authentication);
+
         if (authentication != null && authentication.getPrincipal() instanceof Member) {
             Member member = (Member) authentication.getPrincipal();
+            log.info("SecurityContext에서 사용자 정보 발견: {}", member.getId());
             return member.getId();
         }
 
         // 2. WebSocket 세션 속성에서 사용자 정보 확인
         if (headerAccessor != null) {
             Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
+            log.info("WebSocket 세션 속성: {}", sessionAttributes);
+
             if (sessionAttributes != null) {
                 String userId = (String) sessionAttributes.get("USER_ID");
+                log.info("세션에서 USER_ID: {}", userId);
+
                 if (userId != null) {
                     try {
                         return UUID.fromString(userId);

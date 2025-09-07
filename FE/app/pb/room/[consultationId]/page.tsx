@@ -109,43 +109,67 @@ export default function ConsultationRoomPage() {
       // 스토어에서 직접 토큰 가져오기
       const currentToken = useAuthStore.getState().accessToken;
 
+      console.log("🔌 채팅 WebSocket 연결 시도:", {
+        consultationId,
+        hasToken: !!currentToken,
+        tokenPreview: currentToken
+          ? currentToken.substring(0, 20) + "..."
+          : "없음",
+        brokerURL: "ws://localhost:8080/ws/pb-room",
+      });
+
       const client = new Client({
         brokerURL: "ws://localhost:8080/ws/pb-room",
         connectHeaders: {
           Authorization: `Bearer ${currentToken}`,
         },
         debug: (str) => {
-          console.log("채팅 STOMP Debug:", str);
+          console.log("🔍 채팅 STOMP Debug:", str);
         },
         reconnectDelay: 0,
         heartbeatIncoming: 4000,
         heartbeatOutgoing: 4000,
-        onConnect: () => {
-          console.log("✅ 채팅 WebSocket 연결 성공");
+        onConnect: (frame) => {
+          console.log("✅ 채팅 WebSocket 연결 성공:", {
+            frame,
+            consultationId,
+            subscriptionTopic: `/topic/pb-room/${consultationId}/chat`,
+            sessionId: frame.headers["session-id"],
+            server: frame.headers["server"],
+          });
           setIsChatConnected(true);
 
           // 채팅 메시지 구독
-          client.subscribe(
+          const subscription = client.subscribe(
             `/topic/pb-room/${consultationId}/chat`,
             (message) => {
+              console.log("📥 채팅 메시지 수신 - Raw:", message);
               const data = JSON.parse(message.body);
-              console.log("📥 채팅 메시지 수신:", data);
+              console.log("📥 채팅 메시지 수신 - Parsed:", data);
 
-              if (data.type === "chat-message") {
-                setChatMessages((prev) => [
-                  ...prev,
-                  {
-                    id: data.messageId,
-                    message: data.message,
-                    senderId: data.senderId,
-                    senderName: data.senderName,
-                    userType: data.userType,
-                    timestamp: data.timestamp,
-                  },
-                ]);
-              }
+              // 백엔드에서 보내는 메시지 구조에 맞춰 처리
+              const newMessage = {
+                id: data.messageId || data.id || Date.now().toString(),
+                message: data.message || data.content, // 백엔드에서 'message' 필드로 보냄
+                senderId: data.senderId || "other",
+                senderName: data.senderName || "사용자",
+                userType: data.userType || "guest",
+                timestamp: data.timestamp || Date.now(), // 백엔드에서 이미 timestamp로 보냄
+              };
+
+              console.log("📝 수신된 메시지를 상태에 추가:", newMessage);
+              setChatMessages((prev) => {
+                const updated = [...prev, newMessage];
+                console.log("📊 메시지 상태 업데이트:", {
+                  before: prev.length,
+                  after: updated.length,
+                });
+                return updated;
+              });
             }
           );
+
+          console.log("📡 채팅 구독 완료:", subscription);
         },
         onStompError: (frame) => {
           console.error("❌ 채팅 STOMP 오류:", frame);
@@ -167,20 +191,65 @@ export default function ConsultationRoomPage() {
 
   // 채팅 메시지 전송
   const sendChatMessage = () => {
-    if (!chatInput.trim() || !chatStompClient || !isChatConnected) return;
+    if (!chatInput.trim()) return;
 
-    const messageData = {
-      message: chatInput.trim(),
-      senderName: actualPbName,
-      userType: isPb ? "pb" : "guest",
-    };
+    const messageText = chatInput.trim();
+    const senderName = actualPbName || (isPb ? "PB" : "고객");
+    const messageUserType = isPb ? "pb" : "guest";
 
-    chatStompClient.publish({
-      destination: `/app/chat/${consultationId}/send`,
-      body: JSON.stringify(messageData),
+    console.log("📤 채팅 메시지 전송 시도:", {
+      messageText,
+      senderName,
+      messageUserType,
+      isChatConnected,
+      chatStompClient: !!chatStompClient,
+      currentMessagesCount: chatMessages.length,
     });
 
+    // 로컬 상태에 즉시 메시지 추가 (내가 보낸 메시지)
+    const newMessage = {
+      id: Date.now().toString(),
+      message: messageText,
+      senderId: "me",
+      senderName: senderName,
+      userType: messageUserType,
+      timestamp: Date.now(),
+    };
+
+    setChatMessages((prev) => {
+      const updated = [...prev, newMessage];
+      console.log("📝 로컬 메시지 상태 업데이트:", {
+        before: prev.length,
+        after: updated.length,
+        newMessage,
+      });
+      return updated;
+    });
     setChatInput("");
+
+    // WebSocket으로 전송 (연결된 경우에만)
+    if (chatStompClient && isChatConnected) {
+      const messageData = {
+        message: messageText, // 백엔드에서 'message' 필드를 찾고 있음
+        senderName: senderName,
+        userType: messageUserType,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log("🌐 WebSocket으로 메시지 전송:", {
+        messageData,
+        destination: `/app/chat/${consultationId}/send`,
+        clientConnected: chatStompClient.connected,
+        sessionId: chatStompClient.sessionId,
+      });
+
+      chatStompClient.publish({
+        destination: `/app/chat/${consultationId}/send`,
+        body: JSON.stringify(messageData),
+      });
+    } else {
+      console.log("⚠️ WebSocket 연결되지 않음 - 로컬에만 저장됨");
+    }
   };
 
   // Enter 키로 메시지 전송
@@ -515,9 +584,20 @@ export default function ConsultationRoomPage() {
             <div className="p-4 md:p-6 h-full flex flex-col">
               {/* 채팅 헤더 */}
               <div className="mb-4 md:mb-6">
-                <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">
-                  채팅
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">
+                    채팅
+                  </h2>
+                  <div
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      isChatConnected
+                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                        : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                    }`}
+                  >
+                    {isChatConnected ? "연결됨" : "연결 안됨"}
+                  </div>
+                </div>
                 <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
                   실시간 메시지 공유
                 </p>
@@ -549,39 +629,45 @@ export default function ConsultationRoomPage() {
                       </p>
                     </div>
                   ) : (
-                    chatMessages.map((msg) => (
-                      <div key={msg.id} className="flex flex-col space-y-1">
-                        <div
-                          className={`flex ${
-                            msg.userType === "pb"
-                              ? "justify-end"
-                              : "justify-start"
-                          }`}
-                        >
+                    (() => {
+                      console.log("📋 채팅 메시지 렌더링:", {
+                        messagesCount: chatMessages.length,
+                        messages: chatMessages,
+                      });
+                      return chatMessages.map((msg) => (
+                        <div key={msg.id} className="flex flex-col space-y-1">
                           <div
-                            className={`max-w-[80%] px-3 py-2 rounded-lg ${
+                            className={`flex ${
                               msg.userType === "pb"
-                                ? "bg-emerald-600 text-white"
-                                : "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                                ? "justify-end"
+                                : "justify-start"
                             }`}
                           >
-                            <p className="text-sm">{msg.message}</p>
+                            <div
+                              className={`max-w-[80%] px-3 py-2 rounded-lg ${
+                                msg.userType === "pb"
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                              }`}
+                            >
+                              <p className="text-sm">{msg.message}</p>
+                            </div>
+                          </div>
+                          <div
+                            className={`flex ${
+                              msg.userType === "pb"
+                                ? "justify-end"
+                                : "justify-start"
+                            }`}
+                          >
+                            <p className="text-xs text-gray-500 dark:text-gray-400 px-1">
+                              {msg.senderName} •{" "}
+                              {new Date(msg.timestamp).toLocaleTimeString()}
+                            </p>
                           </div>
                         </div>
-                        <div
-                          className={`flex ${
-                            msg.userType === "pb"
-                              ? "justify-end"
-                              : "justify-start"
-                          }`}
-                        >
-                          <p className="text-xs text-gray-500 dark:text-gray-400 px-1">
-                            {msg.senderName} •{" "}
-                            {new Date(msg.timestamp).toLocaleTimeString()}
-                          </p>
-                        </div>
-                      </div>
-                    ))
+                      ));
+                    })()
                   )}
                 </div>
               </div>
