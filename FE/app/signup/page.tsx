@@ -48,6 +48,8 @@ export default function SignupPage() {
     address: "", // 전체 주소
     zonecode: "", // 우편번호
     detailAddress: "", // 상세주소
+    latitude: null as number | null, // 위도
+    longitude: null as number | null, // 경도
   });
   const [agreements, setAgreements] = useState({
     terms: false,
@@ -118,13 +120,48 @@ export default function SignupPage() {
   const handleAddressSearch = () => {
     new window.daum.Postcode({
       oncomplete: function (data: any) {
+        // 주소 정보 설정
         setFormData((prev) => ({
           ...prev,
           address: data.address,
           zonecode: data.zonecode,
         }));
+
+        // 주소로부터 좌표 정보 가져오기
+        if (data.address) {
+          getCoordinatesFromAddress(data.address);
+        }
       },
     }).open();
+  };
+
+  // 주소로부터 좌표 정보를 가져오는 함수
+  const getCoordinatesFromAddress = async (address: string) => {
+    try {
+      // 카카오 주소 검색 API를 사용하여 좌표 정보 가져오기
+      const response = await fetch(
+        `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`,
+        {
+          headers: {
+            Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY || 'f50a1c0f8638ca30ef8c170a6ff8412b'}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.documents && data.documents.length > 0) {
+          const document = data.documents[0];
+          setFormData((prev) => ({
+            ...prev,
+            latitude: parseFloat(document.y),
+            longitude: parseFloat(document.x),
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('좌표 정보 가져오기 실패:', error);
+    }
   };
 
   const handleDetailAddressChange = (
