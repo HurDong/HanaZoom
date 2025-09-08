@@ -414,11 +414,11 @@ export default function RegionPortfolioComparison({
             </div>
             <div className="text-right">
               <div className="text-4xl font-bold text-yellow-600 dark:text-yellow-400">
-                {comparisonData.suitabilityScore}점
+                {comparisonData?.suitabilityScore || 0}점
               </div>
               <div className="mt-2">
                 <Progress
-                  value={comparisonData.suitabilityScore}
+                  value={comparisonData?.suitabilityScore || 0}
                   className="w-32 h-2 bg-gray-200 dark:bg-gray-700"
                 />
               </div>
@@ -442,7 +442,7 @@ export default function RegionPortfolioComparison({
                   보유 종목
                 </span>
                 <span className="font-medium text-white">
-                  {comparisonData.userPortfolio.stockCount}종목
+                  {comparisonData?.userPortfolio?.stockCount || 0}종목
                 </span>
               </div>
               <div className="flex justify-between">
@@ -450,7 +450,7 @@ export default function RegionPortfolioComparison({
                   총 자산
                 </span>
                 <span className="font-medium text-white">
-                  {comparisonData.userPortfolio.totalValue.toLocaleString()}원
+                  {comparisonData?.userPortfolio?.totalValue?.toLocaleString() || "0"}원
                 </span>
               </div>
               <div className="flex justify-between">
@@ -458,7 +458,7 @@ export default function RegionPortfolioComparison({
                   위험도
                 </span>
                 <Badge className="bg-green-600 text-white text-xs px-2 py-1">
-                  {comparisonData.userPortfolio.riskLevel}
+                  {comparisonData?.userPortfolio?.riskLevel || "보통"}
                 </Badge>
               </div>
               <div className="flex justify-between">
@@ -466,7 +466,7 @@ export default function RegionPortfolioComparison({
                   분산도
                 </span>
                 <span className="font-medium text-white">
-                  {comparisonData.userPortfolio.diversificationScore}점
+                  {comparisonData?.userPortfolio?.diversificationScore || 0}점
                 </span>
               </div>
             </CardContent>
@@ -486,7 +486,7 @@ export default function RegionPortfolioComparison({
                   보유 종목
                 </span>
                 <span className="font-medium text-white">
-                  {comparisonData.regionalAverage.averageStockCount}종목
+                  {comparisonData?.regionalAverage?.averageStockCount || 0}종목
                 </span>
               </div>
               <div className="flex justify-between">
@@ -494,7 +494,7 @@ export default function RegionPortfolioComparison({
                   평균 자산
                 </span>
                 <span className="font-medium text-white">
-                  {comparisonData.regionalAverage.averageTotalValue.toLocaleString()}
+                  {comparisonData?.regionalAverage?.averageTotalValue?.toLocaleString() || "0"}
                   원
                 </span>
               </div>
@@ -503,7 +503,7 @@ export default function RegionPortfolioComparison({
                   위험도
                 </span>
                 <Badge className="bg-green-600 text-white text-xs px-2 py-1">
-                  {comparisonData.regionalAverage.commonRiskLevel}
+                  {comparisonData?.regionalAverage?.commonRiskLevel || "보통"}
                 </Badge>
               </div>
               <div className="flex justify-between">
@@ -511,7 +511,7 @@ export default function RegionPortfolioComparison({
                   분산도
                 </span>
                 <span className="font-medium text-white">
-                  {comparisonData.regionalAverage.averageDiversificationScore}점
+                  {comparisonData?.regionalAverage?.averageDiversificationScore || 0}점
                 </span>
               </div>
             </CardContent>
@@ -531,20 +531,20 @@ export default function RegionPortfolioComparison({
                   종목 수 차이
                 </span>
                 <div className="flex items-center gap-1">
-                  {comparisonData.comparison.stockCountDifference > 0 ? (
+                  {(comparisonData?.comparison?.stockCountDifference || 0) > 0 ? (
                     <ArrowUpRight className="w-4 h-4 text-red-500" />
                   ) : (
                     <ArrowDownRight className="w-4 h-4 text-blue-500" />
                   )}
                   <span
                     className={`font-medium ${
-                      comparisonData.comparison.stockCountDifference > 0
+                      (comparisonData?.comparison?.stockCountDifference || 0) > 0
                         ? "text-red-400"
                         : "text-blue-400"
                     }`}
                   >
-                    {comparisonData.comparison.stockCountDifference > 0 ? "+" : ""}
-                    {comparisonData.comparison.stockCountDifference}종목
+                    {(comparisonData?.comparison?.stockCountDifference || 0) > 0 ? "+" : ""}
+                    {comparisonData?.comparison?.stockCountDifference || 0}종목
                   </span>
                 </div>
               </div>
@@ -553,19 +553,19 @@ export default function RegionPortfolioComparison({
                   위험도 일치
                 </span>
                 <div className="flex items-center gap-1">
-                  {comparisonData.comparison.riskLevelMatch ? (
+                  {comparisonData?.comparison?.riskLevelMatch ? (
                     <CheckCircle className="w-4 h-4 text-green-500" />
                   ) : (
                     <AlertTriangle className="w-4 h-4 text-yellow-500" />
                   )}
                   <span
                     className={`font-medium ${
-                      comparisonData.comparison.riskLevelMatch
+                      comparisonData?.comparison?.riskLevelMatch
                         ? "text-green-400"
                         : "text-yellow-400"
                     }`}
                   >
-                    {comparisonData.comparison.riskLevelMatch ? "일치" : "차이"}
+                    {comparisonData?.comparison?.riskLevelMatch ? "일치" : "차이"}
                   </span>
                 </div>
               </div>
@@ -574,7 +574,7 @@ export default function RegionPortfolioComparison({
                   추천사항
                 </span>
                 <span className="font-medium text-white">
-                  {comparisonData.comparison.recommendationCount}개
+                  {comparisonData?.comparison?.recommendationCount || 0}개
                 </span>
               </div>
             </CardContent>
@@ -599,43 +599,16 @@ export default function RegionPortfolioComparison({
                     {comparisonData?.regionName || userRegion || "지역"} 인기 종목 TOP 5
                   </h4>
                   <div className="space-y-2">
-                    {comparisonData.regionAverage.popularStocks.map(
-                      (stock, index) => (
-                        <div
-                          key={stock.symbol}
-                          className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {stock.ranking}위
-                            </Badge>
-                            <div>
-                              <div className="font-medium text-gray-900 dark:text-gray-100">
-                                {stock.name}
-                              </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                {stock.symbol}
-                              </div>
-                            </div>
+                    {(() => {
+                      const popular = comparisonData?.regionalAverage?.popularStocks ?? [];
+                      if (popular.length === 0) {
+                        return (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            인기 종목 데이터가 없습니다.
                           </div>
-                          <div className="text-right">
-                            <div className="text-sm font-medium text-green-600 dark:text-green-400">
-                              {stock.popularityScore.toFixed(1)}점
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
-                    내 포트폴리오 TOP 5
-                  </h4>
-                  <div className="space-y-2">
-                    {comparisonData.userPortfolio.topStocks.map(
-                      (stock, index) => (
+                        );
+                      }
+                      return popular.map((stock, index) => (
                         <div
                           key={stock.symbol}
                           className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"
@@ -644,23 +617,82 @@ export default function RegionPortfolioComparison({
                             <Badge variant="outline" className="text-xs">
                               {index + 1}위
                             </Badge>
-                            <div>
-                              <div className="font-medium text-gray-900 dark:text-gray-100">
-                                {stock.name}
+                            <div className="flex items-center gap-3">
+                              {stock.logoUrl && (
+                                <img
+                                  src={stock.logoUrl}
+                                  alt={stock.name}
+                                  className="w-6 h-6 rounded-sm object-contain bg-white"
+                                />
+                              )}
+                              <div>
+                                <div className="font-medium text-gray-900 dark:text-gray-100">
+                                  {stock.name}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {stock.symbol}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                {stock.symbol}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            {/* 점수 표시는 제거 */}
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
+                    내 포트폴리오 TOP 5
+                  </h4>
+                  <div className="space-y-2">
+                    {(() => {
+                      const mine = comparisonData?.userPortfolio?.topStocks ?? [];
+                      if (mine.length === 0) {
+                        return (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            보유 종목 데이터가 없습니다.
+                          </div>
+                        );
+                      }
+                      return mine.map((stock, index) => (
+                        <div
+                          key={stock.symbol}
+                          className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {index + 1}위
+                            </Badge>
+                            <div className="flex items-center gap-3">
+                              {stock.logoUrl && (
+                                <img
+                                  src={stock.logoUrl}
+                                  alt={stock.name}
+                                  className="w-6 h-6 rounded-sm object-contain bg-white"
+                                />
+                              )}
+                              <div>
+                                <div className="font-medium text-gray-900 dark:text-gray-100">
+                                  {stock.name}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {stock.symbol}
+                                </div>
                               </div>
                             </div>
                           </div>
                           <div className="text-right">
                             <div className="text-sm font-medium text-green-600 dark:text-green-400">
-                              {stock.percentage.toFixed(1)}%
+                              {Number(stock.percentage ?? 0).toFixed(1)}%
                             </div>
                           </div>
                         </div>
-                      )
-                    )}
+                      ));
+                    })()}
                   </div>
                 </div>
               </div>
@@ -679,7 +711,7 @@ export default function RegionPortfolioComparison({
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={comparisonData.regionAverage.investmentTrends}
+                    data={comparisonData?.regionAverage?.investmentTrends || []}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="sector" />
@@ -704,8 +736,8 @@ export default function RegionPortfolioComparison({
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {comparisonData.comparison.recommendations.length > 0 ? (
-                comparisonData.comparison.recommendations.map(
+              {(comparisonData?.comparison?.recommendations?.length || 0) > 0 ? (
+                comparisonData?.comparison?.recommendations?.map(
                   (recommendation, index) => (
                     <div
                       key={index}
