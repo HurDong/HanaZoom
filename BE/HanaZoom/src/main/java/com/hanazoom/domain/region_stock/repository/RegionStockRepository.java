@@ -111,4 +111,19 @@ public interface RegionStockRepository extends JpaRepository<RegionStock, Long> 
                 "AND rs.dataDate = (SELECT MAX(rs2.dataDate) FROM RegionStock rs2 WHERE rs2.region.id = :regionId) " +
                 "ORDER BY rs.popularityScore DESC")
         List<RegionStock> findTopPopularStocksByRegionId(@Param("regionId") Long regionId, Pageable pageable);
+
+        // 전체 기간 누적 인기도 기반 TOP N (집계)
+        @Query("SELECT rs.stock as stock, SUM(rs.popularityScore) as totalPopularity " +
+                "FROM RegionStock rs " +
+                "WHERE rs.region.id = :regionId " +
+                "GROUP BY rs.stock " +
+                "ORDER BY totalPopularity DESC")
+        List<RegionStockPopularityAgg> findTopPopularStocksAggregatedByRegion(
+                @Param("regionId") Long regionId,
+                Pageable pageable);
+
+        interface RegionStockPopularityAgg {
+                com.hanazoom.domain.stock.entity.Stock getStock();
+                java.math.BigDecimal getTotalPopularity();
+        }
 }

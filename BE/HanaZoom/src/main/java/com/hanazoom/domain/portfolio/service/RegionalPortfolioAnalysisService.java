@@ -4,12 +4,14 @@ import com.hanazoom.domain.member.entity.Member;
 import com.hanazoom.domain.member.repository.MemberRepository;
 import com.hanazoom.domain.portfolio.dto.RegionalPortfolioAnalysisDto;
 import com.hanazoom.domain.portfolio.entity.Account;
+import com.hanazoom.domain.portfolio.entity.PortfolioStock;
 import com.hanazoom.domain.portfolio.repository.PortfolioStockRepository;
 import com.hanazoom.domain.region.entity.Region;
 import com.hanazoom.domain.region.repository.RegionRepository;
 import com.hanazoom.domain.region_stock.entity.RegionStock;
 import com.hanazoom.domain.region_stock.repository.RegionStockRepository;
 import com.hanazoom.global.service.KakaoApiService;
+import com.hanazoom.domain.stock.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -34,6 +36,7 @@ public class RegionalPortfolioAnalysisService {
     private final RegionStockRepository regionStockRepository;
     private final PortfolioStockRepository portfolioStockRepository;
     private final KakaoApiService kakaoApiService;
+    private final StockRepository stockRepository;
 
     /**
      * 사용자의 지역별 포트폴리오 분석 결과를 조회합니다.
@@ -186,12 +189,31 @@ public class RegionalPortfolioAnalysisService {
             int diversificationScore = calculateDiversificationScore(stats.getStockCount());
             log.info("분산도 계산 완료 - diversificationScore: {}", diversificationScore);
 
+            // 상위 보유 종목 TOP5 (평가금액 기준)
+            List<PortfolioStock> topHoldings = portfolioStockRepository
+                    .findTopHoldingStocksByAccountId(mainAccount.getId());
+
+            java.util.List<RegionalPortfolioAnalysisDto.StockInfo> topStocks = topHoldings.stream()
+                    .limit(5)
+                    .map(ps -> {
+                        var stockOpt = stockRepository.findBySymbol(ps.getStockSymbol());
+                        String name = stockOpt.map(s -> s.getName()).orElse(ps.getStockSymbol());
+                        String logoUrl = stockOpt.map(s -> s.getLogoUrl()).orElse(null);
+                        return RegionalPortfolioAnalysisDto.StockInfo.builder()
+                                .symbol(ps.getStockSymbol())
+                                .name(name)
+                                .logoUrl(logoUrl)
+                                .percentage(calculateHoldingPercentage(ps.getCurrentValue(), stats.getTotalValue()))
+                                .build();
+                    })
+                    .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+
             RegionalPortfolioAnalysisDto.UserPortfolioInfo result = RegionalPortfolioAnalysisDto.UserPortfolioInfo.builder()
                     .stockCount((int) stats.getStockCount())
                     .totalValue(stats.getTotalValue())
                     .riskLevel(riskLevel)
                     .diversificationScore(diversificationScore)
-                    .topStocks(List.of()) // 임시로 빈 리스트
+                    .topStocks(topStocks)
                     .build();
 
             log.info("✅ 사용자 포트폴리오 분석 완료");
@@ -210,14 +232,21 @@ public class RegionalPortfolioAnalysisService {
         log.info("지역 평균 데이터 분석 시작 - districtId: {}", districtId);
         
         try {
-            // 인기 주식 TOP 5 조회
-            log.info("인기 주식 TOP 5 조회 시작");
-            List<RegionStock> popularStocks = regionStockRepository
-                    .findTopPopularStocksByRegionId(districtId, PageRequest.of(0, 5));
-            log.info("인기 주식 조회 완료 - 조회된 주식 수: {}", popularStocks.size());
-
-            // PopularStockInfo 리스트로 변환
-            List<RegionalPortfolioAnalysisDto.PopularStockInfo> popularStockInfos = convertToPopularStockInfoList(popularStocks);
+            // 인기 주식 TOP 5 조회 (전체 기간 누적 인기도 기준)
+            log.info("인기 주식 TOP 5 조회 시작 (전체 기간 누적)");
+            List<RegionStockRepository.RegionStockPopularityAgg> aggTop = regionStockRepository
+                    .findTopPopularStocksAggregatedByRegion(districtId, PageRequest.of(0, 5));
+            List<RegionalPortfolioAnalysisDto.PopularStockInfo> popularStockInfos = new java.util.ArrayList<>();
+            for (int i = 0; i < aggTop.size(); i++) {
+                var a = aggTop.get(i);
+                popularStockInfos.add(RegionalPortfolioAnalysisDto.PopularStockInfo.builder()
+                        .symbol(a.getStock().getSymbol())
+                        .name(a.getStock().getName())
+                        .popularityScore(null)
+                        .ranking(i + 1)
+                        .logoUrl(a.getStock().getLogoUrl())
+                        .build());
+            }
             log.info("인기 주식 정보 변환 완료 - 변환된 주식 수: {}", popularStockInfos.size());
 
             // 실제 지역 평균 통계 조회
@@ -233,12 +262,29 @@ public class RegionalPortfolioAnalysisService {
             String commonRiskLevel = "보통"; // TODO: 실제 위험도 계산 필요
             int averageDiversificationScore = 72; // TODO: 실제 분산도 계산 필요
 
+            // 간단한 섹터 분포 트렌드: 최신 날짜의 해당 지역 모든 RegionStock을 기반으로 계산
+            List<RegionStock> latestRegionStocks = regionStockRepository.findByRegion_Id(districtId);
+            java.util.Map<String, Long> sectorCounts = latestRegionStocks.stream()
+                    .map(rs -> rs.getStock())
+                    .filter(st -> st != null)
+                    .map(st -> st.getSector() == null ? "기타" : st.getSector())
+                    .collect(java.util.stream.Collectors.groupingBy(s -> s, java.util.stream.Collectors.counting()));
+
+            long totalCount = sectorCounts.values().stream().mapToLong(Long::longValue).sum();
+            List<RegionalPortfolioAnalysisDto.InvestmentTrend> investmentTrends = sectorCounts.entrySet().stream()
+                    .map(e -> RegionalPortfolioAnalysisDto.InvestmentTrend.builder()
+                            .sector(e.getKey())
+                            .percentage(totalCount == 0 ? BigDecimal.ZERO : new BigDecimal(e.getValue() * 100.0 / totalCount))
+                            .build())
+                    .collect(java.util.stream.Collectors.toList());
+
             RegionalPortfolioAnalysisDto.RegionalAverageInfo result = RegionalPortfolioAnalysisDto.RegionalAverageInfo.builder()
                     .averageStockCount(averageStockCount)
                     .averageTotalValue(averageTotalValue)
                     .commonRiskLevel(commonRiskLevel)
                     .averageDiversificationScore(averageDiversificationScore)
                     .popularStocks(popularStockInfos)
+                    .investmentTrends(investmentTrends)
                     .build();
 
             log.info("✅ 지역 평균 데이터 분석 완료");
@@ -322,6 +368,13 @@ public class RegionalPortfolioAnalysisService {
         if (stockCount <= 5) return 60;
         if (stockCount <= 8) return 80;
         return 90;
+    }
+
+    private BigDecimal calculateHoldingPercentage(BigDecimal part, BigDecimal total) {
+        if (part == null || total == null || total.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO;
+        }
+        return part.multiply(new BigDecimal("100")).divide(total, 2, java.math.RoundingMode.HALF_UP);
     }
 
     /**

@@ -51,6 +51,7 @@ public class RegionalPortfolioAnalysisDto {
         private String commonRiskLevel;
         private int averageDiversificationScore;
         private List<PopularStockInfo> popularStocks;
+        private List<InvestmentTrend> investmentTrends;
     }
     
     @Getter
@@ -72,6 +73,7 @@ public class RegionalPortfolioAnalysisDto {
         private String symbol;
         private String name;
         private BigDecimal percentage;
+        private String logoUrl;
     }
     
     @Getter
@@ -83,5 +85,15 @@ public class RegionalPortfolioAnalysisDto {
         private String name;
         private BigDecimal popularityScore;
         private int ranking;
+        private String logoUrl;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class InvestmentTrend {
+        private String sector;
+        private BigDecimal percentage;
     }
 }
