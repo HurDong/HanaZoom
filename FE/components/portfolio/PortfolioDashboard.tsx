@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, History, Wallet, Users, X } from "lucide-react";
 import PortfolioAnalysis from "./PortfolioAnalysis";
+import RegionPortfolioComparison from "./RegionPortfolioComparison";
 import { useRouter } from "next/navigation";
 import ConsultationBooking from "../pb/ConsultationBooking";
 
@@ -153,7 +154,7 @@ export default function PortfolioDashboard() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
             종합현황
@@ -168,7 +169,11 @@ export default function PortfolioDashboard() {
           </TabsTrigger>
           <TabsTrigger value="analysis" className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
-            분석
+            기본 분석
+          </TabsTrigger>
+          <TabsTrigger value="regional" className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            지역별 비교
           </TabsTrigger>
         </TabsList>
 
@@ -319,6 +324,14 @@ export default function PortfolioDashboard() {
           <PortfolioAnalysis
             portfolioSummary={portfolioSummary}
             portfolioStocks={portfolioStocks}
+          />
+        </TabsContent>
+
+        <TabsContent value="regional">
+          <RegionPortfolioComparison
+            portfolioSummary={portfolioSummary}
+            portfolioStocks={portfolioStocks}
+            userRegion="강남구"
           />
         </TabsContent>
       </Tabs>
