@@ -471,6 +471,8 @@ public class MemberServiceImpl implements MemberService {
                 .pbStatus(member.getPbStatus() != null ? member.getPbStatus().name() : null)
                 .pbApprovedAt(member.getPbApprovedAt() != null ? member.getPbApprovedAt().toString() : null)
                 .pbApprovedBy(member.getPbApprovedBy())
+                .createdAt(member.getCreatedAt() != null ? member.getCreatedAt().toString() : null)
+                .lastLoginAt(member.getLastLoginAt() != null ? member.getLastLoginAt().toString() : null)
                 .build();
     }
 }

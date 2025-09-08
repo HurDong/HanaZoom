@@ -34,4 +34,8 @@ public class MemberInfoResponse {
     private String pbStatus;
     private String pbApprovedAt;
     private String pbApprovedBy;
+    
+    // 추가 필드들
+    private String createdAt;
+    private String lastLoginAt;
 }
