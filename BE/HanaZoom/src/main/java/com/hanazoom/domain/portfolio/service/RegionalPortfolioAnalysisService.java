@@ -21,6 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -325,27 +328,187 @@ public class RegionalPortfolioAnalysisService {
             RegionalPortfolioAnalysisDto.UserPortfolioInfo userPortfolio,
             RegionalPortfolioAnalysisDto.RegionalAverageInfo regionalAverage,
             RegionalPortfolioAnalysisDto.ComparisonResult comparison) {
+        // ------------------ 섹터 중심 적합도 산출 ------------------
+        // 1) 섹터 분포 (사용자 / 지역)
+        java.util.Map<String, java.math.BigDecimal> userSectorDist = buildUserSectorDistribution(userPortfolio);
+        java.util.Map<String, java.math.BigDecimal> regionSectorDist = buildRegionSectorDistribution(regionalAverage);
 
-        int score = 100;
+        double sSector = computeSectorAlignmentScore(userSectorDist, regionSectorDist); // 0~100
 
-        // 종목 수 차이에 따른 감점
-        score -= Math.abs(comparison.getStockCountDifference()) * 5;
+        // 2) 섹터 내 비중 정렬도: 사용자 종목 비중 vs 해당 섹터 타겟 가중
+        double sIntra = computeIntraSectorWeightScore(userPortfolio, regionSectorDist); // 0~100
 
-        // 위험도 불일치 감점
-        if (!comparison.isRiskLevelMatch()) {
-            score -= 15;
-        }
+        // 3) 섹터 커버리지(가중 Jaccard)
+        double sCoverage = computeSectorCoverageScore(userSectorDist, regionSectorDist); // 0~100
 
-        // 분산도 차이에 따른 감점
-        int diversificationDiff = Math.abs(userPortfolio.getDiversificationScore() - 
-                regionalAverage.getAverageDiversificationScore());
-        score -= diversificationDiff * 0.3;
+        // 4) 집중도 페널티 (Top5 비중)
+        double pConc = computeConcentrationPenalty(userPortfolio); // 0~100, 나중에 가중 감점
 
-        // 추천사항 개수에 따른 감점
-        score -= comparison.getRecommendationCount() * 10;
+        // 5) 섹터 HHI 초과 페널티
+        double pHHI = computeSectorHHIPenalty(userSectorDist, regionSectorDist); // 0~100
 
-        return Math.max(0, Math.min(100, score));
+        // 가중 합성
+        double w1 = 0.45, w2 = 0.25, w3 = 0.20, gamma = 0.05, delta = 0.05;
+        double score = w1 * sSector + w2 * sIntra + w3 * sCoverage
+                - gamma * pConc - delta * pHHI;
+
+        // 위험도 일치 보너스/페널티(소폭): 일치 +3, 불일치 -3
+        score += comparison.isRiskLevelMatch() ? 3 : -3;
+
+        // 0~100 클램프
+        score = Math.max(0, Math.min(100, score));
+        return (int) Math.round(score);
     }
+
+    // ------------------ Sector-based scoring helpers ------------------
+
+    private java.util.Map<String, java.math.BigDecimal> buildUserSectorDistribution(
+            RegionalPortfolioAnalysisDto.UserPortfolioInfo userPortfolio) {
+        java.util.Map<String, java.math.BigDecimal> sectorToWeight = new java.util.HashMap<>();
+        if (userPortfolio.getTopStocks() == null) return sectorToWeight;
+        for (RegionalPortfolioAnalysisDto.StockInfo s : userPortfolio.getTopStocks()) {
+            if (s.getSymbol() == null) continue;
+            var stockOpt = stockRepository.findBySymbol(s.getSymbol());
+            String sector = stockOpt.map(st -> st.getSector()).orElse("기타");
+            java.math.BigDecimal pct = s.getPercentage() == null ? java.math.BigDecimal.ZERO : s.getPercentage();
+            sectorToWeight.merge(sector, pct, java.math.BigDecimal::add);
+        }
+        // 정규화 (합계 100 -> 1로 변환)
+        java.math.BigDecimal total = sectorToWeight.values().stream().reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        if (total.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            sectorToWeight.replaceAll((k, v) -> v.divide(total, 6, java.math.RoundingMode.HALF_UP));
+        }
+        return sectorToWeight;
+    }
+
+    private java.util.Map<String, java.math.BigDecimal> buildRegionSectorDistribution(
+            RegionalPortfolioAnalysisDto.RegionalAverageInfo regionalAverage) {
+        java.util.Map<String, java.math.BigDecimal> sectorToWeight = new java.util.HashMap<>();
+        if (regionalAverage.getInvestmentTrends() == null) return sectorToWeight;
+        for (RegionalPortfolioAnalysisDto.InvestmentTrend t : regionalAverage.getInvestmentTrends()) {
+            if (t.getSector() == null) continue;
+            java.math.BigDecimal pct = t.getPercentage() == null ? java.math.BigDecimal.ZERO : t.getPercentage();
+            sectorToWeight.merge(t.getSector(), pct, java.math.BigDecimal::add);
+        }
+        // 입력이 0~100 비율일 수 있으니 정규화
+        java.math.BigDecimal total = sectorToWeight.values().stream().reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        if (total.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            sectorToWeight.replaceAll((k, v) -> v.divide(total, 6, java.math.RoundingMode.HALF_UP));
+        }
+        return sectorToWeight;
+    }
+
+    private double computeSectorAlignmentScore(java.util.Map<String, java.math.BigDecimal> p,
+                                               java.util.Map<String, java.math.BigDecimal> q) {
+        // JS Divergence 기반 0~100
+        double d = jsDivergence(p, q); // 0~ln2
+        double max = Math.log(2);
+        double score = (max <= 0) ? 0 : (1.0 - d / max) * 100.0;
+        return clamp(score);
+    }
+
+    private double computeIntraSectorWeightScore(RegionalPortfolioAnalysisDto.UserPortfolioInfo user,
+                                                 java.util.Map<String, java.math.BigDecimal> regionSector) {
+        if (user.getTopStocks() == null || user.getTopStocks().isEmpty()) return 0.0;
+        // 벡터: w_i = 내 종목 비중(합=1로 정규화), r_i = 해당 종목의 섹터 타겟 가중
+        java.util.List<Double> w = new java.util.ArrayList<>();
+        java.util.List<Double> r = new java.util.ArrayList<>();
+
+        java.math.BigDecimal totalPct = user.getTopStocks().stream()
+                .map(s -> s.getPercentage() == null ? java.math.BigDecimal.ZERO : s.getPercentage())
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        for (RegionalPortfolioAnalysisDto.StockInfo s : user.getTopStocks()) {
+            var st = stockRepository.findBySymbol(s.getSymbol());
+            String sector = st.map(x -> x.getSector()).orElse("기타");
+            double wi = totalPct.compareTo(java.math.BigDecimal.ZERO) == 0 ? 0.0
+                    : (s.getPercentage() == null ? 0.0 : s.getPercentage().divide(totalPct, 6, java.math.RoundingMode.HALF_UP).doubleValue());
+            double ri = regionSector.getOrDefault(sector, java.math.BigDecimal.ZERO).doubleValue();
+            w.add(wi);
+            r.add(ri);
+        }
+        double sim = cosineSimilarity(w, r); // 0~1
+        return clamp(sim * 100.0);
+    }
+
+    private double computeSectorCoverageScore(java.util.Map<String, java.math.BigDecimal> p,
+                                              java.util.Map<String, java.math.BigDecimal> q) {
+        // 가중 Jaccard: Σ min / Σ max
+        java.util.HashSet<String> keys = new java.util.HashSet<>();
+        keys.addAll(p.keySet());
+        keys.addAll(q.keySet());
+        double sumMin = 0.0, sumMax = 0.0;
+        for (String k : keys) {
+            double a = p.getOrDefault(k, java.math.BigDecimal.ZERO).doubleValue();
+            double b = q.getOrDefault(k, java.math.BigDecimal.ZERO).doubleValue();
+            sumMin += Math.min(a, b);
+            sumMax += Math.max(a, b);
+        }
+        double jac = (sumMax == 0.0) ? 0.0 : (sumMin / sumMax);
+        return clamp(jac * 100.0);
+    }
+
+    private double computeConcentrationPenalty(RegionalPortfolioAnalysisDto.UserPortfolioInfo user) {
+        if (user.getTopStocks() == null || user.getTopStocks().isEmpty()) return 0.0;
+        java.util.List<java.math.BigDecimal> pcts = user.getTopStocks().stream()
+                .map(s -> s.getPercentage() == null ? java.math.BigDecimal.ZERO : s.getPercentage())
+                .sorted(java.util.Comparator.reverseOrder())
+                .toList();
+        java.math.BigDecimal total = pcts.stream().reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal top5 = java.math.BigDecimal.ZERO;
+        for (int i = 0; i < Math.min(5, pcts.size()); i++) top5 = top5.add(pcts.get(i));
+        double c5 = total.compareTo(java.math.BigDecimal.ZERO) == 0 ? 0.0
+                : top5.divide(total, 6, java.math.RoundingMode.HALF_UP).doubleValue();
+        double theta = 0.6; // 60%
+        double penalty = Math.max(0.0, (c5 - theta) / (1.0 - theta)) * 100.0; // 0~100
+        return clamp(penalty);
+    }
+
+    private double computeSectorHHIPenalty(java.util.Map<String, java.math.BigDecimal> user,
+                                           java.util.Map<String, java.math.BigDecimal> region) {
+        double hhiU = user.values().stream().mapToDouble(v -> Math.pow(v.doubleValue(), 2)).sum();
+        double hhiR = region.values().stream().mapToDouble(v -> Math.pow(v.doubleValue(), 2)).sum();
+        double delta = Math.max(0.0, hhiU - hhiR);
+        double deltaMax = 0.5; // 경험적 상한
+        double penalty = Math.min(1.0, delta / deltaMax) * 100.0;
+        return clamp(penalty);
+    }
+
+    private double jsDivergence(java.util.Map<String, java.math.BigDecimal> p,
+                                java.util.Map<String, java.math.BigDecimal> q) {
+        java.util.HashSet<String> keys = new java.util.HashSet<>();
+        keys.addAll(p.keySet());
+        keys.addAll(q.keySet());
+        double kl1 = 0.0, kl2 = 0.0;
+        for (String k : keys) {
+            double a = p.getOrDefault(k, java.math.BigDecimal.ZERO).doubleValue();
+            double b = q.getOrDefault(k, java.math.BigDecimal.ZERO).doubleValue();
+            double m = 0.5 * (a + b);
+            kl1 += kl(a, m);
+            kl2 += kl(b, m);
+        }
+        return 0.5 * (kl1 + kl2); // 0~ln2
+    }
+
+    private double kl(double a, double b) {
+        if (a <= 0.0) return 0.0;
+        if (b <= 0.0) b = 1e-12;
+        return a * Math.log(a / b);
+    }
+
+    private double cosineSimilarity(java.util.List<Double> a, java.util.List<Double> b) {
+        if (a.isEmpty() || b.isEmpty() || a.size() != b.size()) return 0.0;
+        double dot = 0.0, na = 0.0, nb = 0.0;
+        for (int i = 0; i < a.size(); i++) {
+            double x = a.get(i), y = b.get(i);
+            dot += x * y;
+            na += x * x;
+            nb += y * y;
+        }
+        if (na == 0 || nb == 0) return 0.0;
+        return dot / (Math.sqrt(na) * Math.sqrt(nb));
+    }
+
+    private double clamp(double v) { return Math.max(0.0, Math.min(100.0, v)); }
 
     /**
      * 위험도를 계산합니다.
@@ -399,21 +562,62 @@ public class RegionalPortfolioAnalysisService {
             int stockCountDifference,
             boolean riskLevelMatch) {
 
-        List<String> recommendations = new ArrayList<>();
+        List<String> out = new ArrayList<>();
 
-        if (stockCountDifference < -2) {
-            recommendations.add("지역 평균보다 종목 수가 적습니다. 분산 투자를 고려해보세요.");
+        // 지표 계산 재사용 (섹터 기반)
+        Map<String, BigDecimal> userSector = buildUserSectorDistribution(userPortfolio);
+        Map<String, BigDecimal> regionSector = buildRegionSectorDistribution(regionalAverage);
+
+        double sSector = computeSectorAlignmentScore(userSector, regionSector);     // 0~100
+        double sIntra  = computeIntraSectorWeightScore(userPortfolio, regionSector);// 0~100
+        double sCover  = computeSectorCoverageScore(userSector, regionSector);      // 0~100
+        double pConc   = computeConcentrationPenalty(userPortfolio);                // 0~100
+        double pHHI    = computeSectorHHIPenalty(userSector, regionSector);         // 0~100
+
+        // 1) 섹터 정렬 이슈
+        if (sSector < 60 && out.size() < 3) {
+            // 상위 지역 섹터 후보 추출
+            String topRegionSector = regionSector.entrySet().stream()
+                    .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
+                    .map(Map.Entry::getKey)
+                    .findFirst().orElse("핵심 섹터");
+            out.add(String.format("지역 핵심 섹터(%s) 비중이 낮습니다. 해당 섹터 비중 확대를 검토하세요.", topRegionSector));
         }
 
-        if (!riskLevelMatch) {
-            recommendations.add("지역 평균과 위험도가 다릅니다. 투자 성향을 재검토해보세요.");
+        // 2) 섹터 커버리지 부족
+        if (sCover < 65 && out.size() < 3) {
+            // 미커버 섹터 하나 추천
+            String gapSector = regionSector.keySet().stream()
+                    .filter(s -> userSector.getOrDefault(s, BigDecimal.ZERO).compareTo(BigDecimal.ZERO) == 0)
+                    .findFirst().orElse("미커버 섹터");
+            out.add(String.format("지역 코어 섹터 노출이 부족합니다. %s 편입을 소액부터 시도해보세요.", gapSector));
         }
 
-        if (userPortfolio.getDiversificationScore() < 60) {
-            recommendations.add("포트폴리오 집중도가 높습니다. 리밸런싱을 권장합니다.");
+        // 3) 섹터 내 비중 정렬 이슈
+        if (sIntra < 60 && out.size() < 3) {
+            out.add("섹터 내부 종목 비중이 지역 선호와 다릅니다. 동일 섹터 내 종목·비중 재배치를 권장합니다.");
         }
 
-        return recommendations;
+        // 4) 집중도/HHI 페널티
+        if ((pConc > 20 || pHHI > 20) && out.size() < 3) {
+            out.add("상위/섹터 집중도가 높습니다. 상위 종목 비중을 줄여 분산도를 높이세요.");
+        }
+
+        // 5) 위험도 정렬
+        if (!riskLevelMatch && out.size() < 3) {
+            out.add("지역 평균과 위험도 수준이 다릅니다. 변동성 관리(현금·채권·저변동 ETF 등)를 고려하세요.");
+        }
+
+        // 보강: 종목 수 차이만으로는 강한 메시지를 내지 않음(보조)
+        if (out.isEmpty()) {
+            if (stockCountDifference < -2) {
+                out.add("지역 평균 대비 보유 종목 수가 적습니다. 저평가 섹터/종목으로 분산을 확대하세요.");
+            } else if (stockCountDifference > 3) {
+                out.add("종목 수가 많아 관리가 어려울 수 있습니다. 비핵심 종목을 간소화해 집중도를 조정하세요.");
+            }
+        }
+
+        return out;
     }
 
 
