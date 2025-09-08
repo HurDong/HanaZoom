@@ -31,6 +31,7 @@ import {
   MapPin,
 } from "lucide-react";
 import RegionPortfolioComparison from "./RegionPortfolioComparison";
+import EnhancedPortfolioChart from "./EnhancedPortfolioChart";
 
 interface PortfolioAnalysisProps {
   portfolioSummary: any;
@@ -292,84 +293,11 @@ export default function PortfolioAnalysis({
 
       {activeAnalysisTab === "basic" && (
         <>
-          {/* 자산 배분 차트 */}
-          <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-green-800">
-            <CardHeader>
-              <CardTitle className="text-xl text-green-900 dark:text-green-100 flex items-center gap-2">
-                <PieChart className="w-5 h-5" />
-                자산 배분 현황
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* 도넛 차트 */}
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={chartData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={120}
-                        paddingAngle={2}
-                        dataKey="value"
-                      >
-                        {chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* 범례 및 상세 정보 */}
-                <div className="space-y-4">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    총 자산:{" "}
-                    <span className="font-semibold text-green-900 dark:text-green-100">
-                      {portfolioSummary.totalBalance?.toLocaleString()}원
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {chartData.map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: item.color }}
-                          />
-                          <div className="flex flex-col">
-                            <span className="font-medium text-gray-900 dark:text-gray-100">
-                              {item.name}
-                            </span>
-                            {item.type === "stock" && item.stockSymbol && (
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                {item.stockSymbol}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-gray-900 dark:text-green-100">
-                            {item.percentage}%
-                          </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {item.value.toLocaleString()}원
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* 개선된 자산 배분 차트 */}
+          <EnhancedPortfolioChart
+            portfolioSummary={portfolioSummary}
+            portfolioStocks={portfolioStocks}
+          />
 
           {/* 포트폴리오 분석 지표 */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
