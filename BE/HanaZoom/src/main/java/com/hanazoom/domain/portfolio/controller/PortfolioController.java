@@ -38,6 +38,9 @@ public class PortfolioController {
 
             return ResponseEntity.ok(summary);
 
+        } catch (IllegalArgumentException e) {
+            log.warn("포트폴리오 요약 조회 실패 - 계좌 없음: 회원={}, 오류={}", member.getId(), e.getMessage());
+            return ResponseEntity.notFound().build();
         } catch (Exception e) {
             log.error("포트폴리오 요약 조회 실패: 회원={}", member.getId(), e);
             return ResponseEntity.badRequest().build();
