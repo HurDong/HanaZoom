@@ -34,9 +34,11 @@ public class PbRoom {
     @Column(name = "room_name", nullable = false)
     private String roomName;
 
+    @Builder.Default
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
 
+    @Builder.Default
     @Column(name = "current_participants", nullable = false)
     private Integer currentParticipants = 0;
 
@@ -55,6 +57,8 @@ public class PbRoom {
     public PbRoom(Member pb, String roomName) {
         this.pb = pb;
         this.roomName = roomName;
+        this.currentParticipants = 0; // 명시적으로 초기화
+        this.isActive = true; // 명시적으로 초기화
         this.lastActivityAt = LocalDateTime.now();
     }
 
