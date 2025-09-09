@@ -430,42 +430,42 @@ export default function RegionPortfolioComparison({
       {selectedView === "overview" && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* 사용자 포트폴리오 요약 */}
-          <Card className="bg-gray-800 dark:bg-gray-900 border-gray-700">
+          <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-gray-700">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-white flex items-center gap-2">
+              <CardTitle className="text-lg text-green-900 dark:text-white flex items-center gap-2">
                 <Users className="w-5 h-5" />내 포트폴리오
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-300">
+                <span className="text-green-700 dark:text-gray-300">
                   보유 종목
                 </span>
-                <span className="font-medium text-white">
+                <span className="font-medium text-green-900 dark:text-white">
                   {comparisonData?.userPortfolio?.stockCount || 0}종목
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-300">
+                <span className="text-green-700 dark:text-gray-300">
                   총 자산
                 </span>
-                <span className="font-medium text-white">
+                <span className="font-medium text-green-900 dark:text-white">
                   {comparisonData?.userPortfolio?.totalValue?.toLocaleString() || "0"}원
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-300">
+                <span className="text-green-700 dark:text-gray-300">
                   위험도
                 </span>
-                <Badge className="bg-green-600 text-white text-xs px-2 py-1">
+                <Badge className="text-xs px-2 py-1 bg-green-100 text-green-700 dark:bg-green-600 dark:text-white">
                   {comparisonData?.userPortfolio?.riskLevel || "보통"}
                 </Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-300">
+                <span className="text-green-700 dark:text-gray-300">
                   분산도
                 </span>
-                <span className="font-medium text-white">
+                <span className="font-medium text-green-900 dark:text-white">
                   {comparisonData?.userPortfolio?.diversificationScore || 0}점
                 </span>
               </div>
@@ -473,44 +473,44 @@ export default function RegionPortfolioComparison({
           </Card>
 
           {/* 지역 평균 */}
-          <Card className="bg-gray-800 dark:bg-gray-900 border-gray-700">
+          <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-gray-700">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-white flex items-center gap-2">
+              <CardTitle className="text-lg text-green-900 dark:text-white flex items-center gap-2">
                 <MapPin className="w-5 h-5" />
                 {comparisonData?.regionName || userRegion || "지역"} 평균
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-300">
+                <span className="text-green-700 dark:text-gray-300">
                   보유 종목
                 </span>
-                <span className="font-medium text-white">
+                <span className="font-medium text-green-900 dark:text-white">
                   {comparisonData?.regionalAverage?.averageStockCount || 0}종목
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-300">
+                <span className="text-green-700 dark:text-gray-300">
                   평균 자산
                 </span>
-                <span className="font-medium text-white">
+                <span className="font-medium text-green-900 dark:text-white">
                   {comparisonData?.regionalAverage?.averageTotalValue?.toLocaleString() || "0"}
                   원
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-300">
+                <span className="text-green-700 dark:text-gray-300">
                   위험도
                 </span>
-                <Badge className="bg-green-600 text-white text-xs px-2 py-1">
+                <Badge className="text-xs px-2 py-1 bg-green-100 text-green-700 dark:bg-green-600 dark:text-white">
                   {comparisonData?.regionalAverage?.commonRiskLevel || "보통"}
                 </Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-300">
+                <span className="text-green-700 dark:text-gray-300">
                   분산도
                 </span>
-                <span className="font-medium text-white">
+                <span className="font-medium text-green-900 dark:text-white">
                   {comparisonData?.regionalAverage?.averageDiversificationScore || 0}점
                 </span>
               </div>
@@ -518,16 +518,16 @@ export default function RegionPortfolioComparison({
           </Card>
 
           {/* 비교 결과 */}
-          <Card className="bg-gray-800 dark:bg-gray-900 border-gray-700">
+          <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-green-200 dark:border-gray-700">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-white flex items-center gap-2">
+              <CardTitle className="text-lg text-green-900 dark:text-white flex items-center gap-2">
                 <BarChart3 className="w-5 h-5" />
                 비교 결과
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-300">
+                <span className="text-green-700 dark:text-gray-300">
                   종목 수 차이
                 </span>
                 <div className="flex items-center gap-1">
@@ -549,7 +549,7 @@ export default function RegionPortfolioComparison({
                 </div>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-300">
+                <span className="text-green-700 dark:text-gray-300">
                   위험도 일치
                 </span>
                 <div className="flex items-center gap-1">
@@ -570,10 +570,10 @@ export default function RegionPortfolioComparison({
                 </div>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-300">
+                <span className="text-green-700 dark:text-gray-300">
                   추천사항
                 </span>
-                <span className="font-medium text-white">
+                <span className="font-medium text-green-900 dark:text-white">
                   {comparisonData?.comparison?.recommendationCount || 0}개
                 </span>
               </div>

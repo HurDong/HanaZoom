@@ -22,6 +22,7 @@ import {
 import NavBar from "@/app/components/Navbar";
 import { OpinionForm } from "@/components/opinion-form";
 import { TossPostCard } from "@/components/toss-post-card";
+import CommentSectionSimple from "@/components/comment-section-simple";
 
 import TickerStrip from "@/components/TickerStrip";
 
@@ -33,10 +34,17 @@ import {
   unlikePost,
   voteOnPost,
   getPostVoteResults,
+  getComments,
+  createComment,
+  likeComment,
+  unlikeComment,
+  deleteComment,
+  updateComment,
+  createReply,
 } from "@/lib/api/community";
 import { useAuthStore } from "@/app/utils/auth";
 import type { Stock } from "@/lib/api/stock";
-import type { Post, PostSentiment, VoteOption } from "@/lib/api/community";
+import type { Post, PostSentiment, VoteOption, Comment } from "@/lib/api/community";
 import { toast } from "sonner";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
 import type { StockPriceData } from "@/lib/api/stock";
@@ -53,6 +61,11 @@ export default function StockDiscussionPage() {
 
   const [stock, setStock] = useState<Stock | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+
+  // 댓글 관련 상태
+  const [expandedComments, setExpandedComments] = useState<Set<number>>(new Set());
+  const [comments, setComments] = useState<Map<number, Comment[]>>(new Map());
+  const [commentLoading, setCommentLoading] = useState<Set<number>>(new Set());
 
   // 실시간 주식 데이터 상태
   const [realtimeData, setRealtimeData] = useState<StockPriceData | null>(null);
@@ -297,6 +310,191 @@ export default function StockDiscussionPage() {
         window.location.href = redirectUrl;
       } else {
         alert("투표 처리에 실패했습니다.");
+      }
+    }
+  };
+
+  // 댓글 관련 핸들러들
+  const handleToggleComments = async (postId: number) => {
+    if (!isClient || !accessToken) {
+      toast.error("댓글을 보려면 로그인이 필요합니다.");
+      const redirectUrl = `/login?redirect=${encodeURIComponent(
+        window.location.pathname
+      )}`;
+      window.location.href = redirectUrl;
+      return;
+    }
+
+    const isExpanded = expandedComments.has(postId);
+    
+    if (isExpanded) {
+      // 댓글 섹션 닫기
+      setExpandedComments(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(postId);
+        return newSet;
+      });
+    } else {
+      // 댓글 섹션 열기 및 댓글 로드
+      setExpandedComments(prev => new Set(prev).add(postId));
+      
+      if (!comments.has(postId)) {
+        setCommentLoading(prev => new Set(prev).add(postId));
+        try {
+          const response = await getComments(postId, 0, 20);
+          setComments(prev => new Map(prev).set(postId, response.content || []));
+        } catch (error) {
+          console.error("Failed to load comments:", error);
+          toast.error("댓글을 불러오는데 실패했습니다.");
+        } finally {
+          setCommentLoading(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(postId);
+            return newSet;
+          });
+        }
+      }
+    }
+  };
+
+  const handleCreateComment = async (postId: number, content: string) => {
+    if (!isClient || !accessToken) {
+      toast.error("댓글을 작성하려면 로그인이 필요합니다.");
+      const redirectUrl = `/login?redirect=${encodeURIComponent(
+        window.location.pathname
+      )}`;
+      window.location.href = redirectUrl;
+      return;
+    }
+
+    try {
+      const newComment = await createComment(postId, { content });
+      
+      // 댓글 목록에 추가
+      setComments(prev => {
+        const newMap = new Map(prev);
+        const existingComments = newMap.get(postId) || [];
+        newMap.set(postId, [newComment, ...existingComments]);
+        return newMap;
+      });
+
+      // 게시글의 댓글 수 업데이트 (백엔드에서 자동으로 업데이트되지만 UI 반영을 위해)
+      setPosts(prev => prev.map(post => 
+        post.id === postId 
+          ? { ...post, commentCount: post.commentCount + 1 }
+          : post
+      ));
+
+      toast.success("댓글이 작성되었습니다.");
+    } catch (error: any) {
+      console.error("Failed to create comment:", error);
+      
+      if (error.response?.status === 403) {
+        toast.error("권한이 없습니다. 다시 로그인해주세요.");
+        const redirectUrl = `/login?redirect=${encodeURIComponent(
+          window.location.pathname
+        )}`;
+        window.location.href = redirectUrl;
+      } else {
+        toast.error("댓글 작성에 실패했습니다.");
+      }
+    }
+  };
+
+  const handleLikeComment = async (commentId: number, postId: number) => {
+    if (!isClient || !accessToken) {
+      toast.error("좋아요를 누르려면 로그인이 필요합니다.");
+      const redirectUrl = `/login?redirect=${encodeURIComponent(
+        window.location.pathname
+      )}`;
+      window.location.href = redirectUrl;
+      return;
+    }
+
+    try {
+      const postComments = comments.get(postId) || [];
+      const comment = postComments.find(c => c.id === commentId);
+      
+      if (!comment) return;
+
+      if (comment.isLiked) {
+        await unlikeComment(commentId);
+        setComments(prev => {
+          const newMap = new Map(prev);
+          const updatedComments = postComments.map(c =>
+            c.id === commentId
+              ? { ...c, isLiked: false, likeCount: c.likeCount - 1 }
+              : c
+          );
+          newMap.set(postId, updatedComments);
+          return newMap;
+        });
+      } else {
+        await likeComment(commentId);
+        setComments(prev => {
+          const newMap = new Map(prev);
+          const updatedComments = postComments.map(c =>
+            c.id === commentId
+              ? { ...c, isLiked: true, likeCount: c.likeCount + 1 }
+              : c
+          );
+          newMap.set(postId, updatedComments);
+          return newMap;
+        });
+      }
+    } catch (error: any) {
+      console.error("Failed to like/unlike comment:", error);
+      
+      if (error.response?.status === 403) {
+        toast.error("권한이 없습니다. 다시 로그인해주세요.");
+        const redirectUrl = `/login?redirect=${encodeURIComponent(
+          window.location.pathname
+        )}`;
+        window.location.href = redirectUrl;
+      } else {
+        toast.error("좋아요 처리에 실패했습니다.");
+      }
+    }
+  };
+
+  const handleDeleteComment = async (commentId: number, postId: number) => {
+    if (!isClient || !accessToken) {
+      toast.error("댓글을 삭제하려면 로그인이 필요합니다.");
+      return;
+    }
+
+    if (!confirm("댓글을 삭제하시겠습니까?")) return;
+
+    try {
+      await deleteComment(commentId);
+      
+      // 댓글 목록에서 제거
+      setComments(prev => {
+        const newMap = new Map(prev);
+        const updatedComments = (newMap.get(postId) || []).filter(c => c.id !== commentId);
+        newMap.set(postId, updatedComments);
+        return newMap;
+      });
+
+      // 게시글의 댓글 수 업데이트 (백엔드에서 자동으로 업데이트되지만 UI 반영을 위해)
+      setPosts(prev => prev.map(post => 
+        post.id === postId 
+          ? { ...post, commentCount: Math.max(0, post.commentCount - 1) }
+          : post
+      ));
+
+      toast.success("댓글이 삭제되었습니다.");
+    } catch (error: any) {
+      console.error("Failed to delete comment:", error);
+      
+      if (error.response?.status === 403) {
+        toast.error("권한이 없습니다. 다시 로그인해주세요.");
+        const redirectUrl = `/login?redirect=${encodeURIComponent(
+          window.location.pathname
+        )}`;
+        window.location.href = redirectUrl;
+      } else {
+        toast.error("댓글 삭제에 실패했습니다.");
       }
     }
   };
@@ -580,6 +778,10 @@ export default function StockDiscussionPage() {
             // post가 유효한지 한 번 더 확인
             if (!post || !post.id) return null;
 
+            const isCommentsExpanded = expandedComments.has(post.id);
+            const postComments = comments.get(post.id) || [];
+            const isLoadingComments = commentLoading.has(post.id);
+
             return (
               <div
                 key={post.id}
@@ -589,10 +791,25 @@ export default function StockDiscussionPage() {
                 <TossPostCard
                   post={post}
                   onLike={() => handleLikePost(post.id)}
-                  onComment={() => {}}
+                  onComment={() => handleToggleComments(post.id)}
                   onShare={() => handleShare(post.id)}
                   onVote={(optionId: string) => handleVote(post.id, optionId)}
                 />
+                
+                {/* 댓글 섹션 */}
+                {isCommentsExpanded && (
+                  <div className="mt-4">
+                    <CommentSectionSimple
+                      postId={post.id}
+                      comments={postComments}
+                      isLoading={isLoadingComments}
+                      currentUserId={accessToken ? "current-user" : undefined}
+                      onCreateComment={handleCreateComment}
+                      onLikeComment={handleLikeComment}
+                      onDeleteComment={handleDeleteComment}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
