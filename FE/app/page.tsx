@@ -20,6 +20,7 @@ import { MouseFollower } from "@/components/mouse-follower";
 import { LoadingAnimation } from "@/components/loading-animation";
 import { StockMapPreview } from "@/components/stock-map-preview";
 import { AnimateOnScroll } from "@/components/animate-on-scroll";
+import { FloatingEmojiBackground } from "@/components/floating-emoji-background";
 import { useState, useEffect, useRef } from "react";
 import NavBar from "./components/Navbar";
 import { StockTicker } from "@/components/stock-ticker";
@@ -81,28 +82,7 @@ export default function StockMapLanding() {
       </div>
 
       {/* Floating Stock Symbols (사용자 설정에 따라) */}
-      {isInitialized && settings.emojiAnimationEnabled && (
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="floating-symbol absolute top-20 left-10 text-green-500 dark:text-green-400 text-2xl animate-bounce">
-            📈
-          </div>
-          <div className="floating-symbol absolute top-40 right-20 text-emerald-600 dark:text-emerald-400 text-xl animate-pulse">
-            💰
-          </div>
-          <div className="floating-symbol absolute top-60 left-1/4 text-green-400 dark:text-green-300 text-lg animate-bounce delay-300">
-            🚀
-          </div>
-          <div className="floating-symbol absolute bottom-40 right-10 text-emerald-500 dark:text-emerald-400 text-2xl animate-pulse delay-500">
-            💎
-          </div>
-          <div className="floating-symbol absolute bottom-60 left-20 text-green-600 dark:text-green-400 text-xl animate-bounce delay-700">
-            📊
-          </div>
-          <div className="floating-symbol absolute top-32 right-1/3 text-emerald-400 dark:text-emerald-300 text-lg animate-pulse delay-200">
-            🎯
-          </div>
-        </div>
-      )}
+      <FloatingEmojiBackground />
 
       {/* NavBar 컴포넌트 사용 */}
       <div className="fixed top-0 left-0 right-0 z-[100]">

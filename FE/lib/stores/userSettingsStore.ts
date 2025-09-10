@@ -18,12 +18,6 @@ export interface UserSettings {
   defaultMapZoom: number;
   mapStyle: 'STANDARD' | 'SATELLITE' | 'HYBRID';
   
-  // 차트 설정
-  chartTheme: 'GREEN' | 'BLUE' | 'PURPLE' | 'ORANGE';
-  chartAnimationSpeed: number;
-  
-  // 실시간 업데이트 설정
-  autoRefreshInterval: number;
   
   // UI 밀도 설정
   uiDensity: 'COMPACT' | 'NORMAL' | 'COMFORTABLE';
@@ -40,9 +34,6 @@ const defaultSettings: UserSettings = {
   pushNotificationsEnabled: true,
   defaultMapZoom: 8,
   mapStyle: 'STANDARD',
-  chartTheme: 'GREEN',
-  chartAnimationSpeed: 300,
-  autoRefreshInterval: 300,
   uiDensity: 'NORMAL',
 };
 
@@ -54,9 +45,6 @@ export interface UpdateUserSettingsRequest {
   pushNotificationsEnabled?: boolean;
   defaultMapZoom?: number;
   mapStyle?: 'STANDARD' | 'SATELLITE' | 'HYBRID';
-  chartTheme?: 'GREEN' | 'BLUE' | 'PURPLE' | 'ORANGE';
-  chartAnimationSpeed?: number;
-  autoRefreshInterval?: number;
   uiDensity?: 'COMPACT' | 'NORMAL' | 'COMFORTABLE';
 }
 
@@ -82,8 +70,6 @@ interface UserSettingsActions {
   updateEmojiAnimation: (enabled: boolean) => void;
   updatePushNotifications: (enabled: boolean) => void;
   updateMapSettings: (zoom?: number, style?: 'STANDARD' | 'SATELLITE' | 'HYBRID') => void;
-  updateChartSettings: (theme?: 'GREEN' | 'BLUE' | 'PURPLE' | 'ORANGE', speed?: number) => void;
-  updateAutoRefresh: (interval: number) => void;
   updateUiDensity: (density: 'COMPACT' | 'NORMAL' | 'COMFORTABLE') => void;
   
   // 설정 초기화
@@ -172,25 +158,6 @@ export const useUserSettingsStore = create<UserSettingsStore>()(
         }));
       },
 
-      updateChartSettings: (theme, speed) => {
-        console.log('📊 차트 설정 업데이트:', { theme, speed });
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            ...(theme !== undefined && { chartTheme: theme }),
-            ...(speed !== undefined && { chartAnimationSpeed: speed })
-          },
-          error: null
-        }));
-      },
-
-      updateAutoRefresh: (interval) => {
-        console.log('🔄 자동 새로고침 설정 업데이트:', interval);
-        set((state) => ({
-          settings: { ...state.settings, autoRefreshInterval: interval },
-          error: null
-        }));
-      },
 
       updateUiDensity: (density) => {
         console.log('📱 UI 밀도 설정 업데이트:', density);
@@ -246,9 +213,4 @@ export const getMapSettings = () => ({
   zoom: useUserSettingsStore.getState().settings.defaultMapZoom,
   style: useUserSettingsStore.getState().settings.mapStyle
 });
-export const getChartSettings = () => ({
-  theme: useUserSettingsStore.getState().settings.chartTheme,
-  animationSpeed: useUserSettingsStore.getState().settings.chartAnimationSpeed
-});
-export const getAutoRefreshInterval = () => useUserSettingsStore.getState().settings.autoRefreshInterval;
 export const getUiDensity = () => useUserSettingsStore.getState().settings.uiDensity;

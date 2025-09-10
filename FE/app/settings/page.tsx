@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import NavBar from "@/app/components/Navbar";
 import { MouseFollower } from "@/components/mouse-follower";
 import { StockTicker } from "@/components/stock-ticker";
+import Swal from 'sweetalert2';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -56,6 +57,7 @@ export default function SettingsPage() {
   } = useUserSettingsStore();
 
   const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // 로그인 확인
   useEffect(() => {
@@ -90,54 +92,88 @@ export default function SettingsPage() {
 
   // 테마 변경 핸들러
   const handleThemeChange = async (theme: 'LIGHT' | 'DARK' | 'SYSTEM') => {
-    try {
-      setIsSaving(true);
-      await updateTheme(theme);
-      updateThemeStore(theme);
-      toast.success('테마가 변경되었습니다.');
-    } catch (error: any) {
-      console.error('❌ 테마 변경 실패:', error);
-      toast.error('테마 변경에 실패했습니다.');
-    } finally {
-      setIsSaving(false);
-    }
+    updateThemeStore(theme);
+    setHasUnsavedChanges(true);
   };
 
   // 커스텀 커서 변경 핸들러
   const handleCustomCursorChange = async (enabled: boolean) => {
-    try {
-      setIsSaving(true);
-      await updateCustomCursor(enabled);
-      updateCustomCursorStore(enabled);
-      toast.success('마우스 커서 설정이 변경되었습니다.');
-    } catch (error: any) {
-      console.error('❌ 커스텀 커서 변경 실패:', error);
-      toast.error('마우스 커서 설정 변경에 실패했습니다.');
-    } finally {
-      setIsSaving(false);
-    }
+    updateCustomCursorStore(enabled);
+    setHasUnsavedChanges(true);
   };
 
   // 이모지 애니메이션 변경 핸들러
   const handleEmojiAnimationChange = async (enabled: boolean) => {
-    try {
-      setIsSaving(true);
-      await updateEmojiAnimation(enabled);
-      updateEmojiAnimationStore(enabled);
-      toast.success('이모지 애니메이션 설정이 변경되었습니다.');
-    } catch (error: any) {
-      console.error('❌ 이모지 애니메이션 변경 실패:', error);
-      toast.error('이모지 애니메이션 설정 변경에 실패했습니다.');
-    } finally {
-      setIsSaving(false);
-    }
+    updateEmojiAnimationStore(enabled);
+    setHasUnsavedChanges(true);
   };
 
   // 설정 초기화 핸들러
   const handleResetToDefaults = () => {
     resetToDefaults();
-    toast.success('설정이 기본값으로 초기화되었습니다.');
+    setHasUnsavedChanges(true);
   };
+
+  // 설정 저장 핸들러
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      setError(null);
+      
+      // 현재 설정을 서버에 저장
+      await updateUserSettings(settings);
+      
+      setHasUnsavedChanges(false);
+      toast.success('설정이 저장되었습니다.');
+      console.log('✅ 설정 저장 완료:', settings);
+    } catch (error: any) {
+      console.error('❌ 설정 저장 실패:', error);
+      setError(error.message);
+      toast.error('설정 저장에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 페이지 이탈 방지
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '저장하지 않은 변경사항이 있습니다. 정말 나가시겠습니까?';
+        return '저장하지 않은 변경사항이 있습니다. 정말 나가시겠습니까?';
+      }
+    };
+
+    const handleRouteChange = async () => {
+      if (hasUnsavedChanges) {
+        const result = await Swal.fire({
+          title: '저장하지 않은 변경사항이 있습니다',
+          text: '변경사항이 저장되지 않았습니다. 정말 나가시겠습니까?',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: '나가기',
+          cancelButtonText: '취소',
+          confirmButtonColor: '#ef4444',
+          cancelButtonColor: '#6b7280'
+        });
+
+        if (result.isConfirmed) {
+          return true;
+        } else {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Next.js router 이벤트는 별도로 처리해야 함
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
 
   if (!user) {
     return null;
@@ -355,23 +391,26 @@ export default function SettingsPage() {
                 <div>
                   <Label htmlFor="map-zoom">기본 줌 레벨</Label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    지도가 처음 로드될 때의 줌 레벨입니다
+                    지도가 처음 로드될 때의 줌 레벨입니다. 동/면(4) → 시/도(7) → 전국(9) 순으로 선택하세요.
                   </p>
                 </div>
                 <Select 
                   value={settings.defaultMapZoom.toString()} 
-                  onValueChange={(value) => updateSettings({ defaultMapZoom: parseInt(value) })}
+                  onValueChange={(value) => {
+                    const newZoom = parseInt(value);
+                    updateSettings({ defaultMapZoom: newZoom });
+                    setHasUnsavedChanges(true);
+                    console.log("🎯 지도 줌 레벨 변경:", newZoom);
+                  }}
                   disabled={isSaving}
                 >
                   <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="6">6 (광역)</SelectItem>
+                    <SelectItem value="4">4 (동/면)</SelectItem>
                     <SelectItem value="7">7 (시/도)</SelectItem>
-                    <SelectItem value="8">8 (시/군/구)</SelectItem>
-                    <SelectItem value="9">9 (동/면)</SelectItem>
-                    <SelectItem value="10">10 (상세)</SelectItem>
+                    <SelectItem value="9">9 (전국)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -465,12 +504,12 @@ export default function SettingsPage() {
                   기본값으로 초기화
                 </Button>
                 <Button
-                  onClick={() => router.back()}
+                  onClick={handleSave}
                   className="flex items-center gap-2"
-                  disabled={isSaving}
+                  disabled={isSaving || !hasUnsavedChanges}
                 >
                   <Save className="h-4 w-4" />
-                  완료
+                  {isSaving ? '저장 중...' : hasUnsavedChanges ? '완료' : '저장됨'}
                 </Button>
               </div>
             </CardContent>

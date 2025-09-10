@@ -21,6 +21,7 @@ import { StockPriceInfo } from "@/components/wts/StockPriceInfo";
 import { OrderBookDisplay } from "@/components/wts/OrderBookDisplay";
 import { CandlestickChart } from "@/components/wts/CandlestickChart";
 import { TradingTabs } from "@/components/wts/TradingTabs";
+import { FloatingEmojiBackground } from "@/components/floating-emoji-background";
 import {
   getStockOrderBook,
   validateStockCode,
@@ -466,20 +467,8 @@ export default function StockDetailPage() {
       </div>
 
       {/* Floating WTS Symbols */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="floating-symbol absolute top-20 left-10 text-green-500 dark:text-green-400 text-2xl animate-bounce">
-          📊
-        </div>
-        <div className="floating-symbol absolute top-40 right-20 text-emerald-600 dark:text-emerald-400 text-xl animate-pulse">
-          💹
-        </div>
-        <div className="floating-symbol absolute bottom-40 right-10 text-emerald-500 dark:text-emerald-400 text-2xl animate-pulse delay-500">
-          📈
-        </div>
-        <div className="floating-symbol absolute bottom-60 left-20 text-green-600 dark:text-green-400 text-xl animate-bounce delay-700">
-          💰
-        </div>
-      </div>
+      {/* Floating Stock Symbols (사용자 설정에 따라) */}
+      <FloatingEmojiBackground />
 
       {/* NavBar */}
       <div className="fixed top-0 left-0 right-0 z-[100]">

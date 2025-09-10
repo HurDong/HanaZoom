@@ -53,15 +53,16 @@ function useSystemTheme() {
 
 // 테마 동기화 컴포넌트
 function ThemeSync() {
-  const { settings, isInitialized, updateTheme: updateThemeStore } = useUserSettingsStore()
-  const { setTheme } = useNextTheme()
+  const { settings, isInitialized } = useUserSettingsStore()
+  const { theme: currentTheme, setTheme } = useNextTheme()
   const systemTheme = useSystemTheme()
+  const [isInitialLoad, setIsInitialLoad] = React.useState(true)
   
-  // 사용자 설정이 로드되면 테마를 동기화
+  // 초기 로드 시에만 사용자 설정을 적용
   React.useEffect(() => {
-    if (!isInitialized) return
+    if (!isInitialized || !isInitialLoad) return
     
-    console.log('🎨 테마 동기화 시작:', { 
+    console.log('🎨 초기 테마 설정 적용:', { 
       userTheme: settings.theme, 
       systemTheme,
       isInitialized 
@@ -71,39 +72,23 @@ function ThemeSync() {
       // 시스템 테마 사용
       console.log('🖥️ 시스템 테마 적용:', systemTheme)
       setTheme(systemTheme)
-      document.documentElement.setAttribute('data-theme', systemTheme)
-      if (systemTheme === 'dark') {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
     } else {
       // 사용자 지정 테마 사용
       const theme = settings.theme.toLowerCase()
       console.log('👤 사용자 테마 적용:', theme)
       setTheme(theme)
-      document.documentElement.setAttribute('data-theme', theme)
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
     }
-  }, [settings.theme, systemTheme, isInitialized, setTheme])
+    
+    setIsInitialLoad(false)
+  }, [settings.theme, systemTheme, isInitialized, setTheme, isInitialLoad])
   
-  // 시스템 테마가 변경되면 SYSTEM 모드에서 자동 업데이트
+  // 시스템 테마가 변경되면 SYSTEM 모드에서만 자동 업데이트
   React.useEffect(() => {
-    if (isInitialized && settings.theme === 'SYSTEM') {
+    if (isInitialized && settings.theme === 'SYSTEM' && !isInitialLoad) {
       console.log('🔄 시스템 테마 변경 감지, 테마 업데이트:', systemTheme)
       setTheme(systemTheme)
-      document.documentElement.setAttribute('data-theme', systemTheme)
-      if (systemTheme === 'dark') {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
     }
-  }, [systemTheme, isInitialized, settings.theme, setTheme])
+  }, [systemTheme, isInitialized, settings.theme, setTheme, isInitialLoad])
   
   return null
 }
