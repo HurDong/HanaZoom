@@ -119,6 +119,10 @@ public class Member implements UserDetails {
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<com.hanazoom.domain.portfolio.entity.Account> accounts = new ArrayList<>();
 
+    // 사용자 설정 연관관계
+    @OneToOne(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
+    private UserSettings userSettings;
+
     @Builder
     public Member(String email, String password, String name, String phone,
             String address, String detailAddress, String zonecode,
