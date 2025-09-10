@@ -24,12 +24,6 @@ public class UpdateUserSettingsRequest {
     private Integer defaultMapZoom;
     private UserSettings.MapStyleType mapStyle;
     
-    // 차트 설정
-    private UserSettings.ChartThemeType chartTheme;
-    private Integer chartAnimationSpeed;
-    
-    // 실시간 업데이트 설정
-    private Integer autoRefreshInterval;
     
     // UI 밀도 설정
     private UserSettings.UiDensityType uiDensity;

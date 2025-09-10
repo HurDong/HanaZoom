@@ -30,12 +30,6 @@ public class UserSettingsDto {
     private Integer defaultMapZoom;
     private UserSettings.MapStyleType mapStyle;
     
-    // 차트 설정
-    private UserSettings.ChartThemeType chartTheme;
-    private Integer chartAnimationSpeed;
-    
-    // 실시간 업데이트 설정
-    private Integer autoRefreshInterval;
     
     // UI 밀도 설정
     private UserSettings.UiDensityType uiDensity;
@@ -57,9 +51,6 @@ public class UserSettingsDto {
                 .pushNotificationsEnabled(settings.isPushNotificationsEnabled())
                 .defaultMapZoom(settings.getDefaultMapZoom())
                 .mapStyle(settings.getMapStyle())
-                .chartTheme(settings.getChartTheme())
-                .chartAnimationSpeed(settings.getChartAnimationSpeed())
-                .autoRefreshInterval(settings.getAutoRefreshInterval())
                 .uiDensity(settings.getUiDensity())
                 .createdAt(settings.getCreatedAt())
                 .updatedAt(settings.getUpdatedAt())
