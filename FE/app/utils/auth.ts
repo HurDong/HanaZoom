@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { syncUserSettings } from "@/lib/api/userSettings";
+import { useUserSettingsStore } from "@/lib/stores/userSettingsStore";
 
 interface User {
   id: string;
@@ -31,7 +33,12 @@ export const useAuthStore = create<AuthStore>()(
       user: null,
       setAuth: ({ accessToken, user }) => set({ accessToken, user }),
       updateAccessToken: (accessToken) => set({ accessToken }),
-      clearAuth: () => set({ accessToken: null, user: null }),
+      clearAuth: () => {
+        set({ accessToken: null, user: null });
+        // 사용자 설정도 초기화
+        useUserSettingsStore.getState().resetToDefaults();
+        console.log("✅ 인증 정보 및 사용자 설정 초기화 완료");
+      },
       getCurrentUserId: () => {
         const state = get();
         if (state.user?.id) {
@@ -119,6 +126,18 @@ export const setLoginData = async (
   // accessToken과 user 정보를 Zustand store에 저장
   useAuthStore.getState().setAuth({ accessToken, user: processedUser });
   console.log("✅ Zustand store에 인증 정보 저장 완료");
+
+  // 사용자 설정 동기화
+  try {
+    console.log("🔄 사용자 설정 동기화 시작");
+    const userSettings = await syncUserSettings();
+    useUserSettingsStore.getState().loadSettings(userSettings);
+    console.log("✅ 사용자 설정 동기화 완료:", userSettings);
+  } catch (error) {
+    console.error("❌ 사용자 설정 동기화 실패:", error);
+    // 설정 동기화 실패해도 로그인은 계속 진행
+    console.log("ℹ️ 기본 설정으로 계속 진행");
+  }
 
   // refreshToken을 httpOnly 쿠키로 저장
   try {

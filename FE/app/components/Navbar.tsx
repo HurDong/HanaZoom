@@ -15,6 +15,7 @@ import {
   BarChart3,
   Video,
   Calendar,
+  Settings,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useRouter } from "next/navigation";
@@ -850,6 +851,20 @@ export default function NavBar() {
                         <BarChart3 className="w-4 h-4 mr-2" />
                         포트폴리오 조회
                       </Link>
+                      <button
+                        onClick={handleMyPageClick}
+                        className="w-full border-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-transparent hover:bg-emerald-50 dark:hover:bg-emerald-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm"
+                      >
+                        마이페이지로 이동
+                      </button>
+                      <Link
+                        href="/settings"
+                        onClick={() => setShowProfileModal(false)}
+                        className="w-full border-2 border-gray-500 text-gray-600 dark:text-gray-400 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm flex items-center justify-center"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        설정
+                      </Link>
                     </>
                   ) : (
                     // 일반회원 버튼들
@@ -860,6 +875,14 @@ export default function NavBar() {
                       >
                         마이페이지로 이동
                       </button>
+                      <Link
+                        href="/settings"
+                        onClick={() => setShowProfileModal(false)}
+                        className="w-full border-2 border-gray-500 text-gray-600 dark:text-gray-400 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm flex items-center justify-center"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        설정
+                      </Link>
                       <Link
                         href="/portfolio"
                         onClick={() => setShowProfileModal(false)}
