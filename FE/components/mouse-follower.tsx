@@ -204,58 +204,28 @@ export function MouseFollower() {
         }}
       >
         <div className="relative">
-          {isOverClickable ? (
-            // 클릭 가능한 요소용 커서 (손가락 모양)
+          {/* 일반 커서 (원형) - 모든 상태에서 동일 */}
+          <>
+            {/* 외부 링 */}
             <div
-              className={`w-6 h-6 transition-all duration-300 ${
-                isMoving ? "scale-110" : "scale-100"
+              className={`w-4 h-4 border-2 border-green-500 dark:border-green-400 rounded-full transition-all duration-300 ${
+                isMoving
+                  ? "scale-125 border-opacity-80"
+                  : "scale-100 border-opacity-40"
               }`}
-            >
-              {/* 손가락 모양 */}
-              <div className="relative">
-                {/* 손가락 본체 */}
-                <div
-                  className="w-4 h-6 bg-green-500 dark:bg-green-400 rounded-full transform rotate-12"
-                  style={{
-                    boxShadow: isMoving
-                      ? "0 0 12px rgba(34, 197, 94, 0.4)"
-                      : "0 0 6px rgba(34, 197, 94, 0.2)",
-                  }}
-                />
-                {/* 손가락 끝 */}
-                <div
-                  className="absolute top-0 left-1 w-2 h-3 bg-green-500 dark:bg-green-400 rounded-full transform rotate-12"
-                />
-                {/* 손가락 밑부분 */}
-                <div
-                  className="absolute top-3 left-0 w-3 h-2 bg-green-500 dark:bg-green-400 rounded-full transform rotate-12"
-                />
-              </div>
-            </div>
-          ) : (
-            // 일반 커서 (원형)
-            <>
-              {/* 외부 링 */}
-              <div
-                className={`w-4 h-4 border-2 border-green-500 dark:border-green-400 rounded-full transition-all duration-300 ${
-                  isMoving
-                    ? "scale-125 border-opacity-80"
-                    : "scale-100 border-opacity-40"
-                }`}
-                style={{
-                  boxShadow: isMoving
-                    ? "0 0 12px rgba(34, 197, 94, 0.4)"
-                    : "0 0 6px rgba(34, 197, 94, 0.2)",
-                }}
-              />
-              {/* 내부 점 */}
-              <div
-                className={`absolute top-1/2 left-1/2 w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${
-                  isMoving ? "scale-110" : "scale-90"
-                }`}
-              />
-            </>
-          )}
+              style={{
+                boxShadow: isMoving
+                  ? "0 0 12px rgba(34, 197, 94, 0.4)"
+                  : "0 0 6px rgba(34, 197, 94, 0.2)",
+              }}
+            />
+            {/* 내부 점 */}
+            <div
+              className={`absolute top-1/2 left-1/2 w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${
+                isMoving ? "scale-110" : "scale-90"
+              }`}
+            />
+          </>
         </div>
       </div>
 
