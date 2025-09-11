@@ -36,6 +36,8 @@ import { SearchJump } from "@/components/search-jump";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
 import { getMarketStatus, isMarketOpen } from "@/lib/utils/marketUtils";
 import type { StockPriceData } from "@/lib/api/stock";
+import { useOfflineStatus } from "@/hooks/useOfflineStatus";
+import OfflineIndicator from "@/components/OfflineIndicator";
 
 // 백엔드 RegionResponse DTO와 일치하는 타입 정의
 export interface Region {
@@ -129,6 +131,9 @@ export default function MapPage() {
 
   // LOD 최적화 hooks
   const { viewport, updateBounds, isPointInBounds } = useMapBounds();
+  
+  // 오프라인 상태 관리
+  const { isOffline } = useOfflineStatus();
 
   // 디바운싱을 위한 ref
   const zoomTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -281,14 +286,35 @@ export default function MapPage() {
     }
   }, [mapRef.current, user?.latitude, user?.longitude, moveToUserLocation]);
 
-  // 지역 데이터를 불러옵니다.
+  // 지역 데이터를 불러옵니다. (오프라인 캐싱 지원)
   useEffect(() => {
     const fetchRegions = async () => {
       try {
-        const { data } = await api.get<ApiResponse<Region[]>>(
-          API_ENDPOINTS.regions
-        );
-        setRegions(data.data);
+        // 오프라인 상태일 때 캐시된 데이터 사용
+        if (isOffline) {
+          console.log("📱 오프라인 모드 - 캐시된 지역 데이터 사용");
+          try {
+            const cachedData = await caches.match('/api/regions');
+            if (cachedData) {
+              const response = await cachedData.json();
+              if (response.success) {
+                setRegions(response.data);
+                console.log("🗺️ 캐시된 지역 데이터 로드 완료:", response.data.length, "개");
+              }
+            }
+          } catch (cacheError) {
+            console.log("📱 캐시된 데이터 없음 - 기본 데이터 사용");
+            setRegions([]);
+          }
+        } else {
+          // 온라인 상태일 때 서버에서 데이터 로드
+          const { data } = await api.get<ApiResponse<Region[]>>(
+            API_ENDPOINTS.regions
+          );
+          setRegions(data.data);
+          console.log("🗺️ 지역 데이터 로드 완료:", data.data.length, "개");
+        }
+        
         // 지역 데이터 로딩 완료 후 지도 준비 상태로 변경
         setTimeout(() => setIsMapReady(true), 100);
       } catch (err) {
@@ -300,7 +326,7 @@ export default function MapPage() {
       }
     };
     fetchRegions();
-  }, []);
+  }, [isOffline]);
 
   // 디바운싱된 줌 레벨 변경 핸들러
   const handleZoomChange = useCallback((newZoomLevel: number) => {
@@ -510,6 +536,9 @@ export default function MapPage() {
 
       {/* Floating Stock Symbols (사용자 설정에 따라) */}
       <FloatingEmojiBackground />
+      
+      {/* 오프라인 상태 표시 */}
+      <OfflineIndicator />
       
       <div className="fixed top-0 left-0 right-0 z-[100]">
         <NavBar />

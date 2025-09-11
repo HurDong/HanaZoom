@@ -142,7 +142,7 @@ export function useStockWebSocket({
     try {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const host = window.location.hostname;
-      const port = process.env.NODE_ENV === "production" ? "" : ":8080";
+      const port = process.env.NODE_ENV === "production" ? ":8080" : ":8080";
       const wsUrl = `${protocol}//${host}${port}/ws/stocks`;
 
       console.log("🔄 웹소켓 연결 시도:", wsUrl);
