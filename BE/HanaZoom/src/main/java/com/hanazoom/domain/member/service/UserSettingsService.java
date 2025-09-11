@@ -79,16 +79,6 @@ public class UserSettingsService {
                     request.getDefaultMapZoom(), request.getMapStyle());
         }
         
-        if (request.getChartTheme() != null || request.getChartAnimationSpeed() != null) {
-            settings.updateChartSettings(request.getChartTheme(), request.getChartAnimationSpeed());
-            log.info("📊 차트 설정 업데이트 - theme: {}, speed: {}", 
-                    request.getChartTheme(), request.getChartAnimationSpeed());
-        }
-        
-        if (request.getAutoRefreshInterval() != null) {
-            settings.updateAutoRefresh(request.getAutoRefreshInterval());
-            log.info("🔄 자동 새로고침 설정 업데이트: {}초", request.getAutoRefreshInterval());
-        }
         
         if (request.getUiDensity() != null) {
             settings.updateUiDensity(request.getUiDensity());
