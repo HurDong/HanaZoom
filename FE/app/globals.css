@@ -158,3 +158,51 @@
   backface-visibility: hidden; /* 성능 최적화 */
   perspective: 1000px; /* 3D 가속 */
 }
+
+/* SweetAlert2 커스터마이징 */
+.swal2-popup-custom {
+  border-radius: 16px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+}
+
+.swal2-title-custom {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  color: #16a34a !important;
+  margin-bottom: 20px !important;
+}
+
+.swal2-html-custom {
+  font-size: 16px !important;
+  line-height: 1.6 !important;
+}
+
+.swal2-confirm {
+  background-color: #16a34a !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 12px 24px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal2-confirm:hover {
+  background-color: #15803d !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3) !important;
+}
+
+/* 다크모드 지원 */
+.dark .swal2-popup {
+  background-color: #1f2937 !important;
+  color: #f9fafb !important;
+}
+
+.dark .swal2-title {
+  color: #10b981 !important;
+}
+
+.dark .swal2-html-container {
+  color: #d1d5db !important;
+}

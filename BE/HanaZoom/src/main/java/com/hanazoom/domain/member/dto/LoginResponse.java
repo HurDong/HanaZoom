@@ -17,8 +17,12 @@ public class LoginResponse {
     private final String accessToken;
     private final String refreshToken;
 
+    // PB 관련 필드들
+    private final boolean isPb;
+    private final String pbStatus;
+
     public LoginResponse(UUID id, String email, String name, String address, Double latitude, Double longitude,
-            String accessToken, String refreshToken) {
+            String accessToken, String refreshToken, boolean isPb, String pbStatus) {
         this.id = id;
         this.email = email;
         this.name = name;
@@ -27,5 +31,7 @@ public class LoginResponse {
         this.longitude = longitude;
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
+        this.isPb = isPb;
+        this.pbStatus = pbStatus;
     }
 }

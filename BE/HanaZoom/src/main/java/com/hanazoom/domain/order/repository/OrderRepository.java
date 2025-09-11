@@ -41,6 +41,18 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
      */
     @Query("SELECT COUNT(o) FROM Order o WHERE o.member = :member AND o.status = :status")
     long countByMemberAndStatus(@Param("member") Member member, @Param("status") Order.OrderStatus status);
+    
+    /**
+     * 매칭 엔진용: 특정 종목의 매수 주문을 가격 내림차순으로 조회
+     */
+    @Query("SELECT o FROM Order o JOIN o.stock s WHERE s.symbol = :stockCode AND o.orderType = 'BUY' AND o.status = 'PENDING' ORDER BY o.price DESC")
+    List<Order> findByStockSymbolAndOrderTypeAndStatusOrderByPriceDesc(@Param("stockCode") String stockCode);
+    
+    /**
+     * 매칭 엔진용: 특정 종목의 매도 주문을 가격 오름차순으로 조회
+     */
+    @Query("SELECT o FROM Order o JOIN o.stock s WHERE s.symbol = :stockCode AND o.orderType = 'SELL' AND o.status = 'PENDING' ORDER BY o.price ASC")
+    List<Order> findByStockSymbolAndOrderTypeAndStatusOrderByPriceAsc(@Param("stockCode") String stockCode);
 }
 
 

@@ -22,4 +22,20 @@ public class MemberInfoResponse {
     private Double latitude;
     private Double longitude;
     private Long regionId;
+
+    // PB 관련 필드들
+    private boolean isPb;
+    private String pbLicenseNumber;
+    private Integer pbExperienceYears;
+    private String pbSpecialties;
+    private String pbRegion;
+    private Double pbRating;
+    private Integer pbTotalConsultations;
+    private String pbStatus;
+    private String pbApprovedAt;
+    private String pbApprovedBy;
+    
+    // 추가 필드들
+    private String createdAt;
+    private String lastLoginAt;
 }

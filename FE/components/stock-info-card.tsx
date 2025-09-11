@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Users, BarChart2 } from "lucide-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
 import type { Stock } from "@/lib/api/stock";
 
 interface StockInfoCardProps {
@@ -61,37 +61,7 @@ export function StockInfoCard({ stock, className = "" }: StockInfoCardProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 rounded-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-              <BarChart2 className="w-4 h-4" />
-              <span>현재가</span>
-            </div>
-            <p className="text-xl font-bold text-green-900 dark:text-green-100">
-              ₩{(stock.currentPrice || 0).toLocaleString()}
-            </p>
-          </div>
 
-          <div className="p-4 rounded-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-              <Users className="w-4 h-4" />
-              <span>거래량</span>
-            </div>
-            <p className="text-xl font-bold text-green-900 dark:text-green-100">
-              {(stock.volume || 0).toLocaleString()}
-            </p>
-          </div>
-
-          <div className="p-4 rounded-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-              <BarChart2 className="w-4 h-4" />
-              <span>시가총액</span>
-            </div>
-            <p className="text-xl font-bold text-green-900 dark:text-green-100">
-              ₩{((stock.marketCap || 0) / 1_000_000_000).toFixed(0)}B
-            </p>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

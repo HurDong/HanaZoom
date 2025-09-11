@@ -357,9 +357,50 @@ public class KisApiService {
             // 로그 제거 - 너무 많이 찍힘
             return response;
 
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+            if (e.getStatusCode().is5xxServerError()) {
+                log.warn("KIS API 서버 에러 (5xx) - 종목: {}, 상태코드: {}, 응답: {}", 
+                        stockCode, e.getStatusCode(), e.getResponseBodyAsString());
+                // 서버 에러 시 빈 호가창 데이터 반환
+                return createEmptyOrderBookResponse(stockCode);
+            } else {
+                log.error("KIS API 클라이언트 에러 - 종목: {}, 상태코드: {}", stockCode, e.getStatusCode(), e);
+                throw new RuntimeException("호가창 정보 조회 실패: " + stockCode, e);
+            }
         } catch (Exception e) {
             log.error("Failed to fetch order book for code: {}", stockCode, e);
-            throw new RuntimeException("호가창 정보 조회 실패: " + stockCode, e);
+            // 기타 에러 시에도 빈 호가창 데이터 반환
+            return createEmptyOrderBookResponse(stockCode);
         }
+    }
+
+    /**
+     * 빈 호가창 응답 생성 (API 에러 시 사용)
+     */
+    private String createEmptyOrderBookResponse(String stockCode) {
+        return String.format("""
+            {
+                "rt_cd": "0",
+                "msg_cd": "MCA00000",
+                "msg1": "정상처리",
+                "output": {
+                    "hts_kor_isnm": "종목명",
+                    "stck_prpr": "0",
+                    "prdy_vrss": "0",
+                    "prdy_ctrt": "0.00",
+                    "prdy_vrss_sign": "3",
+                    "askp1": "0", "bidp1": "0",
+                    "askp2": "0", "bidp2": "0",
+                    "askp3": "0", "bidp3": "0",
+                    "askp4": "0", "bidp4": "0",
+                    "askp5": "0", "bidp5": "0",
+                    "askp_rsqn1": "0", "bidp_rsqn1": "0",
+                    "askp_rsqn2": "0", "bidp_rsqn2": "0",
+                    "askp_rsqn3": "0", "bidp_rsqn3": "0",
+                    "askp_rsqn4": "0", "bidp_rsqn4": "0",
+                    "askp_rsqn5": "0", "bidp_rsqn5": "0"
+                }
+            }
+            """);
     }
 }

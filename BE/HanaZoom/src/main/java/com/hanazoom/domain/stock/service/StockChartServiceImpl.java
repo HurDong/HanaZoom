@@ -206,32 +206,54 @@ public class StockChartServiceImpl implements StockChartService {
 
     @Override
     public CandleData getCurrentCandle(String stockCode, String timeframe) {
-        // Redis에서 현재 캔들 조회
-        String key = "candle:current:" + stockCode + ":" + timeframe;
-        CandleData currentCandle = (CandleData) redisTemplate.opsForValue().get(key);
-        
-        if (currentCandle == null) {
-            // 현재 캔들이 없으면 새로 생성
-            currentCandle = createDummyCurrentCandle(stockCode, timeframe);
-            redisTemplate.opsForValue().set(key, currentCandle);
+        try {
+            // Redis에서 현재 캔들 조회
+            String key = "candle:current:" + stockCode + ":" + timeframe;
+            CandleData currentCandle = (CandleData) redisTemplate.opsForValue().get(key);
+            
+            if (currentCandle == null) {
+                // 현재 캔들이 없으면 새로 생성
+                currentCandle = createDummyCurrentCandle(stockCode, timeframe);
+                try {
+                    redisTemplate.opsForValue().set(key, currentCandle);
+                } catch (Exception e) {
+                    log.warn("Redis 캔들 저장 실패 - 종목: {}, 시간봉: {}, 에러: {}", 
+                            stockCode, timeframe, e.getMessage());
+                }
+            }
+            
+            return currentCandle;
+        } catch (Exception e) {
+            log.error("Redis 연결 실패로 캔들 조회 중단 - 종목: {}, 시간봉: {}, 에러: {}", 
+                    stockCode, timeframe, e.getMessage());
+            // Redis 실패 시 더미 데이터 반환
+            return createDummyCurrentCandle(stockCode, timeframe);
         }
-        
-        return currentCandle;
     }
 
     @Override
     public void updateCurrentCandle(String stockCode, String currentPrice, String volume) {
-        // 모든 시간봉의 현재 캔들 업데이트
-        String[] timeframes = {"1M", "5M", "15M", "1H", "1D", "1W", "1MO"};
-        
-        for (String timeframe : timeframes) {
-            String key = "candle:current:" + stockCode + ":" + timeframe;
-            CandleData currentCandle = (CandleData) redisTemplate.opsForValue().get(key);
+        try {
+            // 모든 시간봉의 현재 캔들 업데이트
+            String[] timeframes = {"1M", "5M", "15M", "1H", "1D", "1W", "1MO"};
             
-            if (currentCandle != null) {
-                currentCandle.updateWithRealtime(currentPrice, volume);
-                redisTemplate.opsForValue().set(key, currentCandle);
+            for (String timeframe : timeframes) {
+                String key = "candle:current:" + stockCode + ":" + timeframe;
+                try {
+                    CandleData currentCandle = (CandleData) redisTemplate.opsForValue().get(key);
+                    
+                    if (currentCandle != null) {
+                        currentCandle.updateWithRealtime(currentPrice, volume);
+                        redisTemplate.opsForValue().set(key, currentCandle);
+                    }
+                } catch (Exception e) {
+                    log.warn("Redis 캔들 업데이트 실패 - 종목: {}, 시간봉: {}, 에러: {}", 
+                            stockCode, timeframe, e.getMessage());
+                    // Redis 에러가 발생해도 다른 시간봉 처리는 계속 진행
+                }
             }
+        } catch (Exception e) {
+            log.error("Redis 연결 실패로 캔들 업데이트 중단 - 종목: {}, 에러: {}", stockCode, e.getMessage());
         }
     }
 

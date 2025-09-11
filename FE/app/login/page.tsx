@@ -121,6 +121,12 @@ export default function LoginPage() {
       return;
     }
 
+    // 비밀번호 유효성 검사
+    if (!formData.password.trim()) {
+      showErrorAlert("비밀번호를 입력해주세요.");
+      return;
+    }
+
     try {
       const response = await api.post<
         ApiResponse<{

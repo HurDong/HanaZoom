@@ -21,6 +21,7 @@ import { StockPriceInfo } from "@/components/wts/StockPriceInfo";
 import { OrderBookDisplay } from "@/components/wts/OrderBookDisplay";
 import { CandlestickChart } from "@/components/wts/CandlestickChart";
 import { TradingTabs } from "@/components/wts/TradingTabs";
+import { FloatingEmojiBackground } from "@/components/floating-emoji-background";
 import {
   getStockOrderBook,
   validateStockCode,
@@ -28,7 +29,8 @@ import {
   type OrderBookData,
 } from "@/lib/api/stock";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
-import { StockTicker } from "@/components/stock-ticker";
+// 기존 StockTicker는 TickerStrip로 대체
+import TickerStrip from "@/components/TickerStrip";
 import { MouseFollower } from "@/components/mouse-follower";
 import { getStock, type Stock } from "@/lib/api/stock";
 import { useAuthStore } from "@/app/utils/auth";
@@ -465,30 +467,27 @@ export default function StockDetailPage() {
       </div>
 
       {/* Floating WTS Symbols */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="floating-symbol absolute top-20 left-10 text-green-500 dark:text-green-400 text-2xl animate-bounce">
-          📊
-        </div>
-        <div className="floating-symbol absolute top-40 right-20 text-emerald-600 dark:text-emerald-400 text-xl animate-pulse">
-          💹
-        </div>
-        <div className="floating-symbol absolute bottom-40 right-10 text-emerald-500 dark:text-emerald-400 text-2xl animate-pulse delay-500">
-          📈
-        </div>
-        <div className="floating-symbol absolute bottom-60 left-20 text-green-600 dark:text-green-400 text-xl animate-bounce delay-700">
-          💰
-        </div>
-      </div>
+      {/* Floating Stock Symbols (사용자 설정에 따라) */}
+      <FloatingEmojiBackground />
 
       {/* NavBar */}
       <div className="fixed top-0 left-0 right-0 z-[100]">
         <NavBar />
       </div>
 
-      {/* StockTicker 추가 */}
-      <div className="fixed top-16 left-0 right-0 z-[60]">
-        <StockTicker />
-      </div>
+      {/* Compact TickerStrip (NavBar 아래) */}
+      <TickerStrip
+        className="top-16"
+        logoUrl={stockInfo?.logoUrl || "/placeholder-logo.png"}
+        name={stockInfo?.name || stockData?.stockName || `종목 ${stockCode}`}
+        ticker={stockCode}
+        price={parseInt((stockData?.currentPrice || orderBookData?.currentPrice || displayPriceStr || "0"))}
+        change={parseInt(stockData?.changePrice || "0")}
+        changeRate={parseFloat(stockData?.changeRate || "0")}
+        marketState={wsConnected ? "정규장" : "장마감"}
+        lastUpdatedSec={lastUpdate > 0 ? Math.floor((Date.now() - lastUpdate) / 1000) : 0}
+        realtimeOrderable={true}
+      />
 
       <main className="relative z-10 pt-28 pb-4">
         <div className="container mx-auto px-4 max-w-none">

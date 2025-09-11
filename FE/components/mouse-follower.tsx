@@ -13,27 +13,42 @@ export function MouseFollower() {
   const [trail, setTrail] = useState<StockTrail[]>([]);
   const [isMoving, setIsMoving] = useState(false);
   const [lastMoveTime, setLastMoveTime] = useState(0);
+  const [isOverClickable, setIsOverClickable] = useState(false);
   const idCounter = useRef(0);
   const cursorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let moveTimeout: NodeJS.Timeout;
 
+    // 커서 숨기기
+    const hideCursor = () => {
+      document.body.style.cursor = 'none';
+    };
+
+    // 커서 복원
+    const showCursor = () => {
+      document.body.style.cursor = 'auto';
+    };
+
     const handleMouseMove = (e: MouseEvent) => {
       const now = Date.now();
-      setLastMoveTime(now);
-      setIsMoving(true);
+      
+      // 상태 업데이트를 배치로 처리
+      requestAnimationFrame(() => {
+        setLastMoveTime(now);
+        setIsMoving(true);
 
-      const newTrail: StockTrail = {
-        id: idCounter.current++,
-        x: e.clientX,
-        y: e.clientY,
-        timestamp: now,
-      };
+        const newTrail: StockTrail = {
+          id: idCounter.current++,
+          x: e.clientX,
+          y: e.clientY,
+          timestamp: now,
+        };
 
-      setTrail((prev) => [...prev.slice(-8), newTrail]);
+        setTrail((prev) => [...prev.slice(-8), newTrail]);
+      });
 
-      // 메인 커서 위치 직접 업데이트
+      // 메인 커서 위치 직접 업데이트 (DOM 조작은 즉시)
       if (cursorRef.current) {
         cursorRef.current.style.transform = `translate(${e.clientX - 8}px, ${
           e.clientY - 8
@@ -46,10 +61,48 @@ export function MouseFollower() {
       }, 150);
     };
 
+    // 클릭 가능한 요소 감지
+    const handleMouseOver = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      
+      // 입력 필드에서는 기본 커서 표시
+      if (target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.contentEditable === 'true'
+      )) {
+        showCursor();
+        setIsOverClickable(false);
+      } else {
+        hideCursor();
+        
+        // 클릭 가능한 요소인지 확인
+        const isClickable = target && (
+          target.tagName === 'BUTTON' ||
+          target.tagName === 'A' ||
+          target.getAttribute('role') === 'button' ||
+          target.classList.contains('cursor-pointer') ||
+          target.onclick !== null ||
+          target.getAttribute('onclick') !== null
+        );
+        
+        setIsOverClickable(isClickable);
+      }
+    };
+
+    // 커서 숨기기 적용
+    hideCursor();
+
     window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseover", handleMouseOver);
+    
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseover", handleMouseOver);
       clearTimeout(moveTimeout);
+      // 컴포넌트 언마운트 시 커서 복원
+      showCursor();
     };
   }, []);
 
@@ -57,16 +110,22 @@ export function MouseFollower() {
     const interval = setInterval(() => {
       const now = Date.now();
       setTrail((previousTrail) => {
+        // 빈 배열이면 필터링하지 않음
+        if (previousTrail.length === 0) {
+          return previousTrail;
+        }
+        
         const filtered = previousTrail.filter(
           (point) => now - point.timestamp < 800
         );
+        
         // 상태가 변경되지 않았다면 동일 참조를 반환하여 불필요한 렌더 방지
         if (filtered.length === previousTrail.length) {
           return previousTrail;
         }
         return filtered;
       });
-    }, 50);
+    }, 100); // 50ms에서 100ms로 변경하여 성능 개선
 
     return () => clearInterval(interval);
   }, []);
@@ -145,55 +204,76 @@ export function MouseFollower() {
         }}
       >
         <div className="relative">
-          {/* 외부 링 */}
-          <div
-            className={`w-4 h-4 border-2 border-green-500 dark:border-green-400 rounded-full transition-all duration-300 ${
-              isMoving
-                ? "scale-125 border-opacity-80"
-                : "scale-100 border-opacity-40"
-            }`}
-            style={{
-              boxShadow: isMoving
-                ? "0 0 12px rgba(34, 197, 94, 0.4)"
-                : "0 0 6px rgba(34, 197, 94, 0.2)",
-            }}
-          />
-          {/* 내부 점 */}
-          <div
-            className={`absolute top-1/2 left-1/2 w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${
-              isMoving ? "scale-110" : "scale-90"
-            }`}
-          />
+          {/* 일반 커서 (원형) - 모든 상태에서 동일 */}
+          <>
+            {/* 외부 링 */}
+            <div
+              className={`w-4 h-4 border-2 border-green-500 dark:border-green-400 rounded-full transition-all duration-300 ${
+                isMoving
+                  ? "scale-125 border-opacity-80"
+                  : "scale-100 border-opacity-40"
+              }`}
+              style={{
+                boxShadow: isMoving
+                  ? "0 0 12px rgba(34, 197, 94, 0.4)"
+                  : "0 0 6px rgba(34, 197, 94, 0.2)",
+              }}
+            />
+            {/* 내부 점 */}
+            <div
+              className={`absolute top-1/2 left-1/2 w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${
+                isMoving ? "scale-110" : "scale-90"
+              }`}
+            />
+          </>
         </div>
       </div>
 
-      {/* 클릭 효과 */}
+      {/* 커스텀 커서 스타일 */}
       <style jsx global>{`
-        /* 기본 페이지에서만 커서 숨기기 */
-        body > *:not(.swal2-container):not(.swal2-shown) * {
+        /* 전체 페이지에서 기본 커서 숨기기 */
+        * {
           cursor: none !important;
         }
 
-        /* 모달이나 로그인 창에서는 커서 표시 */
-        .swal2-container *,
-        .swal2-shown *,
-        .swal2-popup * {
-          cursor: auto !important;
-        }
-
-        /* 입력 필드에서는 기본 커서 표시 */
+        /* 입력 필드에서만 커서 표시 */
         input,
         textarea,
-        select {
+        select,
+        [contenteditable="true"] {
           cursor: text !important;
         }
 
-        /* 버튼과 링크에서는 포인터 커서 표시 */
+        /* 클릭 가능한 요소에서는 커서 숨김 (커스텀 커서 사용) */
         button,
         [role="button"],
         a,
-        .cursor-pointer {
-          cursor: pointer !important;
+        .cursor-pointer,
+        [onclick] {
+          cursor: none !important;
+        }
+
+        /* 드래그 가능한 요소 */
+        [draggable="true"] {
+          cursor: grab !important;
+        }
+
+        [draggable="true"]:active {
+          cursor: grabbing !important;
+        }
+
+        /* 리사이즈 가능한 요소 */
+        .resize {
+          cursor: nw-resize !important;
+        }
+
+        /* 모달이나 팝업에서는 기본 커서 표시 */
+        .swal2-container *,
+        .swal2-shown *,
+        .swal2-popup *,
+        .modal *,
+        .popup * {
+          cursor: auto !important;
         }
 
         /* SweetAlert2 다크모드 스타일 개선 */

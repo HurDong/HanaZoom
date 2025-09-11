@@ -48,14 +48,14 @@ export interface TradeHistory {
   tradeType: "BUY" | "SELL";
   tradeDate: string;
   tradeTime: string;
-  quantity: number;
-  pricePerShare: number;
-  totalAmount: number;
-  commission: number;
-  tax: number;
-  netAmount: number;
-  balanceAfterTrade: number;
-  stockQuantityAfterTrade: number;
+  quantity?: number;
+  pricePerShare?: number;
+  totalAmount?: number;
+  commission?: number;
+  tax?: number;
+  netAmount?: number;
+  balanceAfterTrade?: number;
+  stockQuantityAfterTrade?: number;
   tradeMemo?: string;
   createdAt: string;
 }

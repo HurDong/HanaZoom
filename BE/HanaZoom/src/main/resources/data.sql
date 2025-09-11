@@ -3,6 +3,26 @@ INSERT INTO members (id, email, password, name, phone, address, detail_address, 
 (UUID_TO_BIN('1d0ad5a2-a350-48b3-b467-96b465de5378'), 'test@hanazoom.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDa', '테스트사용자', '010-1234-5678', '서울특별시 강남구', '테스트동 123-45', '06123', TRUE, TRUE, TRUE, NOW())
 ON DUPLICATE KEY UPDATE id = id;
 
+-- 사용자 설정 테이블 생성
+CREATE TABLE IF NOT EXISTS user_settings (
+    id BINARY(16) PRIMARY KEY,
+    member_id BINARY(16) NOT NULL UNIQUE,
+    theme VARCHAR(20) NOT NULL DEFAULT 'SYSTEM',
+    custom_cursor_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    emoji_animation_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    push_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    default_map_zoom INT NOT NULL DEFAULT 8,
+    map_style VARCHAR(20) NOT NULL DEFAULT 'STANDARD',
+    chart_theme VARCHAR(20) NOT NULL DEFAULT 'GREEN',
+    chart_animation_speed INT NOT NULL DEFAULT 300,
+    auto_refresh_interval INT NOT NULL DEFAULT 300,
+    ui_density VARCHAR(20) NOT NULL DEFAULT 'NORMAL',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
+    INDEX idx_member_id (member_id)
+);
+
 -- 알림 테이블 생성
 CREATE TABLE IF NOT EXISTS notifications (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,

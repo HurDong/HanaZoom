@@ -23,9 +23,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        // 모든 요청에 대한 로깅 추가
-        System.out.println("🔍 JWT 필터 요청: " + request.getMethod() + " " + request.getRequestURI());
-        
         String token = extractToken(request);
 
         if (token != null) {
@@ -38,18 +35,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(member,
                                 null, member.getAuthorities());
                         SecurityContextHolder.getContext().setAuthentication(authentication);
-                        System.out.println("✅ JWT 인증 성공: " + memberId);
+                        // JWT 인증 성공 로그 제거 (너무 많이 찍힘)
                     } else {
-                        System.out.println("⚠️ JWT 토큰에서 회원 정보를 찾을 수 없음: " + memberId);
+                        System.out.println("JWT 토큰은 유효하지만 사용자 정보를 찾을 수 없음: " + memberId);
                     }
                 } else {
-                    System.out.println("⚠️ JWT 토큰 검증 실패: " + request.getRequestURI());
+                    System.out.println("JWT 토큰이 유효하지 않음");
                 }
             } catch (Exception e) {
-                System.out.println("❌ JWT 토큰 처리 중 오류 발생: " + e.getMessage());
+                System.out.println("JWT 토큰 처리 중 오류 발생: " + e.getMessage());
             }
         } else {
-            System.out.println("ℹ️ JWT 토큰 없음: " + request.getRequestURI());
+            System.out.println("Authorization 헤더에서 토큰을 찾을 수 없음");
         }
 
         filterChain.doFilter(request, response);

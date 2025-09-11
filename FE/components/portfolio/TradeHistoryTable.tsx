@@ -22,6 +22,33 @@ export default function TradeHistoryTable({ trades }: TradeHistoryTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"ALL" | "BUY" | "SELL">("ALL");
 
+  // 종목코드를 종목명으로 변환하는 함수
+  const getStockName = (stockSymbol: string): string => {
+    const stockNames: { [key: string]: string } = {
+      "005930": "삼성전자",
+      "035420": "NAVER",
+      "051910": "LG화학",
+      "006400": "삼성SDI",
+      "000660": "SK하이닉스",
+      "207940": "삼성바이오로직스",
+      "035720": "카카오",
+      "068270": "셀트리온",
+      "323410": "카카오뱅크",
+      "000270": "기아",
+      "066570": "LG전자",
+      "003550": "LG",
+      "012330": "현대모비스",
+      "017670": "SK텔레콤",
+      "030200": "KT",
+      "034730": "SK",
+      "015760": "한국전력",
+      "086280": "현대글로비스",
+      "096770": "SK이노베이션",
+      "018260": "삼성에스디에스",
+    };
+    return stockNames[stockSymbol] || stockSymbol;
+  };
+
   // 거래내역 데이터 로깅
   console.log("📋 TradeHistoryTable 렌더링:", {
     tradesCount: trades.length,
@@ -118,31 +145,31 @@ export default function TradeHistoryTable({ trades }: TradeHistoryTableProps) {
           <Table>
             <TableHeader>
               <TableRow className="border-green-200 dark:border-green-800">
-                <TableHead className="text-green-900 dark:text-green-100">
+                <TableHead className="text-green-900 dark:text-green-100 text-center">
                   거래일시
                 </TableHead>
-                <TableHead className="text-green-900 dark:text-green-100">
+                <TableHead className="text-green-900 dark:text-green-100 text-center">
                   종목
                 </TableHead>
-                <TableHead className="text-green-900 dark:text-green-100">
+                <TableHead className="text-green-900 dark:text-green-100 text-center">
                   구분
                 </TableHead>
-                <TableHead className="text-green-900 dark:text-green-100">
+                <TableHead className="text-green-900 dark:text-green-100 text-center">
                   수량
                 </TableHead>
-                <TableHead className="text-green-900 dark:text-green-100">
+                <TableHead className="text-green-900 dark:text-green-100 text-center">
                   단가
                 </TableHead>
-                <TableHead className="text-green-900 dark:text-green-100">
+                <TableHead className="text-green-900 dark:text-green-100 text-center">
                   거래금액
                 </TableHead>
-                <TableHead className="text-green-900 dark:text-green-100">
+                <TableHead className="text-green-900 dark:text-green-100 text-center">
                   수수료
                 </TableHead>
-                <TableHead className="text-green-900 dark:text-green-100">
+                <TableHead className="text-green-900 dark:text-green-100 text-center">
                   순수익
                 </TableHead>
-                <TableHead className="text-green-900 dark:text-green-100">
+                <TableHead className="text-green-900 dark:text-green-100 text-center">
                   거래후 잔고
                 </TableHead>
               </TableRow>
@@ -153,7 +180,7 @@ export default function TradeHistoryTable({ trades }: TradeHistoryTableProps) {
                   key={trade.id}
                   className="border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/50"
                 >
-                  <TableCell className="text-green-900 dark:text-green-100">
+                  <TableCell className="text-green-900 dark:text-green-100 text-center">
                     <div>
                       <div className="font-medium">
                         {new Date(trade.tradeDate).toLocaleDateString()}
@@ -163,12 +190,15 @@ export default function TradeHistoryTable({ trades }: TradeHistoryTableProps) {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-green-900 dark:text-green-100">
-                    <div className="font-medium">{trade.stockSymbol}</div>
+                  <TableCell className="text-green-900 dark:text-green-100 text-center">
+                    <div className="font-medium">{getStockName(trade.stockSymbol)}</div>
+                    <div className="text-sm text-green-600 dark:text-green-400">
+                      {trade.stockSymbol}
+                    </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-center">
                     <div
-                      className={`flex items-center gap-1 ${
+                      className={`flex items-center justify-center gap-1 ${
                         trade.tradeType === "BUY"
                           ? "text-red-600 dark:text-red-400"
                           : "text-blue-600 dark:text-blue-400"
@@ -184,42 +214,42 @@ export default function TradeHistoryTable({ trades }: TradeHistoryTableProps) {
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-green-900 dark:text-green-100">
-                    <div className="text-right">
-                      {trade.quantity.toLocaleString()}주
+                  <TableCell className="text-green-900 dark:text-green-100 text-center">
+                    <div>
+                      {trade.quantity?.toLocaleString() || '0'}주
                     </div>
                   </TableCell>
-                  <TableCell className="text-green-900 dark:text-green-100">
-                    <div className="text-right">
-                      {trade.pricePerShare.toLocaleString()}원
+                  <TableCell className="text-green-900 dark:text-green-100 text-center">
+                    <div>
+                      {trade.pricePerShare?.toLocaleString() || '0'}원
                     </div>
                   </TableCell>
-                  <TableCell className="text-green-900 dark:text-green-100">
-                    <div className="text-right">
-                      {trade.totalAmount.toLocaleString()}원
+                  <TableCell className="text-green-900 dark:text-green-100 text-center">
+                    <div>
+                      {trade.totalAmount?.toLocaleString() || '0'}원
                     </div>
                   </TableCell>
-                  <TableCell className="text-green-600 dark:text-green-400">
-                    <div className="text-right">
-                      {trade.commission.toLocaleString()}원
+                  <TableCell className="text-green-600 dark:text-green-400 text-center">
+                    <div>
+                      {trade.commission?.toLocaleString() || '0'}원
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-center">
                     <div
-                      className={`text-right font-medium ${
+                      className={`font-medium ${
                         trade.tradeType === "BUY"
                           ? "text-red-600 dark:text-red-400"
                           : "text-blue-600 dark:text-blue-400"
                       }`}
                     >
-                      {trade.netAmount.toLocaleString()}원
+                      {trade.netAmount?.toLocaleString() || '0'}원
                     </div>
                   </TableCell>
-                  <TableCell className="text-green-900 dark:text-green-100">
-                    <div className="text-right">
-                      <div>{trade.balanceAfterTrade.toLocaleString()}원</div>
+                  <TableCell className="text-green-900 dark:text-green-100 text-center">
+                    <div>
+                      <div>{trade.balanceAfterTrade?.toLocaleString() || '0'}원</div>
                       <div className="text-sm text-green-600 dark:text-green-400">
-                        {trade.stockQuantityAfterTrade.toLocaleString()}주
+                        {trade.stockQuantityAfterTrade?.toLocaleString() || '0'}주
                       </div>
                     </div>
                   </TableCell>
@@ -258,7 +288,7 @@ export default function TradeHistoryTable({ trades }: TradeHistoryTableProps) {
           <div className="text-center">
             <div className="text-lg font-bold text-green-900 dark:text-green-100">
               {trades
-                .reduce((sum, t) => sum + t.commission, 0)
+                .reduce((sum, t) => sum + (t.commission || 0), 0)
                 .toLocaleString()}
               원
             </div>

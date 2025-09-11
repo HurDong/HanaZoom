@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/members")
@@ -21,33 +20,21 @@ public class MemberController {
 
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<Void>> signup(@Valid @RequestBody SignupRequest request) {
-        try {
-            memberService.signup(request);
-            return ResponseEntity.ok(ApiResponse.success("회원가입이 완료되었습니다."));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        memberService.signup(request);
+        return ResponseEntity.ok(ApiResponse.success("회원가입이 완료되었습니다."));
     }
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
-        try {
-            LoginResponse response = memberService.login(request);
-            return ResponseEntity.ok(ApiResponse.success(response));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        LoginResponse response = memberService.login(request);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @PostMapping("/refresh-token")
     public ResponseEntity<ApiResponse<TokenRefreshResponse>> refreshToken(
             @Valid @RequestBody TokenRefreshRequest request) {
-        try {
-            TokenRefreshResponse response = memberService.refreshToken(request);
-            return ResponseEntity.ok(ApiResponse.success(response));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        TokenRefreshResponse response = memberService.refreshToken(request);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/region")

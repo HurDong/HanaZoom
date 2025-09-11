@@ -1,9 +1,10 @@
-package com.hanazoom.domain.portfolio.controller;
+ package com.hanazoom.domain.portfolio.controller;
 
 import com.hanazoom.domain.portfolio.dto.PortfolioSummaryResponse;
 import com.hanazoom.domain.portfolio.dto.PortfolioStockResponse;
 import com.hanazoom.domain.portfolio.dto.TradeResult;
 import com.hanazoom.domain.portfolio.entity.Account;
+import com.hanazoom.domain.portfolio.entity.AccountBalance;
 import com.hanazoom.domain.portfolio.entity.TradeHistory;
 import com.hanazoom.domain.portfolio.service.PortfolioService;
 import com.hanazoom.domain.portfolio.service.VirtualTradingService;
@@ -18,7 +19,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/portfolio")
+@RequestMapping("/api/v1/portfolio")
 @RequiredArgsConstructor
 public class PortfolioController {
 
@@ -37,6 +38,9 @@ public class PortfolioController {
 
             return ResponseEntity.ok(summary);
 
+        } catch (IllegalArgumentException e) {
+            log.warn("포트폴리오 요약 조회 실패 - 계좌 없음: 회원={}, 오류={}", member.getId(), e.getMessage());
+            return ResponseEntity.notFound().build();
         } catch (Exception e) {
             log.error("포트폴리오 요약 조회 실패: 회원={}", member.getId(), e);
             return ResponseEntity.badRequest().build();
@@ -200,6 +204,94 @@ public class PortfolioController {
             return ResponseEntity.ok(trades);
         } catch (Exception e) {
             log.error("거래 내역 조회 실패: 회원={}", member.getId(), e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // 거래 결과 조회
+    @GetMapping("/trade-result")
+    public ResponseEntity<TradeResult> getTradeResult(
+            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
+        try {
+            log.info("거래 결과 조회 요청: 회원={}", member.getEmail());
+            // 임시로 빈 결과 반환 (실제 구현 필요)
+            TradeResult result = TradeResult.success("거래 결과 조회 성공");
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("거래 결과 조회 실패: 회원={}", member.getId(), e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // 정산 일정 조회
+    @GetMapping("/settlement-schedule")
+    public ResponseEntity<Object> getSettlementSchedule(
+            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
+        try {
+            log.info("정산 일정 조회 요청: 회원={}", member.getEmail());
+            // 임시로 빈 결과 반환 (실제 구현 필요)
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("정산 일정 조회 실패: 회원={}", member.getId(), e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // 계좌 정보 조회
+    @GetMapping("/account")
+    public ResponseEntity<Account> getAccountInfo(
+            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
+        try {
+            log.info("계좌 정보 조회 요청: 회원={}", member.getEmail());
+            Account account = portfolioService.getAccountByMemberId(member.getId());
+            return ResponseEntity.ok(account);
+        } catch (Exception e) {
+            log.error("계좌 정보 조회 실패: 회원={}", member.getId(), e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // 계좌 잔고 조회
+    @GetMapping("/account/balance")
+    public ResponseEntity<AccountBalance> getAccountBalance(
+            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
+        try {
+            log.info("계좌 잔고 조회 요청: 회원={}", member.getEmail());
+            Account account = portfolioService.getAccountByMemberId(member.getId());
+            AccountBalance balance = portfolioService.getAccountBalance(account.getId());
+            return ResponseEntity.ok(balance);
+        } catch (Exception e) {
+            log.error("계좌 잔고 조회 실패: 회원={}", member.getId(), e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // 특정 주식 조회
+    @GetMapping("/stock/{stockCode}")
+    public ResponseEntity<Object> getStockInfo(
+            @PathVariable String stockCode,
+            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
+        try {
+            log.info("주식 정보 조회 요청: 종목={}, 회원={}", stockCode, member.getEmail());
+            // 임시로 빈 결과 반환 (실제 구현 필요)
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("주식 정보 조회 실패: 종목={}, 회원={}", stockCode, member.getId(), e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // 주식 검색
+    @GetMapping("/search-stocks")
+    public ResponseEntity<List<Object>> searchStocks(
+            @RequestParam String keyword,
+            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
+        try {
+            log.info("주식 검색 요청: 키워드={}, 회원={}", keyword, member.getEmail());
+            // 임시로 빈 결과 반환 (실제 구현 필요)
+            return ResponseEntity.ok(List.of());
+        } catch (Exception e) {
+            log.error("주식 검색 실패: 키워드={}, 회원={}", keyword, member.getId(), e);
             return ResponseEntity.badRequest().build();
         }
     }

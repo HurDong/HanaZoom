@@ -101,7 +101,7 @@ public class PortfolioStock {
 
         // 평균 매수가 재계산
         this.avgPurchasePrice = newTotalAmount.divide(BigDecimal.valueOf(newTotalQuantity), 2,
-                BigDecimal.ROUND_HALF_UP);
+                java.math.RoundingMode.HALF_UP);
         this.totalPurchaseAmount = newTotalAmount;
         this.quantity = newTotalQuantity;
         this.availableQuantity += quantity;
@@ -116,6 +116,10 @@ public class PortfolioStock {
             throw new IllegalArgumentException("매도 가능한 수량이 부족합니다.");
         }
 
+        // 매도 수량만큼 총 매수금액에서 차감 (FIFO 방식)
+        BigDecimal sellAmount = this.avgPurchasePrice.multiply(BigDecimal.valueOf(quantity));
+        this.totalPurchaseAmount = this.totalPurchaseAmount.subtract(sellAmount);
+        
         this.quantity -= quantity;
         this.availableQuantity -= quantity;
         this.lastSaleDate = LocalDate.now();
@@ -137,16 +141,16 @@ public class PortfolioStock {
 
     // 현재 평가금액 및 손익 계산
     public void updateCurrentValue() {
-        if (this.currentPrice != null && this.quantity > 0) {
+        if (this.currentPrice != null && this.quantity > 0 && this.totalPurchaseAmount.compareTo(BigDecimal.ZERO) > 0) {
             this.currentValue = this.currentPrice.multiply(BigDecimal.valueOf(this.quantity));
             this.profitLoss = this.currentValue.subtract(this.totalPurchaseAmount);
 
-            if (this.totalPurchaseAmount.compareTo(BigDecimal.ZERO) > 0) {
-                this.profitLossRate = this.profitLoss
-                        .divide(this.totalPurchaseAmount, 4, BigDecimal.ROUND_HALF_UP)
-                        .multiply(BigDecimal.valueOf(100));
-            }
+            // 수익률 계산 (총 매수금액이 0보다 클 때만)
+            this.profitLossRate = this.profitLoss
+                    .divide(this.totalPurchaseAmount, 4, java.math.RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100));
         } else {
+            // 보유 수량이 0이거나 매수금액이 0인 경우
             this.currentValue = BigDecimal.ZERO;
             this.profitLoss = BigDecimal.ZERO;
             this.profitLossRate = BigDecimal.ZERO;

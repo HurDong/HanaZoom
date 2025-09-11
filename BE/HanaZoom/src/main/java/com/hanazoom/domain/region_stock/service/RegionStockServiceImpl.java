@@ -378,7 +378,7 @@ public class RegionStockServiceImpl implements RegionStockService {
                                                         .name(rs.getStock().getName())
                                                         .price(rs.getStock().getCurrentPrice() != null 
                                                                 ? String.valueOf(rs.getStock().getCurrentPrice())
-                                                                : "데이터 없음")
+                                                                : null)
                                                         .change(rs.getStock().getPriceChangePercent() != null
                                                                 ? String.format("%.2f", rs.getStock().getPriceChangePercent())
                                                                 : "0.00")

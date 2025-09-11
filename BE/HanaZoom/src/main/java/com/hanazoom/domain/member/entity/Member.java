@@ -73,6 +73,38 @@ public class Member implements UserDetails {
     @Column(name = "marketing_agreed", nullable = false)
     private boolean marketingAgreed;
 
+    // PB 관련 필드들
+    @Column(name = "is_pb", nullable = false)
+    private boolean isPb = false;
+
+    @Column(name = "pb_license_number")
+    private String pbLicenseNumber;
+
+    @Column(name = "pb_experience_years")
+    private Integer pbExperienceYears;
+
+    @Column(name = "pb_specialties")
+    private String pbSpecialties; // JSON 형태로 저장 (예: ["포트폴리오 분석", "리밸런싱"])
+
+    @Column(name = "pb_region")
+    private String pbRegion;
+
+    @Column(name = "pb_rating")
+    private Double pbRating = 0.0;
+
+    @Column(name = "pb_total_consultations")
+    private Integer pbTotalConsultations = 0;
+
+    @Column(name = "pb_status")
+    @Enumerated(EnumType.STRING)
+    private PbStatus pbStatus = PbStatus.INACTIVE;
+
+    @Column(name = "pb_approved_at")
+    private LocalDateTime pbApprovedAt;
+
+    @Column(name = "pb_approved_by")
+    private String pbApprovedBy; // 관리자 ID 또는 이름
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -87,12 +119,19 @@ public class Member implements UserDetails {
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<com.hanazoom.domain.portfolio.entity.Account> accounts = new ArrayList<>();
 
+    // 사용자 설정 연관관계
+    @OneToOne(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
+    private UserSettings userSettings;
+
     @Builder
     public Member(String email, String password, String name, String phone,
             String address, String detailAddress, String zonecode,
             Double latitude, Double longitude, Long regionId,
             boolean termsAgreed, boolean privacyAgreed, boolean marketingAgreed,
-            LoginType loginType) {
+            LoginType loginType, boolean isPb, String pbLicenseNumber,
+            Integer pbExperienceYears, String pbSpecialties, String pbRegion,
+            Double pbRating, Integer pbTotalConsultations, PbStatus pbStatus,
+            LocalDateTime pbApprovedAt, String pbApprovedBy) {
         this.email = email;
         this.password = password;
         this.name = name;
@@ -107,6 +146,16 @@ public class Member implements UserDetails {
         this.privacyAgreed = privacyAgreed;
         this.marketingAgreed = marketingAgreed;
         this.loginType = loginType != null ? loginType : LoginType.EMAIL;
+        this.isPb = isPb;
+        this.pbLicenseNumber = pbLicenseNumber;
+        this.pbExperienceYears = pbExperienceYears;
+        this.pbSpecialties = pbSpecialties;
+        this.pbRegion = pbRegion;
+        this.pbRating = pbRating != null ? pbRating : 0.0;
+        this.pbTotalConsultations = pbTotalConsultations != null ? pbTotalConsultations : 0;
+        this.pbStatus = pbStatus != null ? pbStatus : PbStatus.INACTIVE;
+        this.pbApprovedAt = pbApprovedAt;
+        this.pbApprovedBy = pbApprovedBy;
     }
 
     public void updateLastLogin() {
@@ -183,8 +232,72 @@ public class Member implements UserDetails {
         return this.accounts.stream().anyMatch(com.hanazoom.domain.portfolio.entity.Account::isActive);
     }
 
+    // PB 관련 메서드들
+    public void promoteToPb(String pbLicenseNumber, Integer pbExperienceYears,
+            String pbSpecialties, String pbRegion, String approvedBy) {
+        this.isPb = true;
+        this.pbLicenseNumber = pbLicenseNumber;
+        this.pbExperienceYears = pbExperienceYears;
+        this.pbSpecialties = pbSpecialties;
+        this.pbRegion = pbRegion;
+        this.pbStatus = PbStatus.ACTIVE;
+        this.pbApprovedAt = LocalDateTime.now();
+        this.pbApprovedBy = approvedBy;
+    }
+
+    public void demoteFromPb() {
+        this.isPb = false;
+        this.pbLicenseNumber = null;
+        this.pbExperienceYears = null;
+        this.pbSpecialties = null;
+        this.pbRegion = null;
+        this.pbRating = 0.0;
+        this.pbTotalConsultations = 0;
+        this.pbStatus = PbStatus.INACTIVE;
+        this.pbApprovedAt = null;
+        this.pbApprovedBy = null;
+    }
+
+    public void updatePbInfo(String pbSpecialties, String pbRegion) {
+        this.pbSpecialties = pbSpecialties;
+        this.pbRegion = pbRegion;
+    }
+
+    public void updatePbRating(Double newRating) {
+        this.pbRating = newRating;
+    }
+
+    public void incrementConsultationCount() {
+        this.pbTotalConsultations++;
+    }
+
+    public void suspendPb() {
+        this.pbStatus = PbStatus.SUSPENDED;
+    }
+
+    public void activatePb() {
+        this.pbStatus = PbStatus.ACTIVE;
+    }
+
+    public boolean isActivePb() {
+        return this.isPb && this.pbStatus == PbStatus.ACTIVE;
+    }
+
+    public boolean isPendingPb() {
+        return this.pbStatus == PbStatus.PENDING;
+    }
+
+    public boolean isSuspendedPb() {
+        return this.pbStatus == PbStatus.SUSPENDED;
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
+        if (isActivePb()) {
+            return List.of(
+                    new SimpleGrantedAuthority("ROLE_USER"),
+                    new SimpleGrantedAuthority("ROLE_PB"));
+        }
         return Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
     }
 

@@ -23,6 +23,7 @@ import type { StockPriceData } from "@/lib/api/stock";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
 import { StockTicker } from "@/components/stock-ticker";
 import { MouseFollower } from "@/components/mouse-follower";
+import { FloatingEmojiBackground } from "@/components/floating-emoji-background";
 import api from "@/app/config/api";
 
 interface Stock {
@@ -349,24 +350,8 @@ export default function StocksPage() {
         <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:20px_20px]"></div>
       </div>
 
-      {/* Floating Stock Symbols */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="floating-symbol absolute top-20 left-10 text-green-500 dark:text-green-400 text-2xl animate-bounce">
-          📊
-        </div>
-        <div className="floating-symbol absolute top-40 right-20 text-emerald-600 dark:text-emerald-400 text-xl animate-pulse">
-          📈
-        </div>
-        <div className="floating-symbol absolute bottom-40 right-10 text-emerald-500 dark:text-emerald-400 text-2xl animate-pulse delay-500">
-          💹
-        </div>
-        <div className="floating-symbol absolute bottom-60 left-20 text-green-600 dark:text-green-400 text-xl animate-bounce delay-700">
-          💰
-        </div>
-        <div className="floating-symbol absolute top-32 right-1/3 text-emerald-400 dark:text-green-300 text-lg animate-pulse delay-200">
-          🎯
-        </div>
-      </div>
+      {/* Floating Stock Symbols (사용자 설정에 따라) */}
+      <FloatingEmojiBackground />
 
       {/* NavBar */}
       <div className="fixed top-0 left-0 right-0 z-[100]">

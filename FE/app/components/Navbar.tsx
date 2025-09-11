@@ -3,7 +3,20 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { isLoggedIn, logout, useAuthStore } from "../utils/auth";
-import { Bell, Heart, User, Plus, Trash2, Search, X } from "lucide-react";
+import {
+  Bell,
+  Heart,
+  User,
+  Plus,
+  Trash2,
+  Search,
+  X,
+  Users,
+  BarChart3,
+  Video,
+  Calendar,
+  Settings,
+} from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
@@ -19,6 +32,7 @@ import api from "@/app/config/api";
 import { toast } from "sonner";
 import NotificationDropdown from "@/components/NotificationDropdown";
 import { getUnreadCount } from "@/lib/api/notification";
+import { usePortfolio } from "@/hooks/usePortfolio";
 
 export default function NavBar() {
   const router = useRouter();
@@ -27,6 +41,7 @@ export default function NavBar() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showWatchlistModal, setShowWatchlistModal] = useState(false);
   const { accessToken } = useAuthStore();
+  const { getPortfolioSummary } = usePortfolio();
 
   // 관심종목 관련 상태
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
@@ -43,6 +58,19 @@ export default function NavBar() {
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
 
+  // PB 관련 상태
+  const [isPb, setIsPb] = useState(false);
+  const [pbInfo, setPbInfo] = useState<any>(null);
+
+  // 사용자 정보 상태
+  const [userInfo, setUserInfo] = useState<{
+    createdAt: string;
+    lastLoginAt: string;
+    totalBalance: number;
+    stockAllocationRate: number;
+    cashAllocationRate: number;
+  } | null>(null);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -50,6 +78,9 @@ export default function NavBar() {
   useEffect(() => {
     if (accessToken) {
       loadNotificationCount();
+      loadPbInfo();
+      loadUserInfo();
+      loadPortfolioInfo();
     }
   }, [accessToken]);
 
@@ -89,6 +120,107 @@ export default function NavBar() {
       console.error("알림 개수 로드 실패:", error);
       // 에러가 발생해도 알림 개수를 0으로 설정하여 UI가 깨지지 않도록 함
       setNotificationCount(0);
+    }
+  };
+
+  // PB 정보 로드
+  const loadPbInfo = async () => {
+    if (!accessToken) return;
+
+    try {
+      const response = await api.get("/members/me");
+      console.log("🔍 PB 정보 API 응답:", response.data);
+
+      if (response.data && response.data.success) {
+        const memberData = response.data.data;
+        console.log("🔍 회원 데이터:", memberData);
+        console.log("🔍 isPb 값:", memberData.isPb);
+        console.log("🔍 pbStatus 값:", memberData.pbStatus);
+        console.log("🔍 pbRating 값:", memberData.pbRating);
+        console.log(
+          "🔍 pbTotalConsultations 값:",
+          memberData.pbTotalConsultations
+        );
+
+        // 임시: 강제로 PB 설정 (테스트용)
+        const forcePb = memberData.email === "pb@pb.com";
+        setIsPb(forcePb || memberData.isPb || false);
+
+        if (forcePb || memberData.isPb) {
+          console.log("✅ PB로 인식됨, PB 정보 설정 중...");
+          setPbInfo({
+            rating: memberData.pbRating || 0.0,
+            totalConsultations: memberData.pbTotalConsultations || 0,
+            region: memberData.pbRegion || "미지정",
+            specialties: memberData.pbSpecialties || "[]",
+            status: memberData.pbStatus || "INACTIVE",
+          });
+          console.log("✅ PB 정보 설정 완료");
+        } else {
+          console.log("❌ PB가 아닌 사용자로 인식됨");
+        }
+      }
+    } catch (error) {
+      console.error("❌ PB 정보 로드 실패:", error);
+      setIsPb(false);
+      setPbInfo(null);
+    }
+  };
+
+  // 사용자 정보 로드 (가입일, 최근 접속일)
+  const loadUserInfo = async () => {
+    if (!accessToken) return;
+
+    try {
+      const response = await api.get("/members/me");
+      if (response.data && response.data.success) {
+        const memberData = response.data.data;
+        setUserInfo({
+          createdAt: memberData.createdAt || new Date().toISOString(),
+          lastLoginAt: memberData.lastLoginAt || new Date().toISOString(),
+          totalBalance: 0, // 포트폴리오에서 가져올 예정
+          stockAllocationRate: 0,
+          cashAllocationRate: 0,
+        });
+      }
+    } catch (error) {
+      console.error("사용자 정보 로드 실패:", error);
+    }
+  };
+
+  // 포트폴리오 정보 로드
+  const loadPortfolioInfo = async () => {
+    if (!accessToken) return;
+
+    try {
+      const portfolioData = await getPortfolioSummary();
+      if (portfolioData) {
+        console.log("🔍 Navbar 포트폴리오 데이터:", portfolioData);
+        setUserInfo(prev => prev ? {
+          ...prev,
+          totalBalance: portfolioData.totalBalance || 0,
+          stockAllocationRate: portfolioData.stockAllocationRate || 0,
+          cashAllocationRate: portfolioData.cashAllocationRate || 0,
+        } : null);
+      } else {
+        console.log("포트폴리오 계좌가 없습니다. 기본값으로 설정합니다.");
+        // 포트폴리오가 없어도 기본값으로 설정
+        setUserInfo(prev => prev ? {
+          ...prev,
+          totalBalance: 0,
+          stockAllocationRate: 0,
+          cashAllocationRate: 100,
+        } : null);
+      }
+    } catch (error) {
+      console.error("포트폴리오 정보 로드 실패:", error);
+      // 포트폴리오가 없어도 기본값으로 설정
+      setUserInfo(prev => prev ? {
+        ...prev,
+        totalBalance: 0,
+        stockAllocationRate: 0,
+        cashAllocationRate: 100,
+      } : null);
     }
   };
 
@@ -541,8 +673,18 @@ export default function NavBar() {
                 {/* 프로필 헤더 - 계층화된 정보 */}
                 <div className="flex items-center space-x-4 mb-6">
                   <div className="relative">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg">
-                      <User className="w-7 h-7 text-white" />
+                    <div
+                      className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${
+                        isPb
+                          ? "bg-gradient-to-br from-purple-500 to-purple-700"
+                          : "bg-gradient-to-br from-emerald-500 to-emerald-700"
+                      }`}
+                    >
+                      {isPb ? (
+                        <Users className="w-7 h-7 text-white" />
+                      ) : (
+                        <User className="w-7 h-7 text-white" />
+                      )}
                     </div>
                     {/* 하나금융 그룹 뱃지 오버레이 */}
                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center shadow-md">
@@ -552,18 +694,62 @@ export default function NavBar() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-lg font-bold text-gray-900 dark:text-white font-['Pretendard']">
-                        사용자님
+                        {isPb ? "PB님" : "사용자님"}
                       </h3>
                       {/* 회원 등급 뱃지 */}
-                      <span className="px-2 py-1 text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-200 dark:border-emerald-700">
-                        일반회원
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full border ${
+                          isPb
+                            ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700"
+                            : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700"
+                        }`}
+                      >
+                        {isPb ? "PB" : "일반회원"}
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 font-['Pretendard']">
-                      하나줌 회원
+                      {isPb ? "하나줌 PB" : "하나줌 회원"}
                     </p>
                   </div>
                 </div>
+
+                {/* PB 전용 정보 섹션 */}
+                {isPb && pbInfo && (
+                  <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl border border-purple-200/50 dark:border-purple-700/30">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-lg">👨‍💼</span>
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white font-['Pretendard']">
+                        PB 현황
+                      </h4>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 dark:text-gray-400 font-['Pretendard']">
+                          평점
+                        </span>
+                        <span className="text-purple-600 dark:text-purple-400 font-['Pretendard'] font-semibold">
+                          ⭐ {pbInfo.rating.toFixed(1)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 dark:text-gray-400 font-['Pretendard']">
+                          상담수
+                        </span>
+                        <span className="text-purple-600 dark:text-purple-400 font-['Pretendard'] font-semibold">
+                          {pbInfo.totalConsultations}건
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center col-span-2">
+                        <span className="text-gray-600 dark:text-gray-400 font-['Pretendard']">
+                          담당지역
+                        </span>
+                        <span className="text-purple-600 dark:text-purple-400 font-['Pretendard'] font-semibold">
+                          {pbInfo.region}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* 보조 정보 - 작은 글씨로 Secondary color */}
                 <div className="space-y-2 mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
@@ -572,7 +758,13 @@ export default function NavBar() {
                       가입일
                     </span>
                     <span className="text-gray-700 dark:text-gray-300 font-['Pretendard'] font-medium">
-                      2024년 3월
+                      {userInfo?.createdAt 
+                        ? new Date(userInfo.createdAt).toLocaleDateString('ko-KR', { 
+                            year: 'numeric', 
+                            month: 'long' 
+                          })
+                        : '2024년 3월'
+                      }
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
@@ -580,7 +772,14 @@ export default function NavBar() {
                       최근 접속
                     </span>
                     <span className="text-gray-700 dark:text-gray-300 font-['Pretendard'] font-medium">
-                      2025-08-31 (PC)
+                      {userInfo?.lastLoginAt 
+                        ? new Date(userInfo.lastLoginAt).toLocaleDateString('ko-KR', { 
+                            year: 'numeric', 
+                            month: '2-digit', 
+                            day: '2-digit' 
+                          }) + ' (PC)'
+                        : '2025-08-31 (PC)'
+                      }
                     </span>
                   </div>
                 </div>
@@ -599,7 +798,10 @@ export default function NavBar() {
                         총자산
                       </span>
                       <span className="text-gray-900 dark:text-white font-['Pretendard'] font-semibold">
-                        1,200만원
+                        {userInfo?.totalBalance && userInfo.totalBalance > 0
+                          ? `${(userInfo.totalBalance / 10000).toLocaleString()}만원`
+                          : '계좌 없음'
+                        }
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -607,7 +809,10 @@ export default function NavBar() {
                         주식
                       </span>
                       <span className="text-emerald-600 dark:text-emerald-400 font-['Pretendard'] font-medium">
-                        75%
+                        {userInfo?.stockAllocationRate 
+                          ? `${userInfo.stockAllocationRate.toFixed(0)}%`
+                          : '0%'
+                        }
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -615,44 +820,95 @@ export default function NavBar() {
                         현금
                       </span>
                       <span className="text-blue-600 dark:text-blue-400 font-['Pretendard'] font-medium">
-                        25%
+                        {userInfo?.cashAllocationRate 
+                          ? `${userInfo.cashAllocationRate.toFixed(0)}%`
+                          : '100%'
+                        }
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* 액션 버튼들 - 라인 스타일로 변경 */}
+                {/* 액션 버튼들 - PB/일반회원 구분 */}
                 <div className="space-y-2 mb-4">
-                  <button
-                    onClick={handleMyPageClick}
-                    className="w-full border-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-transparent hover:bg-emerald-50 dark:hover:bg-emerald-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm"
-                  >
-                    마이페이지로 이동
-                  </button>
-                  <Link
-                    href="/portfolio"
-                    onClick={() => setShowProfileModal(false)}
-                    className="w-full border-2 border-blue-500 text-blue-600 dark:text-blue-400 bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm flex items-center justify-center"
-                  >
-                    <span className="mr-2">💼</span>
-                    포트폴리오 보기
-                  </Link>
-                  <Link
-                    href="/orders"
-                    onClick={() => setShowProfileModal(false)}
-                    className="w-full border-2 border-purple-500 text-purple-600 dark:text-purple-400 bg-transparent hover:bg-purple-50 dark:hover:bg-purple-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm flex items-center justify-center"
-                  >
-                    <span className="mr-2">📋</span>
-                    주문 내역
-                  </Link>
-                  <div className="flex gap-2">
-                    <button className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800 font-medium py-2 px-3 rounded-lg transition-all duration-200 font-['Pretendard'] text-xs">
-                      알림설정
-                    </button>
-                    <button className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800 font-medium py-2 px-3 rounded-lg transition-all duration-200 font-['Pretendard'] text-xs">
-                      고객센터
-                    </button>
-                  </div>
+                  {console.log("🔍 UI 렌더링 - isPb 값:", isPb)}
+                  {isPb ? (
+                    // PB 전용 버튼들
+                    <>
+                      <Link
+                        href="/pb-admin"
+                        onClick={() => setShowProfileModal(false)}
+                        className="w-full border-2 border-purple-500 text-purple-600 dark:text-purple-400 bg-transparent hover:bg-purple-50 dark:hover:bg-purple-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm flex items-center justify-center"
+                      >
+                        <Users className="w-4 h-4 mr-2" />
+                        PB 대시보드
+                      </Link>
+                      <Link
+                        href="/portfolio"
+                        onClick={() => setShowProfileModal(false)}
+                        className="w-full border-2 border-blue-500 text-blue-600 dark:text-blue-400 bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm flex items-center justify-center"
+                      >
+                        <BarChart3 className="w-4 h-4 mr-2" />
+                        포트폴리오 조회
+                      </Link>
+                      <button
+                        onClick={handleMyPageClick}
+                        className="w-full border-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-transparent hover:bg-emerald-50 dark:hover:bg-emerald-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm"
+                      >
+                        마이페이지로 이동
+                      </button>
+                      <Link
+                        href="/settings"
+                        onClick={() => setShowProfileModal(false)}
+                        className="w-full border-2 border-gray-500 text-gray-600 dark:text-gray-400 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm flex items-center justify-center"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        설정
+                      </Link>
+                    </>
+                  ) : (
+                    // 일반회원 버튼들
+                    <>
+                      <button
+                        onClick={handleMyPageClick}
+                        className="w-full border-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-transparent hover:bg-emerald-50 dark:hover:bg-emerald-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm"
+                      >
+                        마이페이지로 이동
+                      </button>
+                      <Link
+                        href="/settings"
+                        onClick={() => setShowProfileModal(false)}
+                        className="w-full border-2 border-gray-500 text-gray-600 dark:text-gray-400 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm flex items-center justify-center"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        설정
+                      </Link>
+                      <Link
+                        href="/portfolio"
+                        onClick={() => setShowProfileModal(false)}
+                        className="w-full border-2 border-blue-500 text-blue-600 dark:text-blue-400 bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm flex items-center justify-center"
+                      >
+                        <span className="mr-2">💼</span>
+                        포트폴리오 보기
+                      </Link>
+                      <Link
+                        href="/orders"
+                        onClick={() => setShowProfileModal(false)}
+                        className="w-full border-2 border-purple-500 text-purple-600 dark:text-purple-400 bg-transparent hover:bg-purple-50 dark:hover:bg-purple-900/20 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 font-['Pretendard'] text-sm flex items-center justify-center"
+                      >
+                        <span className="mr-2">📋</span>
+                        주문 내역
+                      </Link>
+                      <div className="flex gap-2">
+                        <button className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800 font-medium py-2 px-3 rounded-lg transition-all duration-200 font-['Pretendard'] text-xs">
+                          알림설정
+                        </button>
+                        <button className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800 font-medium py-2 px-3 rounded-lg transition-all duration-200 font-['Pretendard'] text-xs">
+                          고객센터
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* 로그아웃 버튼 - 진한 회색으로 톤다운 */}
@@ -815,12 +1071,20 @@ export default function NavBar() {
           {/* 프로필/로그인 아이콘 */}
           <div className="relative">
             {accessToken ? (
-              // 로그인 상태: 프로필 아이콘
+              // 로그인 상태: 프로필 아이콘 (PB/일반회원 구분)
               <button
                 onClick={handleProfileClick}
-                className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                  isPb
+                    ? "bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-800"
+                    : "bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-800"
+                }`}
               >
-                <User className="w-4 h-4" />
+                {isPb ? (
+                  <Users className="w-4 h-4" />
+                ) : (
+                  <User className="w-4 h-4" />
+                )}
               </button>
             ) : (
               // 로그아웃 상태: 로그인 아이콘 (클릭 가능)

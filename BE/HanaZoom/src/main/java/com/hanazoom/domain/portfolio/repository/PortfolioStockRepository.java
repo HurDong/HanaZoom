@@ -50,4 +50,25 @@ public interface PortfolioStockRepository extends JpaRepository<PortfolioStock, 
     // 보유 수량이 0인 종목들 조회 (정리 대상)
     @Query("SELECT ps FROM PortfolioStock ps WHERE ps.accountId = :accountId AND ps.quantity = 0")
     List<PortfolioStock> findEmptyStocksByAccountId(@Param("accountId") Long accountId);
+
+    // 사용자의 포트폴리오 집계 정보 조회 (지역별 비교용)
+    @Query("SELECT " +
+            "COUNT(ps) as stockCount, " +
+            "COALESCE(SUM(ps.currentValue), 0) as totalValue, " +
+            "COALESCE(AVG(ps.profitLossRate), 0) as avgProfitLossRate " +
+            "FROM PortfolioStock ps " +
+            "WHERE ps.accountId = :accountId AND ps.quantity > 0")
+    UserPortfolioStats getUserPortfolioStats(@Param("accountId") Long accountId);
+
+    interface UserPortfolioStats {
+        long getStockCount();
+        BigDecimal getTotalValue();
+        BigDecimal getAvgProfitLossRate();
+    }
+
+    // 사용자의 상위 보유 주식 조회 (지역별 비교용)
+    @Query("SELECT ps FROM PortfolioStock ps " +
+            "WHERE ps.accountId = :accountId AND ps.quantity > 0 " +
+            "ORDER BY ps.currentValue DESC")
+    List<PortfolioStock> findTopHoldingStocksByAccountId(@Param("accountId") Long accountId);
 }

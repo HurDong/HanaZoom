@@ -87,4 +87,43 @@ public interface RegionStockRepository extends JpaRepository<RegionStock, Long> 
 
                 int getViewCount();
         }
+
+        // 지역별 포트폴리오 분석을 위한 집계 쿼리
+        @Query("SELECT " +
+                "COUNT(rs) as stockCount, " +
+                "AVG(rs.popularityScore) as avgPopularityScore, " +
+                "AVG(rs.trendScore) as avgTrendScore " +
+                "FROM RegionStock rs " +
+                "WHERE rs.region.id = :regionId " +
+                "AND rs.dataDate = (SELECT MAX(rs2.dataDate) FROM RegionStock rs2 WHERE rs2.region.id = :regionId)")
+        RegionalPortfolioStats getRegionalPortfolioStats(@Param("regionId") Long regionId);
+
+        interface RegionalPortfolioStats {
+                long getStockCount();
+                Double getAvgPopularityScore();
+                Double getAvgTrendScore();
+        }
+
+        // 지역별 인기 주식 TOP 5 조회 (포트폴리오 분석용)
+        @Query("SELECT rs FROM RegionStock rs " +
+                "JOIN FETCH rs.stock s " +
+                "WHERE rs.region.id = :regionId " +
+                "AND rs.dataDate = (SELECT MAX(rs2.dataDate) FROM RegionStock rs2 WHERE rs2.region.id = :regionId) " +
+                "ORDER BY rs.popularityScore DESC")
+        List<RegionStock> findTopPopularStocksByRegionId(@Param("regionId") Long regionId, Pageable pageable);
+
+        // 전체 기간 누적 인기도 기반 TOP N (집계)
+        @Query("SELECT rs.stock as stock, SUM(rs.popularityScore) as totalPopularity " +
+                "FROM RegionStock rs " +
+                "WHERE rs.region.id = :regionId " +
+                "GROUP BY rs.stock " +
+                "ORDER BY totalPopularity DESC")
+        List<RegionStockPopularityAgg> findTopPopularStocksAggregatedByRegion(
+                @Param("regionId") Long regionId,
+                Pageable pageable);
+
+        interface RegionStockPopularityAgg {
+                com.hanazoom.domain.stock.entity.Stock getStock();
+                java.math.BigDecimal getTotalPopularity();
+        }
 }

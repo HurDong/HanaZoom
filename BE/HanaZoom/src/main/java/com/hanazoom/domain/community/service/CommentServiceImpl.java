@@ -31,7 +31,12 @@ public class CommentServiceImpl implements CommentService {
                 .parentComment(null)
                 .depth(0)
                 .build();
-        return commentRepository.save(comment);
+        Comment savedComment = commentRepository.save(comment);
+        
+        // 게시글의 댓글 수 증가
+        post.incrementCommentCount();
+        
+        return savedComment;
     }
 
     @Override
@@ -52,7 +57,12 @@ public class CommentServiceImpl implements CommentService {
                 .depth(parentComment.getDepth() + 1)
                 .build();
 
-        return commentRepository.save(reply);
+        Comment savedReply = commentRepository.save(reply);
+        
+        // 게시글의 댓글 수 증가
+        parentComment.getPost().incrementCommentCount();
+        
+        return savedReply;
     }
 
     @Override
@@ -68,6 +78,9 @@ public class CommentServiceImpl implements CommentService {
     public void deleteComment(Long commentId, Member member) {
         Comment comment = getCommentWithMemberCheck(commentId, member);
         comment.delete();
+        
+        // 게시글의 댓글 수 감소
+        comment.getPost().decrementCommentCount();
     }
 
     @Override

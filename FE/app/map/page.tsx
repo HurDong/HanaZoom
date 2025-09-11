@@ -27,6 +27,8 @@ import api from "@/app/config/api";
 import { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
 import { getTopStocksByRegion } from "@/lib/api/stock";
 import { MouseFollower } from "@/components/mouse-follower";
+import { FloatingEmojiBackground } from "@/components/floating-emoji-background";
+import { useUserSettingsStore } from "@/lib/stores/userSettingsStore";
 import { useRouter } from "next/navigation";
 import { useMapBounds } from "@/app/hooks/useMapBounds";
 import { filterMarkersByLOD } from "@/app/utils/lodUtils";
@@ -49,7 +51,7 @@ export interface Region {
 interface TopStock {
   symbol: string;
   name: string;
-  price: string;
+  price: string | null; // null 허용
   change: string;
   logoUrl?: string;
   emoji?: string; // 임시로 유지
@@ -65,6 +67,7 @@ const KAKAO_MAP_API_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY;
 
 export default function MapPage() {
   const user = useAuthStore((state) => state.user);
+  const { settings, isInitialized } = useUserSettingsStore();
   const [regions, setRegions] = useState<Region[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
@@ -112,7 +115,7 @@ export default function MapPage() {
           if (stock.symbol === data.stockCode) {
             return {
               ...stock,
-              price: data.currentPrice,
+              price: data.currentPrice || "데이터 없음",
               change: data.changeRate?.replace('%', '') || '0.00',
               realtimeData: data,
               lastUpdated: new Date(),
@@ -157,17 +160,21 @@ export default function MapPage() {
       const lng = Number(user.longitude);
       console.log("📍 지도 중심 이동:", { lat, lng });
 
+      // 사용자 설정의 기본 줌 레벨 사용
+      const defaultZoom = getDefaultZoomLevel();
+      console.log("🎯 기본 줌 레벨 적용:", defaultZoom);
+
       // 카카오맵 API를 사용하여 지도 중심 이동
       const newCenter = new kakao.maps.LatLng(lat, lng);
       mapRef.current.panTo(newCenter);
-      mapRef.current.setLevel(4);
+      mapRef.current.setLevel(defaultZoom);
 
       // 상태도 업데이트
       setCenter({ lat, lng });
-      setZoomLevel(4);
-      setDebouncedZoomLevel(4);
+      setZoomLevel(defaultZoom);
+      setDebouncedZoomLevel(defaultZoom);
     }
-  }, [user?.latitude, user?.longitude]);
+  }, [user?.latitude, user?.longitude, isInitialized, settings.defaultMapZoom]);
 
   // 사용자 위치로 이동하는 함수
   const moveToUserLocation = useCallback(() => {
@@ -176,21 +183,34 @@ export default function MapPage() {
       const lng = Number(user.longitude);
       console.log("📍 초기 사용자 위치로 이동:", { lat, lng });
 
+      // 사용자 설정의 기본 줌 레벨 사용
+      const defaultZoom = getDefaultZoomLevel();
+      console.log("🎯 기본 줌 레벨 적용:", defaultZoom);
+
       // 카카오맵 API를 사용하여 지도 중심 이동
       const newCenter = new kakao.maps.LatLng(lat, lng);
       mapRef.current.panTo(newCenter);
-      mapRef.current.setLevel(4);
+      mapRef.current.setLevel(defaultZoom);
 
       // 상태도 업데이트
       setCenter({ lat, lng });
-      setZoomLevel(4);
-      setDebouncedZoomLevel(4);
+      setZoomLevel(defaultZoom);
+      setDebouncedZoomLevel(defaultZoom);
     }
-  }, [user?.latitude, user?.longitude]);
+  }, [user?.latitude, user?.longitude, isInitialized, settings.defaultMapZoom]);
 
   // 초기 중심점 설정
   const [center, setCenter] = useState({ lat: 37.5665, lng: 126.978 }); // 서울시청 (기본값)
-  const [zoomLevel, setZoomLevel] = useState(9); // 기본값
+  
+  // 사용자 설정에서 기본 줌 레벨 가져오기
+  const getDefaultZoomLevel = () => {
+    if (isInitialized && settings.defaultMapZoom) {
+      return settings.defaultMapZoom;
+    }
+    return 9; // 기본값 (동/면)
+  };
+  
+  const [zoomLevel, setZoomLevel] = useState(getDefaultZoomLevel());
 
   // 사용자 정보가 로드되면 초기 위치 설정
   useEffect(() => {
@@ -199,10 +219,23 @@ export default function MapPage() {
       const lat = Number(user.latitude);
       const lng = Number(user.longitude);
       setCenter({ lat, lng });
-      setZoomLevel(4);
-      setDebouncedZoomLevel(4);
+      
+      // 사용자 설정의 기본 줌 레벨 사용
+      const defaultZoom = getDefaultZoomLevel();
+      console.log("🎯 초기 줌 레벨 적용:", defaultZoom);
+      setZoomLevel(defaultZoom);
+      setDebouncedZoomLevel(defaultZoom);
     }
-  }, [user?.latitude, user?.longitude]);
+  }, [user?.latitude, user?.longitude, isInitialized, settings.defaultMapZoom]);
+
+  // 사용자 설정이 변경될 때 줌 레벨 업데이트
+  useEffect(() => {
+    if (isInitialized && settings.defaultMapZoom) {
+      console.log("🎯 사용자 설정 줌 레벨 적용:", settings.defaultMapZoom);
+      setZoomLevel(settings.defaultMapZoom);
+      setDebouncedZoomLevel(settings.defaultMapZoom);
+    }
+  }, [isInitialized, settings.defaultMapZoom]);
 
   // 시장 상태 주기적 체크 (1분마다)
   useEffect(() => {
@@ -327,7 +360,7 @@ export default function MapPage() {
                   return {
             ...stock,
             // 실시간 데이터가 있으면 우선 사용, 없으면 DB 데이터 사용 (null 처리 포함)
-            price: realtimeData?.currentPrice || (stock.price === "null" ? "데이터 없음" : stock.price),
+            price: realtimeData?.currentPrice || (stock.price === null || stock.price === "null" || stock.price === "데이터 없음" ? "데이터 없음" : stock.price),
             change: realtimeData?.changeRate || (stock.change === "nu%" ? "0.00" : stock.change),
             realtimeData: realtimeData || undefined,
             lastUpdated: realtimeData ? new Date() : new Date(),
@@ -467,7 +500,17 @@ export default function MapPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 overflow-hidden relative transition-colors duration-500">
-      <MouseFollower />
+      {/* 마우스 따라다니는 아이콘들 (사용자 설정에 따라) */}
+      {isInitialized && settings.customCursorEnabled && <MouseFollower />}
+      
+      {/* 배경 패턴 */}
+      <div className="absolute inset-0 pointer-events-none opacity-10 dark:opacity-5">
+        <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:20px_20px]"></div>
+      </div>
+
+      {/* Floating Stock Symbols (사용자 설정에 따라) */}
+      <FloatingEmojiBackground />
+      
       <div className="fixed top-0 left-0 right-0 z-[100]">
         <NavBar />
       </div>
@@ -526,6 +569,10 @@ export default function MapPage() {
                 <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-300">
                   <Layers className="w-5 h-5" />
                   <span>줌 레벨: {zoomLevel}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {zoomLevel <= 4 ? '동/면' : 
+                     zoomLevel <= 7 ? '시/도' : '전국'}
+                  </span>
                 </label>
                 <Slider
                   value={[zoomLevel]}
@@ -700,7 +747,7 @@ export default function MapPage() {
 
                             <div className="text-right">
                               <div className="font-bold text-lg text-gray-900 dark:text-gray-100">
-                                {stock.price === "데이터 없음" ? stock.price : `₩${Number(stock.price).toLocaleString()}`}
+                                {stock.price === "데이터 없음" || stock.price === null ? "데이터 없음" : `₩${Number(stock.price).toLocaleString()}`}
                               </div>
                               <div
                                 className={`text-sm font-semibold ${
@@ -803,7 +850,7 @@ export default function MapPage() {
                             </div>
                             <div className="text-center relative z-10">
                               <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                                {selectedStock.price === "데이터 없음" ? selectedStock.price : `₩${Number(selectedStock.price).toLocaleString()}`}
+                                {selectedStock.price === "데이터 없음" || selectedStock.price === null ? "데이터 없음" : `₩${Number(selectedStock.price).toLocaleString()}`}
                               </div>
                               <div
                                 className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-base font-bold ${

@@ -83,7 +83,12 @@ export default function VerifyPage() {
 
   const submitPassword = async () => {
     if (!user?.email) return;
-    if (!password) return;
+    
+    // 비밀번호 유효성 검사
+    if (!password.trim()) {
+      showErrorAlert("비밀번호를 입력해주세요.");
+      return;
+    }
 
     setSubmitting(true);
     try {

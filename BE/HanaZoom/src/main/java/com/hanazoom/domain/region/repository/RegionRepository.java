@@ -67,4 +67,16 @@ public interface RegionRepository extends JpaRepository<Region, Long> {
         Optional<Region> findNearestNeighborhood(
                         @Param("latitude") Double latitude,
                         @Param("longitude") Double longitude);
+
+        // 사용자의 지역 ID로부터 지역구(DISTRICT) ID 조회
+        @Query("SELECT r FROM Region r WHERE r.id = :regionId AND r.type = 'DISTRICT'")
+        Optional<Region> findDistrictByRegionId(@Param("regionId") Long regionId);
+        
+        // 사용자의 지역 ID가 동(NEIGHBORHOOD)인 경우 부모 지역구 조회
+        @Query("SELECT r.parent FROM Region r WHERE r.id = :regionId AND r.type = 'NEIGHBORHOOD'")
+        Optional<Region> findDistrictByNeighborhoodId(@Param("regionId") Long regionId);
+
+        // 지역구의 이름 조회
+        @Query("SELECT r.name FROM Region r WHERE r.id = :regionId")
+        Optional<String> findRegionNameById(@Param("regionId") Long regionId);
 }
