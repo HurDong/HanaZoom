@@ -24,8 +24,6 @@ import {
   Sparkles, 
   Bell, 
   Map, 
-  BarChart3, 
-  RefreshCw, 
   Layout,
   Save,
   RotateCcw
@@ -417,78 +415,6 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* 차트 설정 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-green-500" />
-                차트 설정
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="chart-theme">차트 테마</Label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    차트의 색상 테마를 선택하세요
-                  </p>
-                </div>
-                <Select 
-                  value={settings.chartTheme} 
-                  onValueChange={(value: 'GREEN' | 'BLUE' | 'PURPLE' | 'ORANGE') => 
-                    updateSettings({ chartTheme: value })
-                  }
-                  disabled={isSaving}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="GREEN">녹색</SelectItem>
-                    <SelectItem value="BLUE">파란색</SelectItem>
-                    <SelectItem value="PURPLE">보라색</SelectItem>
-                    <SelectItem value="ORANGE">주황색</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 실시간 업데이트 설정 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <RefreshCw className="h-5 w-5 text-green-500" />
-                실시간 업데이트
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="auto-refresh">자동 새로고침 간격</Label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    주식 데이터가 자동으로 업데이트되는 간격입니다
-                  </p>
-                </div>
-                <Select 
-                  value={settings.autoRefreshInterval.toString()} 
-                  onValueChange={(value) => updateSettings({ autoRefreshInterval: parseInt(value) })}
-                  disabled={isSaving}
-                >
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="60">1분</SelectItem>
-                    <SelectItem value="300">5분</SelectItem>
-                    <SelectItem value="600">10분</SelectItem>
-                    <SelectItem value="1800">30분</SelectItem>
-                    <SelectItem value="0">비활성화</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* 액션 버튼들 */}
           <Card>
