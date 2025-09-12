@@ -259,7 +259,7 @@ export default function CommunityPage() {
           logoUrl: stock.logoUrl,
           emoji: stock.emoji || "📈", // fallback
           sector: stock.sector || "기타", // 업종 정보
-            volume: stock.volume || 0, // 거래량 - 실시간 데이터에서 가져올 예정
+            volume: stock.volume ? parseInt(stock.volume.toString()) || 0 : 0, // 거래량 - 실시간 데이터에서 가져올 예정
             // 실시간 데이터용 필드들 (초기값)
             currentPrice: stock.currentPrice || stock.price || "0",
             priceChange: stock.priceChange || "0",
@@ -339,7 +339,7 @@ export default function CommunityPage() {
           const realtimeData = stockPricesMap.get(stock.symbol);
           if (realtimeData) {
             // 실제로 변경된 데이터가 있는지 확인
-            const newVolume = realtimeData.volume ? parseInt(realtimeData.volume) || 0 : stock.volume;
+            const newVolume = realtimeData.volume ? parseInt(realtimeData.volume.toString()) || 0 : stock.volume;
             const newPrice = realtimeData.currentPrice ? parseInt(realtimeData.currentPrice) : stock.price;
             const newChange = realtimeData.changePrice ? parseInt(realtimeData.changePrice) : stock.change;
             const newChangePercent = realtimeData.changeRate ? parseFloat(realtimeData.changeRate) : stock.changePercent;
@@ -947,9 +947,9 @@ export default function CommunityPage() {
                             </div>
                             <div className="text-lg font-bold text-green-700 dark:text-green-300">
                               {stock.volume && stock.volume > 0 
-                                ? `${(stock.volume / 100000000).toFixed(0)}억원`
+                                ? `${parseInt(stock.volume.toString()).toLocaleString()}주`
                                 : stock.volume === 0 
-                                  ? "0억원"
+                                  ? "0주"
                                   : "데이터 없음"}
                               </div>
                           </div>

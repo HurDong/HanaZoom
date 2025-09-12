@@ -13,6 +13,7 @@ export interface Post {
   id: number;
   title: string | null;
   content: string;
+  imageUrl?: string;
   postType: PostType;
   sentiment: PostSentiment;
   viewCount: number;
@@ -35,11 +36,12 @@ export interface Post {
 export interface CreatePostRequest {
   title?: string;
   content: string;
+  imageUrl?: string;
   postType?: PostType;
   sentiment: PostSentiment;
   hasVote?: boolean;
   voteQuestion?: string;
-  voteOptions?: VoteOption[];
+  voteOptions?: string[];
 }
 
 export interface Comment {
