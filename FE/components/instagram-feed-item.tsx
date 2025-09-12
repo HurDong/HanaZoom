@@ -91,13 +91,13 @@ export function InstagramFeedItem({
   };
 
   return (
-    <article className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+    <article className="bg-white dark:bg-gray-900 border-b border-emerald-200 dark:border-emerald-700">
       {/* 헤더 */}
       <div className="flex items-center justify-between p-4 pb-3">
         <div className="flex items-center space-x-3">
           <Avatar className="w-10 h-10">
             <AvatarImage src={post.author?.profileImageUrl} />
-            <AvatarFallback className="bg-gradient-to-br from-pink-400 to-purple-500 text-white font-semibold">
+            <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-green-600 text-white font-semibold">
               {post.author?.nickname?.charAt(0) || <User className="w-5 h-5" />}
             </AvatarFallback>
           </Avatar>
@@ -162,58 +162,58 @@ export function InstagramFeedItem({
       {/* 투표 섹션 */}
       {post.hasVote && post.voteOptions && post.voteOptions.length > 0 && (
         <div className="px-4 py-3">
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              {post.voteQuestion || "어떻게 생각하시나요?"}
-            </p>
-            <div className="space-y-2">
-              {post.voteOptions.map((option) => {
-                const isVoted = post.userVote === option.id;
-                const totalVotes = post.voteOptions?.reduce((sum, opt) => sum + opt.voteCount, 0) || 0;
-                const percentage = totalVotes > 0 ? (option.voteCount / totalVotes) * 100 : 0;
-                
-                return (
-                  <button
-                    key={option.id}
-                    onClick={() => onVote(option.id)}
-                    disabled={isVoted}
-                    className={`w-full p-3 rounded-lg border-2 transition-all duration-200 text-left ${
-                      isVoted
-                        ? "border-green-500 bg-green-50 dark:bg-green-900/20"
-                        : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg">
-                          {option.text.includes("오를") ? "📈" : "📉"}
-                        </span>
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {option.text}
-                        </span>
+        <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-3 border border-emerald-200 dark:border-emerald-700">
+          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-3 font-['Pretendard']">
+            {post.voteQuestion || "어떻게 생각하시나요?"}
+          </p>
+          <div className="space-y-2">
+            {post.voteOptions.map((option) => {
+              const isVoted = post.userVote === option.id;
+              const totalVotes = post.voteOptions?.reduce((sum, opt) => sum + opt.voteCount, 0) || 0;
+              const percentage = totalVotes > 0 ? (option.voteCount / totalVotes) * 100 : 0;
+              
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => onVote(option.id)}
+                  disabled={isVoted}
+                  className={`w-full p-3 rounded-lg border-2 transition-all duration-200 text-left ${
+                    isVoted
+                      ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
+                      : "border-emerald-200 dark:border-emerald-600 hover:border-emerald-300 dark:hover:border-emerald-500"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">
+                        {option.text.includes("오를") ? "📈" : "📉"}
+                      </span>
+                      <span className="font-medium text-gray-900 dark:text-white font-['Pretendard']">
+                        {option.text}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 font-['Pretendard']">
+                        {option.voteCount}표
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                          {option.voteCount}표
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {percentage.toFixed(1)}%
-                        </div>
+                      <div className="text-xs text-emerald-500 dark:text-emerald-400 font-['Pretendard']">
+                        {percentage.toFixed(1)}%
                       </div>
                     </div>
-                    {totalVotes > 0 && (
-                      <div className="mt-2 w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-                        <div 
-                          className="bg-gradient-to-r from-pink-400 to-purple-500 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                  </div>
+                  {totalVotes > 0 && (
+                    <div className="mt-2 w-full bg-emerald-200 dark:bg-emerald-700 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-emerald-400 to-green-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
+        </div>
         </div>
       )}
 
@@ -238,7 +238,7 @@ export function InstagramFeedItem({
               variant="ghost"
               size="sm"
               onClick={onComment}
-              className="p-2 text-gray-500 hover:text-blue-500 transition-colors"
+              className="p-2 text-gray-500 hover:text-emerald-500 transition-colors"
             >
               <MessageCircle className="w-6 h-6" />
             </Button>
@@ -247,7 +247,7 @@ export function InstagramFeedItem({
               variant="ghost"
               size="sm"
               onClick={onShare}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+              className="p-2 text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
             >
               <Share2 className="w-6 h-6" />
             </Button>
@@ -257,7 +257,7 @@ export function InstagramFeedItem({
         {/* 좋아요 수 */}
         {likeCount > 0 && (
           <div className="mt-2">
-            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+            <span className="text-sm font-semibold text-gray-900 dark:text-white font-['Pretendard']">
               좋아요 {likeCount.toLocaleString()}개
             </span>
           </div>
@@ -268,7 +268,7 @@ export function InstagramFeedItem({
           <div className="mt-1">
             <button 
               onClick={onComment}
-              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-['Pretendard']"
             >
               댓글 {post.commentCount.toLocaleString()}개 모두 보기
             </button>

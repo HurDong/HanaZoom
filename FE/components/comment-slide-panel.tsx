@@ -70,12 +70,12 @@ export function CommentSlidePanel({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm">
-      <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl transform transition-transform duration-300 ease-out">
-        {/* 헤더 */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            댓글 {comments.length}개
-          </h3>
+        <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl transform transition-transform duration-300 ease-out">
+          {/* 헤더 */}
+          <div className="flex items-center justify-between p-4 border-b border-emerald-200 dark:border-emerald-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white font-['Pretendard']">
+              댓글 {comments.length}개
+            </h3>
           <Button
             variant="ghost"
             size="sm"
@@ -106,7 +106,7 @@ export function CommentSlidePanel({
                 <div key={comment.id} className="flex space-x-3">
                   <Avatar className="w-8 h-8 flex-shrink-0">
                     <AvatarImage src={comment.author?.profileImageUrl} />
-                    <AvatarFallback className="bg-gradient-to-br from-pink-400 to-purple-500 text-white text-xs">
+                    <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-green-600 text-white text-xs">
                       {comment.author?.nickname?.charAt(0) || <User className="w-4 h-4" />}
                     </AvatarFallback>
                   </Avatar>
@@ -181,7 +181,7 @@ export function CommentSlidePanel({
             <Button
               onClick={handleSubmitComment}
               disabled={!newComment.trim() || isSubmitting}
-              className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white px-4"
+              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-4"
             >
               {isSubmitting ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

@@ -619,7 +619,7 @@ export default function StockDiscussionPage() {
 
       <main className="pt-20">
         {/* 필터 탭 */}
-        <div className="sticky top-20 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
+        <div className="sticky top-20 z-40 backdrop-blur-md" style={{ background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)', borderBottom: '1px solid #3B82F6' }}>
           <div className="container mx-auto px-4 py-3">
             <Tabs
               value={activeTab}
@@ -629,21 +629,21 @@ export default function StockDiscussionPage() {
               <TabsList className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                 <TabsTrigger
                   value="all"
-                  className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 font-medium"
+                  className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 font-medium font-['Pretendard']"
                 >
                   <MessageSquare className="w-4 h-4 mr-2" />
                   전체
                 </TabsTrigger>
                 <TabsTrigger
                   value="bullish"
-                  className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 font-medium text-red-600 dark:text-red-400"
+                  className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 font-medium text-red-600 dark:text-red-400 font-['Pretendard']"
                 >
                   <TrendingUp className="w-4 h-4 mr-2" />
                   매수
                 </TabsTrigger>
                 <TabsTrigger
                   value="bearish"
-                  className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 font-medium text-blue-600 dark:text-blue-400"
+                  className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 font-medium text-blue-600 dark:text-blue-400 font-['Pretendard']"
                 >
                   <TrendingDown className="w-4 h-4 mr-2" />
                   매도
@@ -678,26 +678,26 @@ export default function StockDiscussionPage() {
           {/* 로딩 인디케이터 */}
           {isLoadingMore && (
             <div className="flex justify-center py-8">
-              <div className="w-8 h-8 border-2 border-pink-200 border-t-pink-600 rounded-full animate-spin"></div>
+              <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div>
             </div>
           )}
 
           {/* 빈 상태 */}
           {filteredPosts.length === 0 && !isLoading && (
-            <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 m-4">
+            <Card className="bg-white dark:bg-gray-800 border-emerald-200 dark:border-emerald-700 m-4">
               <CardContent className="flex flex-col items-center justify-center py-16">
                 <div className="relative mb-6">
-                  <div className="w-20 h-20 bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-900/50 dark:to-purple-900/50 rounded-full flex items-center justify-center shadow-lg">
-                    <MessageSquare className="w-10 h-10 text-pink-600 dark:text-pink-400" />
+                  <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-green-100 dark:from-emerald-900/50 dark:to-green-900/50 rounded-full flex items-center justify-center shadow-lg">
+                    <MessageSquare className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-md">
                     <Star className="w-3 h-3 text-white" />
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 font-['Pretendard']">
                   첫 번째 글을 작성해보세요!
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 text-center mb-6 max-w-md">
+                <p className="text-gray-600 dark:text-gray-400 text-center mb-6 max-w-md font-['Pretendard']">
                   {stock?.name}에 대한 투자 의견을 공유하고
                   <br />
                   다른 투자자들과 소통해보세요

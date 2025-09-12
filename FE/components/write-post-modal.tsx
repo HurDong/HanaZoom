@@ -274,7 +274,7 @@ export function WritePostModal({ isOpen, onClose, onSubmit }: WritePostModalProp
             <Button
               onClick={handleSubmit}
               disabled={!content.trim() || isSubmitting}
-              className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white"
+              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white"
             >
               {isSubmitting ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />

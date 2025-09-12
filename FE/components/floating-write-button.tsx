@@ -16,7 +16,7 @@ export function FloatingWriteButton({ onClick, isLoggedIn }: FloatingWriteButton
       <Button
         onClick={onClick}
         size="lg"
-        className="w-14 h-14 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 group"
+        className="w-14 h-14 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 group"
       >
         <span className="text-2xl">✍️</span>
       </Button>
