@@ -4,7 +4,7 @@ const withPWAConfig = withPWA({
   dest: 'public',
   register: false, // 자동 등록 비활성화 (수동 등록 사용)
   skipWaiting: true,
-  disable: false,
+  disable: process.env.NODE_ENV === 'development', // 개발 환경에서 PWA 비활성화
   buildExcludes: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],
   fallbacks: {
     document: '/offline.html',
