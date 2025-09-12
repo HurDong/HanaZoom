@@ -14,6 +14,7 @@ public class PostResponse {
     private Long id;
     private String title;
     private String content;
+    private String imageUrl;
     private PostType postType;
     private PostSentiment sentiment;
     private int viewCount;
@@ -45,6 +46,7 @@ public class PostResponse {
                 .id(post.getId())
                 .title(post.getTitle())
                 .content(post.getContent())
+                .imageUrl(post.getImageUrl())
                 .postType(post.getPostType())
                 .sentiment(post.getSentiment())
                 .viewCount(post.getViewCount())

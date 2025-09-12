@@ -35,8 +35,19 @@ public class CommunityController {
             @AuthenticationPrincipal Member member) {
 
         Stock stock = stockService.getStockBySymbol(symbol);
-        Post post = postService.createPost(member, stock, request.getTitle(),
-                request.getContent(), request.getPostType(), request.getSentiment());
+        Post post;
+        
+        if (request.isHasVote()) {
+            // 투표 게시글 생성
+            post = postService.createPostWithVote(member, stock, request.getTitle(),
+                    request.getContent(), request.getImageUrl(), request.getPostType(), 
+                    request.getSentiment(), request.getVoteQuestion(), request.getVoteOptions());
+        } else {
+            // 일반 게시글 생성
+            post = postService.createPost(member, stock, request.getTitle(),
+                    request.getContent(), request.getImageUrl(), request.getPostType(), request.getSentiment());
+        }
+        
         return ResponseEntity.ok(ApiResponse.success(PostResponse.from(post, false)));
     }
 
@@ -48,7 +59,7 @@ public class CommunityController {
             @AuthenticationPrincipal Member member) {
 
         Post post = postService.updatePost(postId, member, request.getTitle(),
-                request.getContent(), request.getSentiment());
+                request.getContent(), request.getImageUrl(), request.getSentiment());
         return ResponseEntity
                 .ok(ApiResponse.success(PostResponse.from(post, postService.isLikedByMember(postId, member))));
     }

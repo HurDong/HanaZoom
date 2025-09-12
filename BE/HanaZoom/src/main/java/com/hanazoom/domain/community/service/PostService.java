@@ -10,10 +10,13 @@ import org.springframework.data.domain.Pageable;
 import com.hanazoom.domain.community.dto.VoteResultsResponse;
 
 public interface PostService {
-        Post createPost(Member member, Stock stock, String title, String content, PostType postType,
+        Post createPost(Member member, Stock stock, String title, String content, String imageUrl, PostType postType,
                         PostSentiment sentiment);
 
-        Post updatePost(Long postId, Member member, String title, String content, PostSentiment sentiment);
+        Post createPostWithVote(Member member, Stock stock, String title, String content, String imageUrl, 
+                               PostType postType, PostSentiment sentiment, String voteQuestion, java.util.List<String> voteOptions);
+
+        Post updatePost(Long postId, Member member, String title, String content, String imageUrl, PostSentiment sentiment);
 
         void deletePost(Long postId, Member member);
 

@@ -20,6 +20,6 @@ public class StockWebSocketConfig implements WebSocketConfigurer {
         // 상담용 WebSocket: /ws/consultation/{clientId} (STOMP 사용)
         // 주식용 WebSocket: /ws/stocks (일반 WebSocket 사용)
         registry.addHandler(stockWebSocketHandler, "/ws/stocks")
-                .setAllowedOriginPatterns("*");
+                .setAllowedOriginPatterns("http://localhost:3000", "http://localhost:3001");
     }
 }

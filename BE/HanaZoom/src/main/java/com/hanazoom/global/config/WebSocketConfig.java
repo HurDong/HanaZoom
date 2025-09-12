@@ -32,12 +32,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         public void registerStompEndpoints(StompEndpointRegistry registry) {
                 // PB 방용 WebSocket 엔드포인트 (단순화)
                 registry.addEndpoint("/ws/pb-room")
-                                .setAllowedOriginPatterns("*")
+                                .setAllowedOriginPatterns("http://localhost:3000", "http://localhost:3001")
                                 .withSockJS();
 
                 // 일반 WebSocket 엔드포인트 (SockJS 없이)
                 registry.addEndpoint("/ws/pb-room")
-                                .setAllowedOriginPatterns("*");
+                                .setAllowedOriginPatterns("http://localhost:3000", "http://localhost:3001");
         }
 
         @Override

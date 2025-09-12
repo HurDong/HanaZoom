@@ -37,6 +37,9 @@ public class Post {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "post_type", nullable = false)
     private PostType postType = PostType.TEXT;
@@ -66,12 +69,13 @@ public class Post {
     private LocalDateTime updatedAt;
 
     @Builder
-    public Post(Member member, Stock stock, String title, String content,
+    public Post(Member member, Stock stock, String title, String content, String imageUrl,
             PostType postType, PostSentiment sentiment) {
         this.member = member;
         this.stock = stock;
         this.title = title;
         this.content = content;
+        this.imageUrl = imageUrl;
         this.postType = postType;
         this.sentiment = sentiment;
     }
@@ -100,9 +104,10 @@ public class Post {
         this.isDeleted = true;
     }
 
-    public void update(String title, String content, PostSentiment sentiment) {
+    public void update(String title, String content, String imageUrl, PostSentiment sentiment) {
         this.title = title;
         this.content = content;
+        this.imageUrl = imageUrl;
         this.sentiment = sentiment;
     }
 }

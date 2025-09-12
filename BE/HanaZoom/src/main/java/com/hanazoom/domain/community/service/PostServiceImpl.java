@@ -8,12 +8,14 @@ import com.hanazoom.domain.community.entity.Post;
 import com.hanazoom.domain.community.entity.PostSentiment;
 import com.hanazoom.domain.community.entity.PostType;
 import com.hanazoom.domain.community.entity.Poll;
+import com.hanazoom.domain.community.entity.PollOption;
 import com.hanazoom.domain.community.entity.PollResponse;
 import com.hanazoom.domain.community.entity.VoteOption;
 import com.hanazoom.domain.community.repository.LikeRepository;
 import com.hanazoom.domain.community.repository.PostRepository;
 import com.hanazoom.domain.community.repository.PollRepository;
 import com.hanazoom.domain.community.repository.PollResponseRepository;
+import com.hanazoom.domain.community.repository.PollOptionRepository;
 import com.hanazoom.domain.member.entity.Member;
 import com.hanazoom.domain.stock.entity.Stock;
 import lombok.RequiredArgsConstructor;
@@ -34,16 +36,18 @@ public class PostServiceImpl implements PostService {
     private final LikeRepository likeRepository;
     private final PollRepository pollRepository;
     private final PollResponseRepository pollResponseRepository;
+    private final PollOptionRepository pollOptionRepository;
 
     @Override
     @Transactional
-    public Post createPost(Member member, Stock stock, String title, String content,
+    public Post createPost(Member member, Stock stock, String title, String content, String imageUrl,
             PostType postType, PostSentiment sentiment) {
         Post post = Post.builder()
                 .member(member)
                 .stock(stock)
                 .title(title)
                 .content(content)
+                .imageUrl(imageUrl)
                 .postType(postType)
                 .sentiment(sentiment)
                 .build();
@@ -52,10 +56,49 @@ public class PostServiceImpl implements PostService {
 
     @Override
     @Transactional
-    public Post updatePost(Long postId, Member member, String title, String content,
+    public Post createPostWithVote(Member member, Stock stock, String title, String content, String imageUrl,
+            PostType postType, PostSentiment sentiment, String voteQuestion, java.util.List<String> voteOptions) {
+        Post post = Post.builder()
+                .member(member)
+                .stock(stock)
+                .title(title)
+                .content(content)
+                .imageUrl(imageUrl)
+                .postType(postType)
+                .sentiment(sentiment)
+                .build();
+        
+        Post savedPost = postRepository.save(post);
+        
+        // 투표 생성
+        if (voteQuestion != null && !voteQuestion.trim().isEmpty() && voteOptions != null && !voteOptions.isEmpty()) {
+            Poll poll = Poll.builder()
+                    .post(savedPost)
+                    .question(voteQuestion)
+                    .build();
+            Poll savedPoll = pollRepository.save(poll);
+            
+            // 투표 옵션 생성
+            for (String optionText : voteOptions) {
+                if (optionText != null && !optionText.trim().isEmpty()) {
+                    PollOption pollOption = PollOption.builder()
+                            .poll(savedPoll)
+                            .text(optionText.trim())
+                            .build();
+                    pollOptionRepository.save(pollOption);
+                }
+            }
+        }
+        
+        return savedPost;
+    }
+
+    @Override
+    @Transactional
+    public Post updatePost(Long postId, Member member, String title, String content, String imageUrl,
             PostSentiment sentiment) {
         Post post = getPostWithMemberCheck(postId, member);
-        post.update(title, content, sentiment);
+        post.update(title, content, imageUrl, sentiment);
         return post;
     }
 
@@ -165,6 +208,7 @@ public class PostServiceImpl implements PostService {
         Poll poll = pollRepository.findByPost(post).orElse(null);
 
         if (poll == null) {
+            // 투표가 없는 경우 빈 투표 옵션 반환
             return VoteResultsResponse.builder()
                     .voteOptions(List.of())
                     .totalVotes(0)
