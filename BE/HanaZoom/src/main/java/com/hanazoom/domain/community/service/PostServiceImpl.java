@@ -2,6 +2,7 @@ package com.hanazoom.domain.community.service;
 
 import com.hanazoom.domain.community.dto.VoteResultsResponse;
 import com.hanazoom.domain.community.dto.VoteOptionResponse;
+import com.hanazoom.domain.community.dto.PostWithPollResponse;
 import com.hanazoom.domain.community.entity.Like;
 import com.hanazoom.domain.community.entity.LikeTargetType;
 import com.hanazoom.domain.community.entity.Post;
@@ -24,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,30 +69,70 @@ public class PostServiceImpl implements PostService {
                 .postType(postType)
                 .sentiment(sentiment)
                 .build();
-        
+
         Post savedPost = postRepository.save(post);
-        
+
         // 투표 생성
         if (voteQuestion != null && !voteQuestion.trim().isEmpty() && voteOptions != null && !voteOptions.isEmpty()) {
+            // 현재 Poll 엔티티는 optionUp, optionDown 필드를 사용
+            String optionUp = voteOptions.size() > 0 ? voteOptions.get(0) : "오를 것 같다 📈";
+            String optionDown = voteOptions.size() > 1 ? voteOptions.get(1) : "떨어질 것 같다 📉";
+
             Poll poll = Poll.builder()
                     .post(savedPost)
                     .question(voteQuestion)
                     .build();
-            Poll savedPoll = pollRepository.save(poll);
-            
-            // 투표 옵션 생성
-            for (String optionText : voteOptions) {
-                if (optionText != null && !optionText.trim().isEmpty()) {
-                    PollOption pollOption = PollOption.builder()
-                            .poll(savedPoll)
-                            .text(optionText.trim())
-                            .build();
-                    pollOptionRepository.save(pollOption);
-                }
-            }
+
+            // optionUp, optionDown 직접 설정
+            poll.setOptionUp(optionUp);
+            poll.setOptionDown(optionDown);
+
+            pollRepository.save(poll);
         }
-        
+
         return savedPost;
+    }
+
+    @Override
+    @Transactional
+    public PostWithPollResponse createPostWithVoteAndPoll(Member member, Stock stock, String title, String content,
+            String imageUrl,
+            PostType postType, PostSentiment sentiment, String voteQuestion, java.util.List<String> voteOptions) {
+        Post post = Post.builder()
+                .member(member)
+                .stock(stock)
+                .title(title)
+                .content(content)
+                .imageUrl(imageUrl)
+                .postType(postType)
+                .sentiment(sentiment)
+                .build();
+
+        Post savedPost = postRepository.save(post);
+        Poll poll = null;
+
+        // 투표 생성
+        if (voteQuestion != null && !voteQuestion.trim().isEmpty() && voteOptions != null && !voteOptions.isEmpty()) {
+            // 사용자가 입력한 투표 옵션들을 Poll 엔티티의 optionUp, optionDown에 설정
+            String optionUp = voteOptions.size() > 0 ? voteOptions.get(0) : "오를 것 같다 📈";
+            String optionDown = voteOptions.size() > 1 ? voteOptions.get(1) : "떨어질 것 같다 📉";
+
+            poll = Poll.builder()
+                    .post(savedPost)
+                    .question(voteQuestion)
+                    .build();
+
+            // optionUp, optionDown 직접 설정
+            poll.setOptionUp(optionUp);
+            poll.setOptionDown(optionDown);
+
+            poll = pollRepository.save(poll);
+        }
+
+        return PostWithPollResponse.builder()
+                .post(savedPost)
+                .poll(poll)
+                .build();
     }
 
     @Override
