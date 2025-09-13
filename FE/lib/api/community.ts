@@ -7,6 +7,7 @@ export interface VoteOption {
   id: string;
   text: string;
   voteCount: number;
+  percentage?: number;
 }
 
 export interface Post {

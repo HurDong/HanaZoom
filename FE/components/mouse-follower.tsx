@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 
 interface StockTrail {
   id: number;
@@ -16,95 +16,111 @@ export function MouseFollower() {
   const [isOverClickable, setIsOverClickable] = useState(false);
   const idCounter = useRef(0);
   const cursorRef = useRef<HTMLDivElement>(null);
+  const rafIdRef = useRef<number | null>(null);
+  const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    let moveTimeout: NodeJS.Timeout;
+  // 커서 숨기기
+  const hideCursor = useCallback(() => {
+    document.body.style.cursor = "none";
+  }, []);
 
-    // 커서 숨기기
-    const hideCursor = () => {
-      document.body.style.cursor = 'none';
-    };
+  // 커서 복원
+  const showCursor = useCallback(() => {
+    document.body.style.cursor = "auto";
+  }, []);
 
-    // 커서 복원
-    const showCursor = () => {
-      document.body.style.cursor = 'auto';
-    };
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    const now = Date.now();
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const now = Date.now();
-      
-      // 상태 업데이트를 배치로 처리
-      requestAnimationFrame(() => {
-        setLastMoveTime(now);
-        setIsMoving(true);
+    // 이전 RAF 취소
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+    }
 
-        const newTrail: StockTrail = {
-          id: idCounter.current++,
-          x: e.clientX,
-          y: e.clientY,
-          timestamp: now,
-        };
+    // 상태 업데이트를 배치로 처리
+    rafIdRef.current = requestAnimationFrame(() => {
+      setLastMoveTime(now);
+      setIsMoving(true);
 
-        setTrail((prev) => [...prev.slice(-8), newTrail]);
-      });
+      const newTrail: StockTrail = {
+        id: idCounter.current++,
+        x: e.clientX,
+        y: e.clientY,
+        timestamp: now,
+      };
 
-      // 메인 커서 위치 직접 업데이트 (DOM 조작은 즉시)
-      if (cursorRef.current) {
-        cursorRef.current.style.transform = `translate(${e.clientX - 8}px, ${
-          e.clientY - 8
-        }px)`;
-      }
+      setTrail((prev) => [...prev.slice(-8), newTrail]);
+    });
 
-      clearTimeout(moveTimeout);
-      moveTimeout = setTimeout(() => {
-        setIsMoving(false);
-      }, 150);
-    };
+    // 메인 커서 위치 직접 업데이트 (DOM 조작은 즉시)
+    if (cursorRef.current) {
+      cursorRef.current.style.transform = `translate(${e.clientX - 8}px, ${
+        e.clientY - 8
+      }px)`;
+    }
 
-    // 클릭 가능한 요소 감지
-    const handleMouseOver = (e: MouseEvent) => {
+    if (moveTimeoutRef.current) {
+      clearTimeout(moveTimeoutRef.current);
+    }
+    moveTimeoutRef.current = setTimeout(() => {
+      setIsMoving(false);
+    }, 150);
+  }, []);
+
+  // 클릭 가능한 요소 감지
+  const handleMouseOver = useCallback(
+    (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      
+
       // 입력 필드에서는 기본 커서 표시
-      if (target && (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.tagName === 'SELECT' ||
-        target.contentEditable === 'true'
-      )) {
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.contentEditable === "true")
+      ) {
         showCursor();
         setIsOverClickable(false);
       } else {
         hideCursor();
-        
+
         // 클릭 가능한 요소인지 확인
-        const isClickable = target && (
-          target.tagName === 'BUTTON' ||
-          target.tagName === 'A' ||
-          target.getAttribute('role') === 'button' ||
-          target.classList.contains('cursor-pointer') ||
-          target.onclick !== null ||
-          target.getAttribute('onclick') !== null
-        );
-        
+        const isClickable =
+          target &&
+          (target.tagName === "BUTTON" ||
+            target.tagName === "A" ||
+            target.getAttribute("role") === "button" ||
+            target.classList.contains("cursor-pointer") ||
+            target.onclick !== null ||
+            target.getAttribute("onclick") !== null);
+
         setIsOverClickable(isClickable);
       }
-    };
+    },
+    [showCursor, hideCursor]
+  );
 
+  useEffect(() => {
     // 커서 숨기기 적용
     hideCursor();
 
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseover", handleMouseOver);
-    
+
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseover", handleMouseOver);
-      clearTimeout(moveTimeout);
+      if (moveTimeoutRef.current) {
+        clearTimeout(moveTimeoutRef.current);
+      }
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
       // 컴포넌트 언마운트 시 커서 복원
       showCursor();
     };
-  }, []);
+  }, [handleMouseMove, handleMouseOver, hideCursor, showCursor]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -114,11 +130,11 @@ export function MouseFollower() {
         if (previousTrail.length === 0) {
           return previousTrail;
         }
-        
+
         const filtered = previousTrail.filter(
           (point) => now - point.timestamp < 800
         );
-        
+
         // 상태가 변경되지 않았다면 동일 참조를 반환하여 불필요한 렌더 방지
         if (filtered.length === previousTrail.length) {
           return previousTrail;

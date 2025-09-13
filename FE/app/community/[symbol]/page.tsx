@@ -47,7 +47,12 @@ import {
 import { useAuthStore } from "@/app/utils/auth";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import type { Stock } from "@/lib/api/stock";
-import type { Post, PostSentiment, VoteOption, Comment } from "@/lib/api/community";
+import type {
+  Post,
+  PostSentiment,
+  VoteOption,
+  Comment,
+} from "@/lib/api/community";
 import { toast } from "sonner";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
 import type { StockPriceData } from "@/lib/api/stock";
@@ -77,10 +82,11 @@ export default function StockDiscussionPage() {
   const [realtimeData, setRealtimeData] = useState<StockPriceData | null>(null);
 
   // 무한 스크롤 훅
-  const { page, isLoadingMore, loadMore, reset, setLoadingMore } = useInfiniteScroll({
-    hasMore,
-    isLoading
-  });
+  const { page, isLoadingMore, loadMore, reset, setLoadingMore } =
+    useInfiniteScroll({
+      hasMore,
+      isLoading,
+    });
 
   // 클라이언트 사이드에서만 실행되도록 보장
   useEffect(() => {
@@ -122,9 +128,10 @@ export default function StockDiscussionPage() {
         ]);
 
         setStock(stockResponse);
-        
-        const validPosts = postsResponse.content?.filter((post) => post && post.id) || [];
-        
+
+        const validPosts =
+          postsResponse.content?.filter((post) => post && post.id) || [];
+
         // 각 게시글의 투표 결과를 가져오기
         const postsWithVotes = await Promise.all(
           validPosts.map(async (post) => {
@@ -137,7 +144,10 @@ export default function StockDiscussionPage() {
                   userVote: voteResults.userVote,
                 };
               } catch (error) {
-                console.error(`Failed to fetch vote results for post ${post.id}:`, error);
+                console.error(
+                  `Failed to fetch vote results for post ${post.id}:`,
+                  error
+                );
                 return post;
               }
             }
@@ -166,8 +176,9 @@ export default function StockDiscussionPage() {
       try {
         setLoadingMore(true);
         const postsResponse = await getPosts(symbol as string, page, 10);
-        const newPosts = postsResponse.content?.filter((post) => post && post.id) || [];
-        
+        const newPosts =
+          postsResponse.content?.filter((post) => post && post.id) || [];
+
         if (newPosts.length === 0) {
           setHasMore(false);
           return;
@@ -185,7 +196,10 @@ export default function StockDiscussionPage() {
                   userVote: voteResults.userVote,
                 };
               } catch (error) {
-                console.error(`Failed to fetch vote results for post ${post.id}:`, error);
+                console.error(
+                  `Failed to fetch vote results for post ${post.id}:`,
+                  error
+                );
                 return post;
               }
             }
@@ -193,7 +207,7 @@ export default function StockDiscussionPage() {
           })
         );
 
-        setPosts(prev => [...prev, ...postsWithVotes]);
+        setPosts((prev) => [...prev, ...postsWithVotes]);
         setHasMore(newPosts.length === 10);
       } catch (error) {
         console.error("Failed to load more posts:", error);
@@ -209,8 +223,9 @@ export default function StockDiscussionPage() {
   const handleCreatePost = async (data: {
     content: string;
     sentiment: PostSentiment;
+    postType?: "TEXT" | "POLL";
     hasVote?: boolean;
-    voteOptions?: VoteOption[];
+    voteOptions?: string[];
     voteQuestion?: string;
     imageUrl?: string;
   }) => {
@@ -226,12 +241,72 @@ export default function StockDiscussionPage() {
 
     try {
       console.log("게시글 작성 시작:", { symbol, data });
+      console.log("전송할 데이터 상세:", {
+        content: data.content,
+        sentiment: data.sentiment,
+        postType: data.postType,
+        hasVote: data.hasVote,
+        voteQuestion: data.voteQuestion,
+        voteOptions: data.voteOptions,
+        imageUrl: data.imageUrl,
+      });
       const response = await createPost(symbol as string, data);
       console.log("게시글 작성 응답:", response);
 
       if (response && response.id) {
-        console.log("게시글 추가:", response);
-        setPosts([response, ...posts]);
+        // 투표가 있는 게시글의 경우 투표 결과를 가져와서 추가
+        let postWithVotes = response;
+        console.log("응답 분석:", {
+          hasVote: response.hasVote,
+          postType: response.postType,
+          accessToken: !!accessToken,
+          shouldFetchVotes:
+            (response.hasVote || response.postType === "POLL") && !!accessToken,
+        });
+
+        if ((response.hasVote || response.postType === "POLL") && accessToken) {
+          try {
+            console.log("투표 결과 가져오기 시도:", response.id);
+            const voteResults = await getPostVoteResults(response.id);
+            console.log("투표 결과:", voteResults);
+            postWithVotes = {
+              ...response,
+              hasVote: true,
+              voteOptions: voteResults.voteOptions,
+              userVote: voteResults.userVote,
+            };
+          } catch (error) {
+            console.error("Failed to fetch vote results for new post:", error);
+            // 투표 결과를 가져오지 못해도 기본 투표 데이터는 설정
+            if (response.postType === "POLL") {
+              console.log("폴백 투표 데이터 설정:", {
+                voteQuestion: data.voteQuestion,
+                voteOptions: data.voteOptions,
+              });
+              postWithVotes = {
+                ...response,
+                hasVote: true,
+                voteQuestion: data.voteQuestion || "어떻게 생각하시나요?",
+                voteOptions:
+                  data.voteOptions?.map((text, index) => ({
+                    id: (index + 1).toString(),
+                    text,
+                    voteCount: 0,
+                  })) || [],
+                userVote: undefined,
+              };
+            }
+          }
+        } else {
+          console.log("투표 데이터를 가져오지 않음:", {
+            hasVote: response.hasVote,
+            postType: response.postType,
+            accessToken: !!accessToken,
+          });
+        }
+
+        console.log("게시글 추가:", postWithVotes);
+        setPosts([postWithVotes, ...posts]);
       } else {
         console.warn("응답이 유효하지 않음:", response);
       }
@@ -376,17 +451,22 @@ export default function StockDiscussionPage() {
     }
 
     setSelectedPostId(postId);
-    
+
     if (!comments.has(postId)) {
-      setCommentLoading(prev => new Set(prev).add(postId));
+      setCommentLoading((prev) => new Set(prev).add(postId));
       try {
         const response = await getComments(postId, 0, 20);
-        setComments(prev => new Map(prev).set(postId, (response.content || []) as unknown as Comment[]));
+        setComments((prev) =>
+          new Map(prev).set(
+            postId,
+            (response.content || []) as unknown as Comment[]
+          )
+        );
       } catch (error) {
         console.error("Failed to load comments:", error);
         toast.error("댓글을 불러오는데 실패했습니다.");
       } finally {
-        setCommentLoading(prev => {
+        setCommentLoading((prev) => {
           const newSet = new Set(prev);
           newSet.delete(postId);
           return newSet;
@@ -411,9 +491,9 @@ export default function StockDiscussionPage() {
 
     try {
       const newComment = await createComment(postId, { content });
-      
+
       // 댓글 목록에 추가
-      setComments(prev => {
+      setComments((prev) => {
         const newMap = new Map(prev);
         const existingComments = newMap.get(postId) || [];
         newMap.set(postId, [newComment, ...existingComments]);
@@ -421,16 +501,18 @@ export default function StockDiscussionPage() {
       });
 
       // 게시글의 댓글 수 업데이트
-      setPosts(prev => prev.map(post => 
-        post.id === postId 
-          ? { ...post, commentCount: post.commentCount + 1 }
-          : post
-      ));
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === postId
+            ? { ...post, commentCount: post.commentCount + 1 }
+            : post
+        )
+      );
 
       toast.success("댓글이 작성되었습니다.");
     } catch (error: any) {
       console.error("Failed to create comment:", error);
-      
+
       if (error.response?.status === 403) {
         toast.error("권한이 없습니다. 다시 로그인해주세요.");
         const redirectUrl = `/login?redirect=${encodeURIComponent(
@@ -455,15 +537,15 @@ export default function StockDiscussionPage() {
 
     try {
       const postComments = comments.get(postId) || [];
-      const comment = postComments.find(c => c.id === commentId);
-      
+      const comment = postComments.find((c) => c.id === commentId);
+
       if (!comment) return;
 
       if (comment.isLiked) {
         await unlikeComment(commentId);
-        setComments(prev => {
+        setComments((prev) => {
           const newMap = new Map(prev);
-          const updatedComments = postComments.map(c =>
+          const updatedComments = postComments.map((c) =>
             c.id === commentId
               ? { ...c, isLiked: false, likeCount: c.likeCount - 1 }
               : c
@@ -473,9 +555,9 @@ export default function StockDiscussionPage() {
         });
       } else {
         await likeComment(commentId);
-        setComments(prev => {
+        setComments((prev) => {
           const newMap = new Map(prev);
-          const updatedComments = postComments.map(c =>
+          const updatedComments = postComments.map((c) =>
             c.id === commentId
               ? { ...c, isLiked: true, likeCount: c.likeCount + 1 }
               : c
@@ -486,7 +568,7 @@ export default function StockDiscussionPage() {
       }
     } catch (error: any) {
       console.error("Failed to like/unlike comment:", error);
-      
+
       if (error.response?.status === 403) {
         toast.error("권한이 없습니다. 다시 로그인해주세요.");
         const redirectUrl = `/login?redirect=${encodeURIComponent(
@@ -509,26 +591,30 @@ export default function StockDiscussionPage() {
 
     try {
       await deleteComment(commentId);
-      
+
       // 댓글 목록에서 제거
-      setComments(prev => {
+      setComments((prev) => {
         const newMap = new Map(prev);
-        const updatedComments = (newMap.get(postId) || []).filter(c => c.id !== commentId);
+        const updatedComments = (newMap.get(postId) || []).filter(
+          (c) => c.id !== commentId
+        );
         newMap.set(postId, updatedComments);
         return newMap;
       });
 
       // 게시글의 댓글 수 업데이트
-      setPosts(prev => prev.map(post => 
-        post.id === postId 
-          ? { ...post, commentCount: Math.max(0, post.commentCount - 1) }
-          : post
-      ));
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === postId
+            ? { ...post, commentCount: Math.max(0, post.commentCount - 1) }
+            : post
+        )
+      );
 
       toast.success("댓글이 삭제되었습니다.");
     } catch (error: any) {
       console.error("Failed to delete comment:", error);
-      
+
       if (error.response?.status === 403) {
         toast.error("권한이 없습니다. 다시 로그인해주세요.");
         const redirectUrl = `/login?redirect=${encodeURIComponent(
@@ -619,7 +705,13 @@ export default function StockDiscussionPage() {
 
       <main className="pt-20">
         {/* 필터 탭 */}
-        <div className="sticky top-20 z-40 backdrop-blur-md" style={{ background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)', borderBottom: '1px solid #3B82F6' }}>
+        <div
+          className="sticky top-20 z-40 backdrop-blur-md"
+          style={{
+            background: "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)",
+            borderBottom: "1px solid #3B82F6",
+          }}
+        >
           <div className="container mx-auto px-4 py-3">
             <Tabs
               value={activeTab}
@@ -715,7 +807,7 @@ export default function StockDiscussionPage() {
       />
 
       {/* 개발자 도구 (개발 환경에서만) */}
-      {process.env.NODE_ENV === 'development' && (
+      {process.env.NODE_ENV === "development" && (
         <div className="fixed bottom-6 left-6 z-40">
           <Button
             onClick={() => setShowDevTools(!showDevTools)}
@@ -725,7 +817,7 @@ export default function StockDiscussionPage() {
           >
             🛠️ Dev
           </Button>
-          
+
           {showDevTools && (
             <div className="absolute bottom-12 left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-4 min-w-[200px]">
               <h3 className="font-semibold text-sm mb-2">개발자 도구</h3>
