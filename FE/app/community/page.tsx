@@ -392,7 +392,7 @@ export default function CommunityPage() {
         return hasChanged ? newStocks : prevStocks;
       });
     }
-  }, [wsStockData, allStocks.length, getStockDataMap]);
+  }, [wsStockData, allStocks.length]); // getStockDataMap 제거
 
   // 페이지 변경 시 웹소켓 구독 업데이트 (필요시에만)
   useEffect(() => {

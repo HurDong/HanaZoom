@@ -55,10 +55,10 @@ export function useStockWebSocket({
     const now = Date.now();
     setState((prev) => {
       // 1초 이내에 이미 업데이트된 경우 불필요한 업데이트 방지
-      if (prev.isMarketOpen === true && (now - prev.lastDataReceived < 1000)) {
+      if (prev.isMarketOpen === true && now - prev.lastDataReceived < 1000) {
         return prev;
       }
-      
+
       return {
         ...prev,
         lastDataReceived: now,
@@ -70,7 +70,7 @@ export function useStockWebSocket({
     if (dataTimeoutRef.current) {
       clearTimeout(dataTimeoutRef.current);
     }
-    
+
     dataTimeoutRef.current = setTimeout(() => {
       setState((prev) => {
         // 이미 장이 닫힌 상태라면 업데이트하지 않음
@@ -219,43 +219,45 @@ export function useStockWebSocket({
               }
               break;
 
-                         case "STOCK_UPDATE":
-               if (message.data?.stockData) {
-                 const stockData: StockPriceData = message.data.stockData;
+            case "STOCK_UPDATE":
+              if (message.data?.stockData) {
+                const stockData: StockPriceData = message.data.stockData;
 
-                 // 거래량 데이터 디버깅
-                 console.log(`📊 WebSocket 거래량 데이터 수신:`, {
-                   종목코드: stockData.stockCode,
-                   거래량_원본: stockData.volume,
-                   거래량_타입: typeof stockData.volume,
-                   전체_데이터: stockData
-                 });
+                // 거래량 데이터 디버깅
+                console.log(`📊 WebSocket 거래량 데이터 수신:`, {
+                  종목코드: stockData.stockCode,
+                  거래량_원본: stockData.volume,
+                  거래량_타입: typeof stockData.volume,
+                  전체_데이터: stockData,
+                });
 
-                 setState((prev) => {
-                   // 동일한 데이터인지 확인하여 불필요한 업데이트 방지
-                   const existingData = prev.stockData.get(stockData.stockCode);
-                   if (existingData && 
-                       existingData.currentPrice === stockData.currentPrice &&
-                       existingData.changePrice === stockData.changePrice &&
-                       existingData.changeRate === stockData.changeRate) {
-                     return prev; // 동일한 데이터면 상태 변경하지 않음
-                   }
+                setState((prev) => {
+                  // 동일한 데이터인지 확인하여 불필요한 업데이트 방지
+                  const existingData = prev.stockData.get(stockData.stockCode);
+                  if (
+                    existingData &&
+                    existingData.currentPrice === stockData.currentPrice &&
+                    existingData.changePrice === stockData.changePrice &&
+                    existingData.changeRate === stockData.changeRate
+                  ) {
+                    return prev; // 동일한 데이터면 상태 변경하지 않음
+                  }
 
-                   const newStockData = new Map(prev.stockData);
-                   newStockData.set(stockData.stockCode, stockData);
-                   return {
-                     ...prev,
-                     stockData: newStockData,
-                     lastUpdate: Date.now(),
-                     isMarketOpen: true, // 데이터가 들어오면 장 열림 상태
-                   };
-                 });
+                  const newStockData = new Map(prev.stockData);
+                  newStockData.set(stockData.stockCode, stockData);
+                  return {
+                    ...prev,
+                    stockData: newStockData,
+                    lastUpdate: Date.now(),
+                    isMarketOpen: true, // 데이터가 들어오면 장 열림 상태
+                  };
+                });
 
-                 // 데이터 수신 상태 업데이트
-                 updateDataReceivedStatus();
-                 onStockUpdate?.(stockData);
-               }
-               break;
+                // 데이터 수신 상태 업데이트
+                updateDataReceivedStatus();
+                onStockUpdate?.(stockData);
+              }
+              break;
 
             case "PONG":
               // 하트비트 응답 - 서버가 살아있음을 확인
@@ -314,7 +316,6 @@ export function useStockWebSocket({
 
       ws.onclose = (event) => {
         clearTimeout(connectionTimeout);
-
 
         // 연결 종료 코드별 상세 메시지
         let closeMessage = null;
@@ -491,7 +492,6 @@ export function useStockWebSocket({
         [...requestedCodes].some((code) => !currentCodes.has(code));
 
       if (hasDifference) {
-
         // 기존 구독 해제 (필요한 경우에만)
         const codesToUnsubscribe = [...currentCodes].filter(
           (code) => !requestedCodes.has(code)
@@ -546,6 +546,37 @@ export function useStockWebSocket({
     };
   }, []);
 
+  // 유틸리티 함수들을 useCallback으로 감싸기
+  const getStockData = useCallback(
+    (stockCode: string) => {
+      return state.stockData.get(stockCode);
+    },
+    [state.stockData]
+  );
+
+  const hasStockData = useCallback(
+    (stockCode: string) => {
+      return state.stockData.has(stockCode);
+    },
+    [state.stockData]
+  );
+
+  const getAllStockData = useCallback(() => {
+    return Array.from(state.stockData.values());
+  }, [state.stockData]);
+
+  const getStockDataMap = useCallback(() => {
+    return state.stockData;
+  }, [state.stockData]);
+
+  const reconnect = useCallback(() => {
+    console.log("🔄 수동 재연결 시도...");
+    disconnect();
+    setTimeout(() => {
+      connect();
+    }, 1000);
+  }, [disconnect, connect]);
+
   return {
     // 상태
     connected: state.connected,
@@ -566,18 +597,12 @@ export function useStockWebSocket({
     setMarketOpen,
 
     // 유틸리티
-    getStockData: (stockCode: string) => state.stockData.get(stockCode),
-    hasStockData: (stockCode: string) => state.stockData.has(stockCode),
-    getAllStockData: () => Array.from(state.stockData.values()),
-    getStockDataMap: () => state.stockData,
-    
+    getStockData,
+    hasStockData,
+    getAllStockData,
+    getStockDataMap,
+
     // 수동 재연결 함수 추가
-    reconnect: () => {
-      console.log("🔄 수동 재연결 시도...");
-      disconnect();
-      setTimeout(() => {
-        connect();
-      }, 1000);
-    },
+    reconnect,
   };
 }

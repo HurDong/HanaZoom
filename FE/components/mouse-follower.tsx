@@ -80,10 +80,10 @@ export function MouseFollower() {
           target.tagName === "SELECT" ||
           target.contentEditable === "true")
       ) {
-        showCursor();
+        document.body.style.cursor = "auto";
         setIsOverClickable(false);
       } else {
-        hideCursor();
+        document.body.style.cursor = "none";
 
         // 클릭 가능한 요소인지 확인
         const isClickable =
@@ -98,7 +98,7 @@ export function MouseFollower() {
         setIsOverClickable(isClickable);
       }
     },
-    [showCursor, hideCursor]
+    [] // 의존성 배열을 빈 배열로 변경
   );
 
   useEffect(() => {
