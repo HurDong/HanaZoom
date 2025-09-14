@@ -44,8 +44,8 @@ export function WritePostModal({
   const [hasImage, setHasImage] = useState(false);
   const [voteQuestion, setVoteQuestion] = useState("");
   const [voteOptions, setVoteOptions] = useState<VoteOption[]>([
-    { id: "1", text: "오를 것 같다 📈", voteCount: 0 },
-    { id: "2", text: "내릴 것 같다 📉", voteCount: 0 },
+    { id: "UP", text: "오를 것 같다 📈", voteCount: 0 },
+    { id: "DOWN", text: "내릴 것 같다 📉", voteCount: 0 },
   ]);
   const [imageUrl, setImageUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,8 +74,8 @@ export function WritePostModal({
       setHasImage(false);
       setVoteQuestion("");
       setVoteOptions([
-        { id: "1", text: "오를 것 같다 📈", voteCount: 0 },
-        { id: "2", text: "내릴 것 같다 📉", voteCount: 0 },
+        { id: "UP", text: "오를 것 같다 📈", voteCount: 0 },
+        { id: "DOWN", text: "내릴 것 같다 📉", voteCount: 0 },
       ]);
       setImageUrl("");
       onClose();
@@ -87,7 +87,7 @@ export function WritePostModal({
   };
 
   const addVoteOption = () => {
-    const newId = (voteOptions.length + 1).toString();
+    const newId = `OPTION_${voteOptions.length + 1}`;
     setVoteOptions([...voteOptions, { id: newId, text: "", voteCount: 0 }]);
   };
 

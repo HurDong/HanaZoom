@@ -132,28 +132,8 @@ export default function StockDiscussionPage() {
         const validPosts =
           postsResponse.content?.filter((post) => post && post.id) || [];
 
-        // 각 게시글의 투표 결과를 가져오기
-        const postsWithVotes = await Promise.all(
-          validPosts.map(async (post) => {
-            if (post.hasVote && accessToken) {
-              try {
-                const voteResults = await getPostVoteResults(post.id);
-                return {
-                  ...post,
-                  voteOptions: voteResults.voteOptions,
-                  userVote: voteResults.userVote,
-                };
-              } catch (error) {
-                console.error(
-                  `Failed to fetch vote results for post ${post.id}:`,
-                  error
-                );
-                return post;
-              }
-            }
-            return post;
-          })
-        );
+        // 백엔드에서 이미 투표 데이터가 포함되어 응답되므로 추가 API 호출 불필요
+        const postsWithVotes = validPosts;
 
         setPosts(postsWithVotes);
         setHasMore(postsResponse.content?.length === 10);
@@ -184,28 +164,8 @@ export default function StockDiscussionPage() {
           return;
         }
 
-        // 각 게시글의 투표 결과를 가져오기
-        const postsWithVotes = await Promise.all(
-          newPosts.map(async (post) => {
-            if (post.hasVote && accessToken) {
-              try {
-                const voteResults = await getPostVoteResults(post.id);
-                return {
-                  ...post,
-                  voteOptions: voteResults.voteOptions,
-                  userVote: voteResults.userVote,
-                };
-              } catch (error) {
-                console.error(
-                  `Failed to fetch vote results for post ${post.id}:`,
-                  error
-                );
-                return post;
-              }
-            }
-            return post;
-          })
-        );
+        // 백엔드에서 이미 투표 데이터가 포함되어 응답되므로 추가 API 호출 불필요
+        const postsWithVotes = newPosts;
 
         setPosts((prev) => [...prev, ...postsWithVotes]);
         setHasMore(newPosts.length === 10);
@@ -264,45 +224,21 @@ export default function StockDiscussionPage() {
             (response.hasVote || response.postType === "POLL") && !!accessToken,
         });
 
-        if ((response.hasVote || response.postType === "POLL") && accessToken) {
-          try {
-            console.log("투표 결과 가져오기 시도:", response.id);
-            const voteResults = await getPostVoteResults(response.id);
-            console.log("투표 결과:", voteResults);
-            postWithVotes = {
-              ...response,
-              hasVote: true,
-              voteOptions: voteResults.voteOptions,
-              userVote: voteResults.userVote,
-            };
-          } catch (error) {
-            console.error("Failed to fetch vote results for new post:", error);
-            // 투표 결과를 가져오지 못해도 기본 투표 데이터는 설정
-            if (response.postType === "POLL") {
-              console.log("폴백 투표 데이터 설정:", {
-                voteQuestion: data.voteQuestion,
-                voteOptions: data.voteOptions,
-              });
-              postWithVotes = {
-                ...response,
-                hasVote: true,
-                voteQuestion: data.voteQuestion || "어떻게 생각하시나요?",
-                voteOptions:
-                  data.voteOptions?.map((text, index) => ({
-                    id: (index + 1).toString(),
-                    text,
-                    voteCount: 0,
-                  })) || [],
-                userVote: undefined,
-              };
-            }
-          }
+        // 백엔드에서 이미 투표 데이터가 포함되어 응답되므로 바로 사용
+        if (response.hasVote || response.postType === "POLL") {
+          console.log("백엔드 응답의 투표 데이터 사용:", {
+            hasVote: response.hasVote,
+            voteQuestion: response.voteQuestion,
+            voteOptions: response.voteOptions,
+            userVote: response.userVote,
+          });
+          postWithVotes = response; // 백엔드 응답 그대로 사용
         } else {
-          console.log("투표 데이터를 가져오지 않음:", {
+          console.log("투표가 없는 일반 게시글:", {
             hasVote: response.hasVote,
             postType: response.postType,
-            accessToken: !!accessToken,
           });
+          postWithVotes = response;
         }
 
         console.log("게시글 추가:", postWithVotes);
@@ -403,26 +339,22 @@ export default function StockDiscussionPage() {
       await voteOnPost(postId, optionId);
 
       // 투표 성공 후 해당 게시글의 투표 결과를 다시 가져오기
-      const updatedPosts = await Promise.all(
-        posts.map(async (post) => {
-          if (post.id === postId) {
-            try {
-              const voteResults = await getPostVoteResults(postId);
-              return {
-                ...post,
-                voteOptions: voteResults.voteOptions,
-                userVote: voteResults.userVote,
-              };
-            } catch (error) {
-              console.error("Failed to fetch vote results:", error);
-              return post;
-            }
-          }
-          return post;
-        })
-      );
-
-      setPosts(updatedPosts);
+      try {
+        const voteResults = await getPostVoteResults(postId);
+        setPosts((prev) =>
+          prev.map((post) =>
+            post.id === postId
+              ? {
+                  ...post,
+                  voteOptions: voteResults.voteOptions,
+                  userVote: voteResults.userVote,
+                }
+              : post
+          )
+        );
+      } catch (error) {
+        console.error("Failed to fetch vote results:", error);
+      }
       alert("투표가 완료되었습니다!");
     } catch (error: any) {
       console.error("Failed to vote:", error);
