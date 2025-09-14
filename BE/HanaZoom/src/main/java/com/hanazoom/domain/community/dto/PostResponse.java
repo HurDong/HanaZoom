@@ -97,12 +97,12 @@ public class PostResponse {
 
             voteOptions = List.of(
                     VoteOptionResponse.builder()
-                            .id("1")
+                            .id("UP")
                             .text(poll.getOptionUp())
                             .voteCount(poll.getVoteUpCount())
                             .build(),
                     VoteOptionResponse.builder()
-                            .id("2")
+                            .id("DOWN")
                             .text(poll.getOptionDown())
                             .voteCount(poll.getVoteDownCount())
                             .build());

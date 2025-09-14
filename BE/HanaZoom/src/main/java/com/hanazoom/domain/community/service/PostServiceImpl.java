@@ -74,7 +74,7 @@ public class PostServiceImpl implements PostService {
 
         // 투표 생성
         if (voteQuestion != null && !voteQuestion.trim().isEmpty() && voteOptions != null && !voteOptions.isEmpty()) {
-            // 현재 Poll 엔티티는 optionUp, optionDown 필드를 사용
+            // 사용자가 입력한 투표 옵션들을 Poll 엔티티의 optionUp, optionDown에 설정
             String optionUp = voteOptions.size() > 0 ? voteOptions.get(0) : "오를 것 같다 📈";
             String optionDown = voteOptions.size() > 1 ? voteOptions.get(1) : "떨어질 것 같다 📉";
 
