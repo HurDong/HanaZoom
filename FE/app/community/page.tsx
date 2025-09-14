@@ -68,26 +68,12 @@ interface UserRegionInfo {
   roomName: string;
 }
 
-// 업종별 색상 매핑
-const sectorColors: { [key: string]: string } = {
-  IT: "bg-gradient-to-r from-blue-400 to-cyan-400 text-white dark:from-blue-500 dark:to-cyan-500 shadow-lg",
-  금융: "bg-gradient-to-r from-emerald-400 to-green-400 text-white dark:from-emerald-500 dark:to-green-500 shadow-lg",
-  제조업:
-    "bg-gradient-to-r from-violet-400 to-purple-400 text-white dark:from-violet-500 dark:to-purple-500 shadow-lg",
-  에너지:
-    "bg-gradient-to-r from-orange-400 to-red-400 text-white dark:from-orange-500 dark:to-red-500 shadow-lg",
-  소비재:
-    "bg-gradient-to-r from-pink-400 to-rose-400 text-white dark:from-pink-500 dark:to-rose-500 shadow-lg",
-  헬스케어:
-    "bg-gradient-to-r from-red-400 to-pink-400 text-white dark:from-red-500 dark:to-pink-500 shadow-lg",
-  바이오:
-    "bg-gradient-to-r from-teal-400 to-cyan-400 text-white dark:from-teal-500 dark:to-cyan-500 shadow-lg",
-  반도체:
-    "bg-gradient-to-r from-indigo-400 to-blue-400 text-white dark:from-indigo-500 dark:to-blue-500 shadow-lg",
-  자동차:
-    "bg-gradient-to-r from-slate-400 to-gray-400 text-white dark:from-slate-500 dark:to-gray-500 shadow-lg",
-  건설: "bg-gradient-to-r from-amber-400 to-orange-400 text-white dark:from-amber-500 dark:to-orange-500 shadow-lg",
-  기타: "bg-gradient-to-r from-gray-400 to-slate-400 text-white dark:from-gray-500 dark:to-slate-500 shadow-lg",
+import { getSectorBrandColor } from "@/data/stock-brand-colors";
+
+// 업종별 색상 매핑 (동적 색상 시스템 사용)
+const getSectorColor = (sector: string): string => {
+  const brandColor = getSectorBrandColor(sector);
+  return `text-white shadow-lg`;
 };
 
 // React Select 기본 스타일 (CSS 변수 사용)

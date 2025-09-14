@@ -19,6 +19,7 @@ import {
   Target,
   Award,
   Plus,
+  Minus,
 } from "lucide-react";
 import NavBar from "@/app/components/Navbar";
 import { OpinionForm } from "@/components/opinion-form";
@@ -57,6 +58,7 @@ import { toast } from "sonner";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
 import type { StockPriceData } from "@/lib/api/stock";
 import { clearPWACache, hardRefresh } from "@/utils/clear-cache";
+import { getBrandColorByStock } from "@/utils/color-utils";
 
 export default function StockDiscussionPage() {
   const { symbol } = useParams();
@@ -564,7 +566,18 @@ export default function StockDiscussionPage() {
       if (!post || !post.id) return false;
 
       if (activeTab === "all") return true;
-      return post.sentiment?.toLowerCase() === activeTab;
+
+      // 백엔드 sentiment 값과 프론트엔드 탭 값 매핑
+      switch (activeTab) {
+        case "bullish":
+          return post.sentiment === "BULLISH";
+        case "bearish":
+          return post.sentiment === "BEARISH";
+        case "neutral":
+          return post.sentiment === "NEUTRAL";
+        default:
+          return false;
+      }
     }) || [];
 
   if (isLoading) {
@@ -637,40 +650,41 @@ export default function StockDiscussionPage() {
 
       <main className="pt-20">
         {/* 필터 탭 */}
-        <div
-          className="sticky top-20 z-40 backdrop-blur-md"
-          style={{
-            background: "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)",
-            borderBottom: "1px solid #3B82F6",
-          }}
-        >
+        <div className="sticky top-32 z-40 bg-white border-b border-gray-100">
           <div className="container mx-auto px-4 py-3">
             <Tabs
               value={activeTab}
               onValueChange={setActiveTab}
               className="w-auto"
             >
-              <TabsList className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+              <TabsList className="minimal-tabs">
                 <TabsTrigger
                   value="all"
-                  className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 font-medium font-['Pretendard']"
+                  className="minimal-tab-trigger font-['Pretendard'] text-gray-600"
                 >
                   <MessageSquare className="w-4 h-4 mr-2" />
                   전체
                 </TabsTrigger>
                 <TabsTrigger
                   value="bullish"
-                  className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 font-medium text-red-600 dark:text-red-400 font-['Pretendard']"
+                  className="minimal-tab-trigger font-['Pretendard'] text-green-600"
                 >
                   <TrendingUp className="w-4 h-4 mr-2" />
                   매수
                 </TabsTrigger>
                 <TabsTrigger
                   value="bearish"
-                  className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 font-medium text-blue-600 dark:text-blue-400 font-['Pretendard']"
+                  className="minimal-tab-trigger font-['Pretendard'] text-red-600"
                 >
                   <TrendingDown className="w-4 h-4 mr-2" />
                   매도
+                </TabsTrigger>
+                <TabsTrigger
+                  value="neutral"
+                  className="minimal-tab-trigger font-['Pretendard'] text-gray-500"
+                >
+                  <Minus className="w-4 h-4 mr-2" />
+                  중립
                 </TabsTrigger>
               </TabsList>
             </Tabs>

@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 미니멀 UI 스타일 임포트 */
+@import url("../styles/minimal-ui.css");
+
 @layer base {
   :root {
     --background: 0 0% 100%;
