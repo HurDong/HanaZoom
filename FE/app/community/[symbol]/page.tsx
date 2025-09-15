@@ -235,6 +235,98 @@ export default function StockDiscussionPage() {
     loadMorePosts();
   }, [page, symbol, accessToken, isLoadingMore, setLoadingMore]);
 
+  // 이미 투표한 게시글인데 결과 데이터가 비어있으면 자동으로 결과 조회해 반영
+  useEffect(() => {
+    if (!isClient || !accessToken) return;
+    if (!posts || posts.length === 0) return;
+
+    const targets = posts.filter(
+      (p) =>
+        p && p.id && (p.hasVote || p.postType === "POLL") &&
+        !!p.userVote && (!p.voteOptions || p.voteOptions.length === 0)
+    );
+
+    if (targets.length === 0) return;
+
+    (async () => {
+      try {
+        const results = await Promise.all(
+          targets.map(async (p) => {
+            try {
+              const data = await getPostVoteResults(p.id);
+              return { id: p.id, data };
+            } catch (e) {
+              console.error("Failed to fetch vote results for post:", p.id, e);
+              return null;
+            }
+          })
+        );
+
+        const valid = results.filter(Boolean) as { id: number; data: any }[];
+        if (valid.length === 0) return;
+
+        setPosts((prev) =>
+          prev.map((post) => {
+            const found = valid.find((v) => v.id === post.id);
+            if (!found) return post;
+            return {
+              ...post,
+              voteOptions: found.data.voteOptions,
+              userVote: found.data.userVote,
+            };
+          })
+        );
+      } catch (e) {
+        console.error("Failed to batch sync vote results:", e);
+      }
+    })();
+  }, [isClient, accessToken, posts]);
+
+  // 투표형 게시글인데 userVote 조차 없는 경우: 로그인 후 자동으로 결과 조회하여 결과 모드로 전환
+  useEffect(() => {
+    if (!isClient || !accessToken) return;
+    if (!posts || posts.length === 0) return;
+
+    const targets = posts.filter(
+      (p) => p && p.id && (p.hasVote || p.postType === "POLL") && !p.userVote
+    );
+
+    if (targets.length === 0) return;
+
+    (async () => {
+      try {
+        const results = await Promise.all(
+          targets.map(async (p) => {
+            try {
+              const data = await getPostVoteResults(p.id);
+              return { id: p.id, data };
+            } catch (e) {
+              console.error("Failed to fetch vote results (no userVote) for post:", p.id, e);
+              return null;
+            }
+          })
+        );
+
+        const valid = results.filter(Boolean) as { id: number; data: any }[];
+        if (valid.length === 0) return;
+
+        setPosts((prev) =>
+          prev.map((post) => {
+            const found = valid.find((v) => v.id === post.id);
+            if (!found) return post;
+            return {
+              ...post,
+              voteOptions: found.data.voteOptions,
+              userVote: found.data.userVote,
+            };
+          })
+        );
+      } catch (e) {
+        console.error("Failed to batch fetch vote results for missing userVote:", e);
+      }
+    })();
+  }, [isClient, accessToken, posts]);
+
   const handleCreatePost = async (data: {
     content: string;
     sentiment: PostSentiment;
@@ -429,7 +521,7 @@ export default function StockDiscussionPage() {
 
   const handleVote = async (postId: number, optionId: string) => {
     if (!isClient || !accessToken) {
-      alert("투표하려면 로그인이 필요합니다.");
+      toast.error("투표하려면 로그인이 필요합니다.");
       const redirectUrl = `/login?redirect=${encodeURIComponent(
         window.location.pathname
       )}`;
@@ -438,10 +530,8 @@ export default function StockDiscussionPage() {
     }
 
     try {
-      // 백엔드 API 호출
       await voteOnPost(postId, optionId);
 
-      // 투표 성공 후 해당 게시글의 투표 결과를 다시 가져오기
       try {
         const voteResults = await getPostVoteResults(postId);
         setPosts((prev) =>
@@ -458,18 +548,38 @@ export default function StockDiscussionPage() {
       } catch (error) {
         console.error("Failed to fetch vote results:", error);
       }
-      alert("투표가 완료되었습니다!");
+      toast.success("투표가 완료되었습니다! 되돌릴 수 없습니다.");
     } catch (error: any) {
       console.error("Failed to vote:", error);
 
-      if (error.response?.status === 403) {
-        alert("권한이 없습니다. 다시 로그인해주세요.");
+      const status = error?.response?.status;
+      if (status === 403) {
+        toast.error("권한이 없습니다. 다시 로그인해주세요.");
         const redirectUrl = `/login?redirect=${encodeURIComponent(
           window.location.pathname
         )}`;
         window.location.href = redirectUrl;
+      } else if (status === 400 || status === 409) {
+        // 이미 투표한 경우: 결과 동기화
+        toast.info("이미 투표한 항목이 있습니다. 결과를 갱신합니다.");
+        try {
+          const voteResults = await getPostVoteResults(postId);
+          setPosts((prev) =>
+            prev.map((post) =>
+              post.id === postId
+                ? {
+                    ...post,
+                    voteOptions: voteResults.voteOptions,
+                    userVote: voteResults.userVote,
+                  }
+                : post
+            )
+          );
+        } catch (syncError) {
+          console.error("Failed to sync vote results after already-voted error:", syncError);
+        }
       } else {
-        alert("투표 처리에 실패했습니다.");
+        toast.error("투표 처리에 실패했습니다.");
       }
     }
   };

@@ -68,6 +68,8 @@ export function InstagramFeedItem({
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [lastTap, setLastTap] = useState(0);
   const imageRef = useRef<HTMLDivElement>(null);
+  // 투표 선택/확정 흐름 상태
+  const [selectedVoteOption, setSelectedVoteOption] = useState<string | null>(null);
   
   // 댓글 관련 상태
   const [newComment, setNewComment] = useState("");
@@ -334,25 +336,36 @@ export function InstagramFeedItem({
         return (
           <div className="px-4 pb-3">
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3 font-['Pretendard']">
-                {post.voteQuestion || "어떻게 생각하시나요?"}
-              </p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 font-['Pretendard']">
+                  {post.voteQuestion || "어떻게 생각하시나요?"}
+                </p>
+                {post.userVote && (
+                  <span className="text-xs text-blue-600 dark:text-blue-300 font-['Pretendard']">이미 투표함</span>
+                )}
+              </div>
               <div className="space-y-2">
                 {post.voteOptions?.map((option) => {
                   const isVoted = post.userVote === option.id;
                   const percentage =
                     totalVotes > 0 ? (option.voteCount / totalVotes) * 100 : 0;
+                  const isSelectedBeforeConfirm = !post.userVote && selectedVoteOption === option.id;
 
                   return (
                     <button
                       key={option.id}
-                      onClick={() => onVote(option.id)}
+                      onClick={() => {
+                        if (post.userVote) return;
+                        setSelectedVoteOption((prev) => (prev === option.id ? null : option.id));
+                      }}
                       disabled={!!post.userVote}
                       className={`w-full p-3 rounded-lg border-2 transition-all duration-200 text-left ${
                         isVoted
                           ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
                           : post.userVote
                           ? "border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                          : isSelectedBeforeConfirm
+                          ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
                           : "border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10"
                       }`}
                     >
@@ -361,7 +374,7 @@ export function InstagramFeedItem({
                           {option.text}
                         </span>
                         <div className="flex items-center space-x-2">
-                          {post.userVote && (
+                          {post.userVote ? (
                             <>
                               <span className="text-xs text-gray-500 dark:text-gray-400">
                                 {option.voteCount}표
@@ -373,6 +386,8 @@ export function InstagramFeedItem({
                                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                               )}
                             </>
+                          ) : (
+                            <span className="text-xs text-gray-400 dark:text-gray-500">{isSelectedBeforeConfirm ? "선택됨" : "투표 가능"}</span>
                           )}
                         </div>
                       </div>
@@ -388,11 +403,38 @@ export function InstagramFeedItem({
                   );
                 })}
               </div>
-              {post.userVote && totalVotes > 0 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center font-['Pretendard']">
-                  총 {totalVotes}표
-                </p>
+              {!post.userVote && (
+                <div className="mt-3 flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setSelectedVoteOption(null)}
+                    disabled={!selectedVoteOption}
+                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors font-['Pretendard'] ${
+                      selectedVoteOption
+                        ? "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        : "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                    }`}
+                  >
+                    선택 취소
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!selectedVoteOption) return;
+                      onVote(selectedVoteOption);
+                    }}
+                    disabled={!selectedVoteOption}
+                    className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors font-['Pretendard'] ${
+                      selectedVoteOption
+                        ? "bg-blue-600 hover:bg-blue-700 text-white"
+                        : "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
+                    }`}
+                  >
+                    완료
+                  </button>
+                </div>
               )}
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center font-['Pretendard']">
+                총 {totalVotes}표
+              </p>
             </div>
           </div>
         );
