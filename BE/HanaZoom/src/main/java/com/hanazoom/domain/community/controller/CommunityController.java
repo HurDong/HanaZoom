@@ -133,14 +133,27 @@ public class CommunityController {
             @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal Member member) {
 
+        System.out.println("🔍 게시글 목록 조회 - 사용자 정보: " + (member != null ? "로그인됨 (ID: " + member.getId() + ")" : "로그인 안됨"));
+        
         Stock stock = stockService.getStockBySymbol(symbol);
         Page<Post> posts = postService.getPostsByStock(stock, pageable);
+        
+        System.out.println("📋 조회된 게시글 수: " + posts.getContent().size());
+        
         Page<PostResponse> postResponses = posts.map(post -> {
             boolean isLiked = member != null && postService.isLikedByMember(post.getId(), member);
+            System.out.println("📝 게시글 ID: " + post.getId() + ", 좋아요 상태: " + isLiked + ", 사용자: " + (member != null ? member.getId() : "null") + ", 좋아요 수: " + post.getLikeCount());
+            
             // 각 게시글에 대한 Poll 데이터 조회
             Poll poll = pollRepository.findByPostId(post.getId()).orElse(null);
-            return PostResponse.from(post, isLiked, poll, null);
+            PostResponse response = PostResponse.from(post, isLiked, poll, null);
+            
+            System.out.println("📤 PostResponse 생성 완료 - ID: " + response.getId() + ", isLiked: " + response.isLiked() + ", likeCount: " + response.getLikeCount());
+            
+            return response;
         });
+        
+        System.out.println("✅ 게시글 목록 조회 완료 - 총 " + postResponses.getContent().size() + "개 게시글");
         return ResponseEntity.ok(ApiResponse.success(PostListResponse.from(postResponses)));
     }
 

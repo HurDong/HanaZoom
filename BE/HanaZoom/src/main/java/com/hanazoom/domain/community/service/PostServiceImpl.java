@@ -172,9 +172,13 @@ public class PostServiceImpl implements PostService {
     @Override
     @Transactional
     public void likePost(Long postId, Member member) {
+        System.out.println("👍 좋아요 요청 - postId: " + postId + ", memberId: " + member.getId());
+        
         if (isLikedByMember(postId, member)) {
+            System.out.println("❌ 이미 좋아요한 게시글 - postId: " + postId + ", memberId: " + member.getId());
             throw new IllegalArgumentException("이미 좋아요한 게시글입니다.");
         }
+        
         Post post = getPost(postId);
         post.incrementLikeCount();
         likeRepository.save(Like.builder()
@@ -182,24 +186,36 @@ public class PostServiceImpl implements PostService {
                 .targetType(LikeTargetType.POST)
                 .targetId(postId)
                 .build());
+        
+        System.out.println("✅ 좋아요 완료 - postId: " + postId + ", memberId: " + member.getId() + ", 새로운 좋아요 수: " + post.getLikeCount());
     }
 
     @Override
     @Transactional
     public void unlikePost(Long postId, Member member) {
+        System.out.println("👎 좋아요 취소 요청 - postId: " + postId + ", memberId: " + member.getId());
+        
         if (!isLikedByMember(postId, member)) {
+            System.out.println("❌ 좋아요하지 않은 게시글 - postId: " + postId + ", memberId: " + member.getId());
             throw new IllegalArgumentException("좋아요하지 않은 게시글입니다.");
         }
+        
         Post post = getPost(postId);
         post.decrementLikeCount();
         likeRepository.deleteByMemberAndTargetTypeAndTargetId(member, LikeTargetType.POST, postId);
+        
+        System.out.println("✅ 좋아요 취소 완료 - postId: " + postId + ", memberId: " + member.getId() + ", 새로운 좋아요 수: " + post.getLikeCount());
     }
 
     @Override
     public boolean isLikedByMember(Long postId, Member member) {
-        if (member == null)
+        if (member == null) {
+            System.out.println("🔍 isLikedByMember - member가 null입니다. postId: " + postId);
             return false;
-        return likeRepository.existsByMemberAndTargetTypeAndTargetId(member, LikeTargetType.POST, postId);
+        }
+        boolean exists = likeRepository.existsByMemberAndTargetTypeAndTargetId(member, LikeTargetType.POST, postId);
+        System.out.println("🔍 isLikedByMember - postId: " + postId + ", memberId: " + member.getId() + ", exists: " + exists);
+        return exists;
     }
 
     @Override
