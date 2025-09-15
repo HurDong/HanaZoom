@@ -343,24 +343,25 @@ public class RegionStockServiceImpl implements RegionStockService {
 
         @Override
         public List<StockTickerDto> getTopStocksByRegion(Long regionId, int limit) {
-                log.info("=== getTopStocksByRegion 호출: regionId={}, limit={}", regionId, limit);
+                // 상세 진입 로그 제거, 필요 시 DEBUG 사용
+                log.debug("getTopStocksByRegion: regionId={}, limit={}", regionId, limit);
 
                 // 1. 지역 존재 여부 확인
                 Region region = regionRepository.findById(regionId)
                                 .orElseThrow(() -> new IllegalArgumentException("지역을 찾을 수 없습니다."));
-                log.info("지역 정보: id={}, name={}, type={}", region.getId(), region.getName(), region.getType());
+                log.debug("지역 정보: id={}, name={}, type={}", region.getId(), region.getName(), region.getType());
 
                 // 2. 해당 지역의 최신 날짜 데이터 중 인기도 점수 순으로 상위 주식 조회
                 List<RegionStock> topRegionStocks = regionStockRepository
                                 .findTopByRegionIdOrderByPopularityScoreDesc(
                                                 regionId,
                                                 PageRequest.of(0, limit));
-                log.info("조회된 RegionStock 개수: {}", topRegionStocks.size());
+                log.debug("조회된 RegionStock 개수: {}", topRegionStocks.size());
 
                 if (topRegionStocks.isEmpty()) {
                         log.warn("지역 {} ({})에 대한 주식 데이터가 없습니다.", region.getName(), regionId);
                 } else {
-                        log.info("조회된 주식들: {}", topRegionStocks.stream()
+                        log.debug("조회된 주식들: {}", topRegionStocks.stream()
                                         .map(rs -> String.format("%s(%.2f)", rs.getStock().getName(),
                                                         rs.getPopularityScore()))
                                         .collect(Collectors.joining(", ")));
@@ -388,8 +389,8 @@ public class RegionStockServiceImpl implements RegionStockService {
                                 })
                                 .collect(Collectors.toList());
 
-                log.info("반환할 StockTickerDto 개수: {}", result.size());
-                log.info("첫 번째 종목 정보: symbol={}, name={}, sector={}",
+                log.debug("반환할 StockTickerDto 개수: {}", result.size());
+                log.debug("첫 번째 종목 정보: symbol={}, name={}, sector={}",
                                 result.isEmpty() ? "없음" : result.get(0).getSymbol(),
                                 result.isEmpty() ? "없음" : result.get(0).getName(),
                                 result.isEmpty() ? "없음" : result.get(0).getSector());
