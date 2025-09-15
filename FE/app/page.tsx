@@ -82,7 +82,7 @@ export default function StockMapLanding() {
       </div>
 
       {/* Floating Stock Symbols (사용자 설정에 따라) */}
-      <FloatingEmojiBackground />
+      {isInitialized && settings.emojiAnimationEnabled && <FloatingEmojiBackground />}
 
       {/* NavBar 컴포넌트 사용 */}
       <div className="fixed top-0 left-0 right-0 z-[100]">

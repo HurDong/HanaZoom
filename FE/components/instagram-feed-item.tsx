@@ -10,11 +10,17 @@ import {
   User,
   TrendingUp,
   TrendingDown,
+  Send,
+  Smile,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { Post, PostSentiment, VoteOption } from "@/lib/api/community";
+import { Textarea } from "@/components/ui/textarea";
+import { PostMenu } from "@/components/post-menu";
+import { EditPostModal } from "@/components/edit-post-modal";
+import { InlineEditPost } from "@/components/inline-edit-post";
+import type { Post, PostSentiment, VoteOption, Comment } from "@/lib/api/community";
 
 interface InstagramFeedItemProps {
   post: Post;
@@ -22,6 +28,22 @@ interface InstagramFeedItemProps {
   onComment: () => void;
   onShare: () => void;
   onVote: (optionId: string) => void;
+  // 댓글 관련 props 추가
+  comments?: Comment[];
+  isLoadingComments?: boolean;
+  currentUserId?: string;
+  onCreateComment?: (postId: number, content: string) => void;
+  onLikeComment?: (commentId: number, postId: number) => void;
+  onDeleteComment?: (commentId: number, postId: number) => void;
+  showComments?: boolean;
+  onToggleComments?: () => void;
+  // 게시글 수정/삭제 관련 props
+  onEditPost?: (postId: number, data: {
+    content: string;
+    imageUrl?: string;
+    sentiment?: PostSentiment;
+  }) => Promise<void>;
+  onDeletePost?: (postId: number) => Promise<void>;
 }
 
 export function InstagramFeedItem({
@@ -30,12 +52,31 @@ export function InstagramFeedItem({
   onComment,
   onShare,
   onVote,
+  comments = [],
+  isLoadingComments = false,
+  currentUserId,
+  onCreateComment,
+  onLikeComment,
+  onDeleteComment,
+  showComments = false,
+  onToggleComments,
+  onEditPost,
+  onDeletePost,
 }: InstagramFeedItemProps) {
   const [isLiked, setIsLiked] = useState(post.isLiked === true);
   const [likeCount, setLikeCount] = useState(post.likeCount || 0);
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [lastTap, setLastTap] = useState(0);
   const imageRef = useRef<HTMLDivElement>(null);
+  
+  // 댓글 관련 상태
+  const [newComment, setNewComment] = useState("");
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const commentTextareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // 게시글 수정/삭제 관련 상태
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // post.isLiked 값이 변경될 때마다 로컬 상태 동기화
   useEffect(() => {
@@ -78,6 +119,49 @@ export function InstagramFeedItem({
       }
     }
     setLastTap(now);
+  };
+
+  // 댓글 관련 핸들러들
+  const handleSubmitComment = async () => {
+    if (!newComment.trim() || isSubmittingComment || !onCreateComment) return;
+    
+    setIsSubmittingComment(true);
+    try {
+      await onCreateComment(post.id, newComment.trim());
+      setNewComment("");
+      // 댓글 작성 후 텍스트에어리어 높이 초기화
+      if (commentTextareaRef.current) {
+        commentTextareaRef.current.style.height = 'auto';
+      }
+    } catch (error) {
+      console.error("Failed to create comment:", error);
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
+  const handleCommentKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmitComment();
+    }
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setNewComment(e.target.value);
+    
+    // 자동 높이 조절
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 100)}px`;
+  };
+
+  const handleCommentClick = () => {
+    if (onToggleComments) {
+      onToggleComments();
+    } else {
+      onComment();
+    }
   };
 
   const getSentimentColor = (sentiment: PostSentiment) => {
@@ -162,17 +246,42 @@ export function InstagramFeedItem({
             </div>
           </div>
         </div>
-        <Button variant="ghost" size="sm" className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700">
-          <MoreHorizontal className="w-4 h-4 text-gray-900 dark:text-gray-100" />
-        </Button>
+        
+        {/* 게시글 메뉴 */}
+        <PostMenu
+          postId={post.id}
+          authorId={post.author?.id || ""}
+          currentUserId={currentUserId}
+          onEdit={() => setIsEditing(true)}
+          onDelete={() => {
+            if (confirm("게시글을 삭제하시겠습니까?")) {
+              onDeletePost?.(post.id);
+            }
+          }}
+        />
       </div>
 
       {/* 본문 - 인스타그램 스타일 */}
-      <div className="px-4 pb-3">
-        <p className="text-gray-900 dark:text-white leading-relaxed whitespace-pre-wrap font-['Pretendard'] text-sm">
-          {post.content}
-        </p>
-      </div>
+      {isEditing ? (
+        <div className="px-4 pb-3">
+          <InlineEditPost
+            post={post}
+            onSave={async (postId, data) => {
+              if (onEditPost) {
+                await onEditPost(postId, data);
+                setIsEditing(false);
+              }
+            }}
+            onCancel={() => setIsEditing(false)}
+          />
+        </div>
+      ) : (
+        <div className="px-4 pb-3">
+          <p className="text-gray-900 dark:text-white leading-relaxed whitespace-pre-wrap font-['Pretendard'] text-sm">
+            {post.content}
+          </p>
+        </div>
+      )}
 
       {/* 이미지 - 인스타그램 스타일 */}
       {post.imageUrl && (
@@ -185,6 +294,14 @@ export function InstagramFeedItem({
             src={post.imageUrl}
             alt="Post image"
             className="w-full h-auto object-cover"
+            onError={(e) => {
+              console.error("이미지 로드 실패:", { postId: post.id, imageUrl: post.imageUrl });
+              const target = e.target as HTMLImageElement;
+              target.style.display = "none";
+            }}
+            onLoad={() => {
+              console.log("이미지 로드 성공:", { postId: post.id, imageUrl: post.imageUrl });
+            }}
           />
           {/* 더블탭 하트 애니메이션 */}
           {showHeartAnimation && (
@@ -311,8 +428,12 @@ export function InstagramFeedItem({
             <Button
               variant="ghost"
               size="sm"
-              onClick={onComment}
-              className="p-1 text-gray-900 dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              onClick={handleCommentClick}
+              className={`p-1 transition-colors ${
+                showComments 
+                  ? "text-blue-500 hover:text-blue-600" 
+                  : "text-gray-900 dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300"
+              }`}
             >
               <MessageCircle className="w-6 h-6" />
             </Button>
@@ -347,14 +468,151 @@ export function InstagramFeedItem({
             <Button
               variant="ghost"
               size="sm"
-              onClick={onComment}
-              className="p-0 h-auto text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-['Pretendard']"
+              onClick={handleCommentClick}
+              className={`p-0 h-auto font-['Pretendard'] transition-colors ${
+                showComments 
+                  ? "text-blue-500 hover:text-blue-600" 
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              }`}
             >
-              댓글 {post.commentCount}개 모두 보기
+              댓글 {post.commentCount}개 {showComments ? "숨기기" : "모두 보기"}
             </Button>
           </div>
         )}
       </div>
+
+      {/* 인스타그램 스타일 댓글 섹션 */}
+      {showComments && (
+        <div className="border-t border-gray-200 dark:border-gray-700">
+          {/* 댓글 목록 */}
+          <div className="px-4 py-3 max-h-80 overflow-y-auto">
+            {isLoadingComments ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-2 border-pink-200 border-t-pink-600 rounded-full animate-spin"></div>
+              </div>
+            ) : comments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3">
+                  <MessageCircle className="w-6 h-6 text-gray-400" />
+                </div>
+                <p className="text-gray-500 dark:text-gray-400 text-sm font-['Pretendard']">
+                  아직 댓글이 없습니다
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 font-['Pretendard']">
+                  첫 번째 댓글을 작성해보세요!
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="flex space-x-3">
+                    <Avatar className="w-7 h-7 flex-shrink-0">
+                      <AvatarImage src={comment.author?.avatar} />
+                      <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-green-600 text-white text-xs font-medium">
+                        {comment.author?.name?.charAt(0) || <User className="w-3 h-3" />}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white font-['Pretendard']">
+                          {comment.author?.name || "익명"}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {formatTimeAgo(comment.createdAt)}
+                        </span>
+                      </div>
+                      
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-2 whitespace-pre-wrap font-['Pretendard'] leading-relaxed">
+                        {comment.content}
+                      </p>
+                      
+                      <div className="flex items-center space-x-4">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onLikeComment?.(comment.id, post.id)}
+                          className={`text-xs h-6 px-2 font-['Pretendard'] transition-colors ${
+                            comment.isLiked 
+                              ? "text-red-500 hover:text-red-600" 
+                              : "text-gray-500 hover:text-red-500"
+                          }`}
+                        >
+                          <Heart className={`w-3 h-3 mr-1 ${comment.isLiked ? "fill-current" : ""}`} />
+                          {comment.likeCount || 0}
+                        </Button>
+                        
+                        {currentUserId && comment.author?.id === currentUserId && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm("댓글을 삭제하시겠습니까?")) {
+                                onDeleteComment?.(comment.id, post.id);
+                              }
+                            }}
+                            className="text-xs h-6 px-2 text-gray-500 hover:text-red-500 font-['Pretendard']"
+                          >
+                            삭제
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 댓글 작성 - 인스타그램 스타일 */}
+          {currentUserId && onCreateComment && (
+            <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-end space-x-3">
+                <Avatar className="w-7 h-7 flex-shrink-0">
+                  <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-green-600 text-white text-xs font-medium">
+                    <User className="w-3 h-3" />
+                  </AvatarFallback>
+                </Avatar>
+                
+                <div className="flex-1 flex items-end space-x-2">
+                  <Textarea
+                    ref={commentTextareaRef}
+                    value={newComment}
+                    onChange={handleTextareaChange}
+                    onKeyDown={handleCommentKeyDown}
+                    placeholder="댓글 달기..."
+                    className="flex-1 min-h-[36px] max-h-24 resize-none border-0 bg-transparent px-0 py-2 text-sm font-['Pretendard'] placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-0 focus:outline-none"
+                    style={{ height: '36px' }}
+                  />
+                  
+                  <Button
+                    onClick={handleSubmitComment}
+                    disabled={!newComment.trim() || isSubmittingComment}
+                    className="bg-transparent hover:bg-transparent p-0 h-auto text-blue-500 hover:text-blue-600 disabled:text-gray-300 dark:disabled:text-gray-600 font-['Pretendard'] font-semibold text-sm"
+                  >
+                    {isSubmittingComment ? (
+                      <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      "게시"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* 게시글 수정 모달 */}
+      {showEditModal && onEditPost && (
+        <EditPostModal
+          post={post}
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          onSave={onEditPost}
+        />
+      )}
     </div>
   );
 }

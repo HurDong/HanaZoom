@@ -46,7 +46,7 @@ export interface OrdersPageResponse {
  * 주문 생성
  */
 export const createOrder = async (request: OrderRequest): Promise<OrderResponse> => {
-  const response = await api.post("/api/v1/orders", request);
+  const response = await api.post("/orders", request);
   return response.data.data;
 };
 
@@ -54,7 +54,7 @@ export const createOrder = async (request: OrderRequest): Promise<OrderResponse>
  * 주문 조회
  */
 export const getOrder = async (orderId: number): Promise<OrderResponse> => {
-  const response = await api.get(`/api/v1/orders/${orderId}`);
+  const response = await api.get(`/orders/${orderId}`);
   return response.data.data;
 };
 
@@ -62,7 +62,7 @@ export const getOrder = async (orderId: number): Promise<OrderResponse> => {
  * 주문 목록 조회
  */
 export const getOrders = async (page: number = 0, size: number = 20): Promise<OrdersPageResponse> => {
-  const response = await api.get(`/api/v1/orders?page=${page}&size=${size}`);
+  const response = await api.get(`/orders?page=${page}&size=${size}`);
   return response.data.data;
 };
 
@@ -70,7 +70,7 @@ export const getOrders = async (page: number = 0, size: number = 20): Promise<Or
  * 특정 종목 주문 목록 조회
  */
 export const getOrdersByStock = async (stockSymbol: string, page: number = 0, size: number = 20): Promise<OrdersPageResponse> => {
-  const response = await api.get(`/api/v1/orders/stock/${stockSymbol}?page=${page}&size=${size}`);
+  const response = await api.get(`/orders/stock/${stockSymbol}?page=${page}&size=${size}`);
   return response.data.data;
 };
 
@@ -78,7 +78,7 @@ export const getOrdersByStock = async (stockSymbol: string, page: number = 0, si
  * 미체결 주문 목록 조회
  */
 export const getPendingOrders = async (): Promise<OrderResponse[]> => {
-  const response = await api.get("/api/v1/orders/pending");
+  const response = await api.get("/orders/pending");
   return response.data.data;
 };
 
@@ -86,7 +86,7 @@ export const getPendingOrders = async (): Promise<OrderResponse[]> => {
  * 주문 취소
  */
 export const cancelOrder = async (orderId: number): Promise<OrderResponse> => {
-  const response = await api.post(`/api/v1/orders/${orderId}/cancel`);
+  const response = await api.post(`/orders/${orderId}/cancel`);
   return response.data.data;
 };
 
@@ -94,6 +94,6 @@ export const cancelOrder = async (orderId: number): Promise<OrderResponse> => {
  * 주문 상태 조회
  */
 export const getOrderStatus = async (orderId: number): Promise<string> => {
-  const response = await api.get(`/api/v1/orders/${orderId}/status`);
+  const response = await api.get(`/orders/${orderId}/status`);
   return response.data.data;
 };

@@ -116,18 +116,6 @@ export const createPost = async (
   return response.data.data;
 };
 
-export const updatePost = async (
-  postId: number,
-  data: CreatePostRequest
-): Promise<Post> => {
-  const response = await api.put(`/community/posts/${postId}`, data);
-  return response.data.data;
-};
-
-export const deletePost = async (postId: number): Promise<void> => {
-  await api.delete(`/community/posts/${postId}`);
-};
-
 export const likePost = async (postId: number): Promise<void> => {
   await api.post(`/community/posts/${postId}/like`);
 };
@@ -156,16 +144,6 @@ export const getPostVoteResults = async (
 };
 
 // Comments
-export const getComments = async (
-  postId: number,
-  page = 0,
-  size = 20
-): Promise<PostListResponse> => {
-  const response = await api.get(`/community/posts/${postId}/comments`, {
-    params: { page, size },
-  });
-  return response.data.data;
-};
 
 export const createComment = async (
   postId: number,
@@ -187,12 +165,51 @@ export const deleteComment = async (commentId: number): Promise<void> => {
   await api.delete(`/community/comments/${commentId}`);
 };
 
+// 게시글 수정
+export const updatePost = async (
+  postId: number,
+  data: {
+    content: string;
+    imageUrl?: string;
+    sentiment?: PostSentiment;
+  }
+): Promise<Post> => {
+  const response = await api.put(`/community/posts/${postId}`, data);
+  return response.data.data;
+};
+
+// 게시글 삭제
+export const deletePost = async (postId: number): Promise<void> => {
+  await api.delete(`/community/posts/${postId}`);
+};
+
 export const likeComment = async (commentId: number): Promise<void> => {
   await api.post(`/community/comments/${commentId}/like`);
 };
 
 export const unlikeComment = async (commentId: number): Promise<void> => {
   await api.delete(`/community/comments/${commentId}/like`);
+};
+
+// 댓글 목록 조회
+export const getComments = async (
+  postId: number,
+  page = 0,
+  size = 20
+): Promise<{
+  content: Comment[];
+  totalPages: number;
+  totalElements: number;
+  pageNumber: number;
+  pageSize: number;
+  first: boolean;
+  last: boolean;
+  empty: boolean;
+}> => {
+  const response = await api.get(`/community/posts/${postId}/comments`, {
+    params: { page, size },
+  });
+  return response.data.data;
 };
 
 // Replies (대댓글)

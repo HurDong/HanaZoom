@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -15,8 +15,11 @@ import {
   X as XIcon,
   BarChart3,
   Upload,
+  FileImage,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { uploadImageToLocal } from "@/lib/api/upload";
+import { toast } from "sonner";
 import type { PostSentiment, VoteOption } from "@/lib/api/community";
 
 interface WritePostModalProps {
@@ -48,10 +51,70 @@ export function WritePostModal({
     { id: "DOWN", text: "내릴 것 같다 📉", voteCount: 0 },
   ]);
   const [imageUrl, setImageUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // 파일 타입 검증
+    if (!file.type.startsWith('image/')) {
+      toast.error('이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    // 파일 크기 검증 (500KB 제한)
+    if (file.size > 500 * 1024) {
+      toast.error('파일 크기는 500KB를 초과할 수 없습니다.');
+      return;
+    }
+
+    setSelectedFile(file);
+    setIsUploading(true);
+
+    try {
+      // 임시로 로컬 스토리지에 저장 (개발용)
+      const imageUrl = await uploadImageToLocal(file);
+      setImageUrl(imageUrl);
+      setImagePreview(imageUrl);
+      setHasImage(true);
+      toast.success('이미지가 업로드되었습니다.');
+    } catch (error) {
+      console.error('이미지 업로드 실패:', error);
+      toast.error('이미지 업로드에 실패했습니다.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    setImageUrl("");
+    setImagePreview("");
+    setHasImage(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleSubmit = async () => {
     if (!content.trim()) return;
+
+    console.log("게시글 작성 모달 - 제출 데이터:", {
+      content: content.trim(),
+      sentiment,
+      postType: hasVote ? "POLL" : "TEXT",
+      hasVote,
+      hasImage,
+      imageUrl,
+      selectedFile: selectedFile?.name,
+      voteQuestion: hasVote ? voteQuestion : undefined,
+      voteOptions: hasVote ? voteOptions.map((option) => option.text) : undefined,
+    });
 
     setIsSubmitting(true);
     try {
@@ -78,6 +141,11 @@ export function WritePostModal({
         { id: "DOWN", text: "내릴 것 같다 📉", voteCount: 0 },
       ]);
       setImageUrl("");
+      setSelectedFile(null);
+      setImagePreview("");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       onClose();
     } catch (error) {
       console.error("Failed to submit post:", error);
@@ -280,9 +348,12 @@ export function WritePostModal({
                   <Checkbox
                     id="hasImage"
                     checked={hasImage}
-                    onCheckedChange={(checked) =>
-                      setHasImage(checked as boolean)
-                    }
+                    onCheckedChange={(checked) => {
+                      setHasImage(checked as boolean);
+                      if (!checked) {
+                        handleRemoveImage();
+                      }
+                    }}
                   />
                   <Label
                     htmlFor="hasImage"
@@ -296,27 +367,51 @@ export function WritePostModal({
                 {hasImage && (
                   <div className="ml-8 space-y-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
                     <div>
-                      <Label htmlFor="imageUrl" className="text-sm font-medium">
-                        이미지 URL
+                      <Label className="text-sm font-medium">
+                        이미지 파일 선택
                       </Label>
                       <div className="flex space-x-2 mt-2">
-                        <Input
-                          id="imageUrl"
-                          value={imageUrl}
-                          onChange={(e) => setImageUrl(e.target.value)}
-                          placeholder="이미지 URL을 입력하세요"
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileSelect}
+                          className="hidden"
                         />
-                        <Button type="button" variant="outline" size="sm">
-                          <Upload className="w-4 h-4 mr-1" />
-                          업로드
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploading}
+                        >
+                          <FileImage className="w-4 h-4 mr-1" />
+                          {isUploading ? "업로드 중..." : "파일 선택"}
                         </Button>
+                        {selectedFile && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRemoveImage}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <XIcon className="w-4 h-4 mr-1" />
+                            제거
+                          </Button>
+                        )}
                       </div>
+                      {selectedFile && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                          선택된 파일: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)}MB)
+                        </p>
+                      )}
                     </div>
 
-                    {imageUrl && (
+                    {imagePreview && (
                       <div className="mt-3">
                         <img
-                          src={imageUrl}
+                          src={imagePreview}
                           alt="Preview"
                           className="w-full h-48 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                           onError={(e) => {
@@ -326,6 +421,20 @@ export function WritePostModal({
                         />
                       </div>
                     )}
+
+                    {/* URL 입력 옵션 (백업) */}
+                    <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-700">
+                      <Label htmlFor="imageUrl" className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        또는 이미지 URL 직접 입력
+                      </Label>
+                      <Input
+                        id="imageUrl"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        placeholder="이미지 URL을 입력하세요"
+                        className="mt-1"
+                      />
+                    </div>
                   </div>
                 )}
               </div>

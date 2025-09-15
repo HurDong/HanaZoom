@@ -28,8 +28,10 @@ import {
 import NavBar from "@/app/components/Navbar";
 import { MouseFollower } from "@/components/mouse-follower";
 import { StockTicker } from "@/components/stock-ticker";
+import { FloatingEmojiBackground } from "@/components/floating-emoji-background";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import api from "@/app/config/api";
+import { useUserSettingsStore } from "@/lib/stores/userSettingsStore";
 import {
   addToWatchlist,
   removeFromWatchlist,
@@ -164,6 +166,7 @@ const customSelectStyles = {
 export default function CommunityPage() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const { settings, isInitialized } = useUserSettingsStore();
   const [activeTab, setActiveTab] = useState("stocks");
   const [allStocks, setAllStocks] = useState<Stock[]>([]);
   const [userRegion, setUserRegion] = useState<UserRegionInfo | null>(null);
@@ -644,7 +647,11 @@ export default function CommunityPage() {
           --select-option-active-bg: #047857;
         }
       `}</style>
-      <MouseFollower />
+      {isInitialized && settings.customCursorEnabled && <MouseFollower />}
+      
+      {/* Floating Stock Symbols (사용자 설정에 따라) */}
+      {isInitialized && settings.emojiAnimationEnabled && <FloatingEmojiBackground />}
+      
       <NavBar />
 
       <div className="fixed top-16 left-0 right-0 z-[60]">

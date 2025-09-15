@@ -25,7 +25,6 @@ import NavBar from "@/app/components/Navbar";
 import { OpinionForm } from "@/components/opinion-form";
 import { StockInfoBar } from "@/components/stock-info-bar";
 import { InstagramFeedItem } from "@/components/instagram-feed-item";
-import { CommentSlidePanel } from "@/components/comment-slide-panel";
 import { FloatingWriteButton } from "@/components/floating-write-button";
 import { WritePostModal } from "@/components/write-post-modal";
 
@@ -44,6 +43,8 @@ import {
   deleteComment,
   updateComment,
   createReply,
+  updatePost,
+  deletePost,
 } from "@/lib/api/community";
 import { useAuthStore } from "@/app/utils/auth";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
@@ -63,7 +64,7 @@ import { getBrandColorByStock } from "@/utils/color-utils";
 export default function StockDiscussionPage() {
   const { symbol } = useParams();
   const router = useRouter();
-  const { accessToken } = useAuthStore();
+  const { accessToken, user } = useAuthStore();
   const [activeTab, setActiveTab] = useState("all");
   const [showWriteModal, setShowWriteModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,9 +77,9 @@ export default function StockDiscussionPage() {
   const [hasMore, setHasMore] = useState(true);
 
   // 댓글 관련 상태
-  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
   const [comments, setComments] = useState<Map<number, Comment[]>>(new Map());
   const [commentLoading, setCommentLoading] = useState<Set<number>>(new Set());
+  const [showComments, setShowComments] = useState<Set<number>>(new Set());
   const [showDevTools, setShowDevTools] = useState(false);
 
   // 실시간 주식 데이터 상태
@@ -255,6 +256,7 @@ export default function StockDiscussionPage() {
 
     try {
       console.log("게시글 작성 시작:", { symbol, data });
+      console.log("이미지 URL 확인:", { imageUrl: data.imageUrl, hasImage: !!data.imageUrl });
       console.log("전송할 데이터 상세:", {
         content: data.content,
         sentiment: data.sentiment,
@@ -472,8 +474,9 @@ export default function StockDiscussionPage() {
     }
   };
 
-  // 댓글 관련 핸들러들
-  const handleViewComments = async (postId: number) => {
+
+  // 인라인 댓글 토글 핸들러
+  const handleToggleComments = async (postId: number) => {
     if (!isClient || !accessToken) {
       toast.error("댓글을 보려면 로그인이 필요합니다.");
       const redirectUrl = `/login?redirect=${encodeURIComponent(
@@ -483,34 +486,49 @@ export default function StockDiscussionPage() {
       return;
     }
 
-    setSelectedPostId(postId);
-
-    if (!comments.has(postId)) {
-      setCommentLoading((prev) => new Set(prev).add(postId));
-      try {
-        const response = await getComments(postId, 0, 20);
-        setComments((prev) =>
-          new Map(prev).set(
-            postId,
-            (response.content || []) as unknown as Comment[]
-          )
-        );
-      } catch (error) {
-        console.error("Failed to load comments:", error);
-        toast.error("댓글을 불러오는데 실패했습니다.");
-      } finally {
-        setCommentLoading((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(postId);
-          return newSet;
-        });
+    const isCurrentlyShowing = showComments.has(postId);
+    
+    if (isCurrentlyShowing) {
+      // 댓글 숨기기
+      setShowComments((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(postId);
+        return newSet;
+      });
+    } else {
+      // 댓글 보이기
+      setShowComments((prev) => new Set(prev).add(postId));
+      
+      // 댓글이 로드되지 않은 경우 로드
+      if (!comments.has(postId)) {
+        setCommentLoading((prev) => new Set(prev).add(postId));
+        try {
+          const response = await getComments(postId, 0, 20);
+          // 댓글 목록에서 isLiked 필드 매핑 수정
+          const commentsWithLiked = (response.content || []).map((comment: any) => ({
+            ...comment,
+            isLiked: comment.liked === true, // 백엔드에서 'liked' 필드로 전달됨
+          }));
+          setComments((prev) =>
+            new Map(prev).set(
+              postId,
+              commentsWithLiked as unknown as Comment[]
+            )
+          );
+        } catch (error) {
+          console.error("Failed to load comments:", error);
+          toast.error("댓글을 불러오는데 실패했습니다.");
+        } finally {
+          setCommentLoading((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(postId);
+            return newSet;
+          });
+        }
       }
     }
   };
 
-  const handleCloseComments = () => {
-    setSelectedPostId(null);
-  };
 
   const handleCreateComment = async (postId: number, content: string) => {
     if (!isClient || !accessToken) {
@@ -525,11 +543,15 @@ export default function StockDiscussionPage() {
     try {
       const newComment = await createComment(postId, { content });
 
-      // 댓글 목록에 추가
+      // 댓글 목록에 추가 (isLiked 필드 매핑 적용)
       setComments((prev) => {
         const newMap = new Map(prev);
         const existingComments = newMap.get(postId) || [];
-        newMap.set(postId, [newComment, ...existingComments]);
+        const commentWithLiked = {
+          ...newComment,
+          isLiked: (newComment as any).liked === true, // 백엔드에서 'liked' 필드로 전달됨
+        };
+        newMap.set(postId, [commentWithLiked, ...existingComments]);
         return newMap;
       });
 
@@ -657,6 +679,57 @@ export default function StockDiscussionPage() {
       } else {
         toast.error("댓글 삭제에 실패했습니다.");
       }
+    }
+  };
+
+  // 게시글 수정 핸들러
+  const handleEditPost = async (postId: number, data: {
+    content: string;
+    imageUrl?: string;
+    sentiment?: PostSentiment;
+  }) => {
+    if (!isClient || !accessToken) {
+      toast.error("게시글을 수정하려면 로그인이 필요합니다.");
+      return;
+    }
+
+    try {
+      const updatedPost = await updatePost(postId, data);
+      
+      // 게시글 목록에서 업데이트
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === postId
+            ? { ...post, ...updatedPost, isLiked: (updatedPost as any).liked === true }
+            : post
+        )
+      );
+
+      toast.success("게시글이 수정되었습니다");
+    } catch (error) {
+      console.error("Failed to update post:", error);
+      toast.error("게시글 수정에 실패했습니다");
+      throw error;
+    }
+  };
+
+  // 게시글 삭제 핸들러
+  const handleDeletePost = async (postId: number) => {
+    if (!isClient || !accessToken) {
+      toast.error("게시글을 삭제하려면 로그인이 필요합니다.");
+      return;
+    }
+
+    try {
+      await deletePost(postId);
+      
+      // 게시글 목록에서 제거
+      setPosts((prev) => prev.filter((post) => post.id !== postId));
+
+      toast.success("게시글이 삭제되었습니다");
+    } catch (error) {
+      console.error("Failed to delete post:", error);
+      toast.error("게시글 삭제에 실패했습니다");
     }
   };
 
@@ -832,9 +905,19 @@ export default function StockDiscussionPage() {
                 <InstagramFeedItem
                   post={post}
                   onLike={() => handleLikePost(post.id)}
-                  onComment={() => handleViewComments(post.id)}
+                  onComment={() => handleToggleComments(post.id)}
                   onShare={() => handleShare(post.id)}
                   onVote={(optionId: string) => handleVote(post.id, optionId)}
+                  comments={comments.get(post.id) || []}
+                  isLoadingComments={commentLoading.has(post.id)}
+                  currentUserId={user?.id}
+                  onCreateComment={handleCreateComment}
+                  onLikeComment={handleLikeComment}
+                  onDeleteComment={handleDeleteComment}
+                  showComments={showComments.has(post.id)}
+                  onToggleComments={() => handleToggleComments(post.id)}
+                  onEditPost={handleEditPost}
+                  onDeletePost={handleDeletePost}
                 />
               </div>
             );
@@ -941,20 +1024,6 @@ export default function StockDiscussionPage() {
         />
       )}
 
-      {/* 댓글 슬라이드 패널 */}
-      {selectedPostId && (
-        <CommentSlidePanel
-          isOpen={!!selectedPostId}
-          onClose={handleCloseComments}
-          postId={selectedPostId}
-          comments={comments.get(selectedPostId) || []}
-          isLoading={commentLoading.has(selectedPostId)}
-          currentUserId={accessToken ? "current-user" : undefined}
-          onCreateComment={handleCreateComment}
-          onLikeComment={handleLikeComment}
-          onDeleteComment={handleDeleteComment}
-        />
-      )}
     </div>
   );
 }

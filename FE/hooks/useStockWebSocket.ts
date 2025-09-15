@@ -223,13 +223,6 @@ export function useStockWebSocket({
               if (message.data?.stockData) {
                 const stockData: StockPriceData = message.data.stockData;
 
-                // 거래량 데이터 디버깅
-                console.log(`📊 WebSocket 거래량 데이터 수신:`, {
-                  종목코드: stockData.stockCode,
-                  거래량_원본: stockData.volume,
-                  거래량_타입: typeof stockData.volume,
-                  전체_데이터: stockData,
-                });
 
                 setState((prev) => {
                   // 동일한 데이터인지 확인하여 불필요한 업데이트 방지

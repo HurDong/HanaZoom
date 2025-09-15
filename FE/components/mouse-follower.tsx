@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useUserSettingsStore } from "@/lib/stores/userSettingsStore";
 
 interface StockTrail {
   id: number;
@@ -10,6 +11,7 @@ interface StockTrail {
 }
 
 export function MouseFollower() {
+  const { settings, isInitialized } = useUserSettingsStore();
   const [trail, setTrail] = useState<StockTrail[]>([]);
   const [isMoving, setIsMoving] = useState(false);
   const [lastMoveTime, setLastMoveTime] = useState(0);
@@ -18,6 +20,11 @@ export function MouseFollower() {
   const cursorRef = useRef<HTMLDivElement>(null);
   const rafIdRef = useRef<number | null>(null);
   const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 사용자 설정에 따라 커스텀 커서가 비활성화된 경우 컴포넌트를 렌더링하지 않음
+  if (!isInitialized || !settings.customCursorEnabled) {
+    return null;
+  }
 
   // 커서 숨기기
   const hideCursor = useCallback(() => {
