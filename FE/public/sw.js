@@ -72,6 +72,30 @@ define(['./workbox-e43f5367'], (function (workbox) { 'use strict';
   importScripts("fallback-development.js");
   self.skipWaiting();
   workbox.clientsClaim();
+  
+  // Service Worker 설치 시 favicon.ico 캐시
+  self.addEventListener('install', async (event) => {
+    console.log('Service Worker installing...');
+    event.waitUntil(
+      caches.open('favicon-cache').then(async (cache) => {
+        try {
+          const response = await fetch('/favicon.ico');
+          if (response.ok) {
+            await cache.put('/favicon.ico', response);
+            console.log('favicon.ico cached successfully');
+          }
+        } catch (error) {
+          console.log('Failed to cache favicon.ico:', error);
+        }
+      })
+    );
+  });
+  
+  // favicon.ico를 미리 캐시
+  workbox.precacheAndRoute([
+    { url: '/favicon.ico', revision: '1' }
+  ]);
+
   workbox.registerRoute("/", new workbox.NetworkFirst({
     "cacheName": "start-url",
     plugins: [{
@@ -96,7 +120,28 @@ define(['./workbox-e43f5367'], (function (workbox) { 'use strict';
       }) => self.fallback(request)
     }]
   }), 'GET');
-  workbox.registerRoute(/.*/i, new workbox.NetworkOnly({
+  // favicon.ico는 캐시에서 먼저 찾고, 없으면 네트워크로 요청
+  workbox.registerRoute('/favicon.ico', new workbox.CacheFirst({
+    "cacheName": "favicon-cache",
+    plugins: [{
+      handlerDidError: async ({
+        request
+      }) => self.fallback(request)
+    }]
+  }), 'GET');
+
+  // 정적 자산들은 캐시 우선 전략 사용
+  workbox.registerRoute(/\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/, new workbox.CacheFirst({
+    "cacheName": "static-assets",
+    plugins: [{
+      handlerDidError: async ({
+        request
+      }) => self.fallback(request)
+    }]
+  }), 'GET');
+
+  // 나머지 요청들은 네트워크 우선 전략 사용
+  workbox.registerRoute(/.*/i, new workbox.NetworkFirst({
     "cacheName": "dev",
     plugins: [{
       handlerDidError: async ({
