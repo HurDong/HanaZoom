@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Heart,
   MessageCircle,
@@ -31,24 +31,37 @@ export function InstagramFeedItem({
   onShare,
   onVote,
 }: InstagramFeedItemProps) {
-  const [isLiked, setIsLiked] = useState(post.isLiked || false);
+  const [isLiked, setIsLiked] = useState(post.isLiked === true);
   const [likeCount, setLikeCount] = useState(post.likeCount || 0);
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [lastTap, setLastTap] = useState(0);
   const imageRef = useRef<HTMLDivElement>(null);
 
-  // 디버깅을 위한 로그
-  console.log("InstagramFeedItem - Post data:", {
-    id: post.id,
-    hasVote: post.hasVote,
-    voteOptions: post.voteOptions,
-    voteQuestion: post.voteQuestion,
-    postType: post.postType,
-    content: post.content,
-    author: post.author,
-  });
+  // post.isLiked 값이 변경될 때마다 로컬 상태 동기화
+  useEffect(() => {
+    const newIsLiked = post.isLiked === true;
+    const newLikeCount = post.likeCount || 0;
+    
+    // 상태가 실제로 다른 경우에만 업데이트
+    if (isLiked !== newIsLiked || likeCount !== newLikeCount) {
+      console.log(`🔄 Post ${post.id} 상태 동기화:`, {
+        isLiked: `${isLiked} → ${newIsLiked}`,
+        likeCount: `${likeCount} → ${newLikeCount}`,
+        postIsLiked: post.isLiked
+      });
+      setIsLiked(newIsLiked);
+      setLikeCount(newLikeCount);
+    }
+  }, [post.isLiked, post.likeCount, post.id]);
 
   const handleLike = () => {
+    console.log(`💖 Post ${post.id} 좋아요 클릭:`, {
+      postId: post.id,
+      현재상태: isLiked,
+      변경될상태: !isLiked,
+      현재좋아요수: likeCount,
+      변경될좋아요수: isLiked ? likeCount - 1 : likeCount + 1
+    });
     setIsLiked(!isLiked);
     setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
     onLike();
@@ -105,8 +118,8 @@ export function InstagramFeedItem({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 mb-4">
-      {/* 헤더 */}
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+      {/* 헤더 - 인스타그램 스타일 */}
       <div className="flex items-center justify-between p-4 pb-3">
         <div className="flex items-center space-x-3">
           <Avatar className="w-8 h-8">
@@ -121,7 +134,7 @@ export function InstagramFeedItem({
           </Avatar>
           <div className="flex-1">
             <div className="flex items-center space-x-2">
-              <span className="font-medium text-gray-900 dark:text-white text-sm font-['Pretendard']">
+              <span className="font-semibold text-gray-900 dark:text-white text-sm font-['Pretendard']">
                 {post.author.name}
               </span>
               <Badge
@@ -149,19 +162,19 @@ export function InstagramFeedItem({
             </div>
           </div>
         </div>
-        <Button variant="ghost" size="sm" className="p-1">
-          <MoreHorizontal className="w-4 h-4 text-gray-500" />
+        <Button variant="ghost" size="sm" className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700">
+          <MoreHorizontal className="w-4 h-4 text-gray-900 dark:text-gray-100" />
         </Button>
       </div>
 
-      {/* 본문 */}
+      {/* 본문 - 인스타그램 스타일 */}
       <div className="px-4 pb-3">
-        <p className="text-gray-900 dark:text-white leading-relaxed whitespace-pre-wrap font-['Pretendard']">
+        <p className="text-gray-900 dark:text-white leading-relaxed whitespace-pre-wrap font-['Pretendard'] text-sm">
           {post.content}
         </p>
       </div>
 
-      {/* 이미지 */}
+      {/* 이미지 - 인스타그램 스타일 */}
       {post.imageUrl && (
         <div
           ref={imageRef}
@@ -171,7 +184,7 @@ export function InstagramFeedItem({
           <img
             src={post.imageUrl}
             alt="Post image"
-            className="w-full h-auto max-h-96 object-cover"
+            className="w-full h-auto object-cover"
           />
           {/* 더블탭 하트 애니메이션 */}
           {showHeartAnimation && (
@@ -191,34 +204,25 @@ export function InstagramFeedItem({
           post.voteOptions &&
           post.voteOptions.length > 0;
 
-        console.log("투표 조건 확인:", {
-          hasVote: post.hasVote,
-          voteOptions: post.voteOptions,
-          voteOptionsLength: post.voteOptions?.length,
-          postType: post.postType,
-          shouldShowVote,
-          condition1: post.hasVote || post.postType === "POLL",
-          condition2: post.voteOptions && post.voteOptions.length > 0,
-        });
 
         if (!shouldShowVote) {
           return null;
         }
 
+        const totalVotes = post.voteOptions?.reduce(
+          (sum, opt) => sum + opt.voteCount,
+          0
+        ) || 0;
+
         return (
           <div className="px-4 pb-3">
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3 font-['Pretendard']">
                 {post.voteQuestion || "어떻게 생각하시나요?"}
               </p>
               <div className="space-y-2">
-                {post.voteOptions.map((option) => {
+                {post.voteOptions?.map((option) => {
                   const isVoted = post.userVote === option.id;
-                  const totalVotes =
-                    post.voteOptions?.reduce(
-                      (sum, opt) => sum + opt.voteCount,
-                      0
-                    ) || 0;
                   const percentage =
                     totalVotes > 0 ? (option.voteCount / totalVotes) * 100 : 0;
 
@@ -236,7 +240,7 @@ export function InstagramFeedItem({
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">
+                        <span className="text-sm font-medium font-['Pretendard']">
                           {option.text}
                         </span>
                         <div className="flex items-center space-x-2">
@@ -268,7 +272,7 @@ export function InstagramFeedItem({
                 })}
               </div>
               {post.userVote && totalVotes > 0 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center font-['Pretendard']">
                   총 {totalVotes}표
                 </p>
               )}
@@ -277,28 +281,38 @@ export function InstagramFeedItem({
         );
       })()}
 
-      {/* 액션 버튼들 */}
-      <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700">
-        <div className="flex items-center justify-between">
+      {/* 액션 버튼들 - 인스타그램 스타일 */}
+      <div className="px-4 py-3">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleLike}
-              className={`p-2 transition-colors ${
+              className={`p-1 transition-all duration-200 ${
                 isLiked
-                  ? "text-red-500 hover:text-red-600"
-                  : "text-gray-500 hover:text-red-500"
+                  ? "text-red-500 hover:text-red-600 scale-110"
+                  : "text-gray-900 dark:text-gray-100 hover:text-red-500 hover:scale-105"
               }`}
+              title={isLiked ? "좋아요 취소" : "좋아요"}
             >
-              <Heart className={`w-6 h-6 ${isLiked ? "fill-current" : ""}`} />
+              <Heart 
+                className={`w-6 h-6 transition-all duration-200 ${
+                  isLiked ? "fill-current drop-shadow-sm" : "hover:scale-110"
+                }`} 
+                style={{
+                  fill: isLiked ? 'currentColor' : 'none',
+                  stroke: isLiked ? 'currentColor' : 'currentColor',
+                  strokeWidth: isLiked ? 0 : 1.5
+                }}
+              />
             </Button>
 
             <Button
               variant="ghost"
               size="sm"
               onClick={onComment}
-              className="p-2 text-gray-500 hover:text-emerald-500 transition-colors"
+              className="p-1 text-gray-900 dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
               <MessageCircle className="w-6 h-6" />
             </Button>
@@ -307,23 +321,39 @@ export function InstagramFeedItem({
               variant="ghost"
               size="sm"
               onClick={onShare}
-              className="p-2 text-gray-500 hover:text-blue-500 transition-colors"
+              className="p-1 text-gray-900 dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
               <Share2 className="w-6 h-6" />
             </Button>
           </div>
-
-          <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-            <span className="font-['Pretendard']">
-              {likeCount > 0 && `${likeCount}개 좋아요`}
-            </span>
-            {post.commentCount > 0 && (
-              <span className="font-['Pretendard']">
-                {post.commentCount}개 댓글
-              </span>
-            )}
-          </div>
         </div>
+
+        {/* 좋아요 수 */}
+        {likeCount > 0 && (
+          <div className="mb-2">
+            <span className={`font-semibold text-sm font-['Pretendard'] transition-colors duration-200 ${
+              isLiked 
+                ? "text-red-600 dark:text-red-400" 
+                : "text-gray-900 dark:text-gray-100"
+            }`}>
+              좋아요 {likeCount.toLocaleString()}개
+            </span>
+          </div>
+        )}
+
+        {/* 댓글 수 */}
+        {post.commentCount > 0 && (
+          <div className="mb-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onComment}
+              className="p-0 h-auto text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-['Pretendard']"
+            >
+              댓글 {post.commentCount}개 모두 보기
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -10,14 +10,6 @@ import {
 export function getBrandColorByStock(stockCode: string, stockName?: string) {
   const brandColor = getStockBrandColor(stockCode);
 
-  // 로그를 통해 색상 적용 확인
-  console.log(`🎨 주식 브랜드 색상 적용:`, {
-    stockCode,
-    stockName,
-    primary: brandColor.primary,
-    secondary: brandColor.secondary,
-    brandName: brandColor.name,
-  });
 
   return brandColor;
 }
@@ -28,12 +20,6 @@ export function getBrandColorByStock(stockCode: string, stockName?: string) {
 export function getBrandColorBySector(sector: string) {
   const brandColor = getSectorBrandColor(sector);
 
-  console.log(`🎨 업종 브랜드 색상 적용:`, {
-    sector,
-    primary: brandColor.primary,
-    secondary: brandColor.secondary,
-    brandName: brandColor.name,
-  });
 
   return brandColor;
 }

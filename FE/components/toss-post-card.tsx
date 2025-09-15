@@ -160,9 +160,15 @@ export function TossPostCard({
                   "flex items-center space-x-2 text-gray-400 hover:text-red-400 transition-colors",
                   post.isLiked && "text-red-400"
                 )}
+                title={post.isLiked ? "좋아요 취소" : "좋아요"}
               >
                 <Heart
                   className={cn("w-5 h-5", post.isLiked && "fill-current")}
+                  style={{
+                    fill: post.isLiked ? 'currentColor' : 'none',
+                    stroke: 'currentColor',
+                    strokeWidth: post.isLiked ? 0 : 1.5
+                  }}
                 />
                 <span className="text-sm">{post.likeCount}</span>
               </button>

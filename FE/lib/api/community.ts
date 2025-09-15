@@ -84,6 +84,19 @@ export const getPosts = async (
   const response = await api.get(`/community/stocks/${symbol}/posts`, {
     params: { page, size },
   });
+  
+  // API 응답에서 좋아요 상태 확인
+  const likedPosts = response.data.data.content?.filter((post: any) => post.isLiked === true) || [];
+  console.log("🔍 API 응답 - 좋아요 상태:", {
+    totalPosts: response.data.data.content?.length || 0,
+    likedPosts: likedPosts.length,
+    posts: response.data.data.content?.map((post: any) => ({
+      id: post.id,
+      isLiked: post.isLiked,
+      likeCount: post.likeCount
+    }))
+  });
+  
   return response.data.data;
 };
 

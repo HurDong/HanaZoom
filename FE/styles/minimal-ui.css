@@ -91,8 +91,32 @@
 
 .minimal-tab-trigger[data-state="active"] {
   background: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   color: #111827;
+  border: 1px solid #e5e7eb;
+  transform: translateY(-1px);
+}
+
+/* 다크모드 탭 스타일 */
+.dark .minimal-tabs {
+  background: #374151;
+}
+
+.dark .minimal-tab-trigger {
+  color: #d1d5db;
+}
+
+.dark .minimal-tab-trigger[data-state="active"] {
+  background: #1f2937;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  color: #f9fafb;
+  border: 1px solid #4b5563;
+  transform: translateY(-1px);
+}
+
+.dark .minimal-tab-trigger:hover {
+  background: #4b5563;
+  color: #f3f4f6;
 }
 
 /* 구분선 */
@@ -228,14 +252,5 @@
 
   .divider {
     background: #374151;
-  }
-
-  .minimal-tabs {
-    background: #374151;
-  }
-
-  .minimal-tab-trigger[data-state="active"] {
-    background: #1f2937;
-    color: #f9fafb;
   }
 }

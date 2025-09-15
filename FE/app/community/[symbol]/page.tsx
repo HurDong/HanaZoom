@@ -69,6 +69,7 @@ export default function StockDiscussionPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   const [stock, setStock] = useState<Stock | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -94,6 +95,16 @@ export default function StockDiscussionPage() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Zustand persist 하이드레이션 완료 감지
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsHydrated(true);
+      console.log("🔄 하이드레이션 완료, accessToken:", accessToken);
+    }, 100); // 100ms 후 하이드레이션 완료로 간주
+
+    return () => clearTimeout(timer);
+  }, [accessToken]);
 
   // WebSocket 연결 (현재 종목만 구독)
   const {
@@ -128,6 +139,9 @@ export default function StockDiscussionPage() {
           getStock(symbol as string),
           getPosts(symbol as string, 0, 10),
         ]);
+        
+        console.log("📥 첫 페이지 API 응답 데이터:", postsResponse);
+        console.log("🔍 로그인 상태:", !!accessToken);
 
         setStock(stockResponse);
 
@@ -135,7 +149,18 @@ export default function StockDiscussionPage() {
           postsResponse.content?.filter((post) => post && post.id) || [];
 
         // 백엔드에서 이미 투표 데이터가 포함되어 응답되므로 추가 API 호출 불필요
-        const postsWithVotes = validPosts;
+        const postsWithVotes = validPosts.map((post) => ({
+          ...post,
+          isLiked: (post as any).liked === true, // 백엔드에서 'liked' 필드로 전달됨
+          likeCount: post.likeCount || 0,
+        }));
+
+        console.log("📝 최종 설정할 게시글 데이터:", postsWithVotes.map(post => ({
+          id: post.id,
+          isLiked: post.isLiked,
+          likeCount: post.likeCount,
+          author: post.author.name
+        })));
 
         setPosts(postsWithVotes);
         setHasMore(postsResponse.content?.length === 10);
@@ -149,6 +174,29 @@ export default function StockDiscussionPage() {
 
     fetchInitialData();
   }, [symbol, accessToken, reset]);
+
+  // 로그인 상태가 변경될 때 좋아요 상태 다시 확인
+  useEffect(() => {
+    if (isClient && accessToken && posts.length > 0) {
+      console.log("🔄 로그인 상태 변경으로 인한 좋아요 상태 재확인");
+      // 로그인 상태가 변경되면 게시글 목록을 다시 가져와서 좋아요 상태 업데이트
+      const refreshPosts = async () => {
+        try {
+          const postsResponse = await getPosts(symbol as string, 0, 10);
+          const validPosts = postsResponse.content?.filter((post) => post && post.id) || [];
+          const postsWithVotes = validPosts.map((post) => ({
+            ...post,
+            isLiked: (post as any).liked === true, // 백엔드에서 'liked' 필드로 전달됨
+            likeCount: post.likeCount || 0,
+          }));
+          setPosts(postsWithVotes);
+        } catch (error) {
+          console.error("Failed to refresh posts:", error);
+        }
+      };
+      refreshPosts();
+    }
+  }, [accessToken, isClient, symbol]);
 
   // 무한 스크롤을 위한 추가 데이터 로딩
   useEffect(() => {
@@ -167,7 +215,11 @@ export default function StockDiscussionPage() {
         }
 
         // 백엔드에서 이미 투표 데이터가 포함되어 응답되므로 추가 API 호출 불필요
-        const postsWithVotes = newPosts;
+        const postsWithVotes = newPosts.map((post) => ({
+          ...post,
+          isLiked: (post as any).liked === true, // 백엔드에서 'liked' 필드로 전달됨
+          likeCount: post.likeCount || 0,
+        }));
 
         setPosts((prev) => [...prev, ...postsWithVotes]);
         setHasMore(newPosts.length === 10);
@@ -274,35 +326,82 @@ export default function StockDiscussionPage() {
       return;
     }
 
-    try {
-      const post = posts.find((p) => p.id === postId);
-      if (!post) return;
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
 
+    console.log("❤️ 좋아요 처리 시작 - 게시글 ID:", postId, "현재 상태:", post.isLiked, "좋아요 수:", post.likeCount);
+
+    // 낙관적 업데이트를 위한 이전 상태 저장
+    const previousState = {
+      isLiked: post.isLiked,
+      likeCount: post.likeCount
+    };
+
+    // UI를 먼저 업데이트 (낙관적 업데이트)
+    if (post.isLiked) {
+      console.log("👎 좋아요 취소 시도 - UI 먼저 업데이트");
+      setPosts(
+        posts.map((p) =>
+          p.id === postId
+            ? { ...p, isLiked: false, likeCount: Math.max(0, p.likeCount - 1) }
+            : p
+        )
+      );
+    } else {
+      console.log("👍 좋아요 시도 - UI 먼저 업데이트");
+      setPosts(
+        posts.map((p) =>
+          p.id === postId
+            ? { ...p, isLiked: true, likeCount: p.likeCount + 1 }
+            : p
+        )
+      );
+    }
+
+    try {
       if (post.isLiked) {
+        console.log("👎 좋아요 취소 API 호출");
         await unlikePost(postId);
-        setPosts(
-          posts.map((p) =>
-            p.id === postId
-              ? { ...p, isLiked: false, likeCount: p.likeCount - 1 }
-              : p
-          )
-        );
+        console.log("✅ 좋아요 취소 완료");
       } else {
+        console.log("👍 좋아요 API 호출");
         await likePost(postId);
-        setPosts(
-          posts.map((p) =>
-            p.id === postId
-              ? { ...p, isLiked: true, likeCount: p.likeCount + 1 }
-              : p
-          )
-        );
+        console.log("✅ 좋아요 완료");
       }
     } catch (error: any) {
-      console.error("Failed to like/unlike post:", error);
+      console.error("❌ Failed to like/unlike post:", error);
+
+      // 에러 발생 시 UI 상태를 원래대로 되돌리기
+      console.log("🔄 에러 발생으로 인한 UI 상태 복원");
+      setPosts(
+        posts.map((p) =>
+          p.id === postId
+            ? { ...p, isLiked: previousState.isLiked, likeCount: previousState.likeCount }
+            : p
+        )
+      );
 
       if (error.response?.status === 403) {
         toast.error("권한이 없습니다. 다시 로그인해주세요.");
         router.push("/login");
+      } else if (error.response?.status === 400) {
+        // 400 에러는 중복 좋아요/취소 시도로 인한 것
+        console.log("⚠️ 중복 좋아요/취소 시도로 인한 400 에러");
+        
+        // 서버에서 이미 처리된 상태로 간주하고 UI 상태를 서버 상태로 동기화
+        if (post.isLiked) {
+          // 좋아요 취소 시도했는데 이미 취소된 상태라면, UI를 좋아요 취소 상태로 유지
+          console.log("🔄 서버에서 이미 좋아요 취소된 상태로 확인됨");
+        } else {
+          // 좋아요 시도했는데 이미 좋아요된 상태라면, UI를 좋아요 상태로 유지
+          console.log("🔄 서버에서 이미 좋아요된 상태로 확인됨");
+        }
+        
+        // 에러 메시지는 표시하지 않음 (이미 처리된 상태)
+        console.log("✅ 서버 상태와 동기화 완료");
+      } else {
+        // 기타 에러는 사용자에게 알림
+        toast.error("좋아요 처리에 실패했습니다. 다시 시도해주세요.");
       }
     }
   };
@@ -580,6 +679,34 @@ export default function StockDiscussionPage() {
       }
     }) || [];
 
+  if (!isClient || !isHydrated) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <NavBar />
+        <div className="container mx-auto px-4 py-8 pt-40">
+          <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <div className="relative mb-8">
+              <div className="w-16 h-16 border-4 border-pink-200 border-t-pink-600 rounded-full animate-spin"></div>
+              <div
+                className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-purple-400 rounded-full animate-spin"
+                style={{
+                  animationDirection: "reverse",
+                  animationDuration: "1.5s",
+                }}
+              ></div>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              {!isClient ? "로딩 중..." : "인증 정보 확인 중..."}
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 text-center">
+              {!isClient ? "페이지를 준비하고 있습니다" : "사용자 정보를 확인하고 있습니다"}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -650,38 +777,38 @@ export default function StockDiscussionPage() {
 
       <main className="pt-20">
         {/* 필터 탭 */}
-        <div className="sticky top-32 z-40 bg-white border-b border-gray-100">
+        <div className="sticky top-32 z-40 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
           <div className="container mx-auto px-4 py-3">
             <Tabs
               value={activeTab}
               onValueChange={setActiveTab}
               className="w-auto"
             >
-              <TabsList className="minimal-tabs">
+              <TabsList className="minimal-tabs bg-gray-100 dark:bg-gray-800">
                 <TabsTrigger
                   value="all"
-                  className="minimal-tab-trigger font-['Pretendard'] text-gray-600"
+                  className="minimal-tab-trigger font-['Pretendard'] text-gray-600 dark:text-gray-300 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-white data-[state=active]:border-gray-200 dark:data-[state=active]:border-gray-600 data-[state=active]:shadow-lg"
                 >
                   <MessageSquare className="w-4 h-4 mr-2" />
                   전체
                 </TabsTrigger>
                 <TabsTrigger
                   value="bullish"
-                  className="minimal-tab-trigger font-['Pretendard'] text-green-600"
+                  className="minimal-tab-trigger font-['Pretendard'] text-red-600 dark:text-red-400 data-[state=active]:bg-red-100 dark:data-[state=active]:bg-red-900/50 data-[state=active]:text-red-800 dark:data-[state=active]:text-red-200 data-[state=active]:border-red-200 dark:data-[state=active]:border-red-700 data-[state=active]:shadow-lg"
                 >
                   <TrendingUp className="w-4 h-4 mr-2" />
                   매수
                 </TabsTrigger>
                 <TabsTrigger
                   value="bearish"
-                  className="minimal-tab-trigger font-['Pretendard'] text-red-600"
+                  className="minimal-tab-trigger font-['Pretendard'] text-blue-600 dark:text-blue-400 data-[state=active]:bg-blue-100 dark:data-[state=active]:bg-blue-900/50 data-[state=active]:text-blue-800 dark:data-[state=active]:text-blue-200 data-[state=active]:border-blue-200 dark:data-[state=active]:border-blue-700 data-[state=active]:shadow-lg"
                 >
                   <TrendingDown className="w-4 h-4 mr-2" />
                   매도
                 </TabsTrigger>
                 <TabsTrigger
                   value="neutral"
-                  className="minimal-tab-trigger font-['Pretendard'] text-gray-500"
+                  className="minimal-tab-trigger font-['Pretendard'] text-gray-500 dark:text-gray-400 data-[state=active]:bg-gray-100 dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-700 dark:data-[state=active]:text-gray-200 data-[state=active]:border-gray-200 dark:data-[state=active]:border-gray-600 data-[state=active]:shadow-lg"
                 >
                   <Minus className="w-4 h-4 mr-2" />
                   중립

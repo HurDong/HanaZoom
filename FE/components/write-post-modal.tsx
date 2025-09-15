@@ -154,7 +154,7 @@ export function WritePostModal({
                   className={`${
                     sentiment === "BULLISH"
                       ? "bg-red-500 hover:bg-red-600 text-white"
-                      : "text-red-600 border-red-200 hover:bg-red-50"
+                      : "text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/20"
                   }`}
                 >
                   <TrendingUp className="w-4 h-4 mr-2" />
@@ -168,7 +168,7 @@ export function WritePostModal({
                   className={`${
                     sentiment === "BEARISH"
                       ? "bg-blue-500 hover:bg-blue-600 text-white"
-                      : "text-blue-600 border-blue-200 hover:bg-blue-50"
+                      : "text-blue-600 border-blue-200 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-700 dark:hover:bg-blue-900/20"
                   }`}
                 >
                   <TrendingDown className="w-4 h-4 mr-2" />
@@ -182,7 +182,7 @@ export function WritePostModal({
                   className={`${
                     sentiment === "NEUTRAL"
                       ? "bg-gray-500 hover:bg-gray-600 text-white"
-                      : "text-gray-600 border-gray-200 hover:bg-gray-50"
+                      : "text-gray-600 border-gray-200 hover:bg-gray-50 dark:text-gray-400 dark:border-gray-700 dark:hover:bg-gray-800"
                   }`}
                 >
                   중립
