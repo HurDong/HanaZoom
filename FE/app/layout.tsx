@@ -12,9 +12,9 @@ export const metadata: Metadata = {
   description: "지역별 주식 투자 트렌드를 한눈에 보는 지도 기반 웹 서비스",
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
-    apple: "/favicon.ico",
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
   },
 };
 

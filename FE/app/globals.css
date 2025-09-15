@@ -231,3 +231,40 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
+
+/* ===== Cursor enforcement when custom cursor is disabled ===== */
+/* 기본 커서를 전역 최우선 우선순위로 강제 (커스텀 커서 비활성화 시) */
+body:not(.custom-cursor-enabled),
+body:not(.custom-cursor-enabled) *,
+body:not(.custom-cursor-enabled) svg,
+body:not(.custom-cursor-enabled) canvas,
+body:not(.custom-cursor-enabled) [data-chart],
+body:not(.custom-cursor-enabled) .chart-container,
+body:not(.custom-cursor-enabled) [class*="pointer-events-none"],
+body:not(.custom-cursor-enabled) .pointer-events-none,
+body:not(.custom-cursor-enabled) [class*="absolute"],
+body:not(.custom-cursor-enabled) [class*="fixed"],
+body:not(.custom-cursor-enabled) [class*="bg-"],
+body:not(.custom-cursor-enabled) [class*="opacity-"],
+body:not(.custom-cursor-enabled) [class*="backdrop-blur"],
+html:not(.custom-cursor-enabled) *,
+body:not(.custom-cursor-enabled) ::backdrop {
+  cursor: auto !important;
+}
+
+/* 클릭 가능 요소는 pointer, 입력 요소는 text 유지 */
+body:not(.custom-cursor-enabled) button,
+body:not(.custom-cursor-enabled) [role="button"],
+body:not(.custom-cursor-enabled) a,
+body:not(.custom-cursor-enabled) .cursor-pointer,
+body:not(.custom-cursor-enabled) [onclick],
+body:not(.custom-cursor-enabled) [href] {
+  cursor: pointer !important;
+}
+
+body:not(.custom-cursor-enabled) input,
+body:not(.custom-cursor-enabled) textarea,
+body:not(.custom-cursor-enabled) select,
+body:not(.custom-cursor-enabled) [contenteditable="true"] {
+  cursor: text !important;
+}

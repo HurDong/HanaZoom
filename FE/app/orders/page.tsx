@@ -183,7 +183,7 @@ export default function OrdersPage() {
 
   // 주문 카드 컴포넌트
   const OrderCard = ({ order }: { order: OrderResponse }) => (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-md transition-shadow relative z-10">
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
@@ -264,6 +264,7 @@ export default function OrdersPage() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950">
       <MouseFollower />
       
+      
       {/* 배경 패턴 */}
       <div className="absolute inset-0 pointer-events-none opacity-10 dark:opacity-5">
         <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:20px_20px]"></div>
@@ -275,7 +276,7 @@ export default function OrdersPage() {
         <StockTicker />
       </div>
 
-      <main className="pt-28 pb-8">
+      <main className="pt-28 pb-8 relative z-10">
         <div className="container mx-auto px-4">
           {/* 헤더 */}
           <div className="flex items-center justify-between mb-6">
