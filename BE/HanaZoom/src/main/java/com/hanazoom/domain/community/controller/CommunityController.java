@@ -37,6 +37,9 @@ public class CommunityController {
             @RequestBody PostRequest request,
             @AuthenticationPrincipal Member member) {
 
+        System.out.println("🔍 게시글 생성 요청 - imageUrl 길이: " + (request.getImageUrl() != null ? request.getImageUrl().length() : "null"));
+        System.out.println("🔍 게시글 생성 요청 - imageUrl 미리보기: " + (request.getImageUrl() != null ? request.getImageUrl().substring(0, Math.min(100, request.getImageUrl().length())) + "..." : "null"));
+
         Stock stock = stockService.getStockBySymbol(symbol);
         Post post;
 

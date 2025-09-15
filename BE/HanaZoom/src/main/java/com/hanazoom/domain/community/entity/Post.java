@@ -35,9 +35,11 @@ public class Post {
     private String title;
 
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
+    @Lob
     private String content;
 
-    @Column(name = "image_url")
+    @Column(name = "image_url", columnDefinition = "LONGTEXT")
+    @Lob
     private String imageUrl;
 
     @Enumerated(EnumType.STRING)

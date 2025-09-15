@@ -44,6 +44,9 @@ public class PostServiceImpl implements PostService {
     @Transactional
     public Post createPost(Member member, Stock stock, String title, String content, String imageUrl,
             PostType postType, PostSentiment sentiment) {
+        System.out.println("🔍 PostService.createPost - imageUrl 길이: " + (imageUrl != null ? imageUrl.length() : "null"));
+        System.out.println("🔍 PostService.createPost - imageUrl 미리보기: " + (imageUrl != null ? imageUrl.substring(0, Math.min(100, imageUrl.length())) + "..." : "null"));
+        
         Post post = Post.builder()
                 .member(member)
                 .stock(stock)
@@ -53,7 +56,13 @@ public class PostServiceImpl implements PostService {
                 .postType(postType)
                 .sentiment(sentiment)
                 .build();
-        return postRepository.save(post);
+        
+        System.out.println("🔍 Post 엔티티 생성 완료 - imageUrl 길이: " + (post.getImageUrl() != null ? post.getImageUrl().length() : "null"));
+        
+        Post savedPost = postRepository.save(post);
+        System.out.println("🔍 Post 저장 완료 - ID: " + savedPost.getId() + ", imageUrl 길이: " + (savedPost.getImageUrl() != null ? savedPost.getImageUrl().length() : "null"));
+        
+        return savedPost;
     }
 
     @Override
@@ -311,9 +320,11 @@ public class PostServiceImpl implements PostService {
 
     private Post getPostWithMemberCheck(Long postId, Member member) {
         Post post = getPost(postId);
-        if (!post.getMember().equals(member)) {
+        if (!post.getMember().getId().equals(member.getId())) {
+            System.out.println("🔍 권한 체크 실패 - Post 작성자 ID: " + post.getMember().getId() + ", 요청자 ID: " + member.getId());
             throw new IllegalArgumentException("게시글 작성자만 수정/삭제할 수 있습니다.");
         }
+        System.out.println("✅ 권한 체크 성공 - Post 작성자 ID: " + post.getMember().getId() + ", 요청자 ID: " + member.getId());
         return post;
     }
 }

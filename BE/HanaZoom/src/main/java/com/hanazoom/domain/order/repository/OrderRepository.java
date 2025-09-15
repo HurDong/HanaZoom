@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -53,6 +54,15 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
      */
     @Query("SELECT o FROM Order o JOIN o.stock s WHERE s.symbol = :stockCode AND o.orderType = 'SELL' AND o.status = 'PENDING' ORDER BY o.price ASC")
     List<Order> findByStockSymbolAndOrderTypeAndStatusOrderByPriceAsc(@Param("stockCode") String stockCode);
+    
+    /**
+     * 만료된 미체결 주문 조회 (스케줄러용)
+     * 지정된 시간 범위 내에서 PENDING 또는 PARTIAL_FILLED 상태인 주문들
+     */
+    @Query("SELECT o FROM Order o WHERE o.createdAt BETWEEN :startTime AND :endTime " +
+           "AND o.status IN ('PENDING', 'PARTIAL_FILLED') " +
+           "ORDER BY o.createdAt ASC")
+    List<Order> findExpiredOrders(@Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
 }
 
 
