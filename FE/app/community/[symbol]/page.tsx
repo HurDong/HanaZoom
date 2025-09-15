@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -236,20 +236,31 @@ export default function StockDiscussionPage() {
   }, [page, symbol, accessToken, isLoadingMore, setLoadingMore]);
 
   // 이미 투표한 게시글인데 결과 데이터가 비어있으면 자동으로 결과 조회해 반영
+  const fetchedVoteResultsRef = useRef<Set<number>>(new Set());
+  const inFlightVoteResultsRef = useRef<Set<number>>(new Set());
+
   useEffect(() => {
     if (!isClient || !accessToken) return;
     if (!posts || posts.length === 0) return;
 
-    const targets = posts.filter(
+    const candidates = posts.filter(
       (p) =>
         p && p.id && (p.hasVote || p.postType === "POLL") &&
-        !!p.userVote && (!p.voteOptions || p.voteOptions.length === 0)
+        (
+          (!!p.userVote && (!p.voteOptions || p.voteOptions.length === 0)) ||
+          (!p.userVote) // 서버 기준으로 이미 투표했을 수도 있어 결과로 판단
+        )
+    );
+
+    const targets = candidates.filter(
+      (p) => !fetchedVoteResultsRef.current.has(p.id) && !inFlightVoteResultsRef.current.has(p.id)
     );
 
     if (targets.length === 0) return;
 
     (async () => {
       try {
+        targets.forEach((p) => inFlightVoteResultsRef.current.add(p.id));
         const results = await Promise.all(
           targets.map(async (p) => {
             try {
@@ -263,66 +274,24 @@ export default function StockDiscussionPage() {
         );
 
         const valid = results.filter(Boolean) as { id: number; data: any }[];
-        if (valid.length === 0) return;
-
-        setPosts((prev) =>
-          prev.map((post) => {
-            const found = valid.find((v) => v.id === post.id);
-            if (!found) return post;
-            return {
-              ...post,
-              voteOptions: found.data.voteOptions,
-              userVote: found.data.userVote,
-            };
-          })
-        );
-      } catch (e) {
-        console.error("Failed to batch sync vote results:", e);
-      }
-    })();
-  }, [isClient, accessToken, posts]);
-
-  // 투표형 게시글인데 userVote 조차 없는 경우: 로그인 후 자동으로 결과 조회하여 결과 모드로 전환
-  useEffect(() => {
-    if (!isClient || !accessToken) return;
-    if (!posts || posts.length === 0) return;
-
-    const targets = posts.filter(
-      (p) => p && p.id && (p.hasVote || p.postType === "POLL") && !p.userVote
-    );
-
-    if (targets.length === 0) return;
-
-    (async () => {
-      try {
-        const results = await Promise.all(
-          targets.map(async (p) => {
-            try {
-              const data = await getPostVoteResults(p.id);
-              return { id: p.id, data };
-            } catch (e) {
-              console.error("Failed to fetch vote results (no userVote) for post:", p.id, e);
-              return null;
-            }
-          })
-        );
-
-        const valid = results.filter(Boolean) as { id: number; data: any }[];
-        if (valid.length === 0) return;
-
-        setPosts((prev) =>
-          prev.map((post) => {
-            const found = valid.find((v) => v.id === post.id);
-            if (!found) return post;
-            return {
-              ...post,
-              voteOptions: found.data.voteOptions,
-              userVote: found.data.userVote,
-            };
-          })
-        );
-      } catch (e) {
-        console.error("Failed to batch fetch vote results for missing userVote:", e);
+        if (valid.length > 0) {
+          setPosts((prev) =>
+            prev.map((post) => {
+              const found = valid.find((v) => v.id === post.id);
+              if (!found) return post;
+              return {
+                ...post,
+                voteOptions: found.data.voteOptions,
+                userVote: found.data.userVote,
+              };
+            })
+          );
+        }
+      } finally {
+        targets.forEach((p) => {
+          inFlightVoteResultsRef.current.delete(p.id);
+          fetchedVoteResultsRef.current.add(p.id);
+        });
       }
     })();
   }, [isClient, accessToken, posts]);

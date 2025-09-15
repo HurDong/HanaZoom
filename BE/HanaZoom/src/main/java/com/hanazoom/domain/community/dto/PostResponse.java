@@ -84,16 +84,10 @@ public class PostResponse {
         String voteQuestion = hasVote ? poll.getQuestion() : null;
         List<VoteOptionResponse> voteOptions = null;
 
-        System.out.println("PostResponse.from - poll: " + (poll != null ? poll.getId() : "null"));
-        System.out.println("PostResponse.from - hasVote: " + hasVote);
-        System.out.println("PostResponse.from - voteQuestion: " + voteQuestion);
+        
 
         if (hasVote) {
             // Poll 엔티티의 optionUp, optionDown을 사용하여 voteOptions 생성
-            System.out.println("PostResponse.from - poll.getOptionUp(): " + poll.getOptionUp());
-            System.out.println("PostResponse.from - poll.getOptionDown(): " + poll.getOptionDown());
-            System.out.println("PostResponse.from - poll.getVoteUpCount(): " + poll.getVoteUpCount());
-            System.out.println("PostResponse.from - poll.getVoteDownCount(): " + poll.getVoteDownCount());
 
             voteOptions = List.of(
                     VoteOptionResponse.builder()
@@ -107,7 +101,7 @@ public class PostResponse {
                             .voteCount(poll.getVoteDownCount())
                             .build());
 
-            System.out.println("PostResponse.from - voteOptions 생성됨: " + voteOptions.size() + "개");
+            
         }
 
         return PostResponse.builder()

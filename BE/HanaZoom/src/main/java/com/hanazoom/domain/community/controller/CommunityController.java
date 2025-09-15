@@ -37,31 +37,22 @@ public class CommunityController {
             @RequestBody PostRequest request,
             @AuthenticationPrincipal Member member) {
 
-        System.out.println("🔍 게시글 생성 요청 - imageUrl 길이: " + (request.getImageUrl() != null ? request.getImageUrl().length() : "null"));
-        System.out.println("🔍 게시글 생성 요청 - imageUrl 미리보기: " + (request.getImageUrl() != null ? request.getImageUrl().substring(0, Math.min(100, request.getImageUrl().length())) + "..." : "null"));
+        
 
         Stock stock = stockService.getStockBySymbol(symbol);
         Post post;
 
         if (request.isHasVote()) {
             // 투표 게시글 생성 (Poll 정보와 함께)
-            System.out.println("투표 게시글 생성 요청: " + request);
+            
             PostWithPollResponse result = postService.createPostWithVoteAndPoll(member, stock, request.getTitle(),
                     request.getContent(), request.getImageUrl(), request.getPostType(),
                     request.getSentiment(), request.getVoteQuestion(), request.getVoteOptions());
 
-            System.out.println("생성된 Post: " + result.getPost().getId());
-            System.out.println("생성된 Poll: " + (result.getPoll() != null ? result.getPoll().getId() : "null"));
+            
 
             PostResponse response = PostResponse.from(result.getPost(), false, result.getPoll(), null);
-            System.out.println("최종 응답: hasVote=" + response.isHasVote() + ", voteQuestion=" + response.getVoteQuestion()
-                    + ", voteOptions=" + response.getVoteOptions());
-            System.out.println("최종 응답 voteOptions 크기: "
-                    + (response.getVoteOptions() != null ? response.getVoteOptions().size() : "null"));
-            if (response.getVoteOptions() != null && !response.getVoteOptions().isEmpty()) {
-                System.out.println("첫 번째 voteOption: " + response.getVoteOptions().get(0).getText());
-                System.out.println("두 번째 voteOption: " + response.getVoteOptions().get(1).getText());
-            }
+            
 
             return ResponseEntity
                     .ok(ApiResponse.success(response));
@@ -136,27 +127,22 @@ public class CommunityController {
             @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal Member member) {
 
-        System.out.println("🔍 게시글 목록 조회 - 사용자 정보: " + (member != null ? "로그인됨 (ID: " + member.getId() + ")" : "로그인 안됨"));
         
         Stock stock = stockService.getStockBySymbol(symbol);
         Page<Post> posts = postService.getPostsByStock(stock, pageable);
         
-        System.out.println("📋 조회된 게시글 수: " + posts.getContent().size());
         
         Page<PostResponse> postResponses = posts.map(post -> {
             boolean isLiked = member != null && postService.isLikedByMember(post.getId(), member);
-            System.out.println("📝 게시글 ID: " + post.getId() + ", 좋아요 상태: " + isLiked + ", 사용자: " + (member != null ? member.getId() : "null") + ", 좋아요 수: " + post.getLikeCount());
             
             // 각 게시글에 대한 Poll 데이터 조회
             Poll poll = pollRepository.findByPostId(post.getId()).orElse(null);
             PostResponse response = PostResponse.from(post, isLiked, poll, null);
             
-            System.out.println("📤 PostResponse 생성 완료 - ID: " + response.getId() + ", isLiked: " + response.isLiked() + ", likeCount: " + response.getLikeCount());
             
             return response;
         });
         
-        System.out.println("✅ 게시글 목록 조회 완료 - 총 " + postResponses.getContent().size() + "개 게시글");
         return ResponseEntity.ok(ApiResponse.success(PostListResponse.from(postResponses)));
     }
 
