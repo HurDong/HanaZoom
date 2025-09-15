@@ -53,11 +53,25 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     data: ChartDataPoint;
     type: "candle" | "volume";
   } | null>(null);
+  // 지표 토글 상태
+  const [showBB, setShowBB] = useState<boolean>(true);
+  const [showSMA5, setShowSMA5] = useState<boolean>(true);
+  const [showSMA20, setShowSMA20] = useState<boolean>(true);
+  const [showSMA60, setShowSMA60] = useState<boolean>(false);
+  // 뷰포트(줌/팬) 상태
+  const [viewStart, setViewStart] = useState<number>(0);
+  const [viewEnd, setViewEnd] = useState<number>(0);
+  const isDraggingRef = useRef<boolean>(false);
+  const dragStartXRef = useRef<number>(0);
+  const dragStartViewStartRef = useRef<number>(0);
+  const lastMouseXRef = useRef<number>(0);
   const [showMinuteToggle, setShowMinuteToggle] = useState(false);
   const [lastMinuteTimeframe, setLastMinuteTimeframe] = useState("5M");
   const currentCandleRef = useRef<ChartDataPoint | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const volumeCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isPointerDownRef = useRef<boolean>(false);
 
   // localStorage 키 생성자
   const getMinuteKey = useCallback(() => `lastMinuteTimeframe_${stockCode}`, [stockCode]);
@@ -183,6 +197,10 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       data.sort((a, b) => a.timestamp - b.timestamp);
 
       setChartData(data);
+      // 초기 뷰포트: 최신 120개 기준
+      const initialWindow = Math.min(120, data.length);
+      setViewStart(Math.max(0, data.length - initialWindow));
+      setViewEnd(data.length);
       console.log(
         "✅ 차트 데이터 로드 완료:",
         data.length,
@@ -380,11 +398,77 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const padding = 80; // 패딩 증가로 축 공간 확보
     const chartWidth = canvas.width - padding * 2;
     const chartHeight = canvas.height - padding * 2;
-    const candleWidth = Math.max(2, (chartWidth / chartData.length) * 0.8);
-    const candleSpacing = chartWidth / chartData.length;
+    const total = chartData.length;
+    const start = Math.max(0, Math.min(viewStart, total - 1));
+    const end = Math.max(start + 1, Math.min(viewEnd, total));
+    const visibleData = chartData.slice(start, end);
+    const candleWidth = Math.max(2, (chartWidth / visibleData.length) * 0.8);
+    const candleSpacing = chartWidth / Math.max(1, visibleData.length);
 
     // 가격 범위 계산
-    const prices = chartData.flatMap((d) => [d.high, d.low]);
+    const prices = visibleData.flatMap((d) => [d.high, d.low]);
+
+    // 이동평균 및 볼린저밴드 계산 (렌더 범위 내)
+    const calcSMA = (data: ChartDataPoint[], period: number) => {
+      const result: (number | null)[] = Array(data.length).fill(null);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) {
+        sum += data[i].close;
+        if (i >= period) sum -= data[i - period].close;
+        if (i >= period - 1) result[i] = sum / period;
+      }
+      return result;
+    };
+
+    const calcBB = (data: ChartDataPoint[], period: number, k: number) => {
+      const ma = calcSMA(data, period);
+      const upper: (number | null)[] = Array(data.length).fill(null);
+      const lower: (number | null)[] = Array(data.length).fill(null);
+      for (let i = 0; i < data.length; i++) {
+        if (i >= period - 1 && ma[i] != null) {
+          let variance = 0;
+          for (let j = i - period + 1; j <= i; j++) {
+            const diff = data[j].close - (ma[i] as number);
+            variance += diff * diff;
+          }
+          const std = Math.sqrt(variance / period);
+          upper[i] = (ma[i] as number) + k * std;
+          lower[i] = (ma[i] as number) - k * std;
+        }
+      }
+      return { ma, upper, lower };
+    };
+
+    const sma5 = showSMA5 ? calcSMA(visibleData, 5) : [];
+    const sma20 = showSMA20 ? calcSMA(visibleData, 20) : [];
+    const sma60 = showSMA60 ? calcSMA(visibleData, 60) : [];
+    const bb = showBB ? calcBB(visibleData, 20, 2) : { ma: [], upper: [], lower: [] };
+
+    // 가격 범위 확장: 지표 포함
+    if (showSMA5) {
+      sma5.forEach((v) => {
+        if (v != null) prices.push(v);
+      });
+    }
+    if (showSMA20) {
+      sma20.forEach((v) => {
+        if (v != null) prices.push(v);
+      });
+    }
+    if (showSMA60) {
+      sma60.forEach((v) => {
+        if (v != null) prices.push(v);
+      });
+    }
+    if (showBB) {
+      bb.upper.forEach((v) => {
+        if (v != null) prices.push(v);
+      });
+      bb.lower.forEach((v) => {
+        if (v != null) prices.push(v);
+      });
+    }
+
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
     const priceRange = maxPrice - minPrice;
@@ -430,7 +514,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     ctx.stroke();
 
     // 3단계: 캔들스틱 그리기 (축 위에)
-    chartData.forEach((dataPoint, index) => {
+    visibleData.forEach((dataPoint, index) => {
       const x =
         padding + candleSpacing * index + (candleSpacing - candleWidth) / 2;
       const isUp = dataPoint.close >= dataPoint.open;
@@ -481,6 +565,63 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       }
     });
 
+    // 이동평균선 및 볼린저밴드 그리기
+    const drawLineSeries = (series: (number | null)[], color: string, width = 2) => {
+      if (!series.length) return;
+      ctx.beginPath();
+      ctx.lineWidth = width;
+      ctx.strokeStyle = color;
+      let started = false;
+      for (let i = 0; i < series.length; i++) {
+        const v = series[i];
+        if (v == null) continue;
+        const x = padding + candleSpacing * i + candleSpacing / 2;
+        const y = padding + ((maxPrice - v) / priceRange) * chartHeight;
+        if (!started) {
+          ctx.moveTo(x, y);
+          started = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      if (started) ctx.stroke();
+    };
+
+    if (showBB && bb.upper.length) {
+      // 볼린저 상단/하단
+      drawLineSeries(bb.upper, "#8b5cf6", 1.5);
+      drawLineSeries(bb.lower, "#8b5cf6", 1.5);
+      // 밴드 영역 채우기
+      ctx.beginPath();
+      let started = false;
+      for (let i = 0; i < bb.upper.length; i++) {
+        const u = bb.upper[i];
+        if (u == null) continue;
+        const x = padding + candleSpacing * i + candleSpacing / 2;
+        const y = padding + ((maxPrice - u) / priceRange) * chartHeight;
+        if (!started) {
+          ctx.moveTo(x, y);
+          started = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      for (let i = bb.lower.length - 1; i >= 0; i--) {
+        const l = bb.lower[i];
+        if (l == null) continue;
+        const x = padding + candleSpacing * i + candleSpacing / 2;
+        const y = padding + ((maxPrice - l) / priceRange) * chartHeight;
+        ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = "rgba(139, 92, 246, 0.1)";
+      ctx.fill();
+    }
+
+    if (showSMA5) drawLineSeries(sma5, "#10b981", 2);
+    if (showSMA20) drawLineSeries(sma20, "#f59e0b", 2);
+    if (showSMA60) drawLineSeries(sma60, "#6366f1", 2);
+
     // 4단계: 축 라벨 그리기 (가장 앞에)
     ctx.fillStyle = "#f3f4f6"; // 밝은 색상으로 변경
     ctx.font = "bold 12px Arial"; // 폰트 굵기 증가
@@ -497,17 +638,17 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     ctx.textAlign = "center";
     for (
       let i = 0;
-      i < chartData.length;
-      i += Math.max(1, Math.floor(chartData.length / 10))
+      i < visibleData.length;
+      i += Math.max(1, Math.floor(visibleData.length / 10))
     ) {
       const x = padding + candleSpacing * i + candleSpacing / 2;
-      const time = formatTimeLabel(chartData[i].time, timeframe);
+      const time = formatTimeLabel(visibleData[i].time, timeframe);
       ctx.fillText(time, x, canvas.height - padding + 25);
     }
 
     // 현재가 라인 (토스증권 스타일)
-    if (chartData.length > 0) {
-      const lastPrice = chartData[chartData.length - 1].close;
+    if (visibleData.length > 0) {
+      const lastPrice = visibleData[visibleData.length - 1].close;
       const currentPriceY =
         padding + ((maxPrice - lastPrice) / priceRange) * chartHeight;
 
@@ -525,13 +666,9 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       ctx.fillStyle = "#ef4444";
       ctx.font = "bold 12px Arial";
       ctx.textAlign = "left";
-      ctx.fillText(
-        `현재가: ${lastPrice.toLocaleString()}원`,
-        canvas.width - padding + 10,
-        currentPriceY + 4
-      );
+      ctx.fillText(`현재가: ${lastPrice.toLocaleString()}원`, canvas.width - padding + 10, currentPriceY + 4);
     }
-  }, [chartData, timeframe, hoveredCandle, tooltipData]);
+  }, [chartData, timeframe, hoveredCandle, tooltipData, showBB, showSMA5, showSMA20, showSMA60, viewStart, viewEnd]);
 
   // 차트 클릭 핸들러
   const handleChartClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -545,11 +682,16 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     // 클릭된 캔들 찾기
     const padding = 60;
     const chartWidth = canvas.width - padding * 2;
-    const candleSpacing = chartWidth / chartData.length;
+    const total = chartData.length;
+    const start = Math.max(0, Math.min(viewStart, total - 1));
+    const end = Math.max(start + 1, Math.min(viewEnd, total));
+    const visibleLen = Math.max(1, end - start);
+    const candleSpacing = chartWidth / visibleLen;
 
-    const index = Math.floor((x - padding) / candleSpacing);
-    if (index >= 0 && index < chartData.length) {
-      console.log("클릭된 캔들:", chartData[index]);
+    const localIndex = Math.floor((x - padding) / candleSpacing);
+    const globalIndex = start + localIndex;
+    if (localIndex >= 0 && localIndex < visibleLen && globalIndex >= 0 && globalIndex < chartData.length) {
+      console.log("클릭된 캔들:", chartData[globalIndex]);
     }
   };
 
@@ -564,16 +706,31 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
     const padding = 60;
     const chartWidth = canvas.width - padding * 2;
-    const candleSpacing = chartWidth / chartData.length;
+    const total = chartData.length;
+    const start = Math.max(0, Math.min(viewStart, total - 1));
+    const end = Math.max(start + 1, Math.min(viewEnd, total));
+    const visibleLen = Math.max(1, end - start);
+    const candleSpacing = chartWidth / visibleLen;
 
-    const index = Math.floor((x - padding) / candleSpacing);
-    if (index >= 0 && index < chartData.length) {
-      setHoveredCandle(index);
-      setHoveredVolume(index); // 거래량 차트도 동시에 활성화
+    if (isDraggingRef.current) {
+      // 팬
+      const dx = x - dragStartXRef.current;
+      const deltaIndex = Math.round(dx / candleSpacing);
+      const newStart = Math.max(0, Math.min(total - visibleLen, dragStartViewStartRef.current - deltaIndex));
+      setViewStart(newStart);
+      setViewEnd(newStart + visibleLen);
+      return;
+    }
+
+    const localIndex = Math.floor((x - padding) / candleSpacing);
+    const globalIndex = start + localIndex;
+    if (localIndex >= 0 && localIndex < visibleLen && globalIndex >= 0 && globalIndex < chartData.length) {
+      setHoveredCandle(localIndex);
+      setHoveredVolume(localIndex); // 거래량 차트도 동시에 활성화
       setTooltipData({
         x: event.clientX,
         y: event.clientY,
-        data: chartData[index],
+        data: chartData[globalIndex],
         type: "candle",
       });
     } else {
@@ -581,6 +738,60 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       setHoveredVolume(null);
       setTooltipData(null);
     }
+  };
+
+  // 드래그 시작/종료
+  const handleChartMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    isDraggingRef.current = true;
+    isPointerDownRef.current = true;
+    dragStartXRef.current = x;
+    dragStartViewStartRef.current = viewStart;
+  };
+
+  const handleChartMouseUp = () => {
+    isDraggingRef.current = false;
+    isPointerDownRef.current = false;
+  };
+
+  // 휠 줌 (차트 내에서는 페이지 스크롤 방지)
+  const handleChartWheel = (event: React.WheelEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+
+    const padding = 60;
+    const chartWidth = canvas.width - padding * 2;
+    const total = chartData.length;
+    if (total <= 1) return;
+
+    const start = Math.max(0, Math.min(viewStart, total - 1));
+    const end = Math.max(start + 1, Math.min(viewEnd, total));
+    const visibleLen = Math.max(1, end - start);
+    const candleSpacing = chartWidth / visibleLen;
+
+    // 마우스 위치 기준 인덱스
+    const localIndex = Math.floor((x - padding) / Math.max(1, candleSpacing));
+    const centerIndex = Math.max(0, Math.min(total - 1, start + localIndex));
+
+    const zoomFactor = 0.1; // 한 번 휠당 10%
+    const zoomIn = event.deltaY < 0;
+    let newLen = Math.round(visibleLen * (zoomIn ? 1 - zoomFactor : 1 + zoomFactor));
+    const minWindow = 20;
+    const maxWindow = total;
+    newLen = Math.max(minWindow, Math.min(maxWindow, newLen));
+
+    // 중심 유지: centerIndex가 창 중앙에 위치하도록 start 재계산
+    let newStart = Math.round(centerIndex - newLen / 2);
+    newStart = Math.max(0, Math.min(total - newLen, newStart));
+    setViewStart(newStart);
+    setViewEnd(newStart + newLen);
   };
 
   // 차트 마우스 리브 핸들러
@@ -602,16 +813,21 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
     const padding = 60; // 캔들차트와 동일한 패딩 사용
     const chartWidth = canvas.width - padding * 2;
-    const barSpacing = chartWidth / chartData.length;
+    const total = chartData.length;
+    const start = Math.max(0, Math.min(viewStart, total - 1));
+    const end = Math.max(start + 1, Math.min(viewEnd, total));
+    const visibleLen = Math.max(1, end - start);
+    const barSpacing = chartWidth / visibleLen;
 
-    const index = Math.floor((x - padding) / barSpacing);
-    if (index >= 0 && index < chartData.length) {
-      setHoveredVolume(index);
-      setHoveredCandle(index); // 캔들차트도 동시에 활성화
+    const localIndex = Math.floor((x - padding) / barSpacing);
+    const globalIndex = start + localIndex;
+    if (localIndex >= 0 && localIndex < visibleLen && globalIndex >= 0 && globalIndex < chartData.length) {
+      setHoveredVolume(localIndex);
+      setHoveredCandle(localIndex); // 캔들차트도 동시에 활성화
       setTooltipData({
         x: event.clientX,
         y: event.clientY,
-        data: chartData[index],
+        data: chartData[globalIndex],
         type: "volume",
       });
     } else {
@@ -630,7 +846,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
   // 거래량 차트 렌더링
   const renderVolumeChart = useCallback(() => {
-    const canvas = document.getElementById("volumeCanvas") as HTMLCanvasElement;
+    const canvas = volumeCanvasRef.current as HTMLCanvasElement | null;
     if (!canvas || chartData.length === 0) return;
 
     const ctx = canvas.getContext("2d");
@@ -650,11 +866,15 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const padding = 80; // 캔들차트와 동일한 패딩
     const chartWidth = canvas.width - padding * 2;
     const chartHeight = canvas.height - padding * 2;
-    const barWidth = Math.max(3, (chartWidth / chartData.length) * 0.8); // 바 너비 더 증가
-    const barSpacing = chartWidth / chartData.length; // 캔들차트와 동일한 간격
+    const total = chartData.length;
+    const start = Math.max(0, Math.min(viewStart, total - 1));
+    const end = Math.max(start + 1, Math.min(viewEnd, total));
+    const visibleData = chartData.slice(start, end);
+    const barWidth = Math.max(3, (chartWidth / visibleData.length) * 0.8); // 바 너비 더 증가
+    const barSpacing = chartWidth / Math.max(1, visibleData.length); // 캔들차트와 동일한 간격
 
     // 거래량 범위 계산
-    const volumes = chartData.map((d) => d.volume);
+    const volumes = visibleData.map((d) => d.volume);
     const maxVolume = Math.max(...volumes);
 
     // 배경 그라데이션
@@ -710,7 +930,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     ctx.stroke();
 
     // 3단계: 거래량 바 그리기 (축 위에 위치)
-    chartData.forEach((dataPoint, index) => {
+    visibleData.forEach((dataPoint, index) => {
       const x = padding + index * barSpacing + (barSpacing - barWidth) / 2;
       const height = (dataPoint.volume / maxVolume) * chartHeight;
       const y = canvas.height - padding - height;
@@ -765,13 +985,9 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     ctx.fillStyle = "#f3f4f6"; // 밝은 색상으로 변경
     ctx.font = "bold 12px Arial"; // 폰트 굵기 증가
     ctx.textAlign = "center";
-    for (
-      let i = 0;
-      i < chartData.length;
-      i += Math.max(1, Math.floor(chartData.length / 10))
-    ) {
+    for (let i = 0; i < visibleData.length; i += Math.max(1, Math.floor(visibleData.length / 10))) {
       const x = padding + barSpacing * i + barSpacing / 2;
-      const time = formatTimeLabel(chartData[i].time, timeframe);
+      const time = formatTimeLabel(visibleData[i].time, timeframe);
       ctx.fillText(time, x, canvas.height - padding + 25);
     }
 
@@ -886,6 +1102,53 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       <CardContent className="space-y-2">
         {/* 차트 컨트롤 */}
         <div className="flex flex-wrap gap-2">
+          {/* 지표 토글 */}
+          <div className="flex flex-wrap items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <button
+              onClick={() => setShowSMA5((v) => !v)}
+              className={`px-2 py-1 text-xs rounded transition-all ${
+                showSMA5
+                  ? "bg-emerald-600 text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+              title="단기 이동평균선 (5)"
+            >
+              SMA5
+            </button>
+            <button
+              onClick={() => setShowSMA20((v) => !v)}
+              className={`px-2 py-1 text-xs rounded transition-all ${
+                showSMA20
+                  ? "bg-amber-500 text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+              title="중기 이동평균선 (20)"
+            >
+              SMA20
+            </button>
+            <button
+              onClick={() => setShowSMA60((v) => !v)}
+              className={`px-2 py-1 text-xs rounded transition-all ${
+                showSMA60
+                  ? "bg-indigo-500 text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+              title="장기 이동평균선 (60)"
+            >
+              SMA60
+            </button>
+            <button
+              onClick={() => setShowBB((v) => !v)}
+              className={`px-2 py-1 text-xs rounded transition-all ${
+                showBB
+                  ? "bg-violet-500 text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+              title="볼린저밴드 (20, 2σ)"
+            >
+              BB
+            </button>
+          </div>
           {/* 분봉 토글 */}
           <div className="relative">
             <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
@@ -963,9 +1226,12 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
             <canvas
               ref={canvasRef}
               className="w-full h-full cursor-crosshair"
+              onMouseDown={handleChartMouseDown}
+              onMouseUp={handleChartMouseUp}
               onClick={handleChartClick}
               onMouseMove={handleChartMouseMove}
               onMouseLeave={handleChartMouseLeave}
+              onWheel={handleChartWheel}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -983,10 +1249,14 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         <div className="relative h-[250px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
           {chartData.length > 0 ? (
             <canvas
-              id="volumeCanvas"
+              ref={volumeCanvasRef}
               className="w-full h-full cursor-crosshair"
               onMouseMove={handleVolumeMouseMove}
               onMouseLeave={handleVolumeMouseLeave}
+              onWheel={(e) => {
+                // 거래량 캔버스에서도 동일하게 확대/축소, 페이지 스크롤 방지
+                handleChartWheel(e as unknown as React.WheelEvent<HTMLCanvasElement>);
+              }}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
