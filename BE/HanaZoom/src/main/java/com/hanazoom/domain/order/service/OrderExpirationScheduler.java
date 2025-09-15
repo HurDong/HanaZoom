@@ -39,7 +39,8 @@ public class OrderExpirationScheduler {
         LocalDateTime startOfYesterday = yesterday.atStartOfDay();
         LocalDateTime endOfYesterday = yesterday.atTime(LocalTime.MAX);
         
-        log.info("만료된 미체결 주문 취소 처리 시작: {}", yesterday);
+        log.info("🕛 매일 자정 스케줄러 실행 - 만료된 미체결 주문 취소 처리 시작");
+        log.info("📅 처리 대상 날짜: {} ({} ~ {})", yesterday, startOfYesterday, endOfYesterday);
 
         try {
             // 전날 생성된 미체결 주문 조회 (PENDING, PARTIAL_FILLED 상태)
@@ -48,30 +49,43 @@ public class OrderExpirationScheduler {
                 endOfYesterday
             );
 
-            log.info("만료된 미체결 주문 발견: {}건", expiredOrders.size());
+            log.info("🔍 만료된 미체결 주문 조회 완료: {}건", expiredOrders.size());
+            
+            // 조회된 주문들의 상세 정보 로그
+            for (Order order : expiredOrders) {
+                log.info("📋 만료 주문 상세: orderId={}, status={}, createdAt={}, stockCode={}, memberId={}", 
+                    order.getId(), 
+                    order.getStatus(), 
+                    order.getCreatedAt(),
+                    order.getStock().getSymbol(),
+                    order.getMember().getId());
+            }
 
             int cancelledCount = 0;
             for (Order order : expiredOrders) {
                 try {
+                    log.info("🔄 주문 취소 처리 시작: orderId={}, 현재상태={}", order.getId(), order.getStatus());
+                    
                     // 주문 취소 처리
                     order.cancel();
                     orderRepository.save(order);
                     cancelledCount++;
                     
-                    log.info("미체결 주문 자동 취소 완료: orderId={}, memberId={}, stockCode={}", 
+                    log.info("✅ 미체결 주문 자동 취소 완료: orderId={}, memberId={}, stockCode={}, 취소시간={}", 
                         order.getId(), 
                         order.getMember().getId(),
-                        order.getStock().getSymbol());
+                        order.getStock().getSymbol(),
+                        order.getCancelTime());
                         
                 } catch (Exception e) {
-                    log.error("주문 취소 처리 실패: orderId={}, error={}", order.getId(), e.getMessage());
+                    log.error("❌ 주문 취소 처리 실패: orderId={}, error={}", order.getId(), e.getMessage(), e);
                 }
             }
 
-            log.info("만료된 미체결 주문 취소 처리 완료: {}건 처리됨", cancelledCount);
+            log.info("🎯 만료된 미체결 주문 취소 처리 완료: {}건 처리됨", cancelledCount);
 
         } catch (Exception e) {
-            log.error("만료된 미체결 주문 취소 처리 중 오류 발생: {}", e.getMessage(), e);
+            log.error("💥 만료된 미체결 주문 취소 처리 중 오류 발생: {}", e.getMessage(), e);
         }
     }
 
@@ -82,44 +96,96 @@ public class OrderExpirationScheduler {
     @Transactional
     public void cleanupExpiredOrdersOnStartup() {
         LocalDate today = LocalDate.now();
-        LocalDate threeDaysAgo = today.minusDays(3); // 3일 전부터 조회
+        LocalDateTime todayStart = today.atStartOfDay();
         
-        LocalDateTime startTime = threeDaysAgo.atStartOfDay();
-        LocalDateTime endTime = today.atStartOfDay();
-        
-        log.info("서버 시작 시 만료된 주문 정리 시작: {} ~ {}", startTime, endTime);
+        log.info("🚀 서버 시작 시 만료된 주문 정리 시작");
+        log.info("📅 조회 기준: 오늘 이전의 모든 미체결 주문 ({} 이전)", todayStart);
 
         try {
-            List<Order> expiredOrders = orderRepository.findExpiredOrders(startTime, endTime);
+            // 오늘 이전의 모든 미체결 주문 조회
+            List<Order> expiredOrders = orderRepository.findPendingOrdersBefore(todayStart);
+            
+            log.info("🔍 오늘 이전 미체결 주문 조회 완료: {}건", expiredOrders.size());
             
             if (expiredOrders.isEmpty()) {
-                log.info("정리할 만료된 주문이 없습니다.");
+                log.info("✅ 정리할 만료된 주문이 없습니다.");
                 return;
             }
 
-            log.info("서버 시작 시 만료된 주문 발견: {}건", expiredOrders.size());
+            // 조회된 주문들의 상세 정보 로그
+            for (Order order : expiredOrders) {
+                log.info("📋 만료 주문 상세: orderId={}, status={}, createdAt={}, stockCode={}, memberId={}", 
+                    order.getId(), 
+                    order.getStatus(), 
+                    order.getCreatedAt(),
+                    order.getStock().getSymbol(),
+                    order.getMember().getId());
+            }
 
             int cancelledCount = 0;
             for (Order order : expiredOrders) {
                 try {
+                    log.info("🔄 서버 시작 시 주문 취소 처리: orderId={}, 현재상태={}", order.getId(), order.getStatus());
+                    
                     order.cancel();
                     orderRepository.save(order);
                     cancelledCount++;
                     
-                    log.info("서버 시작 시 만료 주문 취소: orderId={}, memberId={}, stockCode={}", 
+                    log.info("✅ 서버 시작 시 만료 주문 취소 완료: orderId={}, memberId={}, stockCode={}, 취소시간={}", 
                         order.getId(), 
                         order.getMember().getId(),
-                        order.getStock().getSymbol());
+                        order.getStock().getSymbol(),
+                        order.getCancelTime());
                         
                 } catch (Exception e) {
-                    log.error("서버 시작 시 주문 취소 실패: orderId={}, error={}", order.getId(), e.getMessage());
+                    log.error("❌ 서버 시작 시 주문 취소 실패: orderId={}, error={}", order.getId(), e.getMessage(), e);
                 }
             }
 
-            log.info("서버 시작 시 만료된 주문 정리 완료: {}건 처리됨", cancelledCount);
+            log.info("🎯 서버 시작 시 만료된 주문 정리 완료: {}건 처리됨", cancelledCount);
 
         } catch (Exception e) {
-            log.error("서버 시작 시 만료된 주문 정리 중 오류 발생: {}", e.getMessage(), e);
+            log.error("💥 서버 시작 시 만료된 주문 정리 중 오류 발생: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 디버깅용: 모든 미체결 주문 조회 및 로그 출력
+     */
+    @Transactional(readOnly = true)
+    public void debugPendingOrders() {
+        log.info("🔍 디버깅: 모든 미체결 주문 조회 시작");
+        
+        try {
+            // 모든 미체결 주문 조회
+            List<Order> allPendingOrders = orderRepository.findAllPendingOrders();
+            log.info("📊 전체 미체결 주문 수: {}건", allPendingOrders.size());
+            
+            for (Order order : allPendingOrders) {
+                log.info("📋 미체결 주문: orderId={}, status={}, createdAt={}, stockCode={}, memberId={}", 
+                    order.getId(), 
+                    order.getStatus(), 
+                    order.getCreatedAt(),
+                    order.getStock().getSymbol(),
+                    order.getMember().getId());
+            }
+            
+            // 오늘 이전의 미체결 주문 조회
+            LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+            List<Order> oldPendingOrders = orderRepository.findPendingOrdersBefore(todayStart);
+            log.info("📅 오늘 이전 미체결 주문 수: {}건", oldPendingOrders.size());
+            
+            for (Order order : oldPendingOrders) {
+                log.info("📋 오늘 이전 미체결 주문: orderId={}, status={}, createdAt={}, stockCode={}, memberId={}", 
+                    order.getId(), 
+                    order.getStatus(), 
+                    order.getCreatedAt(),
+                    order.getStock().getSymbol(),
+                    order.getMember().getId());
+            }
+            
+        } catch (Exception e) {
+            log.error("💥 디버깅 중 오류 발생: {}", e.getMessage(), e);
         }
     }
 }

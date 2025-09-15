@@ -22,6 +22,9 @@ public class StartupConfig implements ApplicationRunner {
         log.info("🚀 HanaZoom 서버 시작 - 초기화 작업 시작");
         
         try {
+            // 디버깅: 현재 미체결 주문 상태 확인
+            orderExpirationScheduler.debugPendingOrders();
+            
             // 서버 시작 시 만료된 주문들 정리
             orderExpirationScheduler.cleanupExpiredOrdersOnStartup();
             

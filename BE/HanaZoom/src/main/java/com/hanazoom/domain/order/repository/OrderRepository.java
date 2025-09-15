@@ -63,6 +63,23 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
            "AND o.status IN ('PENDING', 'PARTIAL_FILLED') " +
            "ORDER BY o.createdAt ASC")
     List<Order> findExpiredOrders(@Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
+    
+    /**
+     * 모든 미체결 주문 조회 (디버깅용)
+     * PENDING 또는 PARTIAL_FILLED 상태인 모든 주문들
+     */
+    @Query("SELECT o FROM Order o WHERE o.status IN ('PENDING', 'PARTIAL_FILLED') " +
+           "ORDER BY o.createdAt ASC")
+    List<Order> findAllPendingOrders();
+    
+    /**
+     * 특정 날짜 이전의 미체결 주문 조회 (디버깅용)
+     * 지정된 날짜 이전에 생성된 PENDING 또는 PARTIAL_FILLED 상태인 주문들
+     */
+    @Query("SELECT o FROM Order o WHERE o.createdAt < :beforeDate " +
+           "AND o.status IN ('PENDING', 'PARTIAL_FILLED') " +
+           "ORDER BY o.createdAt ASC")
+    List<Order> findPendingOrdersBefore(@Param("beforeDate") LocalDateTime beforeDate);
 }
 
 
