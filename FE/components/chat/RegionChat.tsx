@@ -101,6 +101,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showMention, setShowMention] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionPosition, setMentionPosition] = useState(0);
@@ -241,6 +242,16 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
               setCurrentSessionId(data.senderId);
             }
 
+            // 현재 사용자 ID 저장 (첫 번째 메시지에서)
+            if (data.senderId && !currentUserId) {
+              setCurrentUserId(data.senderId);
+            }
+
+            // 내가 보낸 메시지인지 판단 (서버에서 isMyMessage가 없거나 false인 경우)
+            if (data.senderId && currentUserId) {
+              data.isMyMessage = data.senderId === currentUserId;
+            }
+
             if (!receivedMessageIds.current.has(data.id)) {
               receivedMessageIds.current.add(data.id);
               setMessages((prev) => [...prev, data]);
@@ -275,6 +286,10 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
           console.log("Connection state:", ws.current?.readyState);
           console.log("Region ID:", regionId);
 
+          // 에러 상태 설정
+          setError("WebSocket 연결에 오류가 발생했습니다.");
+          setReadyState("closed");
+
           // 연결 상태가 CONNECTING인 경우에만 재연결 시도
           if (ws.current?.readyState === WebSocket.CONNECTING) {
             handleReconnect(token);
@@ -282,6 +297,8 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         };
       } catch (err) {
         console.error("Error connecting to WebSocket:", err);
+        setError("WebSocket 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        setReadyState("closed");
         handleReconnect(token);
       }
     },
@@ -406,7 +423,10 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
       ws.current.send(JSON.stringify({ type: "TYPING", isTyping: false }));
     }
 
-    ws.current.send(JSON.stringify({ content: newMessage }));
+    ws.current.send(JSON.stringify({ 
+      content: newMessage,
+      senderId: currentUserId 
+    }));
     setNewMessage("");
   };
 
