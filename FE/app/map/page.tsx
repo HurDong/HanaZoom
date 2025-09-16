@@ -26,6 +26,7 @@ import { useAuthStore } from "@/app/utils/auth";
 import api from "@/app/config/api";
 import { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
 import { getTopStocksByRegion } from "@/lib/api/stock";
+import { getPopularityDetails, type PopularityDetailsResponse } from "@/lib/api/stock";
 import { MouseFollower } from "@/components/mouse-follower";
 import { FloatingEmojiBackground } from "@/components/floating-emoji-background";
 import { useUserSettingsStore } from "@/lib/stores/userSettingsStore";
@@ -38,6 +39,7 @@ import { getMarketStatus, isMarketOpen } from "@/lib/utils/marketUtils";
 import type { StockPriceData } from "@/lib/api/stock";
 import { useOfflineStatus } from "@/hooks/useOfflineStatus";
 import OfflineIndicator from "@/components/OfflineIndicator";
+import PopularityDonut from "@/components/popularity-donut";
 
 // 백엔드 RegionResponse DTO와 일치하는 타입 정의
 export interface Region {
@@ -78,6 +80,7 @@ export default function MapPage() {
   const [isMapReady, setIsMapReady] = useState(false);
   const [selectedStock, setSelectedStock] = useState<TopStock | null>(null);
   const [showStockModal, setShowStockModal] = useState(false);
+  const [popDetails, setPopDetails] = useState<PopularityDetailsResponse | null>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const router = useRouter();
 
@@ -509,6 +512,7 @@ export default function MapPage() {
   const handleCloseStockDetail = () => {
     setSelectedStock(null);
     setShowStockModal(false);
+    setPopDetails(null);
   };
 
   // 커뮤니티로 이동
@@ -527,6 +531,101 @@ export default function MapPage() {
     // TODO: 차트 모달 또는 페이지로 이동
     console.log("차트 보기:", stock.symbol);
   };
+
+  // 인기도 도넛 컴포넌트 (뉴스 조각은 숨김)
+  function PopularityDonut({
+    regionId,
+    symbol,
+    onLoaded,
+  }: {
+    regionId: number;
+    symbol: string;
+    onLoaded?: (d: PopularityDetailsResponse | null) => void;
+  }) {
+    const [loading, setLoading] = useState(true);
+    const [data, setData] = useState<PopularityDetailsResponse | null>(null);
+    const abortRef = useRef<AbortController | null>(null);
+
+    useEffect(() => {
+      let mounted = true;
+      setLoading(true);
+      // 이전 요청 취소
+      if (abortRef.current) {
+        abortRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8초 타임아웃
+
+      getPopularityDetails(regionId, symbol, "latest")
+        .then((d) => {
+          if (!mounted || controller.signal.aborted) return;
+          setData(d);
+          onLoaded?.(d);
+        })
+        .catch(() => {
+          if (!mounted || controller.signal.aborted) return;
+          setData(null);
+          onLoaded?.(null);
+        })
+        .finally(() => {
+          if (!mounted) return;
+          clearTimeout(timeoutId);
+          setLoading(false);
+        });
+      return () => {
+        mounted = false;
+        clearTimeout(timeoutId);
+        controller.abort();
+      };
+    }, [regionId, symbol]);
+
+    if (loading) {
+      return (
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Loader2 className="w-4 h-4 animate-spin" /> 불러오는 중...
+        </div>
+      );
+    }
+    if (!data) {
+      return (
+        <div className="text-sm text-gray-500">데이터 없음</div>
+      );
+    }
+
+    // 구성 요소(뉴스는 숨김)
+    const items = [
+      { key: "Trade", label: "거래추세", value: data.tradeTrend, weight: data.weightTradeTrend, color: "#059669" },
+      { key: "Comm", label: "커뮤니티", value: data.community, weight: data.weightCommunity, color: "#10b981" },
+      { key: "Mom", label: "모멘텀", value: data.momentum, weight: data.weightMomentum, color: "#34d399" },
+      // 뉴스는 숨김
+    ];
+    const weighted = items.map(i => ({ ...i, wv: (i.value || 0) * (i.weight || 0) }));
+    const sum = weighted.reduce((a, b) => a + b.wv, 0) || 1;
+    const chartData = weighted.map(i => ({ name: i.label, value: i.wv, percent: Math.round((i.wv / sum) * 1000) / 10, fill: i.color }));
+
+    return (
+      <ChartContainer
+        config={{
+          거래추세: { label: "거래추세", color: "#059669" },
+          커뮤니티: { label: "커뮤니티", color: "#10b981" },
+          모멘텀: { label: "모멘텀", color: "#34d399" },
+        }}
+        className="h-56"
+      >
+        <PieChart>
+          <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90}>
+            {chartData.map((entry, idx) => (
+              <Cell key={idx} fill={entry.fill} />
+            ))}
+          </Pie>
+          <ChartTooltip content={<ChartTooltipContent formatter={(v, name) => (<span>{name}: {Math.round((Number(v)/sum)*1000)/10}%</span>)} />} />
+          <ChartLegend content={<ChartLegendContent />} />
+        </PieChart>
+      </ChartContainer>
+    );
+  }
 
   if (!isMapReady) {
     return (
@@ -985,9 +1084,10 @@ export default function MapPage() {
                 </div>
                 <button
                   onClick={handleCloseStockDetail}
-                  className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="닫기"
+                  className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 text-white shadow focus:outline-none focus:ring-2 focus:ring-emerald-400"
                 >
-                  <X className="w-6 h-6 text-gray-500" />
+                  <X className="w-6 h-6" />
                 </button>
               </div>
 
@@ -1062,6 +1162,16 @@ export default function MapPage() {
                     </span>
                   </div>
                 </div>
+              </div>
+
+              {/* 인기도 기여도 도넛(전일 기준) */}
+              <div className="p-4 rounded-xl bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
+                <div className="mb-3 font-semibold text-gray-800 dark:text-gray-200">인기도 기여도 (전일)</div>
+                <PopularityDonut
+                  regionId={selectedRegion?.id || 0}
+                  symbol={selectedStock.symbol}
+                  onLoaded={setPopDetails}
+                />
               </div>
 
               {/* 액션 버튼들 */}

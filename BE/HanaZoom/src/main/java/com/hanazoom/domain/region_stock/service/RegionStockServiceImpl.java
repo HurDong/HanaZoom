@@ -4,6 +4,7 @@ import com.hanazoom.domain.region.entity.Region;
 import com.hanazoom.domain.region.repository.RegionRepository;
 import com.hanazoom.domain.region.entity.RegionType;
 import com.hanazoom.domain.region_stock.dto.RegionStatsResponse;
+import com.hanazoom.domain.region_stock.dto.PopularityDetailsResponse;
 import com.hanazoom.domain.region_stock.entity.RegionStock;
 import com.hanazoom.domain.region_stock.repository.RegionStockRepository;
 import com.hanazoom.domain.stock.dto.StockTickerDto;
@@ -136,6 +137,42 @@ public class RegionStockServiceImpl implements RegionStockService {
         }
 
         @Override
+        public PopularityDetailsResponse getPopularityDetails(Long regionId, String symbol, String date) {
+                // 기본 파라미터 처리: date = "latest" 또는 yyyy-MM-dd
+                LocalDate targetDate;
+                if (date == null || date.isBlank() || "latest".equalsIgnoreCase(date)) {
+                        targetDate = regionStockRepository.findLatestDataDateByRegionId(regionId);
+                        if (targetDate == null) {
+                                targetDate = LocalDate.now();
+                        }
+                } else {
+                        targetDate = LocalDate.parse(date);
+                }
+
+                Stock stock = stockRepository.findBySymbol(symbol)
+                                .orElseThrow(() -> new IllegalArgumentException("종목을 찾을 수 없습니다."));
+
+                // 현재 단계에서는 스냅샷/집계 미구현 항목들을 0으로 반환
+                // 추후: 거래추세/커뮤니티/모멘텀/뉴스 정규화 값 계산 로직 연결
+                return PopularityDetailsResponse.builder()
+                                .regionId(regionId)
+                                .symbol(symbol)
+                                .date(targetDate)
+                                .score(BigDecimal.ZERO)
+                                .tradeTrend(BigDecimal.ZERO)
+                                .community(BigDecimal.ZERO)
+                                .momentum(BigDecimal.ZERO)
+                                .newsImpact(BigDecimal.ZERO) // 뉴스는 점화식 포함하되 현재 0
+                                .weightTradeTrend(new BigDecimal("0.45"))
+                                .weightCommunity(new BigDecimal("0.35"))
+                                .weightMomentum(new BigDecimal("0.20"))
+                                .weightNews(BigDecimal.ZERO) // 아직 미사용이면 0, 향후 0.10 등 설정화 가능
+                                .postCount(0)
+                                .commentCount(0)
+                                .voteCount(0)
+                                .viewCount(0)
+                                .build();
+        }
         public RegionStatsResponse getRegionStats(Long regionId) {
                 // 1. 지역 정보 조회
                 Region region = regionRepository.findById(regionId)
