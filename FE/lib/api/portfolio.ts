@@ -85,3 +85,21 @@ export const getStockQuantity = async (stockCode: string): Promise<number> => {
     return 0;
   }
 };
+
+// PB가 고객의 포트폴리오 요약 조회
+export const getClientPortfolioSummary = async (clientId: string): Promise<PortfolioSummary> => {
+  const response = await api.get(`/portfolio/client/${clientId}/summary`);
+  return response.data;
+};
+
+// PB가 고객의 포트폴리오 보유 주식 목록 조회
+export const getClientPortfolioStocks = async (clientId: string): Promise<PortfolioStock[]> => {
+  const response = await api.get(`/portfolio/client/${clientId}/stocks`);
+  return response.data;
+};
+
+// PB가 고객의 거래 내역 조회
+export const getClientTradeHistory = async (clientId: string): Promise<any[]> => {
+  const response = await api.get(`/portfolio/client/${clientId}/trades`);
+  return response.data;
+};

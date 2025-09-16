@@ -34,6 +34,10 @@ public interface ConsultationRepository extends JpaRepository<Consultation, UUID
     @Query("SELECT c FROM Consultation c WHERE c.client.id = :clientId AND c.status = :status ORDER BY c.scheduledAt DESC")
     List<Consultation> findByClientIdAndStatus(@Param("clientId") UUID clientId, @Param("status") ConsultationStatus status);
 
+    // PB와 고객 간의 상담 관계 확인
+    @Query("SELECT c FROM Consultation c WHERE c.pb.id = :pbId AND c.client.id = :clientId AND c.status IN :statuses")
+    List<Consultation> findByPbIdAndClientIdAndStatusIn(@Param("pbId") UUID pbId, @Param("clientId") UUID clientId, @Param("statuses") List<ConsultationStatus> statuses);
+
     // 특정 날짜 범위의 상담 목록 조회
     @Query("SELECT c FROM Consultation c WHERE c.pb.id = :pbId AND c.scheduledAt BETWEEN :startDate AND :endDate ORDER BY c.scheduledAt ASC")
     List<Consultation> findByPbIdAndScheduledAtBetween(@Param("pbId") UUID pbId, 

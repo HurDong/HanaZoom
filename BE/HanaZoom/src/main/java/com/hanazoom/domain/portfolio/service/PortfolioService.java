@@ -152,6 +152,13 @@ public class PortfolioService {
         return tradeHistoryRepository.findByAccountIdOrderByTradeDateDescTradeTimeDesc(accountId);
     }
 
+    // 회원 ID로 거래 내역 조회
+    @Transactional(readOnly = true)
+    public List<TradeHistory> getTradeHistoryByMemberId(java.util.UUID memberId) {
+        Account account = getAccountByMemberId(memberId);
+        return getTradeHistory(account.getId());
+    }
+
     // 포트폴리오 주식 응답 변환
     private PortfolioStockResponse convertToPortfolioStockResponse(PortfolioStock stock, BigDecimal totalStockValue) {
         BigDecimal allocationRate = totalStockValue.compareTo(BigDecimal.ZERO) > 0 ? stock.getCurrentValue()

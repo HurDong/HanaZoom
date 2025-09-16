@@ -7,9 +7,10 @@ import PbRoomVideoConsultation from "@/components/pb/PbRoomVideoConsultation";
 import Navbar from "@/app/components/Navbar";
 import { useAuthStore } from "@/app/utils/auth";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Users, Settings, X, MessageSquare } from "lucide-react";
+import { Copy, Check, Users, Settings, X, MessageSquare, PieChart } from "lucide-react";
 import { getMyInfo } from "@/lib/api/members";
 import { Client } from "@stomp/stompjs";
+import ClientPortfolioView from "@/components/pb/ClientPortfolioView";
 
 export default function ConsultationRoomPage() {
   const params = useParams<{ consultationId: string }>();
@@ -45,6 +46,7 @@ export default function ConsultationRoomPage() {
   const [isRoomOwner, setIsRoomOwner] = useState(false);
   const [actualPbName, setActualPbName] = useState(pbNameFromUrl);
   const [showChatPanel, setShowChatPanel] = useState(false);
+  const [showPortfolioView, setShowPortfolioView] = useState(false);
 
   // 채팅 관련 상태
   const [chatMessages, setChatMessages] = useState<
@@ -240,7 +242,6 @@ export default function ConsultationRoomPage() {
         messageData,
         destination: `/app/chat/${consultationId}/send`,
         clientConnected: chatStompClient.connected,
-        sessionId: chatStompClient.sessionId,
       });
 
       chatStompClient.publish({
@@ -489,6 +490,21 @@ export default function ConsultationRoomPage() {
 
           {/* 액션 버튼들 */}
           <div className="flex items-center gap-2">
+            {/* 포트폴리오 조회 버튼 (PB만 표시) */}
+            {isRoomOwner && clientId && (
+              <button
+                onClick={() => setShowPortfolioView(!showPortfolioView)}
+                className={`relative w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2 backdrop-blur-sm rounded-full md:rounded-lg transition-all duration-200 flex items-center justify-center group ${
+                  showPortfolioView
+                    ? "bg-white/30 text-white"
+                    : "bg-white/20 hover:bg-white/30 text-white"
+                }`}
+              >
+                <PieChart className="w-4 h-4 md:mr-2 group-hover:scale-110 transition-transform duration-200" />
+                <span className="hidden md:inline font-medium">포트폴리오</span>
+              </button>
+            )}
+
             {/* 채팅 토글 버튼 */}
             <button
               onClick={() => setShowChatPanel(!showChatPanel)}
@@ -819,6 +835,16 @@ export default function ConsultationRoomPage() {
           )}
         </div>
       </main>
+
+      {/* 고객 포트폴리오 조회 모달 */}
+      {clientId && (
+        <ClientPortfolioView
+          clientId={clientId}
+          clientName={clientName}
+          isVisible={showPortfolioView}
+          onClose={() => setShowPortfolioView(false)}
+        />
+      )}
     </div>
   );
 }
