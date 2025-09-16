@@ -19,6 +19,10 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.List;
+import java.util.ArrayList;
+import org.json.JSONArray;
+import com.fasterxml.jackson.core.type.TypeReference;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
 
@@ -125,6 +129,9 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             String type = jsonMessage.optString("type", "CHAT");
             String content = jsonMessage.optString("content", "");
             String senderId = jsonMessage.optString("senderId", "");
+            Object images = jsonMessage.opt("images");
+            int imageCount = jsonMessage.optInt("imageCount", 0);
+            Object portfolioStocks = jsonMessage.opt("portfolioStocks");
 
             Member member = sessionMembers.get(session.getId());
             Long regionId = sessionRegions.get(session.getId());
@@ -136,7 +143,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
 
             switch (type) {
                 case "CHAT":
-                    handleChatMessage(session, member, regionId, content, senderId);
+                    handleChatMessage(session, member, regionId, content, senderId, images, imageCount, portfolioStocks);
                     break;
                 case "TYPING":
                     handleTypingMessage(session, member, regionId, jsonMessage.optBoolean("isTyping", false));
@@ -189,10 +196,10 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
         super.handleTransportError(session, exception);
     }
 
-    private void handleChatMessage(WebSocketSession session, Member member, Long regionId, String content, String senderId) {
-        if (content == null || content.trim().isEmpty()) {
-            return;
-        }
+    private void handleChatMessage(WebSocketSession session, Member member, Long regionId, String content, String senderId, Object images, int imageCount, Object portfolioStocks) {
+        if ((content == null || content.trim().isEmpty()) && imageCount == 0 && portfolioStocks == null) {
+                return;
+            }
 
         // 채팅 메시지 생성
         String messageId = UUID.randomUUID().toString();
@@ -218,6 +225,51 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
                         chatMessage.put("createdAt", timestamp);
                         chatMessage.put("isMyMessage", isMyMessage);
                         chatMessage.put("senderId", senderId.isEmpty() ? member.getId().toString() : senderId); // 현재 사용자 식별용
+                        
+                        // 이미지가 있는 경우 추가
+                        if (images != null && imageCount > 0) {
+                            chatMessage.put("images", images);
+                            chatMessage.put("imageCount", imageCount);
+                        }
+
+                        // 보유종목 정보가 있는 경우 추가
+                        if (portfolioStocks != null) {
+                            try {
+                                List<Map<String, Object>> portfolioList = new ArrayList<>();
+
+                                if (portfolioStocks instanceof JSONArray) {
+                                    JSONArray arr = (JSONArray) portfolioStocks;
+                                    for (int i = 0; i < arr.length(); i++) {
+                                        JSONObject obj = arr.getJSONObject(i);
+                                        Map<String, Object> map = objectMapper.readValue(
+                                            obj.toString(), new TypeReference<Map<String, Object>>() {}
+                                        );
+                                        portfolioList.add(map);
+                                    }
+                                } else if (portfolioStocks instanceof String) {
+                                    // 문자열로 들어온 경우
+                                    JSONArray arr = new JSONArray((String) portfolioStocks);
+                                    for (int i = 0; i < arr.length(); i++) {
+                                        JSONObject obj = arr.getJSONObject(i);
+                                        Map<String, Object> map = objectMapper.readValue(
+                                            obj.toString(), new TypeReference<Map<String, Object>>() {}
+                                        );
+                                        portfolioList.add(map);
+                                    }
+                                } else if (portfolioStocks instanceof Collection) {
+                                    // 이미 컬렉션 형태인 경우 그대로 변환 시도
+                                    String json = objectMapper.writeValueAsString(portfolioStocks);
+                                    portfolioList = objectMapper.readValue(json, new TypeReference<List<Map<String, Object>>>() {});
+                                } else {
+                                    log.warn("⚠️ 알 수 없는 portfolioStocks 타입: {}", portfolioStocks.getClass());
+                                }
+
+                                chatMessage.put("portfolioStocks", portfolioList);
+                            } catch (Exception e) {
+                                // 실패 시 빈 배열로 설정
+                                chatMessage.put("portfolioStocks", new ArrayList<>());
+                            }
+                        }
 
                         synchronized (targetSession) {
                             if (targetSession.isOpen()) {
