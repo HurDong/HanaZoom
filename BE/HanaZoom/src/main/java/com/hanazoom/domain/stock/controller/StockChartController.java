@@ -23,7 +23,7 @@ public class StockChartController {
      * 
      * @param stockCode 종목코드
      * @param timeframe 시간봉 (1M, 5M, 15M, 1H, 1D, 1W, 1MO)
-     * @param limit 조회할 캔들 수 (기본 100개, 최대 200개)
+     * @param limit 조회할 캔들 수 (기본 100개, 최대 5000개)
      * @return 캔들 데이터 리스트
      */
     @GetMapping("/{stockCode}")
@@ -33,9 +33,9 @@ public class StockChartController {
             @RequestParam(defaultValue = "100") int limit) {
         
         try {
-            // 최대 200개로 제한
-            if (limit > 200) {
-                limit = 200;
+            // 최대 5000개로 제한 (10년치 데이터 지원)
+            if (limit > 5000) {
+                limit = 5000;
             }
             
             log.info("차트 데이터 요청: 종목={}, 시간봉={}, 개수={}", stockCode, timeframe, limit);

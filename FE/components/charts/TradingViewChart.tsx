@@ -63,16 +63,16 @@ export function TradingViewChart({
 
       switch (period) {
         case "daily":
-          data = await getDailyChartData(stockSymbol, 100);
+          data = await getDailyChartData(stockSymbol, 2500); // 10년치
           break;
         case "weekly":
-          data = await getWeeklyChartData(stockSymbol, 52);
+          data = await getWeeklyChartData(stockSymbol, 520); // 10년치
           break;
         case "monthly":
-          data = await getMonthlyChartData(stockSymbol, 60);
+          data = await getMonthlyChartData(stockSymbol, 120); // 10년치
           break;
         default:
-          data = await getDailyChartData(stockSymbol, 100);
+          data = await getDailyChartData(stockSymbol, 2500); // 10년치
       }
 
       // 날짜 순으로 정렬

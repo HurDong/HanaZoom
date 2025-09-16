@@ -194,7 +194,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         // 일/주/월봉 데이터 사용
         console.log("📊 일/주/월봉 차트 요청됨:", timeframe, "종목:", stockCode);
         const dataLimit =
-          timeframe === "1D" ? 1000 : timeframe === "1W" ? 200 : 100;
+          timeframe === "1D" ? 2500 : timeframe === "1W" ? 520 : 120; // 10년치 데이터
         const pastCandles = await getChartData(stockCode, timeframe, dataLimit);
         data = pastCandles.map(formatCandleForChart);
       }

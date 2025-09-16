@@ -14,8 +14,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import com.hanazoom.domain.stock.entity.StockMinutePrice;
+import com.hanazoom.domain.stock.entity.StockDailyPrice;
+import com.hanazoom.domain.stock.entity.StockWeeklyPrice;
+import com.hanazoom.domain.stock.entity.StockMonthlyPrice;
+import com.hanazoom.domain.stock.repository.StockDailyPriceRepository;
+import com.hanazoom.domain.stock.repository.StockWeeklyPriceRepository;
+import com.hanazoom.domain.stock.repository.StockMonthlyPriceRepository;
 import com.hanazoom.domain.stock.service.StockMinutePriceService;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 @Slf4j
 @Service
@@ -27,6 +35,9 @@ public class StockChartServiceImpl implements StockChartService {
     private final ObjectMapper objectMapper;
     private final Random random = new Random(); // 더미 데이터용
     private final StockMinutePriceService stockMinutePriceService;
+    private final StockDailyPriceRepository dailyPriceRepository;
+    private final StockWeeklyPriceRepository weeklyPriceRepository;
+    private final StockMonthlyPriceRepository monthlyPriceRepository;
 
     @Override
     public List<CandleData> getChartData(String stockCode, String timeframe, int limit) {
@@ -42,12 +53,21 @@ public class StockChartServiceImpl implements StockChartService {
                 }
             }
 
-            // DB에 데이터가 없거나 다른 시간봉인 경우 KIS API 호출
+            // 일/주/월봉 데이터는 DB에서 조회 시도
+            if (timeframe.equals("1D") || timeframe.equals("1W") || timeframe.equals("1MO")) {
+                List<CandleData> dbData = getDailyWeeklyMonthlyDataFromDB(stockCode, timeframe, limit);
+                if (!dbData.isEmpty()) {
+                    log.info("DB에서 일/주/월봉 데이터 조회 완료: 종목={}, 시간봉={}, 개수={}", stockCode, timeframe, dbData.size());
+                    return dbData;
+                }
+            }
+
+            // DB에 데이터가 없거나 분봉인 경우 KIS API 호출
             String kisResponse;
             if (timeframe.equals("1D") || timeframe.equals("1W") || timeframe.equals("1MO")) {
-                // 일봉/주봉/월봉 데이터
+                // 일봉/주봉/월봉 데이터 - 날짜 범위 지정하여 10년치 데이터 요청
                 String period = timeframe.equals("1D") ? "D" : timeframe.equals("1W") ? "W" : "M";
-                kisResponse = kisApiService.getDailyChartData(stockCode, period, "1");
+                kisResponse = kisApiService.getDailyChartDataWithDateRange(stockCode, period, "1", null, null);
             } else {
                 // 분봉 데이터 (1M, 5M, 15M, 1H)
                 String minuteCode = convertToKisMinuteCode(timeframe);
@@ -494,5 +514,149 @@ public class StockChartServiceImpl implements StockChartService {
             case FIFTEEN_MINUTES: return "15M";
             default: return "5M";
         }
+    }
+
+    /**
+     * DB에서 일/주/월봉 데이터 조회
+     */
+    private List<CandleData> getDailyWeeklyMonthlyDataFromDB(String stockCode, String timeframe, int limit) {
+        try {
+            log.info("DB에서 일/주/월봉 데이터 조회 시도: 종목={}, 시간봉={}, 제한={}", stockCode, timeframe, limit);
+
+            switch (timeframe) {
+                case "1D":
+                    return getDailyDataFromDB(stockCode, limit);
+                case "1W":
+                    return getWeeklyDataFromDB(stockCode, limit);
+                case "1MO":
+                    return getMonthlyDataFromDB(stockCode, limit);
+                default:
+                    return new ArrayList<>();
+            }
+        } catch (Exception e) {
+            log.error("DB에서 일/주/월봉 데이터 조회 실패: 종목={}, 시간봉={}", stockCode, timeframe, e);
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * DB에서 일봉 데이터 조회
+     */
+    private List<CandleData> getDailyDataFromDB(String stockCode, int limit) {
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(Math.min(limit, 3650)); // 최대 10년치
+
+        List<StockDailyPrice> dailyPrices = dailyPriceRepository
+                .findByStockSymbolAndTradeDateBetweenOrderByTradeDateAsc(stockCode, startDate, endDate);
+
+        return dailyPrices.stream()
+                .limit(limit)
+                .map(this::convertDailyToCandleData)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * DB에서 주봉 데이터 조회
+     */
+    private List<CandleData> getWeeklyDataFromDB(String stockCode, int limit) {
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusWeeks(Math.min(limit, 520)); // 최대 10년치
+
+        List<StockWeeklyPrice> weeklyPrices = weeklyPriceRepository
+                .findByStockSymbolAndWeekStartDateBetweenOrderByWeekStartDateAsc(stockCode, startDate, endDate);
+
+        return weeklyPrices.stream()
+                .limit(limit)
+                .map(this::convertWeeklyToCandleData)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * DB에서 월봉 데이터 조회
+     */
+    private List<CandleData> getMonthlyDataFromDB(String stockCode, int limit) {
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusMonths(Math.min(limit, 120)); // 최대 10년치
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM");
+        String startMonth = startDate.format(formatter);
+        String endMonth = endDate.format(formatter);
+
+        List<StockMonthlyPrice> monthlyPrices = monthlyPriceRepository
+                .findByStockSymbolAndYearMonthBetweenOrderByYearMonthAsc(stockCode, startMonth, endMonth);
+
+        return monthlyPrices.stream()
+                .limit(limit)
+                .map(this::convertMonthlyToCandleData)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * StockDailyPrice를 CandleData로 변환
+     */
+    private CandleData convertDailyToCandleData(StockDailyPrice dailyPrice) {
+        LocalDateTime dateTime = dailyPrice.getTradeDate().atStartOfDay();
+        return CandleData.builder()
+                .stockCode(dailyPrice.getStockSymbol())
+                .dateTime(dateTime)
+                .timeframe("1D")
+                .timestamp(dateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())
+                .openPrice(String.valueOf(dailyPrice.getOpenPrice()))
+                .highPrice(String.valueOf(dailyPrice.getHighPrice()))
+                .lowPrice(String.valueOf(dailyPrice.getLowPrice()))
+                .closePrice(String.valueOf(dailyPrice.getClosePrice()))
+                .volume(String.valueOf(dailyPrice.getVolume()))
+                .changePrice(String.valueOf(dailyPrice.getPriceChange()))
+                .changeRate(String.valueOf(dailyPrice.getPriceChangePercent()))
+                .changeSign(calculateChangeSign(String.valueOf(dailyPrice.getPriceChange())))
+                .isComplete(true)
+                .build();
+    }
+
+    /**
+     * StockWeeklyPrice를 CandleData로 변환
+     */
+    private CandleData convertWeeklyToCandleData(StockWeeklyPrice weeklyPrice) {
+        LocalDateTime dateTime = weeklyPrice.getWeekStartDate().atStartOfDay();
+        return CandleData.builder()
+                .stockCode(weeklyPrice.getStockSymbol())
+                .dateTime(dateTime)
+                .timeframe("1W")
+                .timestamp(dateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())
+                .openPrice(String.valueOf(weeklyPrice.getOpenPrice()))
+                .highPrice(String.valueOf(weeklyPrice.getHighPrice()))
+                .lowPrice(String.valueOf(weeklyPrice.getLowPrice()))
+                .closePrice(String.valueOf(weeklyPrice.getClosePrice()))
+                .volume(String.valueOf(weeklyPrice.getVolume()))
+                .changePrice(String.valueOf(weeklyPrice.getPriceChange()))
+                .changeRate(String.valueOf(weeklyPrice.getPriceChangePercent()))
+                .changeSign(calculateChangeSign(String.valueOf(weeklyPrice.getPriceChange())))
+                .isComplete(true)
+                .build();
+    }
+
+    /**
+     * StockMonthlyPrice를 CandleData로 변환
+     */
+    private CandleData convertMonthlyToCandleData(StockMonthlyPrice monthlyPrice) {
+        // yearMonth를 LocalDate로 변환 (예: "2024-01" -> 2024-01-01)
+        LocalDate date = LocalDate.parse(monthlyPrice.getYearMonth() + "-01");
+        LocalDateTime dateTime = date.atStartOfDay();
+
+        return CandleData.builder()
+                .stockCode(monthlyPrice.getStockSymbol())
+                .dateTime(dateTime)
+                .timeframe("1MO")
+                .timestamp(dateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())
+                .openPrice(String.valueOf(monthlyPrice.getOpenPrice()))
+                .highPrice(String.valueOf(monthlyPrice.getHighPrice()))
+                .lowPrice(String.valueOf(monthlyPrice.getLowPrice()))
+                .closePrice(String.valueOf(monthlyPrice.getClosePrice()))
+                .volume(String.valueOf(monthlyPrice.getVolume()))
+                .changePrice(String.valueOf(monthlyPrice.getPriceChange()))
+                .changeRate(String.valueOf(monthlyPrice.getPriceChangePercent()))
+                .changeSign(calculateChangeSign(String.valueOf(monthlyPrice.getPriceChange())))
+                .isComplete(true)
+                .build();
     }
 }
