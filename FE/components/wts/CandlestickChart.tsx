@@ -58,20 +58,15 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
   const [showSMA5, setShowSMA5] = useState<boolean>(true);
   const [showSMA20, setShowSMA20] = useState<boolean>(true);
   const [showSMA60, setShowSMA60] = useState<boolean>(false);
-  // 뷰포트(줌/팬) 상태
+  // 뷰포트 상태 (전체 데이터 표시)
   const [viewStart, setViewStart] = useState<number>(0);
   const [viewEnd, setViewEnd] = useState<number>(0);
-  const isDraggingRef = useRef<boolean>(false);
-  const dragStartXRef = useRef<number>(0);
-  const dragStartViewStartRef = useRef<number>(0);
-  const lastMouseXRef = useRef<number>(0);
   const [showMinuteToggle, setShowMinuteToggle] = useState(false);
   const [lastMinuteTimeframe, setLastMinuteTimeframe] = useState("5M");
   const currentCandleRef = useRef<ChartDataPoint | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const volumeCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const isPointerDownRef = useRef<boolean>(false);
 
   // localStorage 키 생성자
   const getMinuteKey = useCallback(() => `lastMinuteTimeframe_${stockCode}`, [stockCode]);
@@ -197,9 +192,8 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       data.sort((a, b) => a.timestamp - b.timestamp);
 
       setChartData(data);
-      // 초기 뷰포트: 최신 120개 기준
-      const initialWindow = Math.min(120, data.length);
-      setViewStart(Math.max(0, data.length - initialWindow));
+      // 전체 데이터 표시
+      setViewStart(0);
       setViewEnd(data.length);
       console.log(
         "✅ 차트 데이터 로드 완료:",
@@ -670,32 +664,12 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     }
   }, [chartData, timeframe, hoveredCandle, tooltipData, showBB, showSMA5, showSMA20, showSMA60, viewStart, viewEnd]);
 
-  // 차트 클릭 핸들러
+  // 차트 클릭 핸들러 (간단한 로그만)
   const handleChartClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-
-    // 클릭된 캔들 찾기
-    const padding = 60;
-    const chartWidth = canvas.width - padding * 2;
-    const total = chartData.length;
-    const start = Math.max(0, Math.min(viewStart, total - 1));
-    const end = Math.max(start + 1, Math.min(viewEnd, total));
-    const visibleLen = Math.max(1, end - start);
-    const candleSpacing = chartWidth / visibleLen;
-
-    const localIndex = Math.floor((x - padding) / candleSpacing);
-    const globalIndex = start + localIndex;
-    if (localIndex >= 0 && localIndex < visibleLen && globalIndex >= 0 && globalIndex < chartData.length) {
-      console.log("클릭된 캔들:", chartData[globalIndex]);
-    }
+    console.log("차트 클릭됨");
   };
 
-  // 차트 마우스 이동 핸들러
+  // 차트 마우스 이동 핸들러 (호버만 처리)
   const handleChartMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -711,16 +685,6 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const end = Math.max(start + 1, Math.min(viewEnd, total));
     const visibleLen = Math.max(1, end - start);
     const candleSpacing = chartWidth / visibleLen;
-
-    if (isDraggingRef.current) {
-      // 팬
-      const dx = x - dragStartXRef.current;
-      const deltaIndex = Math.round(dx / candleSpacing);
-      const newStart = Math.max(0, Math.min(total - visibleLen, dragStartViewStartRef.current - deltaIndex));
-      setViewStart(newStart);
-      setViewEnd(newStart + visibleLen);
-      return;
-    }
 
     const localIndex = Math.floor((x - padding) / candleSpacing);
     const globalIndex = start + localIndex;
@@ -740,58 +704,16 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     }
   };
 
-  // 드래그 시작/종료
+  // 간단한 마우스 다운 핸들러
   const handleChartMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    isDraggingRef.current = true;
-    isPointerDownRef.current = true;
-    dragStartXRef.current = x;
-    dragStartViewStartRef.current = viewStart;
+    console.log("차트 마우스 다운");
   };
 
-  const handleChartMouseUp = () => {
-    isDraggingRef.current = false;
-    isPointerDownRef.current = false;
-  };
 
-  // 휠 줌 (차트 내에서는 페이지 스크롤 방지)
+  // 휠 이벤트 (기본 동작만 방지)
   const handleChartWheel = (event: React.WheelEvent<HTMLCanvasElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    if (!canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-
-    const padding = 60;
-    const chartWidth = canvas.width - padding * 2;
-    const total = chartData.length;
-    if (total <= 1) return;
-
-    const start = Math.max(0, Math.min(viewStart, total - 1));
-    const end = Math.max(start + 1, Math.min(viewEnd, total));
-    const visibleLen = Math.max(1, end - start);
-    const candleSpacing = chartWidth / visibleLen;
-
-    // 마우스 위치 기준 인덱스
-    const localIndex = Math.floor((x - padding) / Math.max(1, candleSpacing));
-    const centerIndex = Math.max(0, Math.min(total - 1, start + localIndex));
-
-    const zoomFactor = 0.1; // 한 번 휠당 10%
-    const zoomIn = event.deltaY < 0;
-    let newLen = Math.round(visibleLen * (zoomIn ? 1 - zoomFactor : 1 + zoomFactor));
-    const minWindow = 20;
-    const maxWindow = total;
-    newLen = Math.max(minWindow, Math.min(maxWindow, newLen));
-
-    // 중심 유지: centerIndex가 창 중앙에 위치하도록 start 재계산
-    let newStart = Math.round(centerIndex - newLen / 2);
-    newStart = Math.max(0, Math.min(total - newLen, newStart));
-    setViewStart(newStart);
-    setViewEnd(newStart + newLen);
   };
 
   // 차트 마우스 리브 핸들러
@@ -1019,6 +941,8 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     return () => window.removeEventListener("resize", handleResize);
   }, [chartData, timeframe, hoveredCandle, hoveredVolume, tooltipData]);
 
+
+
   // 차트 데이터 변경 시 거래량 차트도 함께 업데이트
   useEffect(() => {
     if (chartData.length > 0) {
@@ -1227,7 +1151,6 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
               ref={canvasRef}
               className="w-full h-full cursor-crosshair"
               onMouseDown={handleChartMouseDown}
-              onMouseUp={handleChartMouseUp}
               onClick={handleChartClick}
               onMouseMove={handleChartMouseMove}
               onMouseLeave={handleChartMouseLeave}
@@ -1253,10 +1176,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
               className="w-full h-full cursor-crosshair"
               onMouseMove={handleVolumeMouseMove}
               onMouseLeave={handleVolumeMouseLeave}
-              onWheel={(e) => {
-                // 거래량 캔버스에서도 동일하게 확대/축소, 페이지 스크롤 방지
-                handleChartWheel(e as unknown as React.WheelEvent<HTMLCanvasElement>);
-              }}
+              onWheel={handleChartWheel}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
