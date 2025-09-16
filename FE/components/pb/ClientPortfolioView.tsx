@@ -48,24 +48,49 @@ export default function ClientPortfolioView({
 
   // 포트폴리오 데이터 로드
   const loadPortfolioData = async () => {
-    if (!clientId) return;
+    if (!clientId) {
+      setError("고객이 아직 입장하지 않았습니다. 고객이 입장한 후 포트폴리오를 조회할 수 있습니다.");
+      return;
+    }
+    
+    console.log("🔍 포트폴리오 데이터 로드 시작:", {
+      clientId,
+      clientName,
+      hasClientId: !!clientId
+    });
     
     setLoading(true);
     setError(null);
 
     try {
+      console.log("📡 API 호출 시작...");
+      
       const [summary, stocks, trades] = await Promise.all([
         getClientPortfolioSummary(clientId),
         getClientPortfolioStocks(clientId),
         getClientTradeHistory(clientId)
       ]);
 
+      console.log("📊 API 응답 데이터:", {
+        summary,
+        stocks,
+        trades,
+        summaryLength: summary ? Object.keys(summary).length : 0,
+        stocksLength: stocks ? stocks.length : 0,
+        tradesLength: trades ? trades.length : 0
+      });
+
       setPortfolioSummary(summary);
       setPortfolioStocks(stocks);
       setTradeHistory(trades);
     } catch (err) {
-      console.error("고객 포트폴리오 조회 실패:", err);
-      setError("포트폴리오 정보를 불러올 수 없습니다.");
+      console.error("❌ 고객 포트폴리오 조회 실패:", err);
+      console.error("에러 상세:", {
+        message: err instanceof Error ? err.message : "알 수 없는 오류",
+        stack: err instanceof Error ? err.stack : undefined,
+        clientId
+      });
+      setError(`포트폴리오 정보를 불러올 수 없습니다: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
     } finally {
       setLoading(false);
     }
@@ -187,7 +212,7 @@ export default function ClientPortfolioView({
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold">
-                          {formatCurrency(portfolioSummary.totalValue)}
+                          {formatCurrency(portfolioSummary.totalBalance)}
                         </div>
                         <p className="text-xs text-muted-foreground">
                           포트폴리오 총 가치
@@ -221,7 +246,7 @@ export default function ClientPortfolioView({
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold">
-                          {portfolioSummary.stockCount}개
+                          {portfolioSummary.totalStockCount}개
                         </div>
                         <p className="text-xs text-muted-foreground">
                           현재 보유 중인 종목
@@ -229,18 +254,18 @@ export default function ClientPortfolioView({
                       </CardContent>
                     </Card>
 
-                    {/* 투자 원금 */}
+                    {/* 총 현금 */}
                     <Card>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">투자 원금</CardTitle>
+                        <CardTitle className="text-sm font-medium">총 현금</CardTitle>
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold">
-                          {formatCurrency(portfolioSummary.totalPurchaseAmount)}
+                          {formatCurrency(portfolioSummary.totalCash)}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          총 투자 금액
+                          사용 가능한 현금
                         </p>
                       </CardContent>
                     </Card>
@@ -265,7 +290,7 @@ export default function ClientPortfolioView({
                               </div>
                               <div>
                                 <p className="font-medium text-gray-900 dark:text-white">
-                                  {stock.stockName || '알 수 없음'}
+                                  {stock.stockName}
                                 </p>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">
                                   {stock.stockSymbol} • {stock.quantity}주
@@ -274,11 +299,11 @@ export default function ClientPortfolioView({
                             </div>
                             <div className="text-right">
                               <p className="font-medium text-gray-900 dark:text-white">
-                                {formatCurrency(stock.currentValue || 0)}
+                                {formatCurrency(stock.currentValue)}
                               </p>
-                              <div className={`flex items-center space-x-1 text-sm ${getProfitLossColor(stock.profitLoss || 0)}`}>
-                                {getProfitLossIcon(stock.profitLoss || 0)}
-                                <span>{formatPercentage(stock.profitLossRate || 0)}</span>
+                              <div className={`flex items-center space-x-1 text-sm ${getProfitLossColor(stock.profitLoss)}`}>
+                                {getProfitLossIcon(stock.profitLoss)}
+                                <span>{formatPercentage(stock.profitLossRate)}</span>
                               </div>
                             </div>
                           </div>
@@ -324,7 +349,7 @@ export default function ClientPortfolioView({
                               <td className="py-3 px-2">
                                 <div>
                                   <p className="font-medium text-gray-900 dark:text-white">
-                                    {stock.stockName || '알 수 없음'}
+                                    {stock.stockName}
                                   </p>
                                   <p className="text-sm text-gray-500 dark:text-gray-400">
                                     {stock.stockSymbol}
@@ -332,22 +357,22 @@ export default function ClientPortfolioView({
                                 </div>
                               </td>
                               <td className="text-right py-3 px-2">
-                                {stock.quantity?.toLocaleString()}주
+                                {stock.quantity.toLocaleString()}주
                               </td>
                               <td className="text-right py-3 px-2">
-                                {formatCurrency(stock.avgPurchasePrice || 0)}
+                                {formatCurrency(stock.avgPurchasePrice)}
                               </td>
                               <td className="text-right py-3 px-2">
-                                {formatCurrency(stock.currentPrice || 0)}
+                                {formatCurrency(stock.currentPrice)}
                               </td>
                               <td className="text-right py-3 px-2">
-                                {formatCurrency(stock.currentValue || 0)}
+                                {formatCurrency(stock.currentValue)}
                               </td>
-                              <td className={`text-right py-3 px-2 ${getProfitLossColor(stock.profitLoss || 0)}`}>
-                                {formatCurrency(stock.profitLoss || 0)}
+                              <td className={`text-right py-3 px-2 ${getProfitLossColor(stock.profitLoss)}`}>
+                                {formatCurrency(stock.profitLoss)}
                               </td>
-                              <td className={`text-right py-3 px-2 ${getProfitLossColor(stock.profitLoss || 0)}`}>
-                                {formatPercentage(stock.profitLossRate || 0)}
+                              <td className={`text-right py-3 px-2 ${getProfitLossColor(stock.profitLoss)}`}>
+                                {formatPercentage(stock.profitLossRate)}
                               </td>
                             </tr>
                           ))}

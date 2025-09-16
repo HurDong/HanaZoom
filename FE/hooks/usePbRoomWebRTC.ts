@@ -336,12 +336,16 @@ export const usePbRoomWebRTC = ({
 
         // 고객이 입장했을 때 PB에게 알림 전송
         if (stompClientRef.current?.connected) {
-          console.log("📤 고객 입장 알림 전송");
+          const currentUserId = getCurrentUserId?.();
+          console.log("📤 고객 입장 알림 전송:", {
+            userType: "guest",
+            userId: currentUserId || "unknown-guest"
+          });
           stompClientRef.current.publish({
             destination: `/app/webrtc/webrtc/${roomId}/user-joined`,
             body: JSON.stringify({
               userType: "guest",
-              userId: "guest-user", // 실제로는 사용자 ID를 사용해야 함
+              userId: currentUserId || "unknown-guest",
             }),
           });
         }
