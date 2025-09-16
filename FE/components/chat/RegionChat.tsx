@@ -236,12 +236,18 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
               return;
             }
 
+            // 온라인 사용자 목록 업데이트는 최우선 처리 (content 없어도 처리)
+            if (data.type === "USERS" && Array.isArray(data.users)) {
+              setOnlineUsers(data.users);
+              return;
+            }
+
             // 보유종목이 있는 경우 content가 없어도 처리
             if (!data || (!data.content || data.content.trim() === "") && !data.portfolioStocks) {
               return;
             }
 
-            // 사용자 목록 업데이트를 메시지 처리보다 먼저 수행
+            // 백호환: 일반 메시지에 users 배열이 동반된 경우에도 반영
             if (Array.isArray(data.users)) {
               setOnlineUsers(data.users);
             }

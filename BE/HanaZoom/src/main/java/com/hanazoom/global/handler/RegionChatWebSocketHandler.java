@@ -112,6 +112,9 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             broadcastToRegion(regionId, createSystemMessage("ENTER", 
                 member.getName() + "님이 입장했습니다.", member.getName()));
 
+            // 온라인 사용자 목록 브로드캐스트
+            broadcastUsers(regionId);
+
         } catch (NumberFormatException e) {
             log.warn("⚠️ 잘못된 regionId 형식: {}", regionIdStr);
             session.close(CloseStatus.BAD_DATA.withReason("Invalid regionId format"));
@@ -182,6 +185,9 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             // 퇴장 알림 전송
             broadcastToRegion(regionId, createSystemMessage("LEAVE", 
                 member.getName() + "님이 퇴장했습니다.", member.getName()));
+
+            // 온라인 사용자 목록 브로드캐스트
+            broadcastUsers(regionId);
         }
 
         // 세션 정보 정리
@@ -311,6 +317,17 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
         welcomeMessage.put("showHeader", false);
 
         sendToSession(session, objectMapper.valueToTree(welcomeMessage).toString());
+    }
+
+    private void broadcastUsers(Long regionId) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "USERS");
+            payload.put("users", getOnlineUsers(regionId));
+            broadcastToRegion(regionId, objectMapper.writeValueAsString(payload));
+        } catch (Exception e) {
+            log.error("❌ 온라인 사용자 목록 브로드캐스트 실패", e);
+        }
     }
 
     private void broadcastToRegion(Long regionId, String message) {
