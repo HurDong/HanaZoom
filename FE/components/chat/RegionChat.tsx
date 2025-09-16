@@ -719,17 +719,28 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                   (message) => message.content && message.content.trim() !== ""
                 )
                 .map((message, index) => {
-                  // 서버에서 보낸 showHeader 정보 사용
-                  const showHeader =
-                    message.showHeader !== undefined
-                      ? message.showHeader
-                      : true;
-
                   // 현재 사용자의 메시지인지 확인
                   const isMyMessage = message.isMyMessage === true;
 
+                  // 연속된 메시지인지 확인 (같은 사용자가 보낸 연속 메시지)
+                  const prevMessage = index > 0 ? messages.filter(m => m.content && m.content.trim() !== "")[index - 1] : null;
+                  const isConsecutiveMessage = prevMessage && 
+                    prevMessage.memberName === message.memberName && 
+                    prevMessage.messageType === message.messageType &&
+                    message.messageType !== "SYSTEM" &&
+                    message.messageType !== "WELCOME" &&
+                    message.messageType !== "ENTER" &&
+                    message.messageType !== "LEAVE";
+
+                  // showHeader 결정: 연속 메시지가 아니고, 시스템 메시지가 아닌 경우에만 헤더 표시
+                  const showHeader = !isConsecutiveMessage && 
+                    message.messageType !== "SYSTEM" &&
+                    message.messageType !== "WELCOME" &&
+                    message.messageType !== "ENTER" &&
+                    message.messageType !== "LEAVE";
+
                   return (
-                    <motion.div
+                      <motion.div
                       key={message.id}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -744,7 +755,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                           : isMyMessage
                           ? "items-end"
                           : "items-start"
-                      }`}
+                      } ${isConsecutiveMessage ? "mt-1" : "mt-3"}`}
                     >
                       {showHeader &&
                         message.messageType !== "SYSTEM" &&
@@ -783,8 +794,16 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                                     message.messageType === "LEAVE"
                                   ? "bg-muted/40 text-muted-foreground rounded-full px-4 py-1.5 text-center max-w-[95%] text-xs whitespace-nowrap"
                                   : isMyMessage
-                                  ? "bg-blue-500 text-white rounded-2xl rounded-br-md max-w-[85%] transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md"
-                                  : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl rounded-bl-md max-w-[85%] transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md"
+                                  ? `bg-blue-500 text-white max-w-[85%] transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md ${
+                                      isConsecutiveMessage 
+                                        ? "rounded-2xl rounded-br-sm" 
+                                        : "rounded-2xl rounded-br-md"
+                                    }`
+                                  : `bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 max-w-[85%] transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md ${
+                                      isConsecutiveMessage 
+                                        ? "rounded-2xl rounded-bl-sm" 
+                                        : "rounded-2xl rounded-bl-md"
+                                    }`
                               }`}
                             >
                               {renderMessageContent(message.content)}
@@ -794,7 +813,11 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                               message.messageType !== "ENTER" &&
                               message.messageType !== "LEAVE" && (
                                 <span
-                                  className={`text-[10px] text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity ${
+                                  className={`text-[10px] text-muted-foreground/60 ${
+                                    isConsecutiveMessage 
+                                      ? "opacity-0 group-hover:opacity-100" 
+                                      : "opacity-0 group-hover:opacity-100"
+                                  } transition-opacity ${
                                     isMyMessage ? "mr-2" : "ml-2"
                                   }`}
                                 >

@@ -216,7 +216,6 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
                         chatMessage.put("memberName", member.getName());
                         chatMessage.put("content", content);
                         chatMessage.put("createdAt", timestamp);
-                        chatMessage.put("showHeader", true);
                         chatMessage.put("isMyMessage", isMyMessage);
                         chatMessage.put("senderId", senderId.isEmpty() ? member.getId().toString() : senderId); // 현재 사용자 식별용
 
