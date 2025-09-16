@@ -39,6 +39,7 @@ export const usePbRoomWebRTC = ({
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [mediaMode, setMediaMode] = useState<"video" | "audio" | "text">("video");
 
   const peerConnectionRef = useRef<ExtendedRTCPeerConnection | null>(null);
   const stompClientRef = useRef<Client | null>(null);
@@ -213,15 +214,69 @@ export const usePbRoomWebRTC = ({
     try {
       console.log("🔄 WebRTC 연결 시작...");
 
-      // 미디어 스트림 요청
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720 },
-        audio: true,
-      });
+      // 먼저 사용 가능한 미디어 장치 확인
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter((device) => device.kind === "videoinput");
+      const audioDevices = devices.filter((device) => device.kind === "audioinput");
 
-      setLocalStream(stream);
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
+      console.log("사용 가능한 비디오 장치:", videoDevices.length);
+      console.log("사용 가능한 오디오 장치:", audioDevices.length);
+
+      // 장치가 없는 경우 텍스트 모드로 진행
+      if (videoDevices.length === 0 && audioDevices.length === 0) {
+        console.warn("⚠️ 미디어 장치를 찾을 수 없습니다. 텍스트 채팅 모드로 진행합니다.");
+        setMediaMode("text");
+        return;
+      }
+
+      // 미디어 스트림 요청 (단계별 시도)
+      let stream: MediaStream | null = null;
+
+      try {
+        // 1. 비디오 + 오디오 모두 요청
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 1280, height: 720 },
+          audio: true,
+        });
+        console.log("✅ 비디오 + 오디오 스트림 성공");
+        setMediaMode("video");
+      } catch (err) {
+        console.log("비디오 + 오디오 실패, 오디오만 시도...");
+        try {
+          // 2. 오디오만 요청
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: true,
+          });
+          console.log("✅ 오디오만 스트림 성공");
+          setMediaMode("audio");
+        } catch (audioErr) {
+          console.log("오디오도 실패, 비디오만 시도...");
+          try {
+            // 3. 비디오만 요청
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: { width: 1280, height: 720 },
+              audio: false,
+            });
+            console.log("✅ 비디오만 스트림 성공");
+            setMediaMode("video");
+          } catch (videoErr) {
+            console.log("❌ 모든 미디어 스트림 실패 - 텍스트 채팅 모드로 진행");
+            setMediaMode("text");
+            return;
+          }
+        }
+      }
+
+      if (stream) {
+        setLocalStream(stream);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+      } else {
+        console.log("미디어 장치 없음 - 텍스트 채팅 모드로 진행");
+        setMediaMode("text");
+        return;
       }
 
       // 오프라인 모드에서는 로컬 비디오만 표시
@@ -293,7 +348,9 @@ export const usePbRoomWebRTC = ({
       }
     } catch (error) {
       console.error("❌ WebRTC 연결 실패:", error);
-      onError?.(error as Error);
+      console.log("장치가 없거나 권한이 거부되었습니다. 텍스트 채팅으로 상담을 진행할 수 있습니다.");
+      setMediaMode("text");
+      // 에러를 던지지 않고 텍스트 모드로 진행
     }
   }, [onError, userType]); // userType 추가
 
@@ -569,6 +626,7 @@ export const usePbRoomWebRTC = ({
     localStream,
     localVideoRef,
     remoteVideoRef,
+    mediaMode,
     connectWebSocket,
     disconnect,
     toggleVideo,
