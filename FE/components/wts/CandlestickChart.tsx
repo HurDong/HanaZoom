@@ -1179,13 +1179,13 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       canvas.width - padding + 10,
       padding + 15
     );
-  }, [chartData, timeframe, hoveredVolume]);
+  }, [chartData, timeframe, hoveredVolume, viewStart, viewEnd]);
 
   // 차트 리사이즈 및 렌더링
   useEffect(() => {
     renderChart();
     renderVolumeChart();
-  }, [chartData, timeframe, hoveredCandle, hoveredVolume, tooltipData]);
+  }, [chartData, timeframe, hoveredCandle, hoveredVolume, tooltipData, showBB, showSMA5, showSMA20, showSMA60, viewStart, viewEnd]);
 
   // 윈도우 리사이즈 핸들러
   useEffect(() => {
@@ -1196,7 +1196,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [chartData, timeframe, hoveredCandle, hoveredVolume, tooltipData]);
+  }, [chartData, timeframe, hoveredCandle, hoveredVolume, tooltipData, showBB, showSMA5, showSMA20, showSMA60, viewStart, viewEnd]);
 
   // 차트 영역에서 스크롤 방지를 위한 전역 이벤트 리스너
   useEffect(() => {
@@ -1251,7 +1251,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     if (chartData.length > 0) {
       renderVolumeChart();
     }
-  }, [chartData, timeframe, hoveredVolume]);
+  }, [chartData, timeframe, hoveredVolume, viewStart, viewEnd]);
 
   if (loading) {
     return (
