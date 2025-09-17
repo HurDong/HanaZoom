@@ -126,4 +126,23 @@ public interface RegionStockRepository extends JpaRepository<RegionStock, Long> 
                 com.hanazoom.domain.stock.entity.Stock getStock();
                 java.math.BigDecimal getTotalPopularity();
         }
+
+        // 특정 지역-주식-날짜로 단건 조회 (인기도 상세 조회용)
+        @Query("SELECT rs FROM RegionStock rs " +
+                "WHERE rs.region.id = :regionId " +
+                "AND rs.stock.id = :stockId " +
+                "AND rs.dataDate = :date")
+        RegionStock findByRegionIdAndStockIdAndDataDate(
+                @Param("regionId") Long regionId,
+                @Param("stockId") Long stockId,
+                @Param("date") LocalDate date);
+
+        // 특정 지역-주식의 모든 날짜 데이터 조회 (인기도 상세 조회용)
+        @Query("SELECT rs FROM RegionStock rs " +
+                "WHERE rs.region.id = :regionId " +
+                "AND rs.stock.id = :stockId " +
+                "ORDER BY rs.dataDate DESC")
+        List<RegionStock> findByRegionIdAndStockId(
+                @Param("regionId") Long regionId,
+                @Param("stockId") Long stockId);
 }

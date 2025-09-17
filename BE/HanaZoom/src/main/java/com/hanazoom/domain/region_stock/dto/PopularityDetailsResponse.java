@@ -18,12 +18,12 @@ public class PopularityDetailsResponse {
     private String symbol;
     private LocalDate date;
 
-    // 최종 점수 및 구성요소 점수(0~1 스케일)
+    // 최종 점수 및 구성요소 점수(0~100 스케일)
     private BigDecimal score;            // 0~100 스케일
-    private BigDecimal tradeTrend;       // 0~1
-    private BigDecimal community;        // 0~1
-    private BigDecimal momentum;         // 0~1
-    private BigDecimal newsImpact;       // 0~1 (현재 미구현, 0 고정)
+    private BigDecimal tradeTrend;       // 0~100 스케일
+    private BigDecimal community;        // 0~100 스케일
+    private BigDecimal momentum;         // 0~100 스케일
+    private BigDecimal newsImpact;       // 0~100 스케일 (현재 미구현, 0 고정)
 
     // 구성요소 가중치(합산 사용)
     private BigDecimal weightTradeTrend; // 예: 0.45

@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.hanazoom.domain.stock.dto.StockTickerDto;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 
 @RestController
@@ -16,6 +17,7 @@ import java.util.List;
 public class RegionStockController {
 
     private final RegionStockService regionStockService;
+    private final ObjectMapper objectMapper;
 
     @GetMapping("/{regionId}/stats")
     public ResponseEntity<ApiResponse<RegionStatsResponse>> getRegionStats(
@@ -54,7 +56,28 @@ public class RegionStockController {
     ) {
         try {
             PopularityDetailsResponse details = regionStockService.getPopularityDetails(regionId, symbol, date);
-            return ResponseEntity.ok(ApiResponse.success(details));
+            
+            // 응답 데이터 로그 출력
+            System.out.println("📊 [백엔드] 응답 데이터:");
+            System.out.println("  regionId: " + details.getRegionId());
+            System.out.println("  symbol: " + details.getSymbol());
+            System.out.println("  score: " + details.getScore());
+            System.out.println("  tradeTrend: " + details.getTradeTrend());
+            System.out.println("  community: " + details.getCommunity());
+            System.out.println("  momentum: " + details.getMomentum());
+            
+            ApiResponse<PopularityDetailsResponse> apiResponse = ApiResponse.success(details);
+            
+            // JSON 직렬화 결과 출력
+            try {
+                String jsonResponse = objectMapper.writeValueAsString(apiResponse);
+                System.out.println("📄 [백엔드] JSON 응답:");
+                System.out.println(jsonResponse);
+            } catch (Exception e) {
+                System.out.println("❌ [백엔드] JSON 직렬화 실패: " + e.getMessage());
+            }
+            
+            return ResponseEntity.ok(apiResponse);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {

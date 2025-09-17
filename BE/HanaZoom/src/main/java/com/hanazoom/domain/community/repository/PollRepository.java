@@ -17,4 +17,8 @@ public interface PollRepository extends JpaRepository<Poll, Long> {
 
     @Query("SELECT p FROM Poll p LEFT JOIN FETCH p.pollOptions WHERE p.post.id = :postId")
     Optional<Poll> findByPostIdWithOptions(@Param("postId") Long postId);
+
+    // 특정 종목의 전체 투표 수 조회
+    @Query("SELECT COUNT(p) FROM Poll p JOIN p.post post WHERE post.stock.id = :stockId")
+    int countByStockId(@Param("stockId") Long stockId);
 }
