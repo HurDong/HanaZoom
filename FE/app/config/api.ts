@@ -23,9 +23,6 @@ api.interceptors.request.use(
     const token = getAccessToken();
     if (token && !isAuthFree) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log("🔐 API 요청에 토큰 추가 - URL:", url, "토큰 존재:", !!token, "토큰 길이:", token.length);
-    } else if (!isAuthFree) {
-      console.log("⚠️ API 요청에 토큰 없음 - URL:", url, "토큰 존재:", !!token);
     }
     return config;
   },

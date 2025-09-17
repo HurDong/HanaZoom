@@ -21,6 +21,7 @@ import {
   Award,
   Crown,
   Sparkles,
+  Info
 } from "lucide-react";
 import { useAuthStore } from "@/app/utils/auth";
 import api from "@/app/config/api";
@@ -40,6 +41,7 @@ import type { StockPriceData } from "@/lib/api/stock";
 import { useOfflineStatus } from "@/hooks/useOfflineStatus";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PopularityDonut from "@/components/popularity-donut";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 // 백엔드 RegionResponse DTO와 일치하는 타입 정의
 export interface Region {
@@ -83,6 +85,11 @@ export default function MapPage() {
   const [popDetails, setPopDetails] = useState<PopularityDetailsResponse | null>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const router = useRouter();
+
+  // onLoaded 콜백을 useCallback으로 안정화
+  const handlePopDetailsLoaded = useCallback((data: PopularityDetailsResponse | null) => {
+    setPopDetails(data);
+  }, []);
 
   // 시장 상태 관리
   const [marketStatus, setMarketStatus] = useState(getMarketStatus());
@@ -502,8 +509,6 @@ export default function MapPage() {
 
   // 종목 클릭 시 상세 정보 표시
   const handleStockClick = (stock: TopStock) => {
-    console.log("📊 선택된 종목 정보:", stock);
-    console.log("📊 선택된 종목 섹터:", stock.sector);
     setSelectedStock(stock);
     setShowStockModal(true);
   };
@@ -532,100 +537,6 @@ export default function MapPage() {
     console.log("차트 보기:", stock.symbol);
   };
 
-  // 인기도 도넛 컴포넌트 (뉴스 조각은 숨김)
-  function PopularityDonut({
-    regionId,
-    symbol,
-    onLoaded,
-  }: {
-    regionId: number;
-    symbol: string;
-    onLoaded?: (d: PopularityDetailsResponse | null) => void;
-  }) {
-    const [loading, setLoading] = useState(true);
-    const [data, setData] = useState<PopularityDetailsResponse | null>(null);
-    const abortRef = useRef<AbortController | null>(null);
-
-    useEffect(() => {
-      let mounted = true;
-      setLoading(true);
-      // 이전 요청 취소
-      if (abortRef.current) {
-        abortRef.current.abort();
-      }
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8초 타임아웃
-
-      getPopularityDetails(regionId, symbol, "latest")
-        .then((d) => {
-          if (!mounted || controller.signal.aborted) return;
-          setData(d);
-          onLoaded?.(d);
-        })
-        .catch(() => {
-          if (!mounted || controller.signal.aborted) return;
-          setData(null);
-          onLoaded?.(null);
-        })
-        .finally(() => {
-          if (!mounted) return;
-          clearTimeout(timeoutId);
-          setLoading(false);
-        });
-      return () => {
-        mounted = false;
-        clearTimeout(timeoutId);
-        controller.abort();
-      };
-    }, [regionId, symbol]);
-
-    if (loading) {
-      return (
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Loader2 className="w-4 h-4 animate-spin" /> 불러오는 중...
-        </div>
-      );
-    }
-    if (!data) {
-      return (
-        <div className="text-sm text-gray-500">데이터 없음</div>
-      );
-    }
-
-    // 구성 요소(뉴스는 숨김)
-    const items = [
-      { key: "Trade", label: "거래추세", value: data.tradeTrend, weight: data.weightTradeTrend, color: "#059669" },
-      { key: "Comm", label: "커뮤니티", value: data.community, weight: data.weightCommunity, color: "#10b981" },
-      { key: "Mom", label: "모멘텀", value: data.momentum, weight: data.weightMomentum, color: "#34d399" },
-      // 뉴스는 숨김
-    ];
-    const weighted = items.map(i => ({ ...i, wv: (i.value || 0) * (i.weight || 0) }));
-    const sum = weighted.reduce((a, b) => a + b.wv, 0) || 1;
-    const chartData = weighted.map(i => ({ name: i.label, value: i.wv, percent: Math.round((i.wv / sum) * 1000) / 10, fill: i.color }));
-
-    return (
-      <ChartContainer
-        config={{
-          거래추세: { label: "거래추세", color: "#059669" },
-          커뮤니티: { label: "커뮤니티", color: "#10b981" },
-          모멘텀: { label: "모멘텀", color: "#34d399" },
-        }}
-        className="h-56"
-      >
-        <PieChart>
-          <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90}>
-            {chartData.map((entry, idx) => (
-              <Cell key={idx} fill={entry.fill} />
-            ))}
-          </Pie>
-          <ChartTooltip content={<ChartTooltipContent formatter={(v, name) => (<span>{name}: {Math.round((Number(v)/sum)*1000)/10}%</span>)} />} />
-          <ChartLegend content={<ChartLegendContent />} />
-        </PieChart>
-      </ChartContainer>
-    );
-  }
 
   if (!isMapReady) {
     return (
@@ -1040,8 +951,8 @@ export default function MapPage() {
 
       {/* 종목 상세 정보 모달 */}
       {showStockModal && selectedStock && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4">
+          <div className="mt-16 bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 space-y-6">
               {/* 헤더 */}
               <div className="flex items-center justify-between">
@@ -1123,83 +1034,58 @@ export default function MapPage() {
                 </div>
               </div>
 
-              {/* 요약 정보 */}
-              <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900 dark:to-indigo-900 border border-purple-200 dark:border-purple-700">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-purple-100 dark:bg-purple-800 rounded-full flex items-center justify-center">
-                        <BarChart3 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                      </div>
-                      <span className="font-medium text-purple-800 dark:text-purple-200">
-                        섹터
-                      </span>
-                    </div>
-                    <span className="font-bold text-purple-900 dark:text-purple-100">
-                      {selectedStock.sector}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-lg bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900 dark:to-yellow-900 border border-orange-200 dark:border-orange-700">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-orange-100 dark:bg-orange-800 rounded-full flex items-center justify-center">
-                        <Award className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                      </div>
-                      <span className="font-medium text-orange-800 dark:text-orange-200">
-                        지역 순위
-                      </span>
-                    </div>
-                    <span className="font-bold text-orange-900 dark:text-orange-100">
-                      {selectedStock.rank
-                        ? `${selectedStock.rank}위`
-                        : `상위 ${
-                            topStocks.findIndex(
-                              (s) => s.symbol === selectedStock.symbol
-                            ) + 1
-                          }위`}
-                    </span>
-                  </div>
-                </div>
-              </div>
 
               {/* 인기도 기여도 도넛(전일 기준) */}
               <div className="p-4 rounded-xl bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
-                <div className="mb-3 font-semibold text-gray-800 dark:text-gray-200">인기도 기여도 (전일)</div>
+                <div className="mb-3 font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                  <span>인기지수</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button aria-label="인기지수 설명" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <div className="space-y-1">
+                          <div className="font-semibold">인기지수 알고리즘</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-300">
+                            거래추세(45%) + 커뮤니티(35%) + 모멘텀(20%)의 가중합입니다.
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-300">
+                            각 요소는 0~100 범위로 로그 정규화됩니다.
+                          </div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <PopularityDonut
+                  key={`${selectedRegion?.id}-${selectedStock.symbol}`}
                   regionId={selectedRegion?.id || 0}
                   symbol={selectedStock.symbol}
-                  onLoaded={setPopDetails}
+                  name={selectedStock.name}
+                  onLoaded={handlePopDetailsLoaded}
                 />
               </div>
 
-              {/* 액션 버튼들 */}
-              <div className="space-y-3">
+            </div>
+
+            {/* 액션 버튼: 커뮤니티 / WTS */}
+            <div className="px-6 pb-6">
+              <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => handleGoToCommunity(selectedStock)}
-                  className="w-full flex items-center justify-center gap-3 p-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] text-lg"
+                  onClick={() => router.push(`/community/${selectedStock.symbol}`)}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                 >
-                  <ExternalLink className="w-5 h-5" />
                   커뮤니티
                 </button>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => handleToggleFavorite(selectedStock)}
-                    className="flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-pink-200 dark:border-pink-700 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-900 dark:to-rose-900 hover:from-pink-100 hover:to-rose-100 dark:hover:from-pink-800 dark:hover:to-rose-800 text-pink-700 dark:text-pink-300 font-semibold transition-all duration-200 hover:scale-[1.02]"
-                  >
-                    <Heart className="w-5 h-5" />찜
-                  </button>
-
-                  <button
-                    onClick={() => handleViewChart(selectedStock)}
-                    className="flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-blue-200 dark:border-blue-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-800 dark:hover:to-indigo-800 text-blue-700 dark:text-blue-300 font-semibold transition-all duration-200 hover:scale-[1.02]"
-                  >
-                    <BarChart3 className="w-5 h-5" />
-                    차트
-                  </button>
-                </div>
+                <button
+                  onClick={() => router.push(`/pb/${selectedStock.symbol}`)}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                >
+                  WTS
+                </button>
               </div>
             </div>
           </div>

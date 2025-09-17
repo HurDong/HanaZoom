@@ -100,11 +100,11 @@ export interface PopularityDetailsResponse {
   regionId: number;
   symbol: string;
   date: string;
-  score: number; // 0~100
-  tradeTrend: number; // 0~1
-  community: number; // 0~1
-  momentum: number; // 0~1
-  newsImpact: number; // 0~1 (현재 0)
+  score: number; // 0~100 스케일 (최종 점수)
+  tradeTrend: number; // 0~100 스케일
+  community: number; // 0~100 스케일
+  momentum: number; // 0~100 스케일
+  newsImpact: number; // 0~100 스케일 (현재 0)
   weightTradeTrend: number;
   weightCommunity: number;
   weightMomentum: number;
@@ -120,11 +120,18 @@ export const getPopularityDetails = async (
   symbol: string,
   date: string = "latest"
 ): Promise<PopularityDetailsResponse> => {
-  const res = await api.get<{ success: boolean; data: PopularityDetailsResponse }>(
-    `/regions/${regionId}/stocks/${symbol}/popularity`,
-    { params: { date } }
-  );
-  return res.data.data;
+  try {
+    const res = await api.get<{ success: boolean; data: PopularityDetailsResponse }>(
+      `/regions/${regionId}/stocks/${symbol}/popularity`,
+      { params: { date } }
+    );
+    
+    
+    return res.data.data;
+  } catch (error) {
+    console.error(`❌ [API] getPopularityDetails 에러:`, error);
+    throw error;
+  }
 };
 
 // WTS 관련 API 함수들

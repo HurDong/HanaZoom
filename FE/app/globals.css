@@ -5,6 +5,19 @@
 /* 미니멀 UI 스타일 임포트 */
 @import url("../styles/minimal-ui.css");
 
+/* CSS 로딩 최적화 */
+@layer base {
+  html {
+    font-display: swap;
+  }
+  
+  body {
+    font-display: swap;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
