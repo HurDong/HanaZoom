@@ -951,140 +951,164 @@ export default function MapPage() {
 
       {/* 종목 상세 정보 모달 */}
       {showStockModal && selectedStock && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4">
-          <div className="mt-16 bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 space-y-6">
-              {/* 헤더 */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    {selectedStock.logoUrl ? (
-                      <img
-                        src={selectedStock.logoUrl}
-                        alt={selectedStock.name}
-                        className="w-16 h-16 rounded-full object-contain"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                          const parent = (e.target as HTMLImageElement)
-                            .parentElement;
-                          if (parent && selectedStock.emoji) {
-                            const span = document.createElement("span");
-                            span.className = "text-4xl";
-                            span.textContent = selectedStock.emoji;
-                            parent.appendChild(span);
-                          }
-                        }}
-                      />
-                    ) : (
-                      <span className="text-4xl">
-                        {selectedStock.emoji || "📈"}
-                      </span>
-                    )}
-                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                      <TrendingUp className="w-3 h-3 text-white" />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-2xl text-gray-900 dark:text-gray-100">
-                      {selectedStock.name}
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                      {selectedStock.symbol}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleCloseStockDetail}
-                  aria-label="닫기"
-                  className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 text-white shadow focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              {/* 가격 정보 */}
-              <div className="relative p-6 rounded-xl bg-gradient-to-br from-green-50 via-emerald-50 to-green-100 dark:from-green-900 dark:via-emerald-900 dark:to-green-800 border border-green-200 dark:border-green-700">
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-3">
-                    {selectedStock.price === "데이터 없음" ||
-                    selectedStock.price === null
-                      ? "데이터 없음"
-                      : `₩${Number(selectedStock.price).toLocaleString()}`}
-                  </div>
-                  <div
-                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-lg font-bold ${
-                      selectedStock.change.startsWith("-")
-                        ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-                        : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                    }`}
-                  >
-                    <TrendingUp
-                      className={`w-5 h-5 ${
-                        selectedStock.change.startsWith("-") ? "rotate-180" : ""
-                      }`}
-                    />
-                    {selectedStock.change === "0.00%"
-                      ? selectedStock.change
-                      : selectedStock.change.startsWith("-")
-                      ? `${selectedStock.change}%`
-                      : selectedStock.change.includes("%")
-                      ? selectedStock.change
-                      : `${selectedStock.change}%`}
-                  </div>
-                </div>
-              </div>
-
-
-              {/* 인기도 기여도 도넛(전일 기준) */}
-              <div className="p-4 rounded-xl bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
-                <div className="mb-3 font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                  <span>인기지수</span>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button aria-label="인기지수 설명" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                          <Info className="w-4 h-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right">
-                        <div className="space-y-1">
-                          <div className="font-semibold">인기지수 알고리즘</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-300">
-                            거래추세(45%) + 커뮤니티(35%) + 모멘텀(20%)의 가중합입니다.
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-300">
-                            각 요소는 0~100 범위로 로그 정규화됩니다.
-                          </div>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <PopularityDonut
-                  key={`${selectedRegion?.id}-${selectedStock.symbol}`}
-                  regionId={selectedRegion?.id || 0}
-                  symbol={selectedStock.symbol}
-                  name={selectedStock.name}
-                  onLoaded={handlePopDetailsLoaded}
-                />
-              </div>
-
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-[9999] animate-in fade-in duration-300">
+          {/* 데스크톱: 중앙 정렬, 모바일: 바텀시트 */}
+          <div className="bg-white dark:bg-gray-900 rounded-t-3xl md:rounded-2xl w-full max-w-sm sm:max-w-md md:max-w-lg max-h-[90vh] md:max-h-[85vh] shadow-2xl animate-in slide-in-from-bottom-4 md:slide-in-from-bottom-0 duration-300 relative flex flex-col">
+            {/* 모바일 핸들 */}
+            <div className="md:hidden flex justify-center pt-3 pb-2 flex-shrink-0">
+              <div className="w-12 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
             </div>
 
-            {/* 액션 버튼: 커뮤니티 / WTS */}
-            <div className="px-6 pb-6">
+            {/* 고정 닫기 버튼 */}
+            <button
+              onClick={handleCloseStockDetail}
+              aria-label="닫기"
+              className="absolute top-4 right-4 z-[10000] p-2 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-110"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* 스크롤 가능한 컨텐츠 영역 */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 pt-12 md:pt-6">
+                {/* 헤더 - 순위 배지 + 로고 + 종목명 */}
+                <div className="flex items-start gap-3">
+                  {/* 순위 배지 */}
+                  {selectedStock.rank && (
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center shadow-lg">
+                        <span className="text-white font-bold text-sm">
+                          {selectedStock.rank}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 로고 + 종목명 */}
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="relative flex-shrink-0">
+                      {selectedStock.logoUrl ? (
+                        <img
+                          src={selectedStock.logoUrl}
+                          alt={selectedStock.name}
+                          className="w-12 h-12 rounded-xl object-contain bg-gray-50 dark:bg-gray-800 p-1"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                            const parent = (e.target as HTMLImageElement)
+                              .parentElement;
+                            if (parent && selectedStock.emoji) {
+                              const span = document.createElement("span");
+                              span.className = "text-2xl w-12 h-12 flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-xl";
+                              span.textContent = selectedStock.emoji;
+                              parent.appendChild(span);
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gray-50 dark:bg-gray-800 rounded-xl flex items-center justify-center">
+                          <span className="text-xl">
+                            {selectedStock.emoji || "📈"}
+                          </span>
+                        </div>
+                      )}
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-md">
+                        <TrendingUp className="w-3 h-3 text-white" />
+                      </div>
+                    </div>
+                    
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100 truncate">
+                        {selectedStock.name}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
+                        {selectedStock.symbol}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 가격 정보 카드 */}
+                <div className="relative p-6 rounded-2xl bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 dark:from-emerald-900/30 dark:via-green-900/30 dark:to-emerald-800/30 border border-emerald-200 dark:border-emerald-700/50 shadow-lg">
+                  <div className="text-center">
+                    <div className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+                      {selectedStock.price === "데이터 없음" ||
+                      selectedStock.price === null
+                        ? "데이터 없음"
+                        : `₩${Number(selectedStock.price).toLocaleString()}`}
+                    </div>
+                    <div
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-base font-bold shadow-sm ${
+                        selectedStock.change.startsWith("-")
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 border border-red-200 dark:border-red-700"
+                          : "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border border-blue-200 dark:border-blue-700"
+                      }`}
+                    >
+                      <TrendingUp
+                        className={`w-4 h-4 ${
+                          selectedStock.change.startsWith("-") ? "rotate-180" : ""
+                        }`}
+                      />
+                      {selectedStock.change === "0.00%"
+                        ? selectedStock.change
+                        : selectedStock.change.startsWith("-")
+                        ? `${selectedStock.change}%`
+                        : selectedStock.change.includes("%")
+                        ? selectedStock.change
+                        : `${selectedStock.change}%`}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 인기도 기여도 도넛(전일 기준) */}
+                <div className="p-4 rounded-2xl bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 shadow-sm backdrop-blur-sm">
+                  <div className="mb-3 font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                    <span>인기지수</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button aria-label="인기지수 설명" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                            <Info className="w-4 h-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <div className="space-y-1">
+                            <div className="font-semibold">인기지수 알고리즘</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-300">
+                              거래추세(45%) + 커뮤니티(35%) + 모멘텀(20%)의 가중합입니다.
+                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-300">
+                              각 요소는 0~100 범위로 로그 정규화됩니다.
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <PopularityDonut
+                    key={`${selectedRegion?.id}-${selectedStock.symbol}`}
+                    regionId={selectedRegion?.id || 0}
+                    symbol={selectedStock.symbol}
+                    name={selectedStock.name}
+                    onLoaded={handlePopDetailsLoaded}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 고정 액션 버튼: 커뮤니티 / WTS */}
+            <div className="flex-shrink-0 px-4 sm:px-6 pb-4 sm:pb-6 pt-2 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => router.push(`/community/${selectedStock.symbol}`)}
-                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                 >
-                  커뮤니티
+                  <span>커뮤니티</span>
                 </button>
                 <button
                   onClick={() => router.push(`/stocks/${selectedStock.symbol}`)}
-                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                 >
-                  WTS
+                  <span>WTS</span>
                 </button>
               </div>
             </div>
