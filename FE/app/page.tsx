@@ -133,14 +133,14 @@ export default function StockMapLanding() {
                         />
                       </svg>
                     </span>{" "}
-                    지도 - Hot Reload 테스트
+                    지도
                   </h1>
                   <p className="mx-auto lg:mx-0 max-w-[700px] text-green-700 dark:text-green-300 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
                     우리 동네에서 가장 인기 있는 주식 종목을 한눈에!
                     <br />
                     지역별 투자 트렌드를 귀여운 지도로 확인해보세요 🗺️✨
                     <br />
-                    <span className="text-blue-600 font-bold">Hot Reload가 정상 작동하면 이 텍스트가 보입니다!</span>
+                    <span className="text-emerald-600 font-semibold">지역 특성을 반영한 맞춤형 주식 인사이트를 만나보세요!</span>
                   </p>
                 </AnimateOnScroll>
 

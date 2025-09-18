@@ -1081,7 +1081,7 @@ export default function MapPage() {
                   커뮤니티
                 </button>
                 <button
-                  onClick={() => router.push(`/pb/${selectedStock.symbol}`)}
+                  onClick={() => router.push(`/stocks/${selectedStock.symbol}`)}
                   className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
                 >
                   WTS
