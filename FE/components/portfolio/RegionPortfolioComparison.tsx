@@ -10,6 +10,7 @@ import { RegionalPortfolioAnalysis } from "@/types/regional-portfolio";
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -17,7 +18,6 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell,
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
@@ -822,17 +822,116 @@ export default function RegionPortfolioComparison({
             </CardHeader>
             <CardContent>
               <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={comparisonData?.regionAverage?.investmentTrends || []}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="sector" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="percentage" fill="#10B981" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {(() => {
+                  const trendsData = comparisonData?.regionalAverage?.investmentTrends || [];
+                  console.log('[투자트렌드] 원본 데이터:', trendsData);
+                  console.log('[투자트렌드] comparisonData:', comparisonData);
+                  console.log('[투자트렌드] comparisonData 타입:', typeof comparisonData);
+                  console.log('[투자트렌드] comparisonData.regionalAverage:', comparisonData?.regionalAverage);
+                  console.log('[투자트렌드] comparisonData.regionAverage:', comparisonData?.regionAverage);
+                  console.log('[투자트렌드] regionalAverage:', comparisonData?.regionalAverage);
+                  console.log('[투자트렌드] regionalAverage keys:', comparisonData?.regionalAverage ? Object.keys(comparisonData.regionalAverage) : 'undefined');
+                  console.log('[투자트렌드] regionalAverage.investmentTrends:', comparisonData?.regionalAverage?.investmentTrends);
+                  
+                  // comparisonData의 모든 키 확인
+                  if (comparisonData) {
+                    console.log('[투자트렌드] comparisonData 모든 키:', Object.keys(comparisonData));
+                    console.log('[투자트렌드] comparisonData.regionalAverage 존재 여부:', 'regionalAverage' in comparisonData);
+                    console.log('[투자트렌드] comparisonData.regionAverage 존재 여부:', 'regionAverage' in comparisonData);
+                  }
+                  
+                  // 각 투자 트렌드 데이터 상세 로그
+                  if (trendsData && trendsData.length > 0) {
+                    console.log('[투자트렌드] 상세 데이터:');
+                    trendsData.forEach((trend, index) => {
+                      console.log(`  ${index + 1}. 섹터: ${trend.sector}, 비중: ${trend.percentage}%, 트렌드: ${trend.trend}`);
+                    });
+                  } else {
+                    console.log('[투자트렌드] 데이터가 비어있습니다!');
+                  }
+                  
+                  if (trendsData.length === 0) {
+                    return (
+                      <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
+                        <div className="text-center">
+                          <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p>투자 트렌드 데이터를 불러오는 중...</p>
+                          <p className="text-sm mt-2">백엔드에서 데이터를 가져오고 있습니다</p>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  // 데이터 전처리: percentage가 숫자가 아닌 경우 처리
+                  const processedData = trendsData.map(trend => ({
+                    ...trend,
+                    percentage: typeof trend.percentage === 'number' ? trend.percentage : 
+                              typeof trend.percentage === 'string' ? parseFloat(trend.percentage) : 0
+                  })).filter(trend => trend.percentage > 0) // 0보다 큰 값만 표시
+                    .sort((a, b) => b.percentage - a.percentage); // 비중 높은 순으로 정렬
+                  
+                  console.log('[투자트렌드] 전처리된 데이터:', processedData);
+                  
+                  return (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={processedData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis 
+                          dataKey="sector" 
+                          tick={{ fill: '#6B7280', fontSize: 12 }}
+                          angle={-45}
+                          textAnchor="end"
+                          height={80}
+                        />
+                        <YAxis 
+                          tick={{ fill: '#6B7280', fontSize: 12 }}
+                          label={{ value: '비중 (%)', angle: -90, position: 'insideLeft' }}
+                        />
+                        <Tooltip 
+                          formatter={(value: any) => [`${Number(value).toFixed(2)}%`, '비중']}
+                          labelFormatter={(label) => `섹터: ${label}`}
+                          contentStyle={{
+                            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                            border: '1px solid rgba(75, 85, 99, 0.8)',
+                            borderRadius: '12px',
+                            color: '#FFFFFF',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            padding: '12px 16px',
+                            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
+                            backdropFilter: 'blur(8px)'
+                          }}
+                          labelStyle={{
+                            color: '#FFFFFF',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            marginBottom: '4px'
+                          }}
+                          itemStyle={{
+                            color: '#10B981',
+                            fontSize: '14px',
+                            fontWeight: '600'
+                          }}
+                        />
+                        <Bar 
+                          dataKey="percentage" 
+                          radius={[4, 4, 0, 0]}
+                        >
+                          {processedData.map((entry, index) => (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={
+                                entry.trend === 'up' ? '#10B981' : 
+                                entry.trend === 'down' ? '#EF4444' : 
+                                '#6B7280'
+                              } 
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>

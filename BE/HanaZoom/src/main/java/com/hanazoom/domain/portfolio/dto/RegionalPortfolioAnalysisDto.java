@@ -1,5 +1,6 @@
 package com.hanazoom.domain.portfolio.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,6 +13,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class RegionalPortfolioAnalysisDto {
     
     // 지역 정보
@@ -97,5 +99,6 @@ public class RegionalPortfolioAnalysisDto {
     public static class InvestmentTrend {
         private String sector;
         private BigDecimal percentage;
+        private String trend; // "up", "down", "stable"
     }
 }

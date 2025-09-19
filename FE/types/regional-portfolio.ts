@@ -20,6 +20,13 @@ export interface RegionalAverageInfo {
   commonRiskLevel: string;
   averageDiversificationScore: number;
   popularStocks: PopularStockInfo[];
+  investmentTrends: InvestmentTrend[];
+}
+
+export interface InvestmentTrend {
+  sector: string;
+  percentage: number;
+  trend?: "up" | "down" | "stable";
 }
 
 export interface ComparisonResult {
