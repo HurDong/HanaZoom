@@ -73,6 +73,7 @@ public class RegionalPortfolioAnalysisDto {
         private String symbol;
         private String name;
         private BigDecimal percentage;
+        private String sector;
         private String logoUrl;
     }
     
@@ -85,6 +86,7 @@ public class RegionalPortfolioAnalysisDto {
         private String name;
         private BigDecimal popularityScore;
         private int ranking;
+        private String sector;
         private String logoUrl;
     }
 

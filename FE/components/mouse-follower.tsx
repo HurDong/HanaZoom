@@ -155,16 +155,24 @@ export function MouseFollower() {
     return () => clearInterval(interval);
   }, []);
 
-  // 디버깅: 설정 상태 확인
-  console.log('🖱️ MouseFollower 상태:', {
-    isInitialized,
-    customCursorEnabled: settings.customCursorEnabled,
-    settings: settings
-  });
+  // 디버깅: 설정 상태 확인 (환경 변수/전역 플래그로 제어)
+  const debugCursor =
+    process.env.NEXT_PUBLIC_DEBUG_CURSOR === 'true' ||
+    (typeof window !== 'undefined' && (window as any).__DEBUG_CURSOR === true);
+
+  if (debugCursor) {
+    console.debug('🖱️ MouseFollower 상태:', {
+      isInitialized,
+      customCursorEnabled: settings.customCursorEnabled,
+      settings: settings
+    });
+  }
 
   // 사용자 설정에 따라 커스텀 커서가 비활성화된 경우 컴포넌트를 렌더링하지 않음
   if (!isInitialized || !settings.customCursorEnabled) {
-    console.log('🖱️ MouseFollower 비활성화:', { isInitialized, customCursorEnabled: settings.customCursorEnabled });
+    if (debugCursor) {
+      console.debug('🖱️ MouseFollower 비활성화:', { isInitialized, customCursorEnabled: settings.customCursorEnabled });
+    }
     return null;
   }
 

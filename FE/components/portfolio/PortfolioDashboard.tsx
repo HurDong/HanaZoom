@@ -33,7 +33,7 @@ export default function PortfolioDashboard() {
     useState<PortfolioSummary | null>(null);
   const [portfolioStocks, setPortfolioStocks] = useState<PortfolioStock[]>([]);
   const [tradeHistory, setTradeHistory] = useState<TradeHistory[]>([]);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("regional");
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
   const [showConsultationModal, setShowConsultationModal] = useState(false);

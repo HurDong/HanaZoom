@@ -201,10 +201,12 @@ public class RegionalPortfolioAnalysisService {
                     .map(ps -> {
                         var stockOpt = stockRepository.findBySymbol(ps.getStockSymbol());
                         String name = stockOpt.map(s -> s.getName()).orElse(ps.getStockSymbol());
+                        String sector = stockOpt.map(s -> s.getSector()).orElse(null);
                         String logoUrl = stockOpt.map(s -> s.getLogoUrl()).orElse(null);
                         return RegionalPortfolioAnalysisDto.StockInfo.builder()
                                 .symbol(ps.getStockSymbol())
                                 .name(name)
+                                .sector(sector)
                                 .logoUrl(logoUrl)
                                 .percentage(calculateHoldingPercentage(ps.getCurrentValue(), stats.getTotalValue()))
                                 .build();
@@ -247,6 +249,7 @@ public class RegionalPortfolioAnalysisService {
                         .name(a.getStock().getName())
                         .popularityScore(null)
                         .ranking(i + 1)
+                        .sector(a.getStock().getSector())
                         .logoUrl(a.getStock().getLogoUrl())
                         .build());
             }
@@ -576,20 +579,49 @@ public class RegionalPortfolioAnalysisService {
 
         // 1) 섹터 정렬 이슈
         if (sSector < 60 && out.size() < 3) {
-            // 상위 지역 섹터 후보 추출
-            String topRegionSector = regionSector.entrySet().stream()
-                    .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
-                    .map(Map.Entry::getKey)
-                    .findFirst().orElse("핵심 섹터");
+            // 상위 지역 섹터 후보 추출 - 1등 종목의 섹터 우선 사용
+            String topRegionSector = "핵심 섹터";
+            if (regionalAverage.getPopularStocks() != null && !regionalAverage.getPopularStocks().isEmpty()) {
+                String topStockSector = regionalAverage.getPopularStocks().get(0).getSector();
+                if (topStockSector != null && !topStockSector.isEmpty()) {
+                    topRegionSector = topStockSector;
+                } else {
+                    // 섹터가 없으면 regionSector 맵에서 찾기
+                    topRegionSector = regionSector.entrySet().stream()
+                            .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
+                            .map(Map.Entry::getKey)
+                            .findFirst().orElse("핵심 섹터");
+                }
+            } else {
+                // popularStocks가 없으면 regionSector 맵에서 찾기
+                topRegionSector = regionSector.entrySet().stream()
+                        .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
+                        .map(Map.Entry::getKey)
+                        .findFirst().orElse("핵심 섹터");
+            }
             out.add(String.format("지역 핵심 섹터(%s) 비중이 낮습니다. 해당 섹터 비중 확대를 검토하세요.", topRegionSector));
         }
 
         // 2) 섹터 커버리지 부족
         if (sCover < 65 && out.size() < 3) {
-            // 미커버 섹터 하나 추천
-            String gapSector = regionSector.keySet().stream()
-                    .filter(s -> userSector.getOrDefault(s, BigDecimal.ZERO).compareTo(BigDecimal.ZERO) == 0)
-                    .findFirst().orElse("미커버 섹터");
+            // 미커버 섹터 하나 추천 - 1등 종목의 섹터 우선 사용
+            String gapSector = "미커버 섹터";
+            if (regionalAverage.getPopularStocks() != null && !regionalAverage.getPopularStocks().isEmpty()) {
+                String topStockSector = regionalAverage.getPopularStocks().get(0).getSector();
+                if (topStockSector != null && !topStockSector.isEmpty()) {
+                    gapSector = topStockSector;
+                } else {
+                    // 섹터가 없으면 regionSector 맵에서 찾기
+                    gapSector = regionSector.keySet().stream()
+                            .filter(s -> userSector.getOrDefault(s, BigDecimal.ZERO).compareTo(BigDecimal.ZERO) == 0)
+                            .findFirst().orElse("미커버 섹터");
+                }
+            } else {
+                // popularStocks가 없으면 regionSector 맵에서 찾기
+                gapSector = regionSector.keySet().stream()
+                        .filter(s -> userSector.getOrDefault(s, BigDecimal.ZERO).compareTo(BigDecimal.ZERO) == 0)
+                        .findFirst().orElse("미커버 섹터");
+            }
             out.add(String.format("지역 코어 섹터 노출이 부족합니다. %s 편입을 소액부터 시도해보세요.", gapSector));
         }
 

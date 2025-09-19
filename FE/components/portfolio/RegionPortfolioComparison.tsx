@@ -125,6 +125,8 @@ export default function RegionPortfolioComparison({
       setError(null);
       
       const data = await regionalPortfolioApi.getRegionalPortfolioAnalysis();
+      const top1 = data?.regionalAverage?.popularStocks?.[0];
+      console.log('[Region/API] top1:', top1?.symbol, top1?.name, 'sector:', top1?.sector);
       setComparisonData(data);
     } catch (err: any) {
       console.error("지역별 포트폴리오 분석 로딩 실패:", err);
@@ -137,9 +139,6 @@ export default function RegionPortfolioComparison({
       } else {
         setError("데이터를 불러오는데 실패했습니다.");
       }
-      
-      // 에러 발생 시 모의 데이터로 폴백
-      generateMockComparisonData();
     } finally {
       setLoading(false);
     }
@@ -186,7 +185,7 @@ export default function RegionPortfolioComparison({
         diversificationScore: 72,
       },
       investmentTrends: [
-        { sector: "IT/반도체", percentage: 35, trend: "up" },
+        { sector: "소매", percentage: 35, trend: "up" },
         { sector: "바이오/제약", percentage: 20, trend: "up" },
         { sector: "금융", percentage: 15, trend: "stable" },
         { sector: "자동차", percentage: 12, trend: "down" },
@@ -218,6 +217,10 @@ export default function RegionPortfolioComparison({
     const riskLevelMatch =
       userPortfolio.riskLevel === mockRegionData.averagePortfolio.riskLevel;
     const diversificationScore = userPortfolio.diversificationScore;
+
+    if (process.env.NEXT_PUBLIC_DEBUG_REGION === 'true') {
+      console.debug('[Region] mock popular top1:', mockRegionData.popularStocks?.[0]);
+    }
 
     const recommendations = generateRecommendations(
       userPortfolio,
@@ -270,14 +273,124 @@ export default function RegionPortfolioComparison({
     return 20;
   };
 
+  // 상위 종목에서 섹터 추론
+  const inferSectorFromTopStock = (topStock?: { symbol: string; name: string; sector?: string }): string => {
+    if (!topStock) return "기타";
+
+    if (topStock.sector) return topStock.sector; // 백엔드에서 제공된 섹터 우선 사용
+
+    const { symbol, name } = topStock;
+
+    const symbolSectorMap: Record<string, string> = {
+      "005930": "IT/반도체", // 삼성전자
+      "000660": "IT/반도체", // SK하이닉스
+      "373220": "2차전지/전기차",
+      "005380": "자동차", // 현대차
+      "000270": "자동차", // 기아
+      "047050": "철강/무역", // 포스코인터내셔널
+      "005490": "철강/소재", // 포스코
+      "003670": "2차전지/소재", // 포스코퓨처엠
+      "207940": "바이오/제약", // 삼성바이오로직스
+      "006400": "2차전지/전기차", // 삼성SDI
+      "035420": "IT/인터넷", // NAVER
+      "035720": "IT/인터넷", // 카카오
+      "096770": "정유/에너지", // SK이노베이션
+      "017670": "통신", // SK텔레콤
+      "023530": "소매", // 롯데쇼핑
+    };
+
+    if (symbolSectorMap[symbol]) return symbolSectorMap[symbol];
+
+    const nameKeywordMap: Array<{ keyword: string; sector: string }> = [
+      { keyword: "전자", sector: "IT/반도체" },
+      { keyword: "하이닉스", sector: "IT/반도체" },
+      { keyword: "반도체", sector: "IT/반도체" },
+      { keyword: "에너지", sector: "화학/에너지" },
+      { keyword: "바이오", sector: "바이오/제약" },
+      { keyword: "제약", sector: "바이오/제약" },
+      { keyword: "현대", sector: "자동차" },
+      { keyword: "기아", sector: "자동차" },
+      { keyword: "포스코", sector: "철강/소재" },
+      { keyword: "조선", sector: "조선/중공업" },
+      { keyword: "통신", sector: "통신" },
+      { keyword: "인터넷", sector: "IT/인터넷" },
+      { keyword: "NAVER", sector: "IT/인터넷" },
+      { keyword: "카카오", sector: "IT/인터넷" },
+      { keyword: "롯데", sector: "소매" },
+      { keyword: "쇼핑", sector: "소매" },
+    ];
+
+    const match = nameKeywordMap.find((m) => name?.includes(m.keyword));
+    if (match) return match.sector;
+
+    return "기타";
+  };
+
+  // 사용자 포트폴리오에서 특정 섹터의 비중 계산
+  const calculateUserSectorAllocation = (userPortfolio: any, targetSector: string): number => {
+    if (!userPortfolio?.topStocks || userPortfolio.topStocks.length === 0) {
+      return 0;
+    }
+
+    const sectorStocks = userPortfolio.topStocks.filter((stock: any) => 
+      stock.sector === targetSector || 
+      (stock.sector && stock.sector.includes(targetSector.split('/')[0]))
+    );
+
+    const totalValue = userPortfolio.topStocks.reduce((sum: number, stock: any) => 
+      sum + (stock.percentage || 0), 0
+    );
+
+    if (totalValue === 0) return 0;
+
+    const sectorValue = sectorStocks.reduce((sum: number, stock: any) => 
+      sum + (stock.percentage || 0), 0
+    );
+
+    return Math.round((sectorValue / totalValue) * 100);
+  };
+
   const generateRecommendations = (
     userPortfolio: any,
     regionData: RegionData,
     stockCountDiff: number,
     riskLevelMatch: boolean
   ) => {
-    // 사진에 맞춰 1개의 추천사항만 반환
-    return ["지역 평균보다 종목 수가 적습니다. 분산 투자를 고려해보세요."];
+    const recommendations: string[] = [];
+
+    // 종목 수 관련
+    if (stockCountDiff < 0) {
+      recommendations.push("지역 평균보다 종목 수가 적습니다. 분산 투자를 고려해보세요.");
+    }
+
+    // 핵심 섹터: 백엔드 top1에서 sector 우선 사용, 없으면 추론
+    const top1 = regionData.popularStocks?.[0];
+    const coreSector = top1?.sector || inferSectorFromTopStock(top1) || '기타';
+    console.log('[Region] coreSector 결정:', {
+      top1Symbol: top1?.symbol,
+      top1Name: top1?.name,
+      top1Sector: top1?.sector,
+      inferredSector: inferSectorFromTopStock(top1),
+      finalCoreSector: coreSector
+    });
+
+    // 지역 평균 섹터 비중
+    const regionPct =
+      regionData.investmentTrends.find(t => t.sector === coreSector)?.percentage ?? 0;
+
+    // 사용자 섹터 비중 계산
+    const userPct = calculateUserSectorAllocation(userPortfolio, coreSector);
+
+    const DIFF_THRESHOLD = 10;
+
+    console.log('[SectorCompare]', { coreSector, regionPct, userPct });
+
+    if (userPct + DIFF_THRESHOLD < regionPct) {
+      recommendations.push(`지역 핵심 섹터(${coreSector}) 비중이 낮습니다. 해당 섹터 비중 확대를 검토하세요.`);
+      console.log('[Recommendation] 부족', { coreSector, diff: regionPct - userPct });
+    }
+
+    return recommendations;
   };
 
   const calculateOverallScore = (
