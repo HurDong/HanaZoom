@@ -1,9 +1,13 @@
 package com.hanazoom.domain.consultation.service;
 
 import com.hanazoom.domain.consultation.dto.PbListResponseDto;
+import com.hanazoom.domain.consultation.entity.Consultation;
+import com.hanazoom.domain.consultation.entity.ConsultationStatus;
+import com.hanazoom.domain.consultation.repository.ConsultationRepository;
 import com.hanazoom.domain.member.entity.Member;
 import com.hanazoom.domain.member.entity.PbStatus;
 import com.hanazoom.domain.member.repository.MemberRepository;
+import com.hanazoom.domain.pb.dto.SetAvailabilityRequestDto;
 import com.hanazoom.domain.region.entity.Region;
 import com.hanazoom.domain.region.repository.RegionRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,9 +17,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.hanazoom.domain.consultation.entity.ConsultationType;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +32,39 @@ public class PbService {
 
     private final MemberRepository memberRepository;
     private final RegionRepository regionRepository;
+    private final ConsultationRepository consultationRepository;
+
+    /**
+     * PB 상담 가능 시간 등록
+     */
+    @Transactional
+    public void setAvailability(SetAvailabilityRequestDto requestDto, UUID pbId) {
+        Member pb = memberRepository.findById(pbId)
+                .orElseThrow(() -> new IllegalArgumentException("PB 정보를 찾을 수 없습니다."));
+
+        if (!pb.isPb()) {
+            throw new IllegalStateException("PB 권한이 없는 사용자입니다.");
+        }
+
+        List<Consultation> availableSlots = requestDto.getAvailableSlots().stream()
+                .map(slot -> {
+                    long durationMinutes = Duration.between(slot.getStartTime(), slot.getEndTime()).toMinutes();
+
+                    return Consultation.builder()
+                            .pb(pb)
+                            .client(pb) // client_id에 PB 자신의 ID를 설정
+                            .scheduledAt(slot.getStartTime())
+                            .durationMinutes((int) durationMinutes)
+                            .status(ConsultationStatus.AVAILABLE)
+                            .consultationType(ConsultationType.SLOT) // 기본 유형 설정
+                            .fee(BigDecimal.ZERO) // 기본 수수료 0으로 설정
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        consultationRepository.saveAll(availableSlots);
+        log.info("PB {}의 상담 가능 시간 {}개가 등록되었습니다.", pbId, availableSlots.size());
+    }
 
     /**
      * 활성 PB 목록 조회
@@ -34,7 +74,7 @@ public class PbService {
 
         // 실제로는 복잡한 쿼리로 필터링
         Page<Member> pbMembers = memberRepository.findByIsPbTrueAndPbStatus(PbStatus.ACTIVE, pageable);
-        
+
         return pbMembers.map(this::convertToPbListResponseDto);
     }
 
@@ -77,8 +117,8 @@ public class PbService {
         List<Member> pbMembers = memberRepository.findByIsPbTrueAndPbStatus(PbStatus.ACTIVE);
 
         return pbMembers.stream()
-                .filter(pb -> pb.getPbSpecialties() != null && 
-                             pb.getPbSpecialties().contains(specialty))
+                .filter(pb -> pb.getPbSpecialties() != null &&
+                        pb.getPbSpecialties().contains(specialty))
                 .map(this::convertToPbListResponseDto)
                 .collect(Collectors.toList());
     }
@@ -102,10 +142,9 @@ public class PbService {
      */
     private PbListResponseDto convertToPbListResponseDto(Member pb) {
         // Optional을 사용하여 안전하게 지역명 조회
-        String regionName = pb.getRegionId() != null ? 
-                regionRepository.findById(pb.getRegionId())
-                        .map(Region::getName)
-                        .orElse("") : "";
+        String regionName = pb.getRegionId() != null ? regionRepository.findById(pb.getRegionId())
+                .map(Region::getName)
+                .orElse("") : "";
 
         List<String> specialties = List.of();
         if (pb.getPbSpecialties() != null && !pb.getPbSpecialties().isEmpty()) {

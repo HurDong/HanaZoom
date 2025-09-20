@@ -10,6 +10,7 @@ import { useAuthStore } from "@/app/utils/auth";
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
 import { getMyInfo } from "@/lib/api/members";
+import PbAvailabilityManager from "@/components/pb/PbAvailabilityManager"; // 컴포넌트 import
 
 export default function PBAdminPage() {
   const router = useRouter();
@@ -145,10 +146,15 @@ export default function PBAdminPage() {
       {/* Main Content */}
       <main className="relative z-10 pt-16">
         {pbId && (
-          <div>
+          <div className="container mx-auto px-4 py-8">
+            {/* 상담 가능 시간 관리 컴포넌트 추가 */}
+            <div className="mb-8">
+              <PbAvailabilityManager />
+            </div>
+
             {/* 초대 URL 표시 */}
             {inviteUrl && (
-              <div className="container mx-auto px-4 py-4">
+              <div className="mb-8">
                 <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-green-200 dark:border-green-800 rounded-lg p-4 shadow-lg">
                   <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-2">
                     🎉 방이 생성되었습니다!

@@ -1,6 +1,7 @@
 package com.hanazoom.domain.consultation.entity;
 
 public enum ConsultationStatus {
+    AVAILABLE("예약 가능"),
     PENDING("대기중"),
     APPROVED("승인됨"),
     REJECTED("거절됨"),

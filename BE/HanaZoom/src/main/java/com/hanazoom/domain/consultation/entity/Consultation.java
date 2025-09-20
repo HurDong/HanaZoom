@@ -33,11 +33,11 @@ public class Consultation {
     @JoinColumn(name = "pb_id", nullable = false)
     private Member pb;
 
-    @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.ORDINAL) // STRING에서 ORDINAL로 변경
     @Column(name = "consultation_type", nullable = false)
     private ConsultationType consultationType;
 
-    @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.ORDINAL) // STRING에서 ORDINAL로 변경
     @Column(name = "status", nullable = false)
     private ConsultationStatus status = ConsultationStatus.PENDING;
 
@@ -87,7 +87,7 @@ public class Consultation {
     private LocalDateTime cancelledAt;
 
     @Column(name = "cancelled_by")
-    @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.ORDINAL) // STRING에서 ORDINAL로 변경
     private CancelledBy cancelledBy;
 
     @CreationTimestamp
@@ -100,15 +100,28 @@ public class Consultation {
 
     @Builder
     public Consultation(Member client, Member pb, ConsultationType consultationType,
-                       LocalDateTime scheduledAt, Integer durationMinutes, BigDecimal fee,
-                       String clientMessage) {
+            LocalDateTime scheduledAt, Integer durationMinutes, BigDecimal fee,
+            String clientMessage, ConsultationStatus status) {
         this.client = client;
         this.pb = pb;
         this.consultationType = consultationType;
         this.scheduledAt = scheduledAt;
-        this.durationMinutes = durationMinutes != null ? durationMinutes : 60;
+        this.durationMinutes = durationMinutes != null ? durationMinutes : 30; // 30분으로 변경
         this.fee = fee;
         this.clientMessage = clientMessage;
+        this.status = status != null ? status : ConsultationStatus.PENDING;
+    }
+
+    // 고객 예약 시 정보 업데이트
+    public void bookByClient(Member client, ConsultationType consultationType, String clientMessage, BigDecimal fee) {
+        if (this.status != ConsultationStatus.AVAILABLE) {
+            throw new IllegalStateException("예약 가능한 상태가 아닙니다.");
+        }
+        this.client = client;
+        this.consultationType = consultationType;
+        this.clientMessage = clientMessage;
+        this.fee = fee;
+        this.status = ConsultationStatus.PENDING;
     }
 
     // 상담 승인
