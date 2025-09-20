@@ -3,16 +3,40 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock, MapPin, Star, Users, Calendar as CalendarIcon, MessageSquare, CreditCard } from "lucide-react";
+import {
+  Clock,
+  MapPin,
+  Star,
+  Users,
+  Calendar as CalendarIcon,
+  MessageSquare,
+  CreditCard,
+} from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { ko as koDayPicker } from "date-fns/locale";
@@ -52,18 +76,34 @@ export default function PBConsultationPage() {
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
 
-  const [consultationTypes, setConsultationTypes] = useState<ConsultationType[]>([]);
+  const [consultationTypes, setConsultationTypes] = useState<
+    ConsultationType[]
+  >([]);
   const [pbList, setPbList] = useState<PbInfo[]>([]);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [isLoadingPbList, setIsLoadingPbList] = useState(false);
   const [isLoadingTimes, setIsLoadingTimes] = useState(false);
 
-  // 시간 옵션 생성
+  // 시간 옵션 생성 (9:00 ~ 18:00)
   const timeSlots = [
-    "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-    "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
-    "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
-    "18:00", "18:30", "19:00", "19:30", "20:00"
+    "09:00",
+    "09:30",
+    "10:00",
+    "10:30",
+    "11:00",
+    "11:30",
+    "12:00",
+    "12:30",
+    "13:00",
+    "13:30",
+    "14:00",
+    "14:30",
+    "15:00",
+    "15:30",
+    "16:00",
+    "16:30",
+    "17:00",
+    "17:30",
   ];
 
   useEffect(() => {
@@ -74,18 +114,18 @@ export default function PBConsultationPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedDate && selectedPb) {
-      // 선택된 날짜와 PB에 대한 가능한 시간 조회
+    if (selectedDate && selectedPb && selectedType) {
+      // 선택된 날짜, PB, 상담 유형에 대한 가능한 시간 조회
       fetchAvailableTimes();
     }
-  }, [selectedDate, selectedPb]);
+  }, [selectedDate, selectedPb, selectedType]);
 
   const fetchConsultationTypes = async () => {
     try {
-      const response = await fetch('/api/consultations/types', {
+      const response = await fetch("/api/consultations/types", {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
         },
       });
       const data = await response.json();
@@ -93,17 +133,17 @@ export default function PBConsultationPage() {
         setConsultationTypes(data.data);
       }
     } catch (error) {
-      console.error('상담 유형 로드 실패:', error);
+      console.error("상담 유형 로드 실패:", error);
     }
   };
 
   const fetchPbList = async () => {
     setIsLoadingPbList(true);
     try {
-      const response = await fetch('/api/pb/list', {
+      const response = await fetch("/api/pb/list", {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
         },
       });
       const data = await response.json();
@@ -116,17 +156,17 @@ export default function PBConsultationPage() {
           rating: pb.rating || 0,
           totalConsultations: pb.totalConsultations || 0,
           specialties: pb.specialties || [],
-          experience: pb.experienceYears || 0
+          experience: pb.experienceYears || 0,
         }));
         setPbList(pbList);
       } else {
-        console.error('PB 목록 로드 실패:', data.message);
-        setError('PB 목록을 불러오는데 실패했습니다.');
+        console.error("PB 목록 로드 실패:", data.message);
+        setError("PB 목록을 불러오는데 실패했습니다.");
         setPbList([]);
       }
     } catch (error) {
-      console.error('PB 목록 로드 실패:', error);
-      setError('PB 목록을 불러오는데 실패했습니다.');
+      console.error("PB 목록 로드 실패:", error);
+      setError("PB 목록을 불러오는데 실패했습니다.");
       setPbList([]);
     } finally {
       setIsLoadingPbList(false);
@@ -141,25 +181,40 @@ export default function PBConsultationPage() {
 
     setIsLoadingTimes(true);
     try {
-      // 선택된 날짜와 PB에 대한 가능한 시간 조회
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      const response = await fetch(`/api/consultations/available-times?pbId=${selectedPb}&date=${dateStr}`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      // 선택된 날짜와 PB에 대한 시간 슬롯 상태 조회
+      const dateStr = selectedDate.toISOString().split("T")[0];
+      const selectedTypeData = consultationTypes.find(
+        (type) => type.type === selectedType
+      );
+      const durationMinutes = selectedTypeData?.defaultDurationMinutes || 60;
+
+      const response = await fetch(
+        `/api/consultations/time-slots?pbId=${selectedPb}&date=${dateStr}&durationMinutes=${durationMinutes}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
       const data = await response.json();
-      
+
       if (data.success) {
-        setAvailableTimes(data.data || timeSlots); // 백엔드에서 시간 목록을 받거나 기본 시간 사용
+        // 예약 가능한 시간만 필터링 (true인 시간들)
+        const availableTimesList = Object.entries(data.data)
+          .filter(([time, isAvailable]) => isAvailable === true)
+          .map(([time, isAvailable]) => time)
+          .filter((time) => timeSlots.includes(time)) // 18:00 이후 시간 제외
+          .sort();
+
+        setAvailableTimes(availableTimesList);
       } else {
-        console.error('가능한 시간 조회 실패:', data.message);
-        setAvailableTimes(timeSlots); // 에러 시 기본 시간 사용
+        console.error("가능한 시간 조회 실패:", data.message);
+        setAvailableTimes([]); // 에러 시 빈 배열
       }
     } catch (error) {
-      console.error('가능한 시간 조회 실패:', error);
-      setAvailableTimes(timeSlots); // 네트워크 오류 시 기본 시간 사용
+      console.error("가능한 시간 조회 실패:", error);
+      setAvailableTimes([]); // 네트워크 오류 시 빈 배열
     } finally {
       setIsLoadingTimes(false);
     }
@@ -170,7 +225,13 @@ export default function PBConsultationPage() {
     setError("");
     setSuccess("");
 
-    if (!selectedDate || !selectedTime || !selectedType || !selectedPb || !clientMessage.trim()) {
+    if (
+      !selectedDate ||
+      !selectedTime ||
+      !selectedType ||
+      !selectedPb ||
+      !clientMessage.trim()
+    ) {
       setError("모든 필수 항목을 입력해주세요.");
       return;
     }
@@ -178,9 +239,11 @@ export default function PBConsultationPage() {
     setIsSubmitting(true);
 
     try {
-      const selectedTypeData = consultationTypes.find(type => type.type === selectedType);
+      const selectedTypeData = consultationTypes.find(
+        (type) => type.type === selectedType
+      );
       const scheduledAt = new Date(selectedDate);
-      const [hours, minutes] = selectedTime.split(':').map(Number);
+      const [hours, minutes] = selectedTime.split(":").map(Number);
       scheduledAt.setHours(hours, minutes, 0, 0);
 
       const requestData = {
@@ -189,19 +252,19 @@ export default function PBConsultationPage() {
         scheduledAt: scheduledAt.toISOString(),
         durationMinutes: selectedTypeData?.defaultDurationMinutes || 60,
         fee: selectedTypeData?.defaultFee || 50000,
-        clientMessage: clientMessage.trim()
+        clientMessage: clientMessage.trim(),
       };
 
       if (!accessToken) {
         setError("로그인이 필요합니다. 다시 로그인해주세요.");
         return;
       }
-      
-      const response = await fetch('/api/consultations', {
-        method: 'POST',
+
+      const response = await fetch("/api/consultations", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestData),
       });
@@ -209,26 +272,26 @@ export default function PBConsultationPage() {
       const data = await response.json();
 
       if (data.success) {
-        setSuccess("상담 예약이 성공적으로 요청되었습니다. PB의 승인을 기다려주세요.");
-        // 폼 초기화
-        setSelectedDate(undefined);
-        setSelectedTime("");
-        setSelectedType("");
-        setSelectedPb("");
-        setClientMessage("");
+        setSuccess(
+          "상담 예약이 성공적으로 요청되었습니다. PB의 승인을 기다려주세요."
+        );
+        // 폼 초기화하지 않고 성공 메시지만 표시
+        // 사용자가 예약 정보를 확인할 수 있도록 유지
       } else {
         setError(data.message || "상담 예약 요청에 실패했습니다.");
       }
     } catch (error) {
-      console.error('상담 예약 요청 실패:', error);
+      console.error("상담 예약 요청 실패:", error);
       setError("상담 예약 요청 중 오류가 발생했습니다.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const selectedTypeData = consultationTypes.find(type => type.type === selectedType);
-  const selectedPbData = pbList.find(pb => pb.id === selectedPb);
+  const selectedTypeData = consultationTypes.find(
+    (type) => type.type === selectedType
+  );
+  const selectedPbData = pbList.find((pb) => pb.id === selectedPb);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 overflow-hidden relative transition-colors duration-500">
@@ -278,10 +341,16 @@ export default function PBConsultationPage() {
                   <form onSubmit={handleSubmit} className="space-y-6">
                     {/* 상담 유형 선택 */}
                     <div className="space-y-2">
-                      <Label htmlFor="consultation-type" className="text-sm font-medium">
+                      <Label
+                        htmlFor="consultation-type"
+                        className="text-sm font-medium"
+                      >
                         상담 유형 <span className="text-red-500">*</span>
                       </Label>
-                      <Select value={selectedType} onValueChange={setSelectedType}>
+                      <Select
+                        value={selectedType}
+                        onValueChange={setSelectedType}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="상담 유형을 선택하세요" />
                         </SelectTrigger>
@@ -289,9 +358,12 @@ export default function PBConsultationPage() {
                           {consultationTypes.map((type) => (
                             <SelectItem key={type.type} value={type.type}>
                               <div className="flex flex-col">
-                                <span className="font-medium">{type.displayName}</span>
+                                <span className="font-medium">
+                                  {type.displayName}
+                                </span>
                                 <span className="text-xs text-gray-500">
-                                  {type.defaultDurationMinutes}분 • {type.defaultFee.toLocaleString()}원
+                                  {type.defaultDurationMinutes}분 •{" "}
+                                  {type.defaultFee.toLocaleString()}원
                                 </span>
                               </div>
                             </SelectItem>
@@ -307,12 +379,25 @@ export default function PBConsultationPage() {
 
                     {/* PB 선택 */}
                     <div className="space-y-2">
-                      <Label htmlFor="pb-select" className="text-sm font-medium">
+                      <Label
+                        htmlFor="pb-select"
+                        className="text-sm font-medium"
+                      >
                         담당 PB <span className="text-red-500">*</span>
                       </Label>
-                      <Select value={selectedPb} onValueChange={setSelectedPb} disabled={isLoadingPbList}>
+                      <Select
+                        value={selectedPb}
+                        onValueChange={setSelectedPb}
+                        disabled={isLoadingPbList}
+                      >
                         <SelectTrigger>
-                          <SelectValue placeholder={isLoadingPbList ? "PB 목록 로딩 중..." : "담당 PB를 선택하세요"} />
+                          <SelectValue
+                            placeholder={
+                              isLoadingPbList
+                                ? "PB 목록 로딩 중..."
+                                : "담당 PB를 선택하세요"
+                            }
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           {isLoadingPbList ? (
@@ -328,8 +413,12 @@ export default function PBConsultationPage() {
                               <SelectItem key={pb.id} value={pb.id}>
                                 <div className="flex items-center justify-between w-full">
                                   <div className="flex flex-col">
-                                    <span className="font-medium">{pb.name}</span>
-                                    <span className="text-xs text-gray-500">{pb.region}</span>
+                                    <span className="font-medium">
+                                      {pb.name}
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                      {pb.region}
+                                    </span>
                                   </div>
                                   <div className="flex items-center gap-1 ml-4">
                                     <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
@@ -358,7 +447,9 @@ export default function PBConsultationPage() {
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {selectedDate ? format(selectedDate, "PPP", { locale: ko }) : "날짜를 선택하세요"}
+                            {selectedDate
+                              ? format(selectedDate, "PPP", { locale: ko })
+                              : "날짜를 선택하세요"}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
@@ -377,15 +468,29 @@ export default function PBConsultationPage() {
 
                     {/* 시간 선택 */}
                     <div className="space-y-2">
-                      <Label htmlFor="time-select" className="text-sm font-medium">
+                      <Label
+                        htmlFor="time-select"
+                        className="text-sm font-medium"
+                      >
                         예약 시간 <span className="text-red-500">*</span>
                       </Label>
-                      <Select value={selectedTime} onValueChange={setSelectedTime} disabled={!selectedDate || !selectedPb || isLoadingTimes}>
+                      <Select
+                        value={selectedTime}
+                        onValueChange={setSelectedTime}
+                        disabled={
+                          !selectedDate || !selectedPb || isLoadingTimes
+                        }
+                      >
                         <SelectTrigger>
-                          <SelectValue placeholder={
-                            !selectedDate || !selectedPb ? "날짜와 PB를 먼저 선택하세요" :
-                            isLoadingTimes ? "가능한 시간 조회 중..." : "시간을 선택하세요"
-                          } />
+                          <SelectValue
+                            placeholder={
+                              !selectedDate || !selectedPb
+                                ? "날짜와 PB를 먼저 선택하세요"
+                                : isLoadingTimes
+                                ? "가능한 시간 조회 중..."
+                                : "시간을 선택하세요"
+                            }
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           {isLoadingTimes ? (
@@ -409,7 +514,10 @@ export default function PBConsultationPage() {
 
                     {/* 상담 요청 메시지 */}
                     <div className="space-y-2">
-                      <Label htmlFor="client-message" className="text-sm font-medium">
+                      <Label
+                        htmlFor="client-message"
+                        className="text-sm font-medium"
+                      >
                         상담 요청 내용 <span className="text-red-500">*</span>
                       </Label>
                       <Textarea
@@ -456,7 +564,9 @@ export default function PBConsultationPage() {
               {selectedPbData && (
                 <Card className="backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-green-200 dark:border-green-800">
                   <CardHeader>
-                    <CardTitle className="text-green-700 dark:text-green-400">선택된 PB</CardTitle>
+                    <CardTitle className="text-green-700 dark:text-green-400">
+                      선택된 PB
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center gap-3">
@@ -465,13 +575,17 @@ export default function PBConsultationPage() {
                       </div>
                       <div>
                         <h3 className="font-semibold">{selectedPbData.name}</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{selectedPbData.region}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {selectedPbData.region}
+                        </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="text-sm font-medium">{selectedPbData.rating}</span>
+                      <span className="text-sm font-medium">
+                        {selectedPbData.rating}
+                      </span>
                       <span className="text-sm text-gray-600 dark:text-gray-400">
                         ({selectedPbData.totalConsultations}건 상담)
                       </span>
@@ -481,7 +595,11 @@ export default function PBConsultationPage() {
                       <p className="text-sm font-medium">전문 분야</p>
                       <div className="flex flex-wrap gap-1">
                         {selectedPbData.specialties.map((specialty, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className="text-xs"
+                          >
                             {specialty}
                           </Badge>
                         ))}
@@ -500,28 +618,43 @@ export default function PBConsultationPage() {
               {selectedTypeData && selectedDate && selectedTime && (
                 <Card className="backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-green-200 dark:border-green-800">
                   <CardHeader>
-                    <CardTitle className="text-green-700 dark:text-green-400">상담 요약</CardTitle>
+                    <CardTitle className="text-green-700 dark:text-green-400">
+                      상담 요약
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">상담 유형</span>
-                      <span className="text-sm font-medium">{selectedTypeData.displayName}</span>
-                    </div>
-                    
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">예약 일시</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        상담 유형
+                      </span>
                       <span className="text-sm font-medium">
-                        {format(selectedDate, "MM/dd", { locale: ko })} {selectedTime}
+                        {selectedTypeData.displayName}
                       </span>
                     </div>
-                    
+
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">상담 시간</span>
-                      <span className="text-sm font-medium">{selectedTypeData.defaultDurationMinutes}분</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        예약 일시
+                      </span>
+                      <span className="text-sm font-medium">
+                        {format(selectedDate, "MM/dd", { locale: ko })}{" "}
+                        {selectedTime}
+                      </span>
                     </div>
-                    
+
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">상담 수수료</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        상담 시간
+                      </span>
+                      <span className="text-sm font-medium">
+                        {selectedTypeData.defaultDurationMinutes}분
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        상담 수수료
+                      </span>
                       <span className="text-sm font-medium text-green-600 dark:text-green-400">
                         {selectedTypeData.defaultFee.toLocaleString()}원
                       </span>
@@ -533,7 +666,9 @@ export default function PBConsultationPage() {
               {/* 안내사항 */}
               <Card className="backdrop-blur-sm bg-blue-50/80 dark:bg-blue-950/80 border-blue-200 dark:border-blue-800">
                 <CardHeader>
-                  <CardTitle className="text-blue-700 dark:text-blue-400 text-sm">안내사항</CardTitle>
+                  <CardTitle className="text-blue-700 dark:text-blue-400 text-sm">
+                    안내사항
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs text-blue-600 dark:text-blue-300 space-y-2">
                   <p>• 상담 예약 후 PB의 승인을 받아야 상담이 확정됩니다.</p>

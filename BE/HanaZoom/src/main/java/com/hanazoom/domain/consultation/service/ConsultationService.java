@@ -18,9 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -38,7 +40,8 @@ public class ConsultationService {
      */
     @Transactional
     public ConsultationResponseDto createConsultation(ConsultationRequestDto requestDto, UUID clientId) {
-        log.info("상담 예약 요청: clientId={}, pbId={}, type={}", clientId, requestDto.getConsultationType());
+        log.info("상담 예약 요청: clientId={}, pbId={}, type={}", clientId, requestDto.getPbId(),
+                requestDto.getConsultationType());
 
         // 고객 정보 조회
         Member client = memberRepository.findById(clientId)
@@ -46,27 +49,42 @@ public class ConsultationService {
 
         UUID pbId = UUID.fromString(requestDto.getPbId());
 
-        // PB가 등록한 상담 가능 시간 슬롯 조회
-        LocalDateTime scheduledAt = requestDto.getScheduledAt();
-        Consultation availableSlot = consultationRepository
-                .findByPbIdAndScheduledAtAndStatus(pbId, scheduledAt, ConsultationStatus.AVAILABLE)
-                .orElseThrow(() -> new IllegalStateException("해당 시간은 예약이 불가능하거나 이미 예약된 시간입니다."));
+        // PB 정보 조회
+        Member pb = memberRepository.findById(pbId)
+                .orElseThrow(() -> new IllegalArgumentException("PB 정보를 찾을 수 없습니다"));
 
-        // 해당 슬롯이 PB가 본인 일정을 위해 등록한 것인지 확인 (client_id == pb_id)
-        if (!availableSlot.getClient().getId().equals(pbId)) {
-            throw new IllegalStateException("해당 시간은 다른 고객이 이미 예약 진행중입니다.");
+        LocalDateTime scheduledAt = requestDto.getScheduledAt();
+
+        // 해당 시간에 이미 예약이나 불가능 시간이 등록되어 있는지 확인
+        List<Consultation> existingConsultations = consultationRepository
+                .findByPbIdAndScheduledAtBetween(pbId, scheduledAt,
+                        scheduledAt.plusMinutes(requestDto.getDurationMinutes()));
+
+        if (!existingConsultations.isEmpty()) {
+            throw new IllegalStateException("선택한 시간이 더 이상 예약 가능하지 않습니다. 다른 시간을 선택해주세요.");
         }
 
         // 수수료 설정
         BigDecimal fee = requestDto.getFee() != null ? requestDto.getFee()
                 : BigDecimal.valueOf(requestDto.getConsultationType().getDefaultFee());
 
-        // 기존 상담 슬롯에 고객 정보 업데이트 (예약 확정)
-        availableSlot.bookByClient(client, requestDto.getConsultationType(), requestDto.getClientMessage(), fee);
+        // 새로운 상담 예약 생성
+        Consultation consultation = Consultation.builder()
+                .pb(pb)
+                .client(client)
+                .scheduledAt(scheduledAt)
+                .durationMinutes(requestDto.getDurationMinutes())
+                .status(ConsultationStatus.PENDING)
+                .consultationType(requestDto.getConsultationType())
+                .fee(fee)
+                .clientMessage(requestDto.getClientMessage())
+                .build();
 
-        log.info("상담 예약 완료: consultationId={}", availableSlot.getId());
+        consultationRepository.save(consultation);
 
-        return convertToResponseDto(availableSlot);
+        log.info("상담 예약 완료: consultationId={}", consultation.getId());
+
+        return convertToResponseDto(consultation);
     }
 
     /**
@@ -273,6 +291,9 @@ public class ConsultationService {
         }
 
         return consultations.stream()
+                // PB 본인이 클라이언트로 등록된 상담(개인 일정)과 UNAVAILABLE 상태는 제외
+                .filter(c -> c.getClient() != null && !c.getClient().getId().equals(pbId))
+                .filter(c -> c.getStatus() != ConsultationStatus.UNAVAILABLE)
                 .map(this::convertToResponseDto)
                 .collect(Collectors.toList());
     }
@@ -288,16 +309,28 @@ public class ConsultationService {
         LocalDateTime tomorrow = today.plusDays(1);
 
         // 오늘의 상담
-        List<Consultation> todayConsultations = consultationRepository
+        List<Consultation> todayConsultationsRaw = consultationRepository
                 .findByPbIdAndScheduledAtBetween(pbId, today, tomorrow);
+        List<Consultation> todayConsultations = todayConsultationsRaw.stream()
+                .filter(c -> c.getClient() != null && !c.getClient().getId().equals(pbId))
+                .filter(c -> c.getStatus() != ConsultationStatus.UNAVAILABLE)
+                .collect(Collectors.toList());
 
         // 대기중인 상담
         List<Consultation> pendingConsultations = consultationRepository
-                .findPendingConsultationsByPbId(pbId, ConsultationStatus.PENDING);
+                .findPendingConsultationsByPbId(pbId, ConsultationStatus.PENDING)
+                .stream()
+                .filter(c -> c.getClient() != null && !c.getClient().getId().equals(pbId))
+                .filter(c -> c.getStatus() != ConsultationStatus.UNAVAILABLE)
+                .collect(Collectors.toList());
 
         // 진행중인 상담
         List<Consultation> inProgressConsultations = consultationRepository
-                .findInProgressConsultationsByPbId(pbId, ConsultationStatus.IN_PROGRESS);
+                .findInProgressConsultationsByPbId(pbId, ConsultationStatus.IN_PROGRESS)
+                .stream()
+                .filter(c -> c.getClient() != null && !c.getClient().getId().equals(pbId))
+                .filter(c -> c.getStatus() != ConsultationStatus.UNAVAILABLE)
+                .collect(Collectors.toList());
 
         // 최근 상담 (최대 5개)
         Page<Consultation> recentConsultations = consultationRepository
@@ -316,11 +349,16 @@ public class ConsultationService {
                         stat -> ((ConsultationType) stat[0]).getDisplayName(),
                         stat -> (Long) stat[1]));
 
-        // 다음 예정된 상담
+        // 다음 예정된 상담 (필터링된 오늘 상담 목록에서 찾기)
         Consultation nextConsultation = todayConsultations.stream()
                 .filter(c -> c.isApproved() && c.getScheduledAt().isAfter(LocalDateTime.now()))
                 .min((c1, c2) -> c1.getScheduledAt().compareTo(c2.getScheduledAt()))
                 .orElse(null);
+
+        List<Consultation> filteredRecentConsultations = recentConsultations.getContent().stream()
+                .filter(c -> c.getClient() != null && !c.getClient().getId().equals(pbId))
+                .filter(c -> c.getStatus() != ConsultationStatus.UNAVAILABLE)
+                .collect(Collectors.toList());
 
         return PbDashboardDto.builder()
                 .pbId(pbId.toString())
@@ -334,7 +372,7 @@ public class ConsultationService {
                 .pendingConsultationCount(pendingConsultations.size())
                 .inProgressConsultations(inProgressConsultations.stream().map(this::convertToSummaryDto).toList())
                 .inProgressConsultationCount(inProgressConsultations.size())
-                .recentConsultations(recentConsultations.getContent().stream().map(this::convertToSummaryDto).toList())
+                .recentConsultations(filteredRecentConsultations.stream().map(this::convertToSummaryDto).toList())
                 .totalCompletedConsultations(totalCompleted)
                 .averageRating(averageRating)
                 .consultationTypeStatistics(typeStatistics)
@@ -375,23 +413,16 @@ public class ConsultationService {
      * 가능한 상담 시간 조회
      */
     public List<String> getAvailableTimes(String pbId, String date, Integer durationMinutes) {
-        log.info("가능한 상담 시간 조회: pbId={}, date={}", pbId, date);
+        log.info("가능한 상담 시간 조회: pbId={}, date={}, durationMinutes={}", pbId, date, durationMinutes);
 
         try {
-            UUID pbUuid = UUID.fromString(pbId);
-            LocalDate targetDate = LocalDate.parse(date);
-            LocalDateTime startOfDay = targetDate.atStartOfDay();
-            LocalDateTime endOfDay = targetDate.plusDays(1).atStartOfDay();
+            // getTimeSlotsWithStatus를 사용하여 예약 가능한 시간만 반환
+            Map<String, Boolean> timeSlotsStatus = getTimeSlotsWithStatus(pbId, date, durationMinutes);
 
-            // 해당 날짜에 PB가 AVAILABLE로 등록한 상담 시간 조회
-            List<Consultation> availableSlots = consultationRepository
-                    .findByPbIdAndScheduledAtBetweenAndStatus(pbUuid, startOfDay, endOfDay,
-                            ConsultationStatus.AVAILABLE);
-
-            return availableSlots.stream()
-                    // PB 본인이 클라이언트로 등록된 슬롯만 필터링
-                    .filter(slot -> slot.getClient().getId().equals(slot.getPb().getId()))
-                    .map(consultation -> consultation.getScheduledAt().toLocalTime().toString())
+            return timeSlotsStatus.entrySet().stream()
+                    .filter(entry -> entry.getValue()) // 예약 가능한 시간만
+                    .map(entry -> entry.getKey())
+                    .sorted()
                     .collect(Collectors.toList());
 
         } catch (Exception e) {
@@ -416,12 +447,32 @@ public class ConsultationService {
             List<Consultation> allSlots = consultationRepository
                     .findByPbIdAndScheduledAtBetween(pbUuid, startOfDay, endOfDay);
 
-            return allSlots.stream()
-                    .collect(Collectors.toMap(
-                            consultation -> consultation.getScheduledAt().toLocalTime().toString(),
-                            // PB 본인이 클라이언트로 등록되어 있고, 상태가 AVAILABLE인 경우만 true
-                            consultation -> consultation.getStatus() == ConsultationStatus.AVAILABLE &&
-                                    consultation.getClient().getId().equals(consultation.getPb().getId())));
+            // DB에 있는 시간들을 Set으로 변환 (예약된 시간 + 불가능한 시간)
+            Set<String> unavailableTimes = allSlots.stream()
+                    .map(consultation -> consultation.getScheduledAt().toLocalTime().toString())
+                    .collect(Collectors.toSet());
+
+            // 전체 시간 범위 생성 (09:00 ~ 18:00, 30분 간격)
+            Map<String, Boolean> timeSlots = new HashMap<>();
+            LocalTime startTime = LocalTime.of(9, 0); // 09:00
+            LocalTime endTime = LocalTime.of(18, 0); // 18:00
+
+            // 기본 상담 시간 (분 단위, 기본값 60분)
+            int consultationDurationMinutes = (durationMinutes != null && durationMinutes > 0) ? durationMinutes : 60;
+
+            LocalTime currentTime = startTime;
+            while (!currentTime.isAfter(endTime)) {
+                String timeString = currentTime.toString();
+
+                // 현재 시간부터 상담 시간만큼의 모든 슬롯이 비어있는지 확인
+                boolean isAvailable = isTimeSlotAvailable(currentTime, consultationDurationMinutes, unavailableTimes,
+                        endTime);
+
+                timeSlots.put(timeString, isAvailable);
+                currentTime = currentTime.plusMinutes(30); // 30분씩 증가
+            }
+
+            return timeSlots;
 
         } catch (Exception e) {
             log.error("시간 슬롯 상태 조회 실패", e);
@@ -430,6 +481,30 @@ public class ConsultationService {
     }
 
     // Private helper methods
+
+    /**
+     * 특정 시간부터 상담 시간만큼 연속된 슬롯이 모두 비어있는지 확인
+     */
+    private boolean isTimeSlotAvailable(LocalTime startTime, int durationMinutes, Set<String> unavailableTimes,
+            LocalTime businessEndTime) {
+        LocalTime currentTime = startTime;
+        LocalTime consultationEndTime = startTime.plusMinutes(durationMinutes);
+
+        // 상담 종료 시간이 업무 시간을 초과하는지 확인
+        if (consultationEndTime.isAfter(businessEndTime)) {
+            return false;
+        }
+
+        // 상담 시간 동안의 모든 30분 슬롯이 비어있는지 확인
+        while (currentTime.isBefore(consultationEndTime)) {
+            if (unavailableTimes.contains(currentTime.toString())) {
+                return false; // 하나라도 예약되어 있으면 불가능
+            }
+            currentTime = currentTime.plusMinutes(30);
+        }
+
+        return true; // 모든 슬롯이 비어있으면 예약 가능
+    }
 
     private String generateMeetingUrl(UUID consultationId) {
         // 실제로는 화상회의 서비스 (Zoom, Google Meet 등) 연동

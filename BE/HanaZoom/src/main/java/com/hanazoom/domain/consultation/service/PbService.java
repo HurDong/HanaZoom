@@ -55,7 +55,7 @@ public class PbService {
                             .client(pb) // client_id에 PB 자신의 ID를 설정
                             .scheduledAt(slot.getStartTime())
                             .durationMinutes((int) durationMinutes)
-                            .status(ConsultationStatus.AVAILABLE)
+                            .status(ConsultationStatus.UNAVAILABLE) // 불가능한 시간으로 설정
                             .consultationType(ConsultationType.SLOT) // 기본 유형 설정
                             .fee(BigDecimal.ZERO) // 기본 수수료 0으로 설정
                             .build();
@@ -63,7 +63,7 @@ public class PbService {
                 .collect(Collectors.toList());
 
         consultationRepository.saveAll(availableSlots);
-        log.info("PB {}의 상담 가능 시간 {}개가 등록되었습니다.", pbId, availableSlots.size());
+        log.info("PB {}의 상담 불가능 시간 {}개가 등록되었습니다.", pbId, availableSlots.size());
     }
 
     /**
