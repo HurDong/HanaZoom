@@ -51,6 +51,12 @@ public class PbService {
 
         log.info("PB {}의 상담 불가능 시간 등록 요청: {}개 슬롯", pbId, requestDto.getAvailableSlots().size());
 
+        // 요청 데이터 상세 로그
+        for (int i = 0; i < requestDto.getAvailableSlots().size(); i++) {
+            var slot = requestDto.getAvailableSlots().get(i);
+            log.info("슬롯 {}: startTime={}, endTime={}", i, slot.getStartTime(), slot.getEndTime());
+        }
+
         List<Consultation> availableSlots = requestDto.getAvailableSlots().stream()
                 .map(slot -> {
                     long durationMinutes = Duration.between(slot.getStartTime(), slot.getEndTime()).toMinutes();

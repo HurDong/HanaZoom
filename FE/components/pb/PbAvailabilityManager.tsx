@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import { ko } from "date-fns/locale";
@@ -59,6 +59,27 @@ export default function PbAvailabilityManager() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // 로컬 날짜를 'yyyy-MM-dd' 형식의 문자열로 변환 (시간대 문제 방지)
+  const formatToLocalDate = useCallback((date: Date) => {
+    const pad = (num: number) => String(num).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )}`;
+  }, []);
+
+  // 로컬 시간을 'yyyy-MM-ddTHH:mm:ss' 형식의 문자열로 변환
+  const formatToLocalISO = useCallback((date: Date) => {
+    const pad = (num: number) => String(num).padStart(2, "0");
+    return (
+      `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+        date.getDate()
+      )}` +
+      `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+        date.getSeconds()
+      )}`
+    );
+  }, []);
+
   // 기존 시간 상태 데이터
   const [existingUnavailableTimes, setExistingUnavailableTimes] = useState<
     string[]
@@ -76,7 +97,7 @@ export default function PbAvailabilityManager() {
   // 기존 시간 상태 로드
   const loadExistingTimeStatus = async (date: Date) => {
     try {
-      const dateStr = date.toISOString().split("T")[0];
+      const dateStr = formatToLocalDate(date);
       const accessToken = useAuthStore.getState().accessToken;
 
       if (!accessToken) {
@@ -99,12 +120,19 @@ export default function PbAvailabilityManager() {
         if (data.success) {
           setExistingUnavailableTimes(data.data.unavailableTimes || []);
           setClientBookings(data.data.clientBookings || []);
+        } else {
+          console.error("시간 상태 조회 API 응답 실패:", data.message);
         }
       } else {
-        console.error("시간 상태 조회 실패:", response.status);
+        console.error(
+          "시간 상태 조회 HTTP 실패:",
+          response.status,
+          response.statusText
+        );
       }
     } catch (error) {
       console.error("시간 상태 로드 에러:", error);
+      // 네트워크 에러 등의 경우에도 기존 상태를 유지
     }
   };
 
@@ -150,10 +178,18 @@ export default function PbAvailabilityManager() {
   const removeUnavailableTime = async (time: string) => {
     if (!selectedDate) return;
 
+    // 이전 상태 백업 (롤백용)
+    const previousUnavailableTimes = [...existingUnavailableTimes];
+
     try {
       setIsSubmitting(true);
-      const dateStr = selectedDate.toISOString().split("T")[0];
+      setError(""); // 기존 에러 메시지 클리어
+
+      const dateStr = formatToLocalDate(selectedDate);
       const accessToken = useAuthStore.getState().accessToken;
+
+      // 즉시 UI 상태 업데이트 (낙관적 업데이트)
+      setExistingUnavailableTimes((prev) => prev.filter((t) => t !== time));
 
       const response = await fetch(
         `/api/pb/unavailable-time?date=${dateStr}&time=${time}`,
@@ -170,15 +206,24 @@ export default function PbAvailabilityManager() {
         const data = await response.json();
         if (data.success) {
           setSuccess(`${time} 불가능 시간이 해제되었습니다.`);
-          // 기존 시간 상태 다시 로드
-          await loadExistingTimeStatus(selectedDate);
+
+          // 백그라운드에서 서버 상태와 동기화 (확실한 동기화)
+          setTimeout(async () => {
+            await loadExistingTimeStatus(selectedDate);
+          }, 100);
         } else {
+          // API 응답이 실패인 경우 롤백
+          setExistingUnavailableTimes(previousUnavailableTimes);
           throw new Error(data.message || "불가능 시간 해제에 실패했습니다.");
         }
       } else {
+        // HTTP 에러인 경우 롤백
+        setExistingUnavailableTimes(previousUnavailableTimes);
         throw new Error("불가능 시간 해제에 실패했습니다.");
       }
     } catch (err: any) {
+      // 에러 발생 시 상태 롤백
+      setExistingUnavailableTimes(previousUnavailableTimes);
       setError(err.message);
     } finally {
       setIsSubmitting(false);
@@ -288,19 +333,6 @@ export default function PbAvailabilityManager() {
     setError("");
     setSuccess("");
 
-    // 로컬 시간을 'yyyy-MM-ddTHH:mm:ss' 형식의 문자열로 변환
-    const formatToLocalISO = (date: Date) => {
-      const pad = (num: number) => String(num).padStart(2, "0");
-      return (
-        `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-          date.getDate()
-        )}` +
-        `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
-          date.getSeconds()
-        )}`
-      );
-    };
-
     // 선택된 시간들을 duration 단위로 그룹화하여 여러 슬롯 생성
     const sortedTimes = [...selectedTimes].sort();
     const availableSlots: Array<{ startTime: string; endTime: string }> = [];
@@ -363,10 +395,20 @@ export default function PbAvailabilityManager() {
         setSuccess(
           `${availableSlots.length}개의 ${selectedDuration}분 상담 불가능 시간이 성공적으로 등록되었습니다.`
         );
+
+        // 즉시 UI 상태 업데이트 (빠른 반응성을 위해)
+        const newUnavailableTimes = selectedTimes.map((time) => time);
+        setExistingUnavailableTimes((prev) => [
+          ...prev,
+          ...newUnavailableTimes,
+        ]);
         setSelectedTimes([]);
-        // 기존 시간 상태 다시 로드
+
+        // 백그라운드에서 서버 상태와 동기화
         if (selectedDate) {
-          await loadExistingTimeStatus(selectedDate);
+          setTimeout(async () => {
+            await loadExistingTimeStatus(selectedDate);
+          }, 100);
         }
       } else {
         throw new Error(data.message || "시간 등록에 실패했습니다.");
