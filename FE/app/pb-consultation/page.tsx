@@ -457,7 +457,13 @@ export default function PBConsultationPage() {
                             mode="single"
                             selected={selectedDate}
                             onSelect={setSelectedDate}
-                            disabled={(date) => date < new Date()}
+                            disabled={(date) => {
+                              // 과거 날짜 비활성화
+                              if (date < new Date()) return true;
+                              // 주말(토요일=6, 일요일=0) 비활성화
+                              const dayOfWeek = date.getDay();
+                              return dayOfWeek === 0 || dayOfWeek === 6;
+                            }}
                             initialFocus
                             locale={ko}
                             className="rounded-md border"

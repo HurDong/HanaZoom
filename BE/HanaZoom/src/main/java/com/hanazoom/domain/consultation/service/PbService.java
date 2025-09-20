@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.DayOfWeek;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -59,6 +60,11 @@ public class PbService {
 
         List<Consultation> availableSlots = requestDto.getAvailableSlots().stream()
                 .map(slot -> {
+                    // 주말(토요일, 일요일) 등록 차단
+                    if (isWeekend(slot.getStartTime())) {
+                        throw new IllegalStateException("주말(토요일, 일요일)에는 상담 불가능 시간을 등록할 수 없습니다. 평일을 선택해주세요.");
+                    }
+
                     long durationMinutes = Duration.between(slot.getStartTime(), slot.getEndTime()).toMinutes();
 
                     log.debug("슬롯 등록: {} ~ {} ({}분)", slot.getStartTime(), slot.getEndTime(), durationMinutes);
@@ -234,5 +240,13 @@ public class PbService {
                 .isAvailable(pb.isActivePb())
                 .statusMessage(pb.isActivePb() ? "상담 가능" : "상담 불가")
                 .build();
+    }
+
+    /**
+     * 주말(토요일, 일요일) 여부 확인
+     */
+    private boolean isWeekend(LocalDateTime dateTime) {
+        DayOfWeek dayOfWeek = dateTime.getDayOfWeek();
+        return dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
     }
 }

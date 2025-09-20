@@ -48,10 +48,15 @@ public class ConsultationController {
     @PostMapping("/{consultationId}/approve")
     public ResponseEntity<ApiResponse<ConsultationResponseDto>> approveConsultation(
             @PathVariable String consultationId,
-            @Valid @RequestBody ConsultationApprovalDto approvalDto) {
+            @RequestBody ConsultationApprovalDto approvalDto) {
 
         UUID pbId = getCurrentUserId();
         approvalDto.setConsultationId(consultationId);
+
+        // 수동 검증
+        if (approvalDto.getPbMessage() == null || approvalDto.getPbMessage().trim().isEmpty()) {
+            throw new IllegalArgumentException("PB 메시지는 필수입니다");
+        }
 
         log.info("상담 승인/거절: pbId={}, consultationId={}, approved={}",
                 pbId, consultationId, approvalDto.isApproved());
@@ -365,6 +370,19 @@ public class ConsultationController {
         PbTimeStatusDto timeStatus = consultationService.getPbTimeStatus(pbId, date);
 
         return ResponseEntity.ok(ApiResponse.success(timeStatus, "시간 상태를 조회했습니다"));
+    }
+
+    /**
+     * PB 지역별 고객 현황 조회
+     */
+    @GetMapping("/pb-region-stats")
+    public ResponseEntity<ApiResponse<List<RegionClientStatsDto>>> getPbRegionStats() {
+        UUID pbId = getCurrentUserId();
+        log.info("PB 지역별 고객 현황 조회 요청: pbId={}", pbId);
+
+        List<RegionClientStatsDto> regionStats = consultationService.getPbRegionClientStats(pbId);
+
+        return ResponseEntity.ok(ApiResponse.success(regionStats, "지역별 고객 현황을 조회했습니다"));
     }
 
     // Helper method to get current user ID
