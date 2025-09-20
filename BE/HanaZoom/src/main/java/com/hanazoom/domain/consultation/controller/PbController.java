@@ -107,6 +107,21 @@ public class PbController {
         return ResponseEntity.ok(ApiResponse.success(pbList, "추천 PB 목록을 조회했습니다"));
     }
 
+    /**
+     * PB 불가능 시간 삭제
+     */
+    @DeleteMapping("/unavailable-time")
+    public ResponseEntity<ApiResponse<Void>> removeUnavailableTime(
+            @RequestParam String date,
+            @RequestParam String time) {
+        UUID pbId = getCurrentUserId();
+        log.info("PB 불가능 시간 삭제 요청: pbId={}, date={}, time={}", pbId, date, time);
+
+        pbService.removeUnavailableTime(pbId, date, time);
+
+        return ResponseEntity.ok(ApiResponse.success(null, "불가능 시간이 삭제되었습니다"));
+    }
+
     private UUID getCurrentUserId() {
         // 실제로는 Spring Security 등에서 인증된 사용자 정보를 가져와야 합니다.
         // 예시로 SecurityContextHolder를 사용합니다.

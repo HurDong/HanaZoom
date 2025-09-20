@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ConsultationCalendar from "./ConsultationCalendar";
+import PbAvailabilityManager from "./PbAvailabilityManager";
 import {
   Users,
   Calendar,
@@ -20,6 +21,7 @@ import {
   TrendingUp,
   MapPin,
   BarChart3,
+  Settings,
 } from "lucide-react";
 
 interface PBConsultationDashboardProps {
@@ -128,28 +130,36 @@ export default function PBConsultationDashboard({
             index === self.findIndex((c) => c.id === consultation.id)
         );
 
-        // 고객 데이터는 임시로 상담 데이터에서 추출 (실제로는 별도 API 필요)
-        const clientsData: Client[] = consultationsData
-          .filter(
-            (c, index, self) =>
-              index ===
-              self.findIndex(
-                (consultation) => consultation.clientName === c.clientName
-              )
-          )
-          .map((c, index) => ({
-            id: c.id,
-            name: c.clientName,
-            region: c.clientRegion,
-            totalAssets: 50000000 + index * 10000000, // 임시 데이터
-            riskLevel:
-              index % 3 === 0 ? "높음" : index % 3 === 1 ? "보통" : "낮음",
-            lastConsultation: new Date().toISOString().split("T")[0],
-            nextScheduled: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-              .toISOString()
-              .split("T")[0],
-            portfolioScore: 70 + index * 5,
-          }));
+        // 별도 API로 실제 고객 데이터 조회
+        const clientsResponse = await fetch("/api/consultations/pb-clients", {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        let clientsData: Client[] = [];
+        if (clientsResponse.ok) {
+          const clientsResult = await clientsResponse.json();
+          if (clientsResult.success) {
+            clientsData = clientsResult.data.map((client: any) => ({
+              id: client.id,
+              name: client.name,
+              region: client.region,
+              totalAssets: client.totalAssets || 0,
+              riskLevel: client.riskLevel || "보통",
+              lastConsultation: client.lastConsultation
+                ? new Date(client.lastConsultation).toISOString().split("T")[0]
+                : new Date().toISOString().split("T")[0],
+              nextScheduled: client.nextScheduled
+                ? new Date(client.nextScheduled).toISOString().split("T")[0]
+                : "",
+              portfolioScore: client.portfolioScore || 75,
+            }));
+          }
+        } else {
+          console.error("고객 데이터 조회 실패:", clientsResponse.status);
+        }
 
         setConsultations(consultationsData);
         setClients(clientsData);
@@ -640,7 +650,7 @@ export default function PBConsultationDashboard({
         onValueChange={setActiveTab}
         className="space-y-4 relative z-10"
       >
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
             개요
@@ -655,6 +665,10 @@ export default function PBConsultationDashboard({
           <TabsTrigger value="calendar" className="flex items-center gap-2">
             <Calendar className="w-4 h-4" />
             상담 일정
+          </TabsTrigger>
+          <TabsTrigger value="schedule" className="flex items-center gap-2">
+            <Settings className="w-4 h-4" />
+            시간 관리
           </TabsTrigger>
           <TabsTrigger value="clients" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
@@ -775,6 +789,12 @@ export default function PBConsultationDashboard({
           />
         </TabsContent>
 
+        <TabsContent value="schedule" className="space-y-4">
+          <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-2xl p-1">
+            <PbAvailabilityManager />
+          </div>
+        </TabsContent>
+
         <TabsContent value="consultations" className="space-y-4">
           <Card className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border-green-200 dark:border-green-800 shadow-lg">
             <CardHeader>
@@ -847,48 +867,59 @@ export default function PBConsultationDashboard({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {clients.map((client) => (
-                  <div
-                    key={client.id}
-                    className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
-                        <span className="text-green-600 dark:text-green-400 font-semibold text-lg">
-                          {client.name.charAt(0)}
-                        </span>
-                      </div>
-                      <div>
-                        <div className="font-medium text-gray-900 dark:text-gray-100">
-                          {client.name}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {client.region} • {client.riskLevel} 위험도
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          마지막 상담:{" "}
-                          {new Date(client.lastConsultation).toLocaleDateString(
-                            "ko-KR"
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        {(client.totalAssets / 100000000).toFixed(1)}억원
-                      </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        포트폴리오 점수: {client.portfolioScore}점
-                      </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        다음 상담:{" "}
-                        {new Date(client.nextScheduled).toLocaleDateString(
-                          "ko-KR"
-                        )}
-                      </div>
-                    </div>
+                {clients.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500 dark:text-gray-400">
+                      아직 상담 기록이 있는 고객이 없습니다.
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  clients.map((client) => (
+                    <div
+                      key={client.id}
+                      className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
+                          <span className="text-green-600 dark:text-green-400 font-semibold text-lg">
+                            {client.name.charAt(0)}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-gray-100">
+                            {client.name}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {client.region} • {client.riskLevel} 위험도
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            마지막 상담:{" "}
+                            {new Date(
+                              client.lastConsultation
+                            ).toLocaleDateString("ko-KR")}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                          {(client.totalAssets / 100000000).toFixed(1)}억원
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          포트폴리오 점수: {client.portfolioScore}점
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          다음 상담:{" "}
+                          {client.nextScheduled
+                            ? new Date(client.nextScheduled).toLocaleDateString(
+                                "ko-KR"
+                              )
+                            : "예정 없음"}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>

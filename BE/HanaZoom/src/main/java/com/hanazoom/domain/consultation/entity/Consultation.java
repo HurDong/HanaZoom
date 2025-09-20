@@ -112,7 +112,8 @@ public class Consultation {
         this.status = status != null ? status : ConsultationStatus.PENDING;
     }
 
-    // 고객 예약 시 정보 업데이트
+    // 고객 예약 시 정보 업데이트 (더 이상 사용하지 않음 - 직접 생성 방식 사용)
+    @Deprecated
     public void bookByClient(Member client, ConsultationType consultationType, String clientMessage, BigDecimal fee) {
         if (this.status != ConsultationStatus.AVAILABLE) {
             throw new IllegalStateException("예약 가능한 상태가 아닙니다.");
@@ -231,5 +232,16 @@ public class Consultation {
         }
         this.status = ConsultationStatus.APPROVED;
         this.updatedAt = LocalDateTime.now();
+    }
+
+    // PB 자기 자신의 스케줄(불가능 시간)인지 확인
+    public boolean isPbOwnSchedule() {
+        return this.client != null && this.pb != null &&
+                this.client.getId().equals(this.pb.getId());
+    }
+
+    // 실제 고객 예약인지 확인 (PB 자기 자신의 스케줄이 아닌 경우)
+    public boolean isClientBooking() {
+        return !isPbOwnSchedule();
     }
 }

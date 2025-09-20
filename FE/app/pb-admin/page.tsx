@@ -10,7 +10,6 @@ import { useAuthStore } from "@/app/utils/auth";
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
 import { getMyInfo } from "@/lib/api/members";
-import PbAvailabilityManager from "@/components/pb/PbAvailabilityManager"; // 컴포넌트 import
 
 export default function PBAdminPage() {
   const router = useRouter();
@@ -147,11 +146,6 @@ export default function PBAdminPage() {
       <main className="relative z-10 pt-16">
         {pbId && (
           <div className="container mx-auto px-4 py-8">
-            {/* 상담 가능 시간 관리 컴포넌트 추가 */}
-            <div className="mb-8">
-              <PbAvailabilityManager />
-            </div>
-
             {/* 초대 URL 표시 */}
             {inviteUrl && (
               <div className="mb-8">

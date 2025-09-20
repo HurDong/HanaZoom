@@ -19,7 +19,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import com.hanazoom.domain.consultation.entity.ConsultationType;
@@ -46,9 +49,13 @@ public class PbService {
             throw new IllegalStateException("PB 권한이 없는 사용자입니다.");
         }
 
+        log.info("PB {}의 상담 불가능 시간 등록 요청: {}개 슬롯", pbId, requestDto.getAvailableSlots().size());
+
         List<Consultation> availableSlots = requestDto.getAvailableSlots().stream()
                 .map(slot -> {
                     long durationMinutes = Duration.between(slot.getStartTime(), slot.getEndTime()).toMinutes();
+
+                    log.debug("슬롯 등록: {} ~ {} ({}분)", slot.getStartTime(), slot.getEndTime(), durationMinutes);
 
                     return Consultation.builder()
                             .pb(pb)
@@ -63,7 +70,60 @@ public class PbService {
                 .collect(Collectors.toList());
 
         consultationRepository.saveAll(availableSlots);
-        log.info("PB {}의 상담 불가능 시간 {}개가 등록되었습니다.", pbId, availableSlots.size());
+        log.info("PB {}의 상담 불가능 시간 {}개가 성공적으로 등록되었습니다.", pbId, availableSlots.size());
+    }
+
+    /**
+     * PB 상담 불가능 시간 삭제
+     */
+    @Transactional
+    public void removeUnavailableTime(UUID pbId, String date, String time) {
+        log.info("PB {}의 상담 불가능 시간 삭제 요청: date={}, time={}", pbId, date, time);
+
+        Member pb = memberRepository.findById(pbId)
+                .orElseThrow(() -> new IllegalArgumentException("PB 정보를 찾을 수 없습니다."));
+
+        if (!pb.isPb()) {
+            throw new IllegalStateException("PB 권한이 없는 사용자입니다.");
+        }
+
+        try {
+            // 날짜와 시간을 LocalDateTime으로 변환
+            LocalDate targetDate = LocalDate.parse(date);
+            String[] timeParts = time.split(":");
+            int hours = Integer.parseInt(timeParts[0]);
+            int minutes = Integer.parseInt(timeParts[1]);
+
+            LocalDateTime scheduledAt = targetDate.atTime(hours, minutes);
+
+            // 해당 시간의 모든 상담 기록 조회 (PB 자신의 스케줄 찾기)
+            List<Consultation> consultationsAtTime = consultationRepository
+                    .findByPbIdAndScheduledAtBetween(pbId, scheduledAt, scheduledAt.plusMinutes(1));
+
+            // PB 자기 자신의 스케줄 찾기 (client_id == pb_id 또는 UNAVAILABLE 상태)
+            Optional<Consultation> pbOwnSchedule = consultationsAtTime.stream()
+                    .filter(c -> c.isPbOwnSchedule() || c.getStatus() == ConsultationStatus.UNAVAILABLE)
+                    .findFirst();
+
+            if (pbOwnSchedule.isEmpty()) {
+                throw new IllegalArgumentException("삭제할 PB 자신의 스케줄이 없습니다.");
+            }
+
+            Consultation consultation = pbOwnSchedule.get();
+
+            // 실제 고객 예약인 경우 삭제 불가
+            if (consultation.isClientBooking() && consultation.getStatus() != ConsultationStatus.UNAVAILABLE) {
+                throw new IllegalStateException("고객이 예약한 시간은 삭제할 수 없습니다.");
+            }
+
+            // PB 자신의 불가능 시간 삭제
+            consultationRepository.delete(consultation);
+            log.info("PB {}의 상담 불가능 시간이 삭제되었습니다: {}", pbId, scheduledAt);
+
+        } catch (Exception e) {
+            log.error("PB 불가능 시간 삭제 실패: pbId={}, date={}, time={}", pbId, date, time, e);
+            throw new RuntimeException("불가능 시간 삭제에 실패했습니다", e);
+        }
     }
 
     /**
