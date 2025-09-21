@@ -74,7 +74,7 @@ export function formatCandleForChart(candle: CandleData): any {
  */
 export async function getDailyChartData(
   stockSymbol: string,
-  days: number = 30
+  days: number = 2500 // 약 10년치 (250일 * 10년)
 ): Promise<ChartDataDto[]> {
   try {
     const response = await fetch(
@@ -98,7 +98,7 @@ export async function getDailyChartData(
  */
 export async function getWeeklyChartData(
   stockSymbol: string,
-  weeks: number = 12
+  weeks: number = 520 // 약 10년치 (52주 * 10년)
 ): Promise<ChartDataDto[]> {
   try {
     const response = await fetch(
@@ -122,7 +122,7 @@ export async function getWeeklyChartData(
  */
 export async function getMonthlyChartData(
   stockSymbol: string,
-  months: number = 12
+  months: number = 120 // 약 10년치 (12개월 * 10년)
 ): Promise<ChartDataDto[]> {
   try {
     const response = await fetch(

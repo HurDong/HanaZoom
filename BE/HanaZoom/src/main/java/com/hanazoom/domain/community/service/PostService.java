@@ -8,12 +8,24 @@ import com.hanazoom.domain.stock.entity.Stock;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import com.hanazoom.domain.community.dto.VoteResultsResponse;
+import com.hanazoom.domain.community.dto.PostWithPollResponse;
 
 public interface PostService {
-        Post createPost(Member member, Stock stock, String title, String content, PostType postType,
+        Post createPost(Member member, Stock stock, String title, String content, String imageUrl, PostType postType,
                         PostSentiment sentiment);
 
-        Post updatePost(Long postId, Member member, String title, String content, PostSentiment sentiment);
+        Post createPostWithVote(Member member, Stock stock, String title, String content, String imageUrl,
+                        PostType postType, PostSentiment sentiment, String voteQuestion,
+                        java.util.List<String> voteOptions);
+
+        // 투표가 포함된 게시글과 Poll 정보를 함께 반환
+        PostWithPollResponse createPostWithVoteAndPoll(Member member, Stock stock, String title, String content,
+                        String imageUrl,
+                        PostType postType, PostSentiment sentiment, String voteQuestion,
+                        java.util.List<String> voteOptions);
+
+        Post updatePost(Long postId, Member member, String title, String content, String imageUrl,
+                        PostSentiment sentiment);
 
         void deletePost(Long postId, Member member);
 

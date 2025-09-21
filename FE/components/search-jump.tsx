@@ -50,9 +50,6 @@ export function SearchJump({ regions, onLocationSelect, onResetMap }: SearchJump
   const user = useAuthStore((state) => state.user);
   const router = useRouter();
   
-  // 디버깅: 사용자 정보 출력
-  console.log("🔍 SearchJump 컴포넌트 - 사용자 정보:", user);
-  console.log("🔍 SearchJump 컴포넌트 - 사용자 좌표:", user?.latitude, user?.longitude);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);

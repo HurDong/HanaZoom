@@ -2,18 +2,21 @@ package com.hanazoom.domain.community.service;
 
 import com.hanazoom.domain.community.dto.VoteResultsResponse;
 import com.hanazoom.domain.community.dto.VoteOptionResponse;
+import com.hanazoom.domain.community.dto.PostWithPollResponse;
 import com.hanazoom.domain.community.entity.Like;
 import com.hanazoom.domain.community.entity.LikeTargetType;
 import com.hanazoom.domain.community.entity.Post;
 import com.hanazoom.domain.community.entity.PostSentiment;
 import com.hanazoom.domain.community.entity.PostType;
 import com.hanazoom.domain.community.entity.Poll;
+import com.hanazoom.domain.community.entity.PollOption;
 import com.hanazoom.domain.community.entity.PollResponse;
 import com.hanazoom.domain.community.entity.VoteOption;
 import com.hanazoom.domain.community.repository.LikeRepository;
 import com.hanazoom.domain.community.repository.PostRepository;
 import com.hanazoom.domain.community.repository.PollRepository;
 import com.hanazoom.domain.community.repository.PollResponseRepository;
+import com.hanazoom.domain.community.repository.PollOptionRepository;
 import com.hanazoom.domain.member.entity.Member;
 import com.hanazoom.domain.stock.entity.Stock;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,28 +38,118 @@ public class PostServiceImpl implements PostService {
     private final LikeRepository likeRepository;
     private final PollRepository pollRepository;
     private final PollResponseRepository pollResponseRepository;
+    private final PollOptionRepository pollOptionRepository;
 
     @Override
     @Transactional
-    public Post createPost(Member member, Stock stock, String title, String content,
+    public Post createPost(Member member, Stock stock, String title, String content, String imageUrl,
             PostType postType, PostSentiment sentiment) {
+        System.out.println("🔍 PostService.createPost - imageUrl 길이: " + (imageUrl != null ? imageUrl.length() : "null"));
+        System.out.println("🔍 PostService.createPost - imageUrl 미리보기: " + (imageUrl != null ? imageUrl.substring(0, Math.min(100, imageUrl.length())) + "..." : "null"));
+        
         Post post = Post.builder()
                 .member(member)
                 .stock(stock)
                 .title(title)
                 .content(content)
+                .imageUrl(imageUrl)
                 .postType(postType)
                 .sentiment(sentiment)
                 .build();
-        return postRepository.save(post);
+        
+        System.out.println("🔍 Post 엔티티 생성 완료 - imageUrl 길이: " + (post.getImageUrl() != null ? post.getImageUrl().length() : "null"));
+        
+        Post savedPost = postRepository.save(post);
+        System.out.println("🔍 Post 저장 완료 - ID: " + savedPost.getId() + ", imageUrl 길이: " + (savedPost.getImageUrl() != null ? savedPost.getImageUrl().length() : "null"));
+        
+        return savedPost;
     }
 
     @Override
     @Transactional
-    public Post updatePost(Long postId, Member member, String title, String content,
+    public Post createPostWithVote(Member member, Stock stock, String title, String content, String imageUrl,
+            PostType postType, PostSentiment sentiment, String voteQuestion, java.util.List<String> voteOptions) {
+        Post post = Post.builder()
+                .member(member)
+                .stock(stock)
+                .title(title)
+                .content(content)
+                .imageUrl(imageUrl)
+                .postType(postType)
+                .sentiment(sentiment)
+                .build();
+
+        Post savedPost = postRepository.save(post);
+
+        // 투표 생성
+        if (voteQuestion != null && !voteQuestion.trim().isEmpty() && voteOptions != null && !voteOptions.isEmpty()) {
+            // 사용자가 입력한 투표 옵션들을 Poll 엔티티의 optionUp, optionDown에 설정
+            String optionUp = voteOptions.size() > 0 ? voteOptions.get(0) : "오를 것 같다 📈";
+            String optionDown = voteOptions.size() > 1 ? voteOptions.get(1) : "떨어질 것 같다 📉";
+
+            Poll poll = Poll.builder()
+                    .post(savedPost)
+                    .question(voteQuestion)
+                    .build();
+
+            // optionUp, optionDown 직접 설정
+            poll.setOptionUp(optionUp);
+            poll.setOptionDown(optionDown);
+
+            pollRepository.save(poll);
+        }
+
+        return savedPost;
+    }
+
+    @Override
+    @Transactional
+    public PostWithPollResponse createPostWithVoteAndPoll(Member member, Stock stock, String title, String content,
+            String imageUrl,
+            PostType postType, PostSentiment sentiment, String voteQuestion, java.util.List<String> voteOptions) {
+        Post post = Post.builder()
+                .member(member)
+                .stock(stock)
+                .title(title)
+                .content(content)
+                .imageUrl(imageUrl)
+                .postType(postType)
+                .sentiment(sentiment)
+                .build();
+
+        Post savedPost = postRepository.save(post);
+        Poll poll = null;
+
+        // 투표 생성
+        if (voteQuestion != null && !voteQuestion.trim().isEmpty() && voteOptions != null && !voteOptions.isEmpty()) {
+            // 사용자가 입력한 투표 옵션들을 Poll 엔티티의 optionUp, optionDown에 설정
+            String optionUp = voteOptions.size() > 0 ? voteOptions.get(0) : "오를 것 같다 📈";
+            String optionDown = voteOptions.size() > 1 ? voteOptions.get(1) : "떨어질 것 같다 📉";
+
+            poll = Poll.builder()
+                    .post(savedPost)
+                    .question(voteQuestion)
+                    .build();
+
+            // optionUp, optionDown 직접 설정
+            poll.setOptionUp(optionUp);
+            poll.setOptionDown(optionDown);
+
+            poll = pollRepository.save(poll);
+        }
+
+        return PostWithPollResponse.builder()
+                .post(savedPost)
+                .poll(poll)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public Post updatePost(Long postId, Member member, String title, String content, String imageUrl,
             PostSentiment sentiment) {
         Post post = getPostWithMemberCheck(postId, member);
-        post.update(title, content, sentiment);
+        post.update(title, content, imageUrl, sentiment);
         return post;
     }
 
@@ -87,9 +181,13 @@ public class PostServiceImpl implements PostService {
     @Override
     @Transactional
     public void likePost(Long postId, Member member) {
+        System.out.println("👍 좋아요 요청 - postId: " + postId + ", memberId: " + member.getId());
+        
         if (isLikedByMember(postId, member)) {
+            System.out.println("❌ 이미 좋아요한 게시글 - postId: " + postId + ", memberId: " + member.getId());
             throw new IllegalArgumentException("이미 좋아요한 게시글입니다.");
         }
+        
         Post post = getPost(postId);
         post.incrementLikeCount();
         likeRepository.save(Like.builder()
@@ -97,24 +195,36 @@ public class PostServiceImpl implements PostService {
                 .targetType(LikeTargetType.POST)
                 .targetId(postId)
                 .build());
+        
+        System.out.println("✅ 좋아요 완료 - postId: " + postId + ", memberId: " + member.getId() + ", 새로운 좋아요 수: " + post.getLikeCount());
     }
 
     @Override
     @Transactional
     public void unlikePost(Long postId, Member member) {
+        System.out.println("👎 좋아요 취소 요청 - postId: " + postId + ", memberId: " + member.getId());
+        
         if (!isLikedByMember(postId, member)) {
+            System.out.println("❌ 좋아요하지 않은 게시글 - postId: " + postId + ", memberId: " + member.getId());
             throw new IllegalArgumentException("좋아요하지 않은 게시글입니다.");
         }
+        
         Post post = getPost(postId);
         post.decrementLikeCount();
         likeRepository.deleteByMemberAndTargetTypeAndTargetId(member, LikeTargetType.POST, postId);
+        
+        System.out.println("✅ 좋아요 취소 완료 - postId: " + postId + ", memberId: " + member.getId() + ", 새로운 좋아요 수: " + post.getLikeCount());
     }
 
     @Override
     public boolean isLikedByMember(Long postId, Member member) {
-        if (member == null)
+        if (member == null) {
+            System.out.println("🔍 isLikedByMember - member가 null입니다. postId: " + postId);
             return false;
-        return likeRepository.existsByMemberAndTargetTypeAndTargetId(member, LikeTargetType.POST, postId);
+        }
+        boolean exists = likeRepository.existsByMemberAndTargetTypeAndTargetId(member, LikeTargetType.POST, postId);
+        System.out.println("🔍 isLikedByMember - postId: " + postId + ", memberId: " + member.getId() + ", exists: " + exists);
+        return exists;
     }
 
     @Override
@@ -165,6 +275,7 @@ public class PostServiceImpl implements PostService {
         Poll poll = pollRepository.findByPost(post).orElse(null);
 
         if (poll == null) {
+            // 투표가 없는 경우 빈 투표 옵션 반환
             return VoteResultsResponse.builder()
                     .voteOptions(List.of())
                     .totalVotes(0)
@@ -209,9 +320,11 @@ public class PostServiceImpl implements PostService {
 
     private Post getPostWithMemberCheck(Long postId, Member member) {
         Post post = getPost(postId);
-        if (!post.getMember().equals(member)) {
+        if (!post.getMember().getId().equals(member.getId())) {
+            System.out.println("🔍 권한 체크 실패 - Post 작성자 ID: " + post.getMember().getId() + ", 요청자 ID: " + member.getId());
             throw new IllegalArgumentException("게시글 작성자만 수정/삭제할 수 있습니다.");
         }
+        System.out.println("✅ 권한 체크 성공 - Post 작성자 ID: " + post.getMember().getId() + ", 요청자 ID: " + member.getId());
         return post;
     }
 }

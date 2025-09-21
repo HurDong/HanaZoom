@@ -125,9 +125,18 @@ export function OpinionCard({
                 ? "text-green-600 dark:text-green-400"
                 : "text-gray-500 dark:text-gray-400"
             } hover:text-green-700 dark:hover:text-green-300 cursor-pointer`}
+            title={post.isLiked ? "좋아요 취소" : "좋아요"}
           >
-            <ThumbsUp className="w-4 h-4 mr-1" />
+            <ThumbsUp 
+              className="w-4 h-4 mr-1" 
+              style={{
+                fill: post.isLiked ? 'currentColor' : 'none',
+                stroke: 'currentColor',
+                strokeWidth: post.isLiked ? 0 : 1.5
+              }}
+            />
             {post.likeCount}
+            {post.isLiked && " (좋아요함)"}
           </Button>
           <Button
             variant="ghost"

@@ -71,6 +71,9 @@ export default function NavBar() {
     cashAllocationRate: number;
   } | null>(null);
 
+  // 로고 로드 상태
+  const [logoError, setLogoError] = useState(false);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -984,12 +987,19 @@ export default function NavBar() {
         {/* 왼쪽: 로고 및 브랜드명 */}
         <Link href="/" className="flex items-center space-x-3">
           <div className="relative">
-            {/* 하나은행 로고 이미지 */}
-            <img
-              src="/favicon.ico"
-              alt="하나은행 로고"
-              className="w-8 h-8 object-contain"
-            />
+            {/* 하나줌 로고 - PWA 아이콘 사용 또는 폴백 로고 */}
+            {!logoError ? (
+              <img
+                src="/icon-192.png"
+                alt="하나줌 로고"
+                className="w-8 h-8 object-contain"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                H
+              </div>
+            )}
           </div>
           <span className="text-xl font-bold text-green-600 font-['Noto Sans KR']">
             하나줌

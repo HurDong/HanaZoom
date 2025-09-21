@@ -7,9 +7,10 @@ import PbRoomVideoConsultation from "@/components/pb/PbRoomVideoConsultation";
 import Navbar from "@/app/components/Navbar";
 import { useAuthStore } from "@/app/utils/auth";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Users, Settings, X, MessageSquare } from "lucide-react";
+import { Copy, Check, Users, Settings, X, MessageSquare, PieChart } from "lucide-react";
 import { getMyInfo } from "@/lib/api/members";
 import { Client } from "@stomp/stompjs";
+import ClientPortfolioView from "@/components/pb/ClientPortfolioView";
 
 export default function ConsultationRoomPage() {
   const params = useParams<{ consultationId: string }>();
@@ -45,6 +46,8 @@ export default function ConsultationRoomPage() {
   const [isRoomOwner, setIsRoomOwner] = useState(false);
   const [actualPbName, setActualPbName] = useState(pbNameFromUrl);
   const [showChatPanel, setShowChatPanel] = useState(false);
+  const [showPortfolioView, setShowPortfolioView] = useState(false);
+  const [actualClientId, setActualClientId] = useState<string | null>(null);
 
   // 채팅 관련 상태
   const [chatMessages, setChatMessages] = useState<
@@ -159,6 +162,12 @@ export default function ConsultationRoomPage() {
 
               console.log("📝 수신된 메시지를 상태에 추가:", newMessage);
               setChatMessages((prev) => {
+                // 중복된 메시지가 있는지 확인
+                const exists = prev.some(msg => msg.id === newMessage.id);
+                if (exists) {
+                  console.log("⚠️ 중복된 메시지 감지, 추가하지 않음:", newMessage.id);
+                  return prev;
+                }
                 const updated = [...prev, newMessage];
                 console.log("📊 메시지 상태 업데이트:", {
                   before: prev.length,
@@ -217,6 +226,12 @@ export default function ConsultationRoomPage() {
     };
 
     setChatMessages((prev) => {
+      // 중복된 메시지가 있는지 확인
+      const exists = prev.some(msg => msg.id === newMessage.id);
+      if (exists) {
+        console.log("⚠️ 중복된 로컬 메시지 감지, 추가하지 않음:", newMessage.id);
+        return prev;
+      }
       const updated = [...prev, newMessage];
       console.log("📝 로컬 메시지 상태 업데이트:", {
         before: prev.length,
@@ -240,7 +255,6 @@ export default function ConsultationRoomPage() {
         messageData,
         destination: `/app/chat/${consultationId}/send`,
         clientConnected: chatStompClient.connected,
-        sessionId: chatStompClient.sessionId,
       });
 
       chatStompClient.publish({
@@ -286,6 +300,11 @@ export default function ConsultationRoomPage() {
       // 스토어에서 직접 토큰 가져오기
       const currentToken = useAuthStore.getState().accessToken;
       console.log("🔑 Access Token:", currentToken ? "있음" : "없음");
+      console.log("🔍 API 호출 정보:", {
+        url: `/api/pb-rooms/${consultationId}/join`,
+        consultationId,
+        method: "POST"
+      });
 
       const headers: HeadersInit = {
         "Content-Type": "application/json",
@@ -296,21 +315,72 @@ export default function ConsultationRoomPage() {
         headers.Authorization = `Bearer ${currentToken}`;
       }
 
+      console.log("📡 요청 헤더:", headers);
+      console.log("📡 요청 본문:", {
+        consultationId: consultationId,
+        timestamp: new Date().toISOString()
+      });
+
       const response = await fetch(`/api/pb-rooms/${consultationId}/join`, {
         method: "POST",
         headers,
+        body: JSON.stringify({
+          consultationId: consultationId,
+          timestamp: new Date().toISOString()
+        })
       });
 
+      console.log("📡 응답 상태:", response.status, response.statusText);
+      console.log("📡 응답 헤더:", Object.fromEntries(response.headers.entries()));
+
       if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          console.log("✅ 고객 입장 성공:", data);
-        } else {
-          console.error("❌ 고객 입장 실패:", data.error);
+        try {
+          const data = await response.json();
+          if (data.success) {
+            console.log("✅ 고객 입장 성공:", data);
+          } else {
+            console.error("❌ 고객 입장 실패:", data.error);
+          }
+        } catch (jsonError) {
+          console.log("✅ 고객 입장 성공 (JSON 파싱 없음)");
         }
       } else {
-        const errorData = await response.json();
-        console.error("❌ 고객 입장 API 오류:", errorData);
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (jsonError) {
+          errorData = {
+            error: `HTTP ${response.status}: ${response.statusText}`,
+            status: response.status,
+            statusText: response.statusText
+          };
+        }
+        
+        console.error("❌ 고객 입장 API 오류:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: errorData,
+          url: `/api/pb-rooms/${consultationId}/join`,
+          method: "POST",
+          consultationId: consultationId,
+          hasToken: !!currentToken
+        });
+        
+        // 사용자에게 친화적인 에러 메시지 표시
+        if (response.status === 401) {
+          console.error("🔐 인증 실패 - 로그인이 필요합니다");
+          alert("로그인이 필요합니다. 다시 로그인해주세요.");
+        } else if (response.status === 404) {
+          console.error("🔍 방을 찾을 수 없습니다");
+          alert("존재하지 않는 방입니다.");
+        } else if (response.status === 403) {
+          console.error("🚫 접근 권한이 없습니다 - 백엔드 보안 설정 확인 필요");
+          console.error("💡 해결 방법: SecurityConfig.java에서 /api/pb-rooms/*/join 경로를 permitAll()로 설정");
+          alert("접근 권한이 없습니다. 관리자에게 문의하세요.");
+        } else {
+          console.error("❌ 서버 오류:", response.status);
+          alert(`서버 오류가 발생했습니다: ${response.status}`);
+        }
       }
     } catch (error) {
       console.error("❌ 고객 입장 중 오류:", error);
@@ -489,6 +559,21 @@ export default function ConsultationRoomPage() {
 
           {/* 액션 버튼들 */}
           <div className="flex items-center gap-2">
+            {/* 포트폴리오 조회 버튼 (PB만 표시) */}
+            {isRoomOwner && (
+              <button
+                onClick={() => setShowPortfolioView(!showPortfolioView)}
+                className={`relative w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2 backdrop-blur-sm rounded-full md:rounded-lg transition-all duration-200 flex items-center justify-center group ${
+                  showPortfolioView
+                    ? "bg-white/30 text-white"
+                    : "bg-white/20 hover:bg-white/30 text-white"
+                }`}
+              >
+                <PieChart className="w-4 h-4 md:mr-2 group-hover:scale-110 transition-transform duration-200" />
+                <span className="hidden md:inline font-medium">포트폴리오</span>
+              </button>
+            )}
+
             {/* 채팅 토글 버튼 */}
             <button
               onClick={() => setShowChatPanel(!showChatPanel)}
@@ -553,7 +638,23 @@ export default function ConsultationRoomPage() {
                 isGuest={isGuest}
                 onEndConsultation={() => router.push(isPb ? "/pb-admin" : "/")}
                 onParticipantJoined={(participant) => {
-                  setParticipants((prev) => [...prev, participant]);
+                  console.log("👤 참여자 입장:", participant);
+                  
+                  // 고객이 입장한 경우 clientId 업데이트
+                  if (participant.role === "GUEST") {
+                    console.log("🎯 고객 입장 감지 - clientId 업데이트:", participant.id);
+                    setActualClientId(participant.id);
+                  }
+                  
+                  setParticipants((prev) => {
+                    // 중복된 참여자가 있는지 확인
+                    const exists = prev.some(p => p.id === participant.id);
+                    if (exists) {
+                      console.log("⚠️ 중복된 참여자 감지, 추가하지 않음:", participant.id);
+                      return prev;
+                    }
+                    return [...prev, participant];
+                  });
                 }}
                 onParticipantLeft={(participantId) => {
                   console.log("👤 참여자 퇴장:", participantId);
@@ -643,8 +744,8 @@ export default function ConsultationRoomPage() {
                         messagesCount: chatMessages.length,
                         messages: chatMessages,
                       });
-                      return chatMessages.map((msg) => (
-                        <div key={msg.id} className="flex flex-col space-y-1">
+                      return chatMessages.map((msg, index) => (
+                        <div key={`${msg.id}-${index}`} className="flex flex-col space-y-1">
                           <div
                             className={`flex ${
                               msg.userType === "pb"
@@ -764,9 +865,9 @@ export default function ConsultationRoomPage() {
                     참여자 ({participants.length}명)
                   </h3>
                   <div className="space-y-2 max-h-48 md:max-h-64 overflow-y-auto">
-                    {participants.map((participant) => (
+                    {participants.map((participant, index) => (
                       <div
-                        key={participant.id}
+                        key={`${participant.id}-${index}`}
                         className="flex items-center justify-between p-2 md:p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                       >
                         <div className="flex items-center space-x-2 md:space-x-3">
@@ -819,8 +920,20 @@ export default function ConsultationRoomPage() {
           )}
         </div>
       </main>
+
+      {/* 고객 포트폴리오 조회 모달 */}
+      <ClientPortfolioView
+        clientId={actualClientId || clientId || ""}
+        clientName={clientName}
+        isVisible={showPortfolioView}
+        onClose={() => setShowPortfolioView(false)}
+      />
     </div>
   );
 }
+
+
+
+
 
 

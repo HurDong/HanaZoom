@@ -53,11 +53,31 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     data: ChartDataPoint;
     type: "candle" | "volume";
   } | null>(null);
+  // 지표 토글 상태
+  const [showBB, setShowBB] = useState<boolean>(true);
+  const [showSMA5, setShowSMA5] = useState<boolean>(true);
+  const [showSMA20, setShowSMA20] = useState<boolean>(true);
+  const [showSMA60, setShowSMA60] = useState<boolean>(false);
+  // 뷰포트 상태 (전체 데이터 표시)
+  const [viewStart, setViewStart] = useState<number>(0);
+  const [viewEnd, setViewEnd] = useState<number>(0);
   const [showMinuteToggle, setShowMinuteToggle] = useState(false);
   const [lastMinuteTimeframe, setLastMinuteTimeframe] = useState("5M");
+  
+  // 팬 기능을 위한 상태
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState<number>(0);
+  const [panOffset, setPanOffset] = useState<number>(0);
+  
+  // 확대/축소 기능을 위한 상태
+  const [zoomLevel, setZoomLevel] = useState<number>(1); // 1 = 기본 크기
+  const [zoomCenter, setZoomCenter] = useState<number>(0.5); // 0~1, 차트 중앙 기준
+  const [isZooming, setIsZooming] = useState(false);
+  
   const currentCandleRef = useRef<ChartDataPoint | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const volumeCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // localStorage 키 생성자
   const getMinuteKey = useCallback(() => `lastMinuteTimeframe_${stockCode}`, [stockCode]);
@@ -174,7 +194,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         // 일/주/월봉 데이터 사용
         console.log("📊 일/주/월봉 차트 요청됨:", timeframe, "종목:", stockCode);
         const dataLimit =
-          timeframe === "1D" ? 1000 : timeframe === "1W" ? 200 : 100;
+          timeframe === "1D" ? 2500 : timeframe === "1W" ? 520 : 120; // 10년치 데이터
         const pastCandles = await getChartData(stockCode, timeframe, dataLimit);
         data = pastCandles.map(formatCandleForChart);
       }
@@ -183,11 +203,26 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       data.sort((a, b) => a.timestamp - b.timestamp);
 
       setChartData(data);
+      // 초기 뷰포트 설정: 최신 데이터를 보여주되, 너무 많으면 일정 개수만 표시
+      const maxVisibleCandles = 50; // 초기에 보여줄 최대 캔들 수
+      const startIndex = Math.max(0, data.length - maxVisibleCandles);
+      setViewStart(startIndex);
+      setViewEnd(data.length);
+      
+      // 줌 레벨 초기화
+      setZoomLevel(1);
+      setZoomCenter(0.5);
+      setIsZooming(false);
+      
       console.log(
         "✅ 차트 데이터 로드 완료:",
         data.length,
         "개 캔들, 타임프레임:",
-        timeframe
+        timeframe,
+        "뷰포트:",
+        startIndex,
+        "-",
+        data.length
       );
     } catch (err) {
       console.error("차트 데이터 로드 실패:", err);
@@ -380,11 +415,77 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const padding = 80; // 패딩 증가로 축 공간 확보
     const chartWidth = canvas.width - padding * 2;
     const chartHeight = canvas.height - padding * 2;
-    const candleWidth = Math.max(2, (chartWidth / chartData.length) * 0.8);
-    const candleSpacing = chartWidth / chartData.length;
+    const total = chartData.length;
+    const start = Math.max(0, Math.min(viewStart, total - 1));
+    const end = Math.max(start + 1, Math.min(viewEnd, total));
+    const visibleData = chartData.slice(start, end);
+    const candleWidth = Math.max(2, (chartWidth / visibleData.length) * 0.8);
+    const candleSpacing = chartWidth / Math.max(1, visibleData.length);
 
     // 가격 범위 계산
-    const prices = chartData.flatMap((d) => [d.high, d.low]);
+    const prices = visibleData.flatMap((d) => [d.high, d.low]);
+
+    // 이동평균 및 볼린저밴드 계산 (렌더 범위 내)
+    const calcSMA = (data: ChartDataPoint[], period: number) => {
+      const result: (number | null)[] = Array(data.length).fill(null);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) {
+        sum += data[i].close;
+        if (i >= period) sum -= data[i - period].close;
+        if (i >= period - 1) result[i] = sum / period;
+      }
+      return result;
+    };
+
+    const calcBB = (data: ChartDataPoint[], period: number, k: number) => {
+      const ma = calcSMA(data, period);
+      const upper: (number | null)[] = Array(data.length).fill(null);
+      const lower: (number | null)[] = Array(data.length).fill(null);
+      for (let i = 0; i < data.length; i++) {
+        if (i >= period - 1 && ma[i] != null) {
+          let variance = 0;
+          for (let j = i - period + 1; j <= i; j++) {
+            const diff = data[j].close - (ma[i] as number);
+            variance += diff * diff;
+          }
+          const std = Math.sqrt(variance / period);
+          upper[i] = (ma[i] as number) + k * std;
+          lower[i] = (ma[i] as number) - k * std;
+        }
+      }
+      return { ma, upper, lower };
+    };
+
+    const sma5 = showSMA5 ? calcSMA(visibleData, 5) : [];
+    const sma20 = showSMA20 ? calcSMA(visibleData, 20) : [];
+    const sma60 = showSMA60 ? calcSMA(visibleData, 60) : [];
+    const bb = showBB ? calcBB(visibleData, 20, 2) : { ma: [], upper: [], lower: [] };
+
+    // 가격 범위 확장: 지표 포함
+    if (showSMA5) {
+      sma5.forEach((v) => {
+        if (v != null) prices.push(v);
+      });
+    }
+    if (showSMA20) {
+      sma20.forEach((v) => {
+        if (v != null) prices.push(v);
+      });
+    }
+    if (showSMA60) {
+      sma60.forEach((v) => {
+        if (v != null) prices.push(v);
+      });
+    }
+    if (showBB) {
+      bb.upper.forEach((v) => {
+        if (v != null) prices.push(v);
+      });
+      bb.lower.forEach((v) => {
+        if (v != null) prices.push(v);
+      });
+    }
+
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
     const priceRange = maxPrice - minPrice;
@@ -430,7 +531,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     ctx.stroke();
 
     // 3단계: 캔들스틱 그리기 (축 위에)
-    chartData.forEach((dataPoint, index) => {
+    visibleData.forEach((dataPoint, index) => {
       const x =
         padding + candleSpacing * index + (candleSpacing - candleWidth) / 2;
       const isUp = dataPoint.close >= dataPoint.open;
@@ -481,6 +582,63 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       }
     });
 
+    // 이동평균선 및 볼린저밴드 그리기
+    const drawLineSeries = (series: (number | null)[], color: string, width = 2) => {
+      if (!series.length) return;
+      ctx.beginPath();
+      ctx.lineWidth = width;
+      ctx.strokeStyle = color;
+      let started = false;
+      for (let i = 0; i < series.length; i++) {
+        const v = series[i];
+        if (v == null) continue;
+        const x = padding + candleSpacing * i + candleSpacing / 2;
+        const y = padding + ((maxPrice - v) / priceRange) * chartHeight;
+        if (!started) {
+          ctx.moveTo(x, y);
+          started = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      if (started) ctx.stroke();
+    };
+
+    if (showBB && bb.upper.length) {
+      // 볼린저 상단/하단
+      drawLineSeries(bb.upper, "#8b5cf6", 1.5);
+      drawLineSeries(bb.lower, "#8b5cf6", 1.5);
+      // 밴드 영역 채우기
+      ctx.beginPath();
+      let started = false;
+      for (let i = 0; i < bb.upper.length; i++) {
+        const u = bb.upper[i];
+        if (u == null) continue;
+        const x = padding + candleSpacing * i + candleSpacing / 2;
+        const y = padding + ((maxPrice - u) / priceRange) * chartHeight;
+        if (!started) {
+          ctx.moveTo(x, y);
+          started = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      for (let i = bb.lower.length - 1; i >= 0; i--) {
+        const l = bb.lower[i];
+        if (l == null) continue;
+        const x = padding + candleSpacing * i + candleSpacing / 2;
+        const y = padding + ((maxPrice - l) / priceRange) * chartHeight;
+        ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = "rgba(139, 92, 246, 0.1)";
+      ctx.fill();
+    }
+
+    if (showSMA5) drawLineSeries(sma5, "#10b981", 2);
+    if (showSMA20) drawLineSeries(sma20, "#f59e0b", 2);
+    if (showSMA60) drawLineSeries(sma60, "#6366f1", 2);
+
     // 4단계: 축 라벨 그리기 (가장 앞에)
     ctx.fillStyle = "#f3f4f6"; // 밝은 색상으로 변경
     ctx.font = "bold 12px Arial"; // 폰트 굵기 증가
@@ -497,17 +655,17 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     ctx.textAlign = "center";
     for (
       let i = 0;
-      i < chartData.length;
-      i += Math.max(1, Math.floor(chartData.length / 10))
+      i < visibleData.length;
+      i += Math.max(1, Math.floor(visibleData.length / 10))
     ) {
       const x = padding + candleSpacing * i + candleSpacing / 2;
-      const time = formatTimeLabel(chartData[i].time, timeframe);
+      const time = formatTimeLabel(visibleData[i].time, timeframe);
       ctx.fillText(time, x, canvas.height - padding + 25);
     }
 
     // 현재가 라인 (토스증권 스타일)
-    if (chartData.length > 0) {
-      const lastPrice = chartData[chartData.length - 1].close;
+    if (visibleData.length > 0) {
+      const lastPrice = visibleData[visibleData.length - 1].close;
       const currentPriceY =
         padding + ((maxPrice - lastPrice) / priceRange) * chartHeight;
 
@@ -525,35 +683,25 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       ctx.fillStyle = "#ef4444";
       ctx.font = "bold 12px Arial";
       ctx.textAlign = "left";
-      ctx.fillText(
-        `현재가: ${lastPrice.toLocaleString()}원`,
-        canvas.width - padding + 10,
-        currentPriceY + 4
-      );
+      ctx.fillText(`현재가: ${lastPrice.toLocaleString()}원`, canvas.width - padding + 10, currentPriceY + 4);
     }
-  }, [chartData, timeframe, hoveredCandle, tooltipData]);
+  }, [chartData, timeframe, hoveredCandle, tooltipData, showBB, showSMA5, showSMA20, showSMA60, viewStart, viewEnd]);
 
-  // 차트 클릭 핸들러
-  const handleChartClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-
-    // 클릭된 캔들 찾기
-    const padding = 60;
-    const chartWidth = canvas.width - padding * 2;
-    const candleSpacing = chartWidth / chartData.length;
-
-    const index = Math.floor((x - padding) / candleSpacing);
-    if (index >= 0 && index < chartData.length) {
-      console.log("클릭된 캔들:", chartData[index]);
+  // 팬 기능을 위한 마우스 다운 핸들러
+  const handleChartMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (event.button === 0) { // 왼쪽 마우스 버튼만
+      event.preventDefault(); // 기본 동작 방지
+      setIsPanning(true);
+      setPanStart(event.clientX);
+      setPanOffset(0);
+      // 마우스 커서 변경
+      if (canvasRef.current) {
+        canvasRef.current.style.cursor = 'grabbing';
+      }
     }
   };
 
-  // 차트 마우스 이동 핸들러
+  // 팬 기능을 위한 마우스 이동 핸들러
   const handleChartMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -562,18 +710,55 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
+    // 팬 중이면 뷰포트 업데이트
+    if (isPanning) {
+      const deltaX = event.clientX - panStart;
+      const total = chartData.length;
+      const visibleLen = viewEnd - viewStart;
+      
+      // 팬 오프셋 계산 (픽셀을 캔들 인덱스로 변환)
+      const padding = 60;
+      const chartWidth = canvas.width - padding * 2;
+      const candleSpacing = chartWidth / Math.max(1, visibleLen);
+      const deltaCandles = Math.round(deltaX / candleSpacing);
+      
+      // 새로운 뷰포트 범위 계산 (팬 방향 반대로)
+      let newStart = viewStart - deltaCandles;
+      let newEnd = viewEnd - deltaCandles;
+      
+      // 경계 제한
+      newStart = Math.max(0, Math.min(newStart, total - visibleLen));
+      newEnd = Math.max(visibleLen, Math.min(newEnd, total));
+      
+      // 뷰포트 업데이트
+      setViewStart(newStart);
+      setViewEnd(newEnd);
+      setPanOffset(deltaX);
+      
+      // 팬 시작점을 현재 위치로 업데이트 (연속적인 팬을 위해)
+      setPanStart(event.clientX);
+      
+      return; // 팬 중일 때는 호버 처리 안함
+    }
+
+    // 팬이 아닐 때만 호버 처리
     const padding = 60;
     const chartWidth = canvas.width - padding * 2;
-    const candleSpacing = chartWidth / chartData.length;
+    const total = chartData.length;
+    const start = Math.max(0, Math.min(viewStart, total - 1));
+    const end = Math.max(start + 1, Math.min(viewEnd, total));
+    const visibleLen = Math.max(1, end - start);
+    const candleSpacing = chartWidth / visibleLen;
 
-    const index = Math.floor((x - padding) / candleSpacing);
-    if (index >= 0 && index < chartData.length) {
-      setHoveredCandle(index);
-      setHoveredVolume(index); // 거래량 차트도 동시에 활성화
+    const localIndex = Math.floor((x - padding) / candleSpacing);
+    const globalIndex = start + localIndex;
+    if (localIndex >= 0 && localIndex < visibleLen && globalIndex >= 0 && globalIndex < chartData.length) {
+      setHoveredCandle(localIndex);
+      setHoveredVolume(localIndex); // 거래량 차트도 동시에 활성화
       setTooltipData({
         x: event.clientX,
         y: event.clientY,
-        data: chartData[index],
+        data: chartData[globalIndex],
         type: "candle",
       });
     } else {
@@ -583,14 +768,125 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     }
   };
 
+  // 팬 기능을 위한 마우스 업 핸들러
+  const handleChartMouseUp = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isPanning) {
+      setIsPanning(false);
+      setPanStart(0);
+      setPanOffset(0);
+      // 마우스 커서 복원
+      if (canvasRef.current) {
+        canvasRef.current.style.cursor = 'grab';
+      }
+    }
+  };
+
+  // 차트 클릭 핸들러 (팬이 아닐 때만)
+  const handleChartClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isPanning) {
+      console.log("차트 클릭됨");
+    }
+  };
+
+  // 확대/축소에 따른 뷰포트 업데이트 함수
+  const updateViewportForZoom = (newZoomLevel: number, newZoomCenter: number) => {
+    const total = chartData.length;
+    if (total === 0) return;
+    
+    // 기본 표시할 캔들 수 (줌 레벨에 따라 조정)
+    const baseVisibleCandles = 50;
+    const visibleCandles = Math.max(5, Math.min(total, Math.round(baseVisibleCandles / newZoomLevel)));
+    
+    // 줌 중심점을 기준으로 뷰포트 범위 계산
+    const centerIndex = Math.round(newZoomCenter * (total - 1));
+    const halfVisible = Math.floor(visibleCandles / 2);
+    
+    let newStart = Math.max(0, centerIndex - halfVisible);
+    let newEnd = Math.min(total, newStart + visibleCandles);
+    
+    // 끝에 도달했을 때 시작점 조정
+    if (newEnd === total) {
+      newStart = Math.max(0, total - visibleCandles);
+    }
+    
+    setViewStart(newStart);
+    setViewEnd(newEnd);
+    
+    console.log(`🔍 줌 업데이트: 레벨=${newZoomLevel.toFixed(2)}x, 중심=${newZoomCenter.toFixed(2)}, 뷰포트=${newStart}-${newEnd}`);
+  };
+
+
+  // 확대/축소를 위한 휠 이벤트 핸들러
+  const handleChartWheel = (event: React.WheelEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // 팬 중이면 확대/축소 비활성화
+    if (isPanning) return;
+    
+    const canvas = canvasRef.current;
+    if (!canvas || chartData.length === 0) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const padding = 60;
+    const chartWidth = canvas.width - padding * 2;
+    
+    // 마우스 위치를 기준으로 확대/축소 중심점 계산
+    const relativeX = (x - padding) / chartWidth;
+    const newZoomCenter = Math.max(0, Math.min(1, relativeX));
+    
+    // 휠 방향에 따른 확대/축소
+    const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1; // 위로 = 확대, 아래로 = 축소
+    const newZoomLevel = Math.max(0.1, Math.min(10, zoomLevel * zoomFactor)); // 0.1x ~ 10x 제한
+    
+    // 줌 레벨이 변경되었을 때만 업데이트
+    if (Math.abs(newZoomLevel - zoomLevel) > 0.01) {
+      setZoomLevel(newZoomLevel);
+      setZoomCenter(newZoomCenter);
+      setIsZooming(true);
+      
+      // 줌에 따른 뷰포트 업데이트
+      updateViewportForZoom(newZoomLevel, newZoomCenter);
+      
+      // 줌 애니메이션 완료 후 상태 초기화
+      setTimeout(() => {
+        setIsZooming(false);
+      }, 150);
+    }
+  };
+
   // 차트 마우스 리브 핸들러
   const handleChartMouseLeave = () => {
+    // 팬 중이면 팬 상태 초기화
+    if (isPanning) {
+      setIsPanning(false);
+      setPanStart(0);
+      setPanOffset(0);
+      if (canvasRef.current) {
+        canvasRef.current.style.cursor = 'grab';
+      }
+    }
     setHoveredCandle(null);
     setHoveredVolume(null); // 거래량 차트도 함께 비활성화
     setTooltipData(null);
   };
 
-  // 거래량 차트 마우스 이동 핸들러
+  // 거래량 차트 마우스 다운 핸들러 (팬 기능)
+  const handleVolumeMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (event.button === 0) { // 왼쪽 마우스 버튼만
+      event.preventDefault(); // 기본 동작 방지
+      setIsPanning(true);
+      setPanStart(event.clientX);
+      setPanOffset(0);
+      // 마우스 커서 변경
+      if (volumeCanvasRef.current) {
+        volumeCanvasRef.current.style.cursor = 'grabbing';
+      }
+    }
+  };
+
+  // 거래량 차트 마우스 이동 핸들러 (팬 기능 포함)
   const handleVolumeMouseMove = (
     event: React.MouseEvent<HTMLCanvasElement>
   ) => {
@@ -600,18 +896,55 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
 
+    // 팬 중이면 뷰포트 업데이트
+    if (isPanning) {
+      const deltaX = event.clientX - panStart;
+      const total = chartData.length;
+      const visibleLen = viewEnd - viewStart;
+      
+      // 팬 오프셋 계산 (픽셀을 캔들 인덱스로 변환)
+      const padding = 60;
+      const chartWidth = canvas.width - padding * 2;
+      const barSpacing = chartWidth / Math.max(1, visibleLen);
+      const deltaCandles = Math.round(deltaX / barSpacing);
+      
+      // 새로운 뷰포트 범위 계산 (팬 방향 반대로)
+      let newStart = viewStart - deltaCandles;
+      let newEnd = viewEnd - deltaCandles;
+      
+      // 경계 제한
+      newStart = Math.max(0, Math.min(newStart, total - visibleLen));
+      newEnd = Math.max(visibleLen, Math.min(newEnd, total));
+      
+      // 뷰포트 업데이트
+      setViewStart(newStart);
+      setViewEnd(newEnd);
+      setPanOffset(deltaX);
+      
+      // 팬 시작점을 현재 위치로 업데이트 (연속적인 팬을 위해)
+      setPanStart(event.clientX);
+      
+      return; // 팬 중일 때는 호버 처리 안함
+    }
+
+    // 팬이 아닐 때만 호버 처리
     const padding = 60; // 캔들차트와 동일한 패딩 사용
     const chartWidth = canvas.width - padding * 2;
-    const barSpacing = chartWidth / chartData.length;
+    const total = chartData.length;
+    const start = Math.max(0, Math.min(viewStart, total - 1));
+    const end = Math.max(start + 1, Math.min(viewEnd, total));
+    const visibleLen = Math.max(1, end - start);
+    const barSpacing = chartWidth / visibleLen;
 
-    const index = Math.floor((x - padding) / barSpacing);
-    if (index >= 0 && index < chartData.length) {
-      setHoveredVolume(index);
-      setHoveredCandle(index); // 캔들차트도 동시에 활성화
+    const localIndex = Math.floor((x - padding) / barSpacing);
+    const globalIndex = start + localIndex;
+    if (localIndex >= 0 && localIndex < visibleLen && globalIndex >= 0 && globalIndex < chartData.length) {
+      setHoveredVolume(localIndex);
+      setHoveredCandle(localIndex); // 캔들차트도 동시에 활성화
       setTooltipData({
         x: event.clientX,
         y: event.clientY,
-        data: chartData[index],
+        data: chartData[globalIndex],
         type: "volume",
       });
     } else {
@@ -621,16 +954,78 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     }
   };
 
+  // 거래량 차트 마우스 업 핸들러 (팬 기능)
+  const handleVolumeMouseUp = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isPanning) {
+      setIsPanning(false);
+      setPanStart(0);
+      setPanOffset(0);
+      // 마우스 커서 복원
+      if (volumeCanvasRef.current) {
+        volumeCanvasRef.current.style.cursor = 'grab';
+      }
+    }
+  };
+
   // 거래량 차트 마우스 리브 핸들러
   const handleVolumeMouseLeave = () => {
+    // 팬 중이면 팬 상태 초기화
+    if (isPanning) {
+      setIsPanning(false);
+      setPanStart(0);
+      setPanOffset(0);
+      if (volumeCanvasRef.current) {
+        volumeCanvasRef.current.style.cursor = 'grab';
+      }
+    }
     setHoveredVolume(null);
     setHoveredCandle(null); // 캔들차트도 함께 비활성화
     setTooltipData(null);
   };
 
+  // 거래량 차트 휠 이벤트 핸들러 (캔들차트와 동일)
+  const handleVolumeWheel = (event: React.WheelEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // 팬 중이면 확대/축소 비활성화
+    if (isPanning) return;
+    
+    const canvas = volumeCanvasRef.current;
+    if (!canvas || chartData.length === 0) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const padding = 60;
+    const chartWidth = canvas.width - padding * 2;
+    
+    // 마우스 위치를 기준으로 확대/축소 중심점 계산
+    const relativeX = (x - padding) / chartWidth;
+    const newZoomCenter = Math.max(0, Math.min(1, relativeX));
+    
+    // 휠 방향에 따른 확대/축소
+    const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1; // 위로 = 확대, 아래로 = 축소
+    const newZoomLevel = Math.max(0.1, Math.min(10, zoomLevel * zoomFactor)); // 0.1x ~ 10x 제한
+    
+    // 줌 레벨이 변경되었을 때만 업데이트
+    if (Math.abs(newZoomLevel - zoomLevel) > 0.01) {
+      setZoomLevel(newZoomLevel);
+      setZoomCenter(newZoomCenter);
+      setIsZooming(true);
+      
+      // 줌에 따른 뷰포트 업데이트
+      updateViewportForZoom(newZoomLevel, newZoomCenter);
+      
+      // 줌 애니메이션 완료 후 상태 초기화
+      setTimeout(() => {
+        setIsZooming(false);
+      }, 150);
+    }
+  };
+
   // 거래량 차트 렌더링
   const renderVolumeChart = useCallback(() => {
-    const canvas = document.getElementById("volumeCanvas") as HTMLCanvasElement;
+    const canvas = volumeCanvasRef.current as HTMLCanvasElement | null;
     if (!canvas || chartData.length === 0) return;
 
     const ctx = canvas.getContext("2d");
@@ -650,11 +1045,15 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     const padding = 80; // 캔들차트와 동일한 패딩
     const chartWidth = canvas.width - padding * 2;
     const chartHeight = canvas.height - padding * 2;
-    const barWidth = Math.max(3, (chartWidth / chartData.length) * 0.8); // 바 너비 더 증가
-    const barSpacing = chartWidth / chartData.length; // 캔들차트와 동일한 간격
+    const total = chartData.length;
+    const start = Math.max(0, Math.min(viewStart, total - 1));
+    const end = Math.max(start + 1, Math.min(viewEnd, total));
+    const visibleData = chartData.slice(start, end);
+    const barWidth = Math.max(3, (chartWidth / visibleData.length) * 0.8); // 바 너비 더 증가
+    const barSpacing = chartWidth / Math.max(1, visibleData.length); // 캔들차트와 동일한 간격
 
     // 거래량 범위 계산
-    const volumes = chartData.map((d) => d.volume);
+    const volumes = visibleData.map((d) => d.volume);
     const maxVolume = Math.max(...volumes);
 
     // 배경 그라데이션
@@ -710,7 +1109,7 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     ctx.stroke();
 
     // 3단계: 거래량 바 그리기 (축 위에 위치)
-    chartData.forEach((dataPoint, index) => {
+    visibleData.forEach((dataPoint, index) => {
       const x = padding + index * barSpacing + (barSpacing - barWidth) / 2;
       const height = (dataPoint.volume / maxVolume) * chartHeight;
       const y = canvas.height - padding - height;
@@ -765,13 +1164,9 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
     ctx.fillStyle = "#f3f4f6"; // 밝은 색상으로 변경
     ctx.font = "bold 12px Arial"; // 폰트 굵기 증가
     ctx.textAlign = "center";
-    for (
-      let i = 0;
-      i < chartData.length;
-      i += Math.max(1, Math.floor(chartData.length / 10))
-    ) {
+    for (let i = 0; i < visibleData.length; i += Math.max(1, Math.floor(visibleData.length / 10))) {
       const x = padding + barSpacing * i + barSpacing / 2;
-      const time = formatTimeLabel(chartData[i].time, timeframe);
+      const time = formatTimeLabel(visibleData[i].time, timeframe);
       ctx.fillText(time, x, canvas.height - padding + 25);
     }
 
@@ -784,13 +1179,13 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       canvas.width - padding + 10,
       padding + 15
     );
-  }, [chartData, timeframe, hoveredVolume]);
+  }, [chartData, timeframe, hoveredVolume, viewStart, viewEnd]);
 
   // 차트 리사이즈 및 렌더링
   useEffect(() => {
     renderChart();
     renderVolumeChart();
-  }, [chartData, timeframe, hoveredCandle, hoveredVolume, tooltipData]);
+  }, [chartData, timeframe, hoveredCandle, hoveredVolume, tooltipData, showBB, showSMA5, showSMA20, showSMA60, viewStart, viewEnd]);
 
   // 윈도우 리사이즈 핸들러
   useEffect(() => {
@@ -801,14 +1196,62 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [chartData, timeframe, hoveredCandle, hoveredVolume, tooltipData]);
+  }, [chartData, timeframe, hoveredCandle, hoveredVolume, tooltipData, showBB, showSMA5, showSMA20, showSMA60, viewStart, viewEnd]);
+
+  // 차트 영역에서 스크롤 방지를 위한 전역 이벤트 리스너
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      const target = e.target as HTMLElement;
+      const chartContainer = chartContainerRef.current;
+      const volumeContainer = volumeCanvasRef.current?.parentElement;
+      
+      // 차트 영역 내부에서 발생한 휠 이벤트인지 확인
+      if (chartContainer && (
+        chartContainer.contains(target) || 
+        chartContainer === target ||
+        (volumeContainer && (volumeContainer.contains(target) || volumeContainer === target))
+      )) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      const chartContainer = chartContainerRef.current;
+      const volumeContainer = volumeCanvasRef.current?.parentElement;
+      
+      // 차트 영역 내부에서 발생한 터치 이벤트인지 확인
+      if (chartContainer && (
+        chartContainer.contains(target) || 
+        chartContainer === target ||
+        (volumeContainer && (volumeContainer.contains(target) || volumeContainer === target))
+      )) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    // passive: false로 설정하여 preventDefault가 작동하도록 함
+    document.addEventListener('wheel', handleWheel, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    
+    return () => {
+      document.removeEventListener('wheel', handleWheel);
+      document.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
+
+
 
   // 차트 데이터 변경 시 거래량 차트도 함께 업데이트
   useEffect(() => {
     if (chartData.length > 0) {
       renderVolumeChart();
     }
-  }, [chartData, timeframe, hoveredVolume]);
+  }, [chartData, timeframe, hoveredVolume, viewStart, viewEnd]);
 
   if (loading) {
     return (
@@ -841,7 +1284,25 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
   }
 
   return (
-    <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg h-full">
+    <Card 
+      className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 shadow-lg h-full"
+      onWheel={(e) => {
+        // 차트 영역이 아닌 경우에만 기본 동작 허용
+        const target = e.target as HTMLElement;
+        const chartContainer = chartContainerRef.current;
+        const volumeContainer = volumeCanvasRef.current?.parentElement;
+        
+        if (chartContainer && (
+          chartContainer.contains(target) || 
+          chartContainer === target ||
+          (volumeContainer && (volumeContainer.contains(target) || volumeContainer === target))
+        )) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+      style={{ overscrollBehavior: 'none' }}
+    >
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -871,13 +1332,33 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
             <Badge variant="outline" className="text-xs">
               {chartData.length}개 캔들
             </Badge>
+            <Badge variant="outline" className="text-xs">
+              {zoomLevel.toFixed(1)}x
+            </Badge>
             <Button
               variant="ghost"
               size="sm"
               className="p-1"
               onClick={loadChartData}
+              title="데이터 새로고침"
             >
               <Activity className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-1"
+              onClick={() => {
+                setZoomLevel(1);
+                setZoomCenter(0.5);
+                setIsZooming(false);
+                // 전체 데이터 표시
+                setViewStart(0);
+                setViewEnd(chartData.length);
+              }}
+              title="줌 리셋"
+            >
+              <Maximize2 className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -886,6 +1367,53 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
       <CardContent className="space-y-2">
         {/* 차트 컨트롤 */}
         <div className="flex flex-wrap gap-2">
+          {/* 지표 토글 */}
+          <div className="flex flex-wrap items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <button
+              onClick={() => setShowSMA5((v) => !v)}
+              className={`px-2 py-1 text-xs rounded transition-all ${
+                showSMA5
+                  ? "bg-emerald-600 text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+              title="단기 이동평균선 (5)"
+            >
+              SMA5
+            </button>
+            <button
+              onClick={() => setShowSMA20((v) => !v)}
+              className={`px-2 py-1 text-xs rounded transition-all ${
+                showSMA20
+                  ? "bg-amber-500 text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+              title="중기 이동평균선 (20)"
+            >
+              SMA20
+            </button>
+            <button
+              onClick={() => setShowSMA60((v) => !v)}
+              className={`px-2 py-1 text-xs rounded transition-all ${
+                showSMA60
+                  ? "bg-indigo-500 text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+              title="장기 이동평균선 (60)"
+            >
+              SMA60
+            </button>
+            <button
+              onClick={() => setShowBB((v) => !v)}
+              className={`px-2 py-1 text-xs rounded transition-all ${
+                showBB
+                  ? "bg-violet-500 text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+              title="볼린저밴드 (20, 2σ)"
+            >
+              BB
+            </button>
+          </div>
           {/* 분봉 토글 */}
           <div className="relative">
             <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
@@ -957,15 +1485,58 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         {/* 캔들 차트 영역 */}
         <div
           ref={chartContainerRef}
-          className="relative h-[600px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
+          className="relative h-[600px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+          onWheel={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }}
+          onTouchMove={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }}
+          onScroll={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }}
+          style={{ 
+            touchAction: 'none',
+            overscrollBehavior: 'none',
+            overflow: 'hidden'
+          }}
         >
           {chartData.length > 0 ? (
             <canvas
               ref={canvasRef}
-              className="w-full h-full cursor-crosshair"
+              className="w-full h-full cursor-grab select-none"
+              onMouseDown={handleChartMouseDown}
+              onMouseUp={handleChartMouseUp}
               onClick={handleChartClick}
               onMouseMove={handleChartMouseMove}
               onMouseLeave={handleChartMouseLeave}
+              onWheel={handleChartWheel}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onTouchMove={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              style={{ 
+                touchAction: 'none',
+                overscrollBehavior: 'none',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                MozUserSelect: 'none',
+                msUserSelect: 'none'
+              }}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -980,13 +1551,58 @@ export function CandlestickChart({ stockCode }: CandlestickChartProps) {
         </div>
 
         {/* 거래량 차트 영역 - 높이 증가 */}
-        <div className="relative h-[250px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div 
+          className="relative h-[250px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+          onWheel={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }}
+          onTouchMove={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }}
+          onScroll={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }}
+          style={{ 
+            touchAction: 'none',
+            overscrollBehavior: 'none',
+            overflow: 'hidden'
+          }}
+        >
           {chartData.length > 0 ? (
             <canvas
-              id="volumeCanvas"
-              className="w-full h-full cursor-crosshair"
+              ref={volumeCanvasRef}
+              className="w-full h-full cursor-grab select-none"
+              onMouseDown={handleVolumeMouseDown}
+              onMouseUp={handleVolumeMouseUp}
               onMouseMove={handleVolumeMouseMove}
               onMouseLeave={handleVolumeMouseLeave}
+              onWheel={handleVolumeWheel}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onTouchMove={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              style={{ 
+                touchAction: 'none',
+                overscrollBehavior: 'none',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                MozUserSelect: 'none',
+                msUserSelect: 'none'
+              }}
             />
           ) : (
             <div className="flex items-center justify-center h-full">

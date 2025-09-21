@@ -9,6 +9,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Getter
@@ -43,6 +44,9 @@ public class Poll {
     @Column(name = "total_vote_count")
     private int totalVoteCount = 0;
 
+    @OneToMany(mappedBy = "poll", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<PollOption> pollOptions;
+
     @Column(name = "start_date")
     private LocalDateTime startDate;
 
@@ -75,5 +79,17 @@ public class Poll {
 
     public void incrementTotalVoteCount() {
         this.totalVoteCount++;
+    }
+
+    public void setOptionUp(String optionUp) {
+        this.optionUp = optionUp;
+    }
+
+    public void setOptionDown(String optionDown) {
+        this.optionDown = optionDown;
+    }
+
+    public void setPollOptions(List<PollOption> pollOptions) {
+        this.pollOptions = pollOptions;
     }
 }

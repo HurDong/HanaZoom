@@ -28,8 +28,10 @@ import {
 import NavBar from "@/app/components/Navbar";
 import { MouseFollower } from "@/components/mouse-follower";
 import { StockTicker } from "@/components/stock-ticker";
+import { FloatingEmojiBackground } from "@/components/floating-emoji-background";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import api from "@/app/config/api";
+import { useUserSettingsStore } from "@/lib/stores/userSettingsStore";
 import {
   addToWatchlist,
   removeFromWatchlist,
@@ -68,105 +70,95 @@ interface UserRegionInfo {
   roomName: string;
 }
 
-// 업종별 색상 매핑
-const sectorColors: { [key: string]: string } = {
-  IT: "bg-gradient-to-r from-blue-400 to-cyan-400 text-white dark:from-blue-500 dark:to-cyan-500 shadow-lg",
-  금융: "bg-gradient-to-r from-emerald-400 to-green-400 text-white dark:from-emerald-500 dark:to-green-500 shadow-lg",
-  제조업:
-    "bg-gradient-to-r from-violet-400 to-purple-400 text-white dark:from-violet-500 dark:to-purple-500 shadow-lg",
-  에너지:
-    "bg-gradient-to-r from-orange-400 to-red-400 text-white dark:from-orange-500 dark:to-red-500 shadow-lg",
-  소비재:
-    "bg-gradient-to-r from-pink-400 to-rose-400 text-white dark:from-pink-500 dark:to-rose-500 shadow-lg",
-  헬스케어:
-    "bg-gradient-to-r from-red-400 to-pink-400 text-white dark:from-red-500 dark:to-pink-500 shadow-lg",
-  바이오:
-    "bg-gradient-to-r from-teal-400 to-cyan-400 text-white dark:from-teal-500 dark:to-cyan-500 shadow-lg",
-  반도체:
-    "bg-gradient-to-r from-indigo-400 to-blue-400 text-white dark:from-indigo-500 dark:to-blue-500 shadow-lg",
-  자동차:
-    "bg-gradient-to-r from-slate-400 to-gray-400 text-white dark:from-slate-500 dark:to-gray-500 shadow-lg",
-  건설: "bg-gradient-to-r from-amber-400 to-orange-400 text-white dark:from-amber-500 dark:to-orange-500 shadow-lg",
-  기타: "bg-gradient-to-r from-gray-400 to-slate-400 text-white dark:from-gray-500 dark:to-slate-500 shadow-lg",
+import { getSectorBrandColor } from "@/data/stock-brand-colors";
+
+// 업종별 색상 매핑 (동적 색상 시스템 사용)
+const getSectorColor = (sector: string): string => {
+  const brandColor = getSectorBrandColor(sector);
+  return `text-white shadow-lg`;
 };
 
 // React Select 기본 스타일 (CSS 변수 사용)
 const customSelectStyles = {
   control: (provided: any, state: any) => ({
     ...provided,
-    minHeight: '48px',
-    border: state.isFocused ? '2px solid #10b981' : '2px solid var(--select-border)',
-    borderRadius: '12px',
-    boxShadow: state.isFocused ? '0 0 0 3px rgba(16, 185, 129, 0.1)' : 'var(--select-shadow)',
-    backgroundColor: 'var(--select-bg)',
-    backdropFilter: 'blur(8px)',
-    transition: 'all 0.2s ease-in-out',
-    '&:hover': {
-      borderColor: '#10b981',
-      boxShadow: 'var(--select-hover-shadow)',
+    minHeight: "48px",
+    border: state.isFocused
+      ? "2px solid #10b981"
+      : "2px solid var(--select-border)",
+    borderRadius: "12px",
+    boxShadow: state.isFocused
+      ? "0 0 0 3px rgba(16, 185, 129, 0.1)"
+      : "var(--select-shadow)",
+    backgroundColor: "var(--select-bg)",
+    backdropFilter: "blur(8px)",
+    transition: "all 0.2s ease-in-out",
+    "&:hover": {
+      borderColor: "#10b981",
+      boxShadow: "var(--select-hover-shadow)",
     },
   }),
   valueContainer: (provided: any) => ({
     ...provided,
-    padding: '8px 16px',
+    padding: "8px 16px",
   }),
   input: (provided: any) => ({
     ...provided,
-    margin: '0',
-    color: 'var(--select-text)',
-    fontSize: '14px',
-    fontWeight: '500',
+    margin: "0",
+    color: "var(--select-text)",
+    fontSize: "14px",
+    fontWeight: "500",
   }),
   placeholder: (provided: any) => ({
     ...provided,
-    color: '#9ca3af',
-    fontSize: '14px',
-    fontWeight: '500',
+    color: "#9ca3af",
+    fontSize: "14px",
+    fontWeight: "500",
   }),
   singleValue: (provided: any) => ({
     ...provided,
-    color: 'var(--select-text)',
-    fontSize: '14px',
-    fontWeight: '500',
+    color: "var(--select-text)",
+    fontSize: "14px",
+    fontWeight: "500",
   }),
   indicatorSeparator: (provided: any) => ({
     ...provided,
-    backgroundColor: 'var(--select-separator)',
+    backgroundColor: "var(--select-separator)",
   }),
   dropdownIndicator: (provided: any, state: any) => ({
     ...provided,
-    color: '#9ca3af',
-    transition: 'all 0.2s ease-in-out',
-    transform: state.selectProps.menuIsOpen ? 'rotate(180deg)' : null,
-    '&:hover': {
-      color: '#10b981',
+    color: "#9ca3af",
+    transition: "all 0.2s ease-in-out",
+    transform: state.selectProps.menuIsOpen ? "rotate(180deg)" : null,
+    "&:hover": {
+      color: "#10b981",
     },
   }),
   menu: (provided: any) => ({
     ...provided,
-    borderRadius: '12px',
-    overflow: 'hidden',
-    marginTop: '8px',
-    boxShadow: 'var(--select-menu-shadow)',
-    backgroundColor: 'var(--select-menu-bg)',
-    backdropFilter: 'blur(8px)',
-    border: '1px solid var(--select-menu-border)',
+    borderRadius: "12px",
+    overflow: "hidden",
+    marginTop: "8px",
+    boxShadow: "var(--select-menu-shadow)",
+    backgroundColor: "var(--select-menu-bg)",
+    backdropFilter: "blur(8px)",
+    border: "1px solid var(--select-menu-border)",
   }),
   option: (provided: any, state: any) => ({
     ...provided,
-    padding: '12px 16px',
-    fontSize: '14px',
-    fontWeight: '500',
+    padding: "12px 16px",
+    fontSize: "14px",
+    fontWeight: "500",
     backgroundColor: state.isSelected
-      ? 'var(--select-option-selected-bg)'
+      ? "var(--select-option-selected-bg)"
       : state.isFocused
-      ? 'var(--select-option-focused-bg)'
-      : 'transparent',
+      ? "var(--select-option-focused-bg)"
+      : "transparent",
     color: state.isSelected
-      ? 'var(--select-option-selected-text)'
-      : 'var(--select-option-text)',
-    '&:active': {
-      backgroundColor: 'var(--select-option-active-bg)',
+      ? "var(--select-option-selected-text)"
+      : "var(--select-option-text)",
+    "&:active": {
+      backgroundColor: "var(--select-option-active-bg)",
     },
   }),
 };
@@ -174,6 +166,7 @@ const customSelectStyles = {
 export default function CommunityPage() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const { settings, isInitialized } = useUserSettingsStore();
   const [activeTab, setActiveTab] = useState("stocks");
   const [allStocks, setAllStocks] = useState<Stock[]>([]);
   const [userRegion, setUserRegion] = useState<UserRegionInfo | null>(null);
@@ -198,10 +191,11 @@ export default function CommunityPage() {
     [key: string]: boolean;
   }>({});
 
-
-
   // 현재 페이지의 종목 코드만 추출 (웹소켓용) - 성능 최적화
-  const currentPageStocks = allStocks.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  const currentPageStocks = allStocks.slice(
+    currentPage * pageSize,
+    (currentPage + 1) * pageSize
+  );
 
   // 현재 페이지 종목 코드만 추출 (웹소켓 구독용)
   const currentPageStockCodes = useMemo(() => {
@@ -236,11 +230,16 @@ export default function CommunityPage() {
         params: {
           page,
           size: Math.max(pageSize, 50), // 최소 50개는 가져오도록 설정
-          sortBy: sortBy === "change" ? "changeRate" : sortBy === "volume" ? "volume" : "name",
-          sortDir: "desc"
-        }
+          sortBy:
+            sortBy === "change"
+              ? "changeRate"
+              : sortBy === "volume"
+              ? "volume"
+              : "name",
+          sortDir: "desc",
+        },
       });
-      
+
       if (response.data && response.data.success) {
         const stocks = response.data.data.map((stock: any) => ({
           symbol: stock.symbol || stock.stockCode || "",
@@ -259,20 +258,20 @@ export default function CommunityPage() {
           logoUrl: stock.logoUrl,
           emoji: stock.emoji || "📈", // fallback
           sector: stock.sector || "기타", // 업종 정보
-            volume: stock.volume || 0, // 거래량 - 실시간 데이터에서 가져올 예정
-            // 실시간 데이터용 필드들 (초기값)
-            currentPrice: stock.currentPrice || stock.price || "0",
-            priceChange: stock.priceChange || "0",
-            changeRate: stock.changeRate || "0",
-            changeSign: stock.changeSign || "3", // 기본값: 보합
-          }));
-        
+          volume: stock.volume ? parseInt(stock.volume.toString()) || 0 : 0, // 거래량 - 실시간 데이터에서 가져올 예정
+          // 실시간 데이터용 필드들 (초기값)
+          currentPrice: stock.currentPrice || stock.price || "0",
+          priceChange: stock.priceChange || "0",
+          changeRate: stock.changeRate || "0",
+          changeSign: stock.changeSign || "3", // 기본값: 보합
+        }));
+
         if (reset) {
-        setAllStocks(stocks);
+          setAllStocks(stocks);
         } else {
-          setAllStocks(prev => [...prev, ...stocks]);
+          setAllStocks((prev) => [...prev, ...stocks]);
         }
-        
+
         // 전체 종목 수 설정 (실제로는 API에서 받아와야 함)
         setTotalStocks(stocks.length * 10); // 임시값
       }
@@ -280,14 +279,12 @@ export default function CommunityPage() {
       console.error("종목 데이터 가져오기 실패:", error);
       // 에러 시 빈 배열로 설정
       if (reset) {
-      setAllStocks([]);
+        setAllStocks([]);
       }
     } finally {
       setIsLoadingStocks(false);
     }
   };
-
-
 
   // 컴포넌트 마운트 시 종목 데이터 가져오기
   useEffect(() => {
@@ -311,13 +308,13 @@ export default function CommunityPage() {
       try {
         // 사용자의 전체 관심종목 목록을 한 번에 가져오기
         const watchlist = await getMyWatchlist();
-        
+
         // 관심종목 상태를 Map으로 변환하여 빠른 조회 가능
         const watchlistMap: { [key: string]: boolean } = {};
         watchlist.forEach((item) => {
           watchlistMap[item.stockSymbol] = true;
         });
-        
+
         setWatchlistStatus(watchlistMap);
       } catch (error) {
         console.error("관심종목 목록 로드 실패:", error);
@@ -332,18 +329,26 @@ export default function CommunityPage() {
   useEffect(() => {
     if (wsStockData && allStocks.length > 0) {
       const stockPricesMap = getStockDataMap();
-      
+
       setAllStocks((prevStocks) => {
         let hasChanged = false;
         const newStocks = prevStocks.map((stock) => {
           const realtimeData = stockPricesMap.get(stock.symbol);
           if (realtimeData) {
             // 실제로 변경된 데이터가 있는지 확인
-            const newVolume = realtimeData.volume ? parseInt(realtimeData.volume) || 0 : stock.volume;
-            const newPrice = realtimeData.currentPrice ? parseInt(realtimeData.currentPrice) : stock.price;
-            const newChange = realtimeData.changePrice ? parseInt(realtimeData.changePrice) : stock.change;
-            const newChangePercent = realtimeData.changeRate ? parseFloat(realtimeData.changeRate) : stock.changePercent;
-            
+            const newVolume = realtimeData.volume
+              ? parseInt(realtimeData.volume.toString()) || 0
+              : stock.volume;
+            const newPrice = realtimeData.currentPrice
+              ? parseInt(realtimeData.currentPrice)
+              : stock.price;
+            const newChange = realtimeData.changePrice
+              ? parseInt(realtimeData.changePrice)
+              : stock.change;
+            const newChangePercent = realtimeData.changeRate
+              ? parseFloat(realtimeData.changeRate)
+              : stock.changePercent;
+
             if (
               stock.currentPrice !== realtimeData.currentPrice ||
               stock.priceChange !== realtimeData.changePrice ||
@@ -371,12 +376,12 @@ export default function CommunityPage() {
           }
           return stock;
         });
-        
+
         // 실제로 변경된 데이터가 있을 때만 새로운 배열 반환
         return hasChanged ? newStocks : prevStocks;
       });
     }
-  }, [wsStockData, allStocks.length, getStockDataMap]);
+  }, [wsStockData, allStocks.length]); // getStockDataMap 제거
 
   // 페이지 변경 시 웹소켓 구독 업데이트 (필요시에만)
   useEffect(() => {
@@ -483,28 +488,44 @@ export default function CommunityPage() {
   }, [allStocks]);
 
   // React Select용 옵션 데이터
-  const sectorOptions: SelectOption[] = useMemo(() => [
-    { value: "all", label: "🏢 전체 업종" },
-    ...uniqueSectors.filter(sector => sector).map((sector) => ({
-      value: sector || "기타",
-      label: sector === "IT" ? "💻 IT" :
-             sector === "금융" ? "🏦 금융" :
-             sector === "제조업" ? "🏭 제조업" :
-             sector === "에너지" ? "⚡ 에너지" :
-             sector === "소비재" ? "🛍️ 소비재" :
-             sector === "헬스케어" ? "🏥 헬스케어" :
-             sector === "바이오" ? "🧬 바이오" :
-             sector === "반도체" ? "🔬 반도체" :
-             sector === "자동차" ? "🚗 자동차" :
-             sector === "건설" ? "🏗️ 건설" :
-             `📊 ${sector}`
-    }))
-  ], [uniqueSectors]);
+  const sectorOptions: SelectOption[] = useMemo(
+    () => [
+      { value: "all", label: "🏢 전체 업종" },
+      ...uniqueSectors
+        .filter((sector) => sector)
+        .map((sector) => ({
+          value: sector || "기타",
+          label:
+            sector === "IT"
+              ? "💻 IT"
+              : sector === "금융"
+              ? "🏦 금융"
+              : sector === "제조업"
+              ? "🏭 제조업"
+              : sector === "에너지"
+              ? "⚡ 에너지"
+              : sector === "소비재"
+              ? "🛍️ 소비재"
+              : sector === "헬스케어"
+              ? "🏥 헬스케어"
+              : sector === "바이오"
+              ? "🧬 바이오"
+              : sector === "반도체"
+              ? "🔬 반도체"
+              : sector === "자동차"
+              ? "🚗 자동차"
+              : sector === "건설"
+              ? "🏗️ 건설"
+              : `📊 ${sector}`,
+        })),
+    ],
+    [uniqueSectors]
+  );
 
   const sortOptions: SelectOption[] = [
     { value: "name", label: "📝 이름순" },
     { value: "change", label: "📈 등락률순" },
-    { value: "volume", label: "💰 거래량순" }
+    { value: "volume", label: "💰 거래량순" },
   ];
 
   // 관심종목 상태 확인 (로컬 상태에서 확인)
@@ -525,17 +546,17 @@ export default function CommunityPage() {
         // 관심종목에서 제거
         const success = await removeFromWatchlist(stockSymbol);
         if (success) {
-        setWatchlistStatus((prev) => ({ ...prev, [stockSymbol]: false }));
-        toast.success(`${stockName}이(가) 관심종목에서 제거되었습니다.`);
-      } else {
+          setWatchlistStatus((prev) => ({ ...prev, [stockSymbol]: false }));
+          toast.success(`${stockName}이(가) 관심종목에서 제거되었습니다.`);
+        } else {
           toast.error("관심종목 제거에 실패했습니다.");
         }
       } else {
         // 관심종목에 추가
         const newItem = await addToWatchlist({ stockSymbol });
         if (newItem) {
-        setWatchlistStatus((prev) => ({ ...prev, [stockSymbol]: true }));
-        toast.success(`${stockName}이(가) 관심종목에 추가되었습니다.`);
+          setWatchlistStatus((prev) => ({ ...prev, [stockSymbol]: true }));
+          toast.success(`${stockName}이(가) 관심종목에 추가되었습니다.`);
         } else {
           toast.error("관심종목 추가에 실패했습니다.");
         }
@@ -586,13 +607,14 @@ export default function CommunityPage() {
           --select-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
           --select-hover-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
-        
+
         .react-select__menu {
           --select-menu-bg: white;
           --select-menu-border: #e5e7eb;
-          --select-menu-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+          --select-menu-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+            0 2px 4px -2px rgba(0, 0, 0, 0.05);
         }
-        
+
         .react-select__option {
           --select-option-text: #374151;
           --select-option-focused-bg: #f0fdf4;
@@ -600,7 +622,7 @@ export default function CommunityPage() {
           --select-option-selected-text: #065f46;
           --select-option-active-bg: #a7f3d0;
         }
-        
+
         .dark .react-select__control {
           --select-bg: rgba(31, 41, 55, 0.95);
           --select-border: #4b5563;
@@ -609,13 +631,14 @@ export default function CommunityPage() {
           --select-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
           --select-hover-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
         }
-        
+
         .dark .react-select__menu {
           --select-menu-bg: rgba(31, 41, 55, 0.95);
           --select-menu-border: #4b5563;
-          --select-menu-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+          --select-menu-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3),
+            0 4px 6px -4px rgba(0, 0, 0, 0.3);
         }
-        
+
         .dark .react-select__option {
           --select-option-text: #f3f4f6;
           --select-option-focused-bg: #1f2937;
@@ -624,7 +647,11 @@ export default function CommunityPage() {
           --select-option-active-bg: #047857;
         }
       `}</style>
-      <MouseFollower />
+      {isInitialized && settings.customCursorEnabled && <MouseFollower />}
+      
+      {/* Floating Stock Symbols (사용자 설정에 따라) */}
+      {isInitialized && settings.emojiAnimationEnabled && <FloatingEmojiBackground />}
+      
       <NavBar />
 
       <div className="fixed top-16 left-0 right-0 z-[60]">
@@ -643,7 +670,7 @@ export default function CommunityPage() {
           <p className="text-xl text-green-700 dark:text-green-300 max-w-3xl mx-auto leading-relaxed mb-4">
             지역별 투자 정보와 종목별 토론방에서 다양한 의견을 나눠보세요!
           </p>
-          
+
           {/* 웹소켓 연결 상태 표시 */}
           <div className="flex items-center justify-center gap-4 mb-4">
             {wsConnected ? (
@@ -676,9 +703,7 @@ export default function CommunityPage() {
               className="border-green-600 text-green-600 hover:bg-green-50"
             >
               <RefreshCw
-                className={`w-4 h-4 mr-1 ${
-                  wsConnecting ? "animate-spin" : ""
-                }`}
+                className={`w-4 h-4 mr-1 ${wsConnecting ? "animate-spin" : ""}`}
               />
               {wsConnected ? "재연결" : "연결"}
             </Button>
@@ -720,11 +745,11 @@ export default function CommunityPage() {
               <div className="relative max-w-lg mx-auto">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-green-500 w-5 h-5" />
-                <Input
-                  type="text"
+                  <Input
+                    type="text"
                     placeholder="🔍 종목명, 종목코드, 업종으로 검색..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-12 pr-12 py-4 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-2 border-green-200 dark:border-green-700 rounded-2xl shadow-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-base font-medium placeholder:text-gray-400"
                   />
                   {searchQuery && (
@@ -732,8 +757,18 @@ export default function CommunityPage() {
                       onClick={() => setSearchQuery("")}
                       className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   )}
@@ -741,7 +776,8 @@ export default function CommunityPage() {
                 {searchQuery && (
                   <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-green-200 dark:border-green-700 rounded-xl shadow-xl z-10">
                     <div className="p-3 text-sm text-gray-600 dark:text-gray-400">
-                      "{searchQuery}" 검색 결과: {filteredAndSortedStocks.length}개 종목
+                      "{searchQuery}" 검색 결과:{" "}
+                      {filteredAndSortedStocks.length}개 종목
                     </div>
                   </div>
                 )}
@@ -753,12 +789,18 @@ export default function CommunityPage() {
                 <div className="relative">
                   <div className="flex items-center gap-2 mb-3">
                     <Filter className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-semibold text-green-700 dark:text-green-300">업종 필터</span>
+                    <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+                      업종 필터
+                    </span>
                   </div>
                   <Select<SelectOption>
                     options={sectorOptions}
-                    value={sectorOptions.find(option => option.value === selectedSector)}
-                    onChange={(selectedOption) => setSelectedSector(selectedOption?.value || "all")}
+                    value={sectorOptions.find(
+                      (option) => option.value === selectedSector
+                    )}
+                    onChange={(selectedOption) =>
+                      setSelectedSector(selectedOption?.value || "all")
+                    }
                     styles={customSelectStyles}
                     placeholder="업종을 선택하세요"
                     isSearchable={true}
@@ -775,12 +817,18 @@ export default function CommunityPage() {
                 <div className="relative">
                   <div className="flex items-center gap-2 mb-3">
                     <Activity className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-semibold text-green-700 dark:text-green-300">정렬 기준</span>
-                </div>
+                    <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+                      정렬 기준
+                    </span>
+                  </div>
                   <Select<SelectOption>
                     options={sortOptions}
-                    value={sortOptions.find(option => option.value === sortBy)}
-                    onChange={(selectedOption) => setSortBy(selectedOption?.value as any || "name")}
+                    value={sortOptions.find(
+                      (option) => option.value === sortBy
+                    )}
+                    onChange={(selectedOption) =>
+                      setSortBy((selectedOption?.value as any) || "name")
+                    }
                     styles={customSelectStyles}
                     placeholder="정렬 기준을 선택하세요"
                     isSearchable={false}
@@ -798,7 +846,9 @@ export default function CommunityPage() {
                     {wsConnected ? (
                       <>
                         <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-lg"></div>
-                        <span className="text-sm font-semibold text-green-700 dark:text-green-300">실시간 연결</span>
+                        <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+                          실시간 연결
+                        </span>
                         <div className="w-2 h-2 bg-green-400 rounded-full animate-ping"></div>
                         <span className="text-xs text-green-600 dark:text-green-400 ml-2">
                           ({currentPageStockCodes.length}개 구독)
@@ -807,7 +857,9 @@ export default function CommunityPage() {
                     ) : (
                       <>
                         <div className="w-3 h-3 bg-gray-400 rounded-full shadow-lg"></div>
-                        <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">오프라인</span>
+                        <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+                          오프라인
+                        </span>
                       </>
                     )}
                   </div>
@@ -852,120 +904,141 @@ export default function CommunityPage() {
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-2xl font-bold text-green-800 dark:text-green-200 flex items-center">
                       <Activity className="w-6 h-6 mr-2" />
-                      현재 페이지 종목 {Math.min(10, currentPageStocks.length)}개
+                      현재 페이지 종목 {Math.min(10, currentPageStocks.length)}
+                      개
                     </h3>
                     <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                       {wsConnected ? "실시간" : "DB 데이터"}
                     </Badge>
                   </div>
-                  
+
                   <div className="space-y-3">
                     {currentPageStocks.slice(0, 10).map((stock, index) => (
-                      <Link key={stock.symbol} href={`/community/${stock.symbol}`}>
+                      <Link
+                        key={stock.symbol}
+                        href={`/community/${stock.symbol}`}
+                      >
                         <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer group">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                toggleWatchlist(stock.symbol, stock.name);
-                              }}
-                              disabled={watchlistLoading[stock.symbol]}
-                              className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 ${
-                                watchlistStatus[stock.symbol]
-                                  ? "text-pink-500"
-                                  : "text-gray-400 hover:text-pink-400"
-                              }`}
-                            >
-                              <Heart
-                                className={`w-4 h-4 ${
-                                  watchlistStatus[stock.symbol] ? "fill-current" : ""
-                                }`}
-                              />
-                            </button>
-                            <span className="text-lg font-bold text-gray-600 dark:text-gray-400 w-6">
-                              {index + 1}
-                            </span>
-                          </div>
-                          
-                          <div className="flex items-center space-x-3">
-                              {stock.logoUrl ? (
-                                  <img
-                                    src={stock.logoUrl}
-                                    alt={stock.name}
-                                className="w-10 h-10 rounded-full object-contain bg-white dark:bg-gray-800 p-1"
-                                    onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = "none";
+                          <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  toggleWatchlist(stock.symbol, stock.name);
                                 }}
-                              />
-                            ) : (
-                              <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-800/50 dark:to-emerald-800/50 rounded-full flex items-center justify-center">
-                                <span className="text-lg">{stock.emoji || "📈"}</span>
+                                disabled={watchlistLoading[stock.symbol]}
+                                className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 ${
+                                  watchlistStatus[stock.symbol]
+                                    ? "text-pink-500"
+                                    : "text-gray-400 hover:text-pink-400"
+                                }`}
+                              >
+                                <Heart
+                                  className={`w-4 h-4 ${
+                                    watchlistStatus[stock.symbol]
+                                      ? "fill-current"
+                                      : ""
+                                  }`}
+                                />
+                              </button>
+                              <span className="text-lg font-bold text-gray-600 dark:text-gray-400 w-6">
+                                {index + 1}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center space-x-3">
+                              {stock.logoUrl ? (
+                                <img
+                                  src={stock.logoUrl}
+                                  alt={stock.name}
+                                  className="w-10 h-10 rounded-full object-contain bg-white dark:bg-gray-800 p-1"
+                                  onError={(e) => {
+                                    (
+                                      e.target as HTMLImageElement
+                                    ).style.display = "none";
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-800/50 dark:to-emerald-800/50 rounded-full flex items-center justify-center">
+                                  <span className="text-lg">
+                                    {stock.emoji || "📈"}
+                                  </span>
                                 </div>
                               )}
 
-                            <div>
-                              <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                              <div>
+                                <h4 className="font-semibold text-gray-900 dark:text-gray-100">
                                   {stock.name}
-                              </h4>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
+                                </h4>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
                                   {stock.symbol}
                                 </p>
+                              </div>
                             </div>
+                          </div>
+
+                          <div className="flex items-center space-x-6">
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                                {stock.currentPrice &&
+                                stock.currentPrice !== "0"
+                                  ? `₩${parseInt(
+                                      stock.currentPrice
+                                    ).toLocaleString()}`
+                                  : stock.price
+                                  ? `₩${stock.price.toLocaleString()}`
+                                  : "가격 정보 없음"}
+                              </div>
+                              <div
+                                className={`text-sm font-semibold ${
+                                  stock.changeSign === "1" ||
+                                  stock.changeSign === "2" ||
+                                  (stock.change && stock.change > 0)
+                                    ? "text-red-600 dark:text-red-400"
+                                    : stock.changeSign === "4" ||
+                                      stock.changeSign === "5" ||
+                                      (stock.change && stock.change < 0)
+                                    ? "text-blue-600 dark:text-blue-400"
+                                    : "text-gray-600 dark:text-gray-400"
+                                }`}
+                              >
+                                {stock.changeSign === "1" ||
+                                stock.changeSign === "2" ||
+                                (stock.change && stock.change > 0)
+                                  ? "+"
+                                  : ""}
+                                {stock.changeRate
+                                  ? parseFloat(stock.changeRate).toFixed(1)
+                                  : stock.changePercent?.toFixed(1) || "0.0"}
+                                %
                               </div>
                             </div>
 
-                        <div className="flex items-center space-x-6">
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                              {stock.currentPrice && stock.currentPrice !== "0"
-                                ? `₩${parseInt(stock.currentPrice).toLocaleString()}`
-                                : stock.price
-                                ? `₩${stock.price.toLocaleString()}`
-                                : "가격 정보 없음"}
+                            <div className="text-right">
+                              <div className="text-sm text-gray-600 dark:text-gray-400">
+                                거래량
                               </div>
-                            <div className={`text-sm font-semibold ${
-                              (stock.changeSign === "1" || stock.changeSign === "2") || 
-                              (stock.change && stock.change > 0)
-                                ? "text-red-600 dark:text-red-400"
-                                : (stock.changeSign === "4" || stock.changeSign === "5") || 
-                                  (stock.change && stock.change < 0)
-                                ? "text-blue-600 dark:text-blue-400"
-                                : "text-gray-600 dark:text-gray-400"
-                            }`}>
-                              {(stock.changeSign === "1" || stock.changeSign === "2") || 
-                               (stock.change && stock.change > 0) ? "+" : ""}
-                              {stock.changeRate 
-                                ? parseFloat(stock.changeRate).toFixed(1)
-                                : stock.changePercent?.toFixed(1) || "0.0"}%
-                          </div>
-                          </div>
-
-                          <div className="text-right">
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              거래량
-                            </div>
-                            <div className="text-lg font-bold text-green-700 dark:text-green-300">
-                              {stock.volume && stock.volume > 0 
-                                ? `${(stock.volume / 100000000).toFixed(0)}억원`
-                                : stock.volume === 0 
-                                  ? "0억원"
+                              <div className="text-lg font-bold text-green-700 dark:text-green-300">
+                                {stock.volume && stock.volume > 0
+                                  ? `${parseInt(
+                                      stock.volume.toString()
+                                    ).toLocaleString()}주`
+                                  : stock.volume === 0
+                                  ? "0주"
                                   : "데이터 없음"}
                               </div>
-                          </div>
-
-                          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-                              <MessageSquare className="w-4 h-4 mr-1" />
-                            <span>토론방</span>
                             </div>
-                        </div>
+
+                            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
+                              <MessageSquare className="w-4 h-4 mr-1" />
+                              <span>토론방</span>
+                            </div>
+                          </div>
                         </div>
                       </Link>
                     ))}
                   </div>
                 </div>
-
-
 
                 {/* 페이지네이션 컨트롤 - 토스 스타일 */}
                 <div className="flex items-center justify-center space-x-2 mt-8">
@@ -978,43 +1051,58 @@ export default function CommunityPage() {
                   >
                     ← 이전
                   </Button>
-                  
+
                   <div className="flex items-center space-x-1 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-green-200 dark:border-green-700 rounded-xl p-1 shadow-lg">
-                    {Array.from({ length: Math.min(5, Math.ceil(totalStocks / pageSize)) }, (_, i) => {
-                      const pageNum = i;
-                      return (
-                        <Button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          variant="ghost"
-                          size="sm"
-                          className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${
-                            currentPage === pageNum
-                              ? "bg-green-600 text-white shadow-md"
-                              : "text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
-                          }`}
-                        >
-                          {pageNum + 1}
-                        </Button>
-                      );
-                    })}
-                          </div>
-                  
+                    {Array.from(
+                      {
+                        length: Math.min(5, Math.ceil(totalStocks / pageSize)),
+                      },
+                      (_, i) => {
+                        const pageNum = i;
+                        return (
+                          <Button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            variant="ghost"
+                            size="sm"
+                            className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${
+                              currentPage === pageNum
+                                ? "bg-green-600 text-white shadow-md"
+                                : "text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+                            }`}
+                          >
+                            {pageNum + 1}
+                          </Button>
+                        );
+                      }
+                    )}
+                  </div>
+
                   <Button
-                    onClick={() => setCurrentPage(Math.min(Math.ceil(totalStocks / pageSize) - 1, currentPage + 1))}
-                    disabled={currentPage >= Math.ceil(totalStocks / pageSize) - 1}
+                    onClick={() =>
+                      setCurrentPage(
+                        Math.min(
+                          Math.ceil(totalStocks / pageSize) - 1,
+                          currentPage + 1
+                        )
+                      )
+                    }
+                    disabled={
+                      currentPage >= Math.ceil(totalStocks / pageSize) - 1
+                    }
                     variant="outline"
                     size="sm"
                     className="border-2 border-green-200 dark:border-green-700 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl px-4 py-2 font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     다음 →
                   </Button>
-                  </div>
-                
+                </div>
+
                 {/* 페이지 정보 */}
                 <div className="text-center mt-4">
                   <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {currentPage + 1} / {Math.ceil(totalStocks / pageSize)} 페이지
+                    {currentPage + 1} / {Math.ceil(totalStocks / pageSize)}{" "}
+                    페이지
                   </span>
                   <span className="mx-2 text-gray-400">•</span>
                   <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -1142,23 +1230,6 @@ export default function CommunityPage() {
             )}
           </div>
         )}
-
-        {/* 종목이 없을 때만 표시 (지역 탭은 이미 위에서 처리) */}
-        {activeTab === "stocks" &&
-          allStocks.length === 0 &&
-          !isLoadingStocks && (
-            <div className="text-center py-20">
-              <div className="mx-auto w-32 h-32 bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 rounded-full flex items-center justify-center shadow-2xl mb-8">
-                <span className="text-5xl">🔍</span>
-              </div>
-              <p className="text-2xl text-gray-600 dark:text-gray-400 font-medium mb-4">
-                표시할 종목이 없습니다.
-              </p>
-              <p className="text-lg text-gray-500 dark:text-gray-500">
-                잠시 후 다시 시도해주세요.
-              </p>
-            </div>
-          )}
       </main>
     </div>
   );

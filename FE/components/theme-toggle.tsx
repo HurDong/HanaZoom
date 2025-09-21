@@ -5,7 +5,6 @@ import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
 import { useUserSettingsStore } from "@/lib/stores/userSettingsStore"
-import { updateTheme } from "@/lib/api/userSettings"
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
@@ -17,24 +16,17 @@ export function ThemeToggle() {
     setMounted(true)
   }, [])
 
-  const handleThemeToggle = async () => {
+  const handleThemeToggle = () => {
     const newTheme = theme === "dark" ? "light" : "dark"
-    console.log('🔄 NavBar에서 테마 변경:', { from: theme, to: newTheme })
+    console.log('🔄 테마 변경 (로컬만):', { from: theme, to: newTheme })
     
     // 1. 즉시 UI 테마 변경
     setTheme(newTheme)
     
-    // 2. 사용자 설정 스토어 업데이트
+    // 2. 사용자 설정 스토어 업데이트 (로컬 스토리지에만 저장)
     updateThemeStore(newTheme.toUpperCase() as 'LIGHT' | 'DARK')
     
-    // 3. 서버에 비동기 저장 (실패해도 UI는 변경됨)
-    try {
-      await updateTheme(newTheme.toUpperCase() as 'LIGHT' | 'DARK')
-      console.log('✅ 테마 설정 서버 저장 완료:', newTheme)
-    } catch (error) {
-      console.error('❌ 테마 설정 서버 저장 실패:', error)
-      // 서버 저장 실패해도 UI는 이미 변경됨
-    }
+    // 서버 API 호출 제거됨 - 로컬에서만 테마 관리
   }
 
   if (!mounted) {

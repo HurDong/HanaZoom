@@ -7,12 +7,14 @@ export interface VoteOption {
   id: string;
   text: string;
   voteCount: number;
+  percentage?: number;
 }
 
 export interface Post {
   id: number;
   title: string | null;
   content: string;
+  imageUrl?: string;
   postType: PostType;
   sentiment: PostSentiment;
   viewCount: number;
@@ -35,11 +37,12 @@ export interface Post {
 export interface CreatePostRequest {
   title?: string;
   content: string;
+  imageUrl?: string;
   postType?: PostType;
   sentiment: PostSentiment;
   hasVote?: boolean;
   voteQuestion?: string;
-  voteOptions?: VoteOption[];
+  voteOptions?: string[];
 }
 
 export interface Comment {
@@ -81,6 +84,19 @@ export const getPosts = async (
   const response = await api.get(`/community/stocks/${symbol}/posts`, {
     params: { page, size },
   });
+  
+  // API 응답에서 좋아요 상태 확인
+  const likedPosts = response.data.data.content?.filter((post: any) => post.isLiked === true) || [];
+  console.log("🔍 API 응답 - 좋아요 상태:", {
+    totalPosts: response.data.data.content?.length || 0,
+    likedPosts: likedPosts.length,
+    posts: response.data.data.content?.map((post: any) => ({
+      id: post.id,
+      isLiked: post.isLiked,
+      likeCount: post.likeCount
+    }))
+  });
+  
   return response.data.data;
 };
 
@@ -98,18 +114,6 @@ export const createPost = async (
     postType: data.postType || "TEXT",
   });
   return response.data.data;
-};
-
-export const updatePost = async (
-  postId: number,
-  data: CreatePostRequest
-): Promise<Post> => {
-  const response = await api.put(`/community/posts/${postId}`, data);
-  return response.data.data;
-};
-
-export const deletePost = async (postId: number): Promise<void> => {
-  await api.delete(`/community/posts/${postId}`);
 };
 
 export const likePost = async (postId: number): Promise<void> => {
@@ -140,16 +144,6 @@ export const getPostVoteResults = async (
 };
 
 // Comments
-export const getComments = async (
-  postId: number,
-  page = 0,
-  size = 20
-): Promise<PostListResponse> => {
-  const response = await api.get(`/community/posts/${postId}/comments`, {
-    params: { page, size },
-  });
-  return response.data.data;
-};
 
 export const createComment = async (
   postId: number,
@@ -171,12 +165,51 @@ export const deleteComment = async (commentId: number): Promise<void> => {
   await api.delete(`/community/comments/${commentId}`);
 };
 
+// 게시글 수정
+export const updatePost = async (
+  postId: number,
+  data: {
+    content: string;
+    imageUrl?: string;
+    sentiment?: PostSentiment;
+  }
+): Promise<Post> => {
+  const response = await api.put(`/community/posts/${postId}`, data);
+  return response.data.data;
+};
+
+// 게시글 삭제
+export const deletePost = async (postId: number): Promise<void> => {
+  await api.delete(`/community/posts/${postId}`);
+};
+
 export const likeComment = async (commentId: number): Promise<void> => {
   await api.post(`/community/comments/${commentId}/like`);
 };
 
 export const unlikeComment = async (commentId: number): Promise<void> => {
   await api.delete(`/community/comments/${commentId}/like`);
+};
+
+// 댓글 목록 조회
+export const getComments = async (
+  postId: number,
+  page = 0,
+  size = 20
+): Promise<{
+  content: Comment[];
+  totalPages: number;
+  totalElements: number;
+  pageNumber: number;
+  pageSize: number;
+  first: boolean;
+  last: boolean;
+  empty: boolean;
+}> => {
+  const response = await api.get(`/community/posts/${postId}/comments`, {
+    params: { page, size },
+  });
+  return response.data.data;
 };
 
 // Replies (대댓글)

@@ -1,0 +1,256 @@
+/* 토스증권 스타일 미니멀 UI */
+
+/* 스크롤 시 헤더 애니메이션 */
+.stock-header {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stock-header.scrolled {
+  backdrop-filter: blur(10px);
+}
+
+/* 브랜드 컬러 하이라이트 바 */
+.brand-highlight-bar {
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--brand-primary),
+    var(--brand-secondary)
+  );
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 로고 컨테이너 */
+.logo-container {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.logo-container::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 10px;
+  height: 10px;
+  background: var(--brand-primary);
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.logo-container:hover::after {
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* 등락률 색상 */
+.price-positive {
+  color: #10b981 !important;
+}
+
+.price-negative {
+  color: #ef4444 !important;
+}
+
+/* 실시간 상태 인디케이터 */
+.realtime-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.realtime-indicator.connected {
+  color: #10b981;
+}
+
+.realtime-indicator.disconnected {
+  color: #9ca3af;
+}
+
+/* 탭 스타일 */
+.minimal-tabs {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 4px;
+  border: none;
+}
+
+.minimal-tab-trigger {
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: none;
+  background: transparent;
+}
+
+.minimal-tab-trigger[data-state="active"] {
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  transform: translateY(-1px);
+}
+
+/* 다크모드 탭 스타일 */
+.dark .minimal-tabs {
+  background: #374151;
+}
+
+.dark .minimal-tab-trigger {
+  color: #d1d5db;
+}
+
+.dark .minimal-tab-trigger[data-state="active"] {
+  background: #1f2937;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  color: #f9fafb;
+  border: 1px solid #4b5563;
+  transform: translateY(-1px);
+}
+
+.dark .minimal-tab-trigger:hover {
+  background: #4b5563;
+  color: #f3f4f6;
+}
+
+/* 구분선 */
+.divider {
+  height: 1px;
+  background: #f3f4f6;
+  margin: 0;
+  border: none;
+}
+
+/* 카드 스타일 */
+.minimal-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #f3f4f6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.minimal-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #e5e7eb;
+}
+
+/* 버튼 스타일 */
+.minimal-button {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: none;
+  background: transparent;
+}
+
+.minimal-button.primary {
+  background: var(--brand-primary);
+  color: white;
+}
+
+.minimal-button.primary:hover {
+  background: var(--brand-secondary);
+  transform: translateY(-1px);
+}
+
+/* 텍스트 스타일 */
+.minimal-text {
+  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #374151;
+}
+
+.minimal-text.large {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.minimal-text.medium {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.minimal-text.small {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.minimal-text.muted {
+  color: #6b7280;
+}
+
+/* 애니메이션 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.pulse-animation {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .stock-header {
+    padding: 12px 16px;
+  }
+
+  .minimal-tab-trigger {
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+
+  .minimal-text.large {
+    font-size: 16px;
+  }
+}
+
+/* 다크모드 지원 */
+@media (prefers-color-scheme: dark) {
+  .stock-header.scrolled {
+    backdrop-filter: blur(10px);
+  }
+
+  .minimal-card {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .minimal-text {
+    color: #f9fafb;
+  }
+
+  .minimal-text.muted {
+    color: #9ca3af;
+  }
+
+  .divider {
+    background: #374151;
+  }
+}

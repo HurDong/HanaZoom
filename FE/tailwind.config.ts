@@ -78,6 +78,13 @@ const config = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        hana: {
+          primary: "#1E3A8A",    // 하나은행 메인 블루
+          secondary: "#3B82F6",  // 하나은행 서브 블루
+          accent: "#F59E0B",     // 하나은행 액센트 오렌지
+          light: "#EFF6FF",      // 연한 파란색
+          dark: "#1E40AF",       // 진한 파란색
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

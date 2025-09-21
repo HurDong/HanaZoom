@@ -21,11 +21,13 @@ import {
   Award,
   Crown,
   Sparkles,
+  Info
 } from "lucide-react";
 import { useAuthStore } from "@/app/utils/auth";
 import api from "@/app/config/api";
 import { API_ENDPOINTS, type ApiResponse } from "@/app/config/api";
 import { getTopStocksByRegion } from "@/lib/api/stock";
+import { getPopularityDetails, type PopularityDetailsResponse } from "@/lib/api/stock";
 import { MouseFollower } from "@/components/mouse-follower";
 import { FloatingEmojiBackground } from "@/components/floating-emoji-background";
 import { useUserSettingsStore } from "@/lib/stores/userSettingsStore";
@@ -36,6 +38,10 @@ import { SearchJump } from "@/components/search-jump";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
 import { getMarketStatus, isMarketOpen } from "@/lib/utils/marketUtils";
 import type { StockPriceData } from "@/lib/api/stock";
+import { useOfflineStatus } from "@/hooks/useOfflineStatus";
+import OfflineIndicator from "@/components/OfflineIndicator";
+import PopularityDonut from "@/components/popularity-donut";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 // 백엔드 RegionResponse DTO와 일치하는 타입 정의
 export interface Region {
@@ -75,8 +81,15 @@ export default function MapPage() {
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
   const [selectedStock, setSelectedStock] = useState<TopStock | null>(null);
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [popDetails, setPopDetails] = useState<PopularityDetailsResponse | null>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const router = useRouter();
+
+  // onLoaded 콜백을 useCallback으로 안정화
+  const handlePopDetailsLoaded = useCallback((data: PopularityDetailsResponse | null) => {
+    setPopDetails(data);
+  }, []);
 
   // 시장 상태 관리
   const [marketStatus, setMarketStatus] = useState(getMarketStatus());
@@ -87,17 +100,17 @@ export default function MapPage() {
     return topStocks.map((stock: TopStock) => stock.symbol);
   }, [topStocks]);
 
-  const { 
-    connected: wsConnected, 
-    stockData: wsStockData, 
-    subscribe, 
+  const {
+    connected: wsConnected,
+    stockData: wsStockData,
+    subscribe,
     unsubscribe,
-    getStockData
+    getStockData,
   } = useStockWebSocket({
     stockCodes,
     onStockUpdate: (data: StockPriceData) => {
       console.log("📊 실시간 주식 데이터 업데이트:", data);
-      
+
       // 롯데쇼핑 데이터인 경우 특별 로그
       if (data.stockCode === "023530") {
         console.log("🏪 롯데쇼핑 실시간 데이터 수신:", {
@@ -105,18 +118,18 @@ export default function MapPage() {
           stockName: data.stockName,
           currentPrice: data.currentPrice,
           changeRate: data.changeRate,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
-      
+
       // 실시간 데이터로 상위 주식 정보 업데이트
-      setTopStocks(prevStocks => 
+      setTopStocks((prevStocks) =>
         prevStocks.map((stock: TopStock) => {
           if (stock.symbol === data.stockCode) {
             return {
               ...stock,
               price: data.currentPrice || "데이터 없음",
-              change: data.changeRate?.replace('%', '') || '0.00',
+              change: data.changeRate?.replace("%", "") || "0.00",
               realtimeData: data,
               lastUpdated: new Date(),
             };
@@ -124,11 +137,14 @@ export default function MapPage() {
           return stock;
         })
       );
-    }
+    },
   });
 
   // LOD 최적화 hooks
   const { viewport, updateBounds, isPointInBounds } = useMapBounds();
+
+  // 오프라인 상태 관리
+  const { isOffline } = useOfflineStatus();
 
   // 디바운싱을 위한 ref
   const zoomTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -201,7 +217,7 @@ export default function MapPage() {
 
   // 초기 중심점 설정
   const [center, setCenter] = useState({ lat: 37.5665, lng: 126.978 }); // 서울시청 (기본값)
-  
+
   // 사용자 설정에서 기본 줌 레벨 가져오기
   const getDefaultZoomLevel = () => {
     if (isInitialized && settings.defaultMapZoom) {
@@ -209,7 +225,7 @@ export default function MapPage() {
     }
     return 9; // 기본값 (동/면)
   };
-  
+
   const [zoomLevel, setZoomLevel] = useState(getDefaultZoomLevel());
 
   // 사용자 정보가 로드되면 초기 위치 설정
@@ -219,7 +235,7 @@ export default function MapPage() {
       const lat = Number(user.latitude);
       const lng = Number(user.longitude);
       setCenter({ lat, lng });
-      
+
       // 사용자 설정의 기본 줌 레벨 사용
       const defaultZoom = getDefaultZoomLevel();
       console.log("🎯 초기 줌 레벨 적용:", defaultZoom);
@@ -242,10 +258,10 @@ export default function MapPage() {
     const checkMarketStatus = () => {
       const newStatus = getMarketStatus();
       const newIsRealtimeMode = isMarketOpen();
-      
+
       setMarketStatus(newStatus);
       setIsRealtimeMode(newIsRealtimeMode);
-      
+
       console.log("📈 시장 상태 체크:", {
         status: newStatus.marketStatus,
         isOpen: newStatus.isMarketOpen,
@@ -256,10 +272,10 @@ export default function MapPage() {
 
     // 즉시 체크
     checkMarketStatus();
-    
+
     // 1분마다 체크
     const interval = setInterval(checkMarketStatus, 60000);
-    
+
     return () => clearInterval(interval);
   }, [wsConnected]);
 
@@ -281,14 +297,39 @@ export default function MapPage() {
     }
   }, [mapRef.current, user?.latitude, user?.longitude, moveToUserLocation]);
 
-  // 지역 데이터를 불러옵니다.
+  // 지역 데이터를 불러옵니다. (오프라인 캐싱 지원)
   useEffect(() => {
     const fetchRegions = async () => {
       try {
-        const { data } = await api.get<ApiResponse<Region[]>>(
-          API_ENDPOINTS.regions
-        );
-        setRegions(data.data);
+        // 오프라인 상태일 때 캐시된 데이터 사용
+        if (isOffline) {
+          console.log("📱 오프라인 모드 - 캐시된 지역 데이터 사용");
+          try {
+            const cachedData = await caches.match("/api/regions");
+            if (cachedData) {
+              const response = await cachedData.json();
+              if (response.success) {
+                setRegions(response.data);
+                console.log(
+                  "🗺️ 캐시된 지역 데이터 로드 완료:",
+                  response.data.length,
+                  "개"
+                );
+              }
+            }
+          } catch (cacheError) {
+            console.log("📱 캐시된 데이터 없음 - 기본 데이터 사용");
+            setRegions([]);
+          }
+        } else {
+          // 온라인 상태일 때 서버에서 데이터 로드
+          const { data } = await api.get<ApiResponse<Region[]>>(
+            API_ENDPOINTS.regions
+          );
+          setRegions(data.data);
+          console.log("🗺️ 지역 데이터 로드 완료:", data.data.length, "개");
+        }
+
         // 지역 데이터 로딩 완료 후 지도 준비 상태로 변경
         setTimeout(() => setIsMapReady(true), 100);
       } catch (err) {
@@ -300,7 +341,7 @@ export default function MapPage() {
       }
     };
     fetchRegions();
-  }, []);
+  }, [isOffline]);
 
   // 디바운싱된 줌 레벨 변경 핸들러
   const handleZoomChange = useCallback((newZoomLevel: number) => {
@@ -345,58 +386,71 @@ export default function MapPage() {
   }, [regions, debouncedZoomLevel, viewport, isPointInBounds]);
 
   // 상위 주식 정보를 가져오는 함수
-  const fetchTopStocks = useCallback(async (regionId: number) => {
-    setLoadingStocks(true);
-    try {
-      const response = await getTopStocksByRegion(regionId);
-      console.log("🔍 받아온 주식 데이터:", response.data);
-      console.log("🔍 첫 번째 주식 섹터:", response.data[0]?.sector);
-      
-      // 기본 데이터 설정 (실시간 데이터 우선 사용)
-      const stocksWithRealtime = response.data.map((stock: any) => {
-        // 웹소켓에서 실시간 데이터가 있는지 확인
-        const realtimeData = getStockData(stock.symbol);
-        
-                  return {
+  const fetchTopStocks = useCallback(
+    async (regionId: number) => {
+      setLoadingStocks(true);
+      try {
+        const response = await getTopStocksByRegion(regionId);
+        console.log("🔍 받아온 주식 데이터:", response.data);
+        console.log("🔍 첫 번째 주식 섹터:", response.data[0]?.sector);
+
+        // 기본 데이터 설정 (실시간 데이터 우선 사용)
+        const stocksWithRealtime = response.data.map((stock: any) => {
+          // 웹소켓에서 실시간 데이터가 있는지 확인
+          const realtimeData = getStockData(stock.symbol);
+
+          return {
             ...stock,
             // 실시간 데이터가 있으면 우선 사용, 없으면 DB 데이터 사용 (null 처리 포함)
-            price: realtimeData?.currentPrice || (stock.price === null || stock.price === "null" || stock.price === "데이터 없음" ? "데이터 없음" : stock.price),
-            change: realtimeData?.changeRate || (stock.change === "nu%" ? "0.00" : stock.change),
+            price:
+              realtimeData?.currentPrice ||
+              (stock.price === null ||
+              stock.price === "null" ||
+              stock.price === "데이터 없음"
+                ? "데이터 없음"
+                : stock.price),
+            change:
+              realtimeData?.changeRate ||
+              (stock.change === "nu%" ? "0.00" : stock.change),
             realtimeData: realtimeData || undefined,
             lastUpdated: realtimeData ? new Date() : new Date(),
           };
-      });
-      
-      setTopStocks(stocksWithRealtime);
-      
-      // 실시간 모드이고 웹소켓이 연결된 경우 구독
-      if (isRealtimeMode && wsConnected && stocksWithRealtime.length > 0) {
-        const symbols = stocksWithRealtime.map((stock: TopStock) => stock.symbol);
-        console.log("📡 실시간 모드: 종목 구독 시작", symbols);
-        console.log("📡 웹소켓 연결 상태:", wsConnected);
-        console.log("📡 시장 상태:", marketStatus);
-        subscribe(symbols);
-      } else {
-        console.log("📴 구독하지 않는 이유:", {
-          isRealtimeMode,
-          wsConnected,
-          stocksLength: stocksWithRealtime.length,
-          marketStatus
         });
+
+        setTopStocks(stocksWithRealtime);
+
+        // 실시간 모드이고 웹소켓이 연결된 경우 구독
+        if (isRealtimeMode && wsConnected && stocksWithRealtime.length > 0) {
+          const symbols = stocksWithRealtime.map(
+            (stock: TopStock) => stock.symbol
+          );
+          console.log("📡 실시간 모드: 종목 구독 시작", symbols);
+          console.log("📡 웹소켓 연결 상태:", wsConnected);
+          console.log("📡 시장 상태:", marketStatus);
+          subscribe(symbols);
+        } else {
+          console.log("📴 구독하지 않는 이유:", {
+            isRealtimeMode,
+            wsConnected,
+            stocksLength: stocksWithRealtime.length,
+            marketStatus,
+          });
+        }
+      } catch (err) {
+        console.error("상위 주식 정보를 가져오는 데 실패했습니다.", err);
+        setTopStocks([]);
+      } finally {
+        setLoadingStocks(false);
       }
-    } catch (err) {
-      console.error("상위 주식 정보를 가져오는 데 실패했습니다.", err);
-      setTopStocks([]);
-    } finally {
-      setLoadingStocks(false);
-    }
-  }, [isRealtimeMode, wsConnected, subscribe]);
+    },
+    [isRealtimeMode, wsConnected, subscribe]
+  );
 
   // 실시간 모드 변경 시 웹소켓 구독 관리
   useEffect(() => {
     if (topStocks.length > 0) {
       const symbols = topStocks.map((stock: TopStock) => stock.symbol);
-      
+
       if (isRealtimeMode && wsConnected) {
         console.log("📡 실시간 모드 활성화: 종목 구독", symbols);
         console.log("📡 롯데쇼핑 포함 여부:", symbols.includes("023530"));
@@ -455,14 +509,15 @@ export default function MapPage() {
 
   // 종목 클릭 시 상세 정보 표시
   const handleStockClick = (stock: TopStock) => {
-    console.log("📊 선택된 종목 정보:", stock);
-    console.log("📊 선택된 종목 섹터:", stock.sector);
     setSelectedStock(stock);
+    setShowStockModal(true);
   };
 
   // 종목 상세 정보 닫기
   const handleCloseStockDetail = () => {
     setSelectedStock(null);
+    setShowStockModal(false);
+    setPopDetails(null);
   };
 
   // 커뮤니티로 이동
@@ -481,6 +536,7 @@ export default function MapPage() {
     // TODO: 차트 모달 또는 페이지로 이동
     console.log("차트 보기:", stock.symbol);
   };
+
 
   if (!isMapReady) {
     return (
@@ -502,7 +558,7 @@ export default function MapPage() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 overflow-hidden relative transition-colors duration-500">
       {/* 마우스 따라다니는 아이콘들 (사용자 설정에 따라) */}
       {isInitialized && settings.customCursorEnabled && <MouseFollower />}
-      
+
       {/* 배경 패턴 */}
       <div className="absolute inset-0 pointer-events-none opacity-10 dark:opacity-5">
         <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:20px_20px]"></div>
@@ -510,7 +566,10 @@ export default function MapPage() {
 
       {/* Floating Stock Symbols (사용자 설정에 따라) */}
       <FloatingEmojiBackground />
-      
+
+      {/* 오프라인 상태 표시 */}
+      <OfflineIndicator />
+
       <div className="fixed top-0 left-0 right-0 z-[100]">
         <NavBar />
       </div>
@@ -570,8 +629,11 @@ export default function MapPage() {
                   <Layers className="w-5 h-5" />
                   <span>줌 레벨: {zoomLevel}</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {zoomLevel <= 4 ? '동/면' : 
-                     zoomLevel <= 7 ? '시/도' : '전국'}
+                    {zoomLevel <= 4
+                      ? "동/면"
+                      : zoomLevel <= 7
+                      ? "시/도"
+                      : "전국"}
                   </span>
                 </label>
                 <Slider
@@ -617,34 +679,36 @@ export default function MapPage() {
                         : "지역을 선택하세요"}
                     </span>
                   </h4>
-                  
+
                   {/* 시장 상태 및 실시간 데이터 상태 표시 */}
                   {selectedRegion && (
                     <div className="flex items-center gap-2 text-xs">
-                      <div className={`px-2 py-1 rounded-full text-white font-semibold ${
-                        marketStatus.isMarketOpen 
-                          ? 'bg-green-500' 
-                          : marketStatus.isAfterMarketClose 
-                          ? 'bg-gray-500' 
-                          : 'bg-blue-500'
-                      }`}>
+                      <div
+                        className={`px-2 py-1 rounded-full text-white font-semibold ${
+                          marketStatus.isMarketOpen
+                            ? "bg-green-500"
+                            : marketStatus.isAfterMarketClose
+                            ? "bg-gray-500"
+                            : "bg-blue-500"
+                        }`}
+                      >
                         {marketStatus.marketStatus}
                       </div>
-                      
+
                       {isRealtimeMode && wsConnected && (
                         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">
                           <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
                           <span>실시간</span>
                         </div>
                       )}
-                      
+
                       {isRealtimeMode && !wsConnected && (
                         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300">
                           <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
                           <span>연결중</span>
                         </div>
                       )}
-                      
+
                       {!isRealtimeMode && (
                         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                           <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
@@ -655,62 +719,140 @@ export default function MapPage() {
                   )}
                 </div>
 
-                {/* 항상 종목 리스트 먼저 표시 */}
+                {/* 우리동네 인기 종목 패널 - 미니멀 스타일 */}
                 {loadingStocks ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-green-600" />
-                    <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                    <span className="ml-2 text-sm text-gray-500">
                       주식 정보를 불러오는 중...
                     </span>
                   </div>
                 ) : selectedRegion && topStocks.length > 0 ? (
                   <div className="space-y-3">
+                    {/* 패널 헤더 */}
+                    <div className="text-center mb-6">
+                      <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-1">
+                        우리동네 인기 종목
+                      </h3>
+                      <div className="w-12 h-px bg-gray-300 dark:bg-gray-600 mx-auto"></div>
+                    </div>
+
+                    {/* 종목 리스트 - 개선된 카드 형식 */}
                     {topStocks.map((stock, index) => {
                       const isSelected = selectedStock?.symbol === stock.symbol;
-                      const rankIcons = [Crown, Award, Star];
-                      const RankIcon = rankIcons[index] || Star;
+                      const actualRank = index + 1;
+
+                      // 순위별 스타일 설정
+                      const getRankStyle = (rank: number) => {
+                        switch (rank) {
+                          case 1:
+                            return {
+                              badgeColor:
+                                "bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-900",
+                              borderColor:
+                                "border-yellow-300 dark:border-yellow-600",
+                              cardSize: "scale-[1.02]",
+                              label: "1위",
+                            };
+                          case 2:
+                            return {
+                              badgeColor:
+                                "bg-gradient-to-r from-gray-300 to-gray-400 text-gray-900",
+                              borderColor:
+                                "border-gray-300 dark:border-gray-600",
+                              cardSize: "scale-[1.01]",
+                              label: "2위",
+                            };
+                          case 3:
+                            return {
+                              badgeColor:
+                                "bg-gradient-to-r from-orange-400 to-amber-500 text-orange-900",
+                              borderColor:
+                                "border-orange-300 dark:border-orange-600",
+                              cardSize: "scale-[1.005]",
+                              label: "3위",
+                            };
+                          default:
+                            return {
+                              badgeColor:
+                                "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300",
+                              borderColor:
+                                "border-gray-200 dark:border-gray-700",
+                              cardSize: "",
+                              label: `${rank}위`,
+                            };
+                        }
+                      };
+
+                      const rankStyle = getRankStyle(actualRank);
+
+                      // 등락률 색상 결정
+                      const getChangeColor = (change: string) => {
+                        if (change === "0.00%" || change === "0.00") {
+                          return "text-gray-500 dark:text-gray-400";
+                        }
+                        if (change.startsWith("-")) {
+                          return "text-red-500 dark:text-red-400";
+                        }
+                        return "text-green-500 dark:text-green-400";
+                      };
+
+                      // 등락률 아이콘
+                      const getChangeIcon = (change: string) => {
+                        if (change === "0.00%" || change === "0.00") {
+                          return (
+                            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                          );
+                        }
+                        if (change.startsWith("-")) {
+                          return <TrendingUp className="w-3 h-3 rotate-180" />;
+                        }
+                        return <TrendingUp className="w-3 h-3" />;
+                      };
 
                       return (
                         <div
                           key={stock.symbol}
-                          className={`relative overflow-hidden rounded-xl transition-all duration-300 cursor-pointer ${
+                          className={`relative bg-white dark:bg-gray-800 rounded-lg border transition-all duration-200 cursor-pointer group ${
+                            rankStyle.cardSize
+                          } ${
                             isSelected
-                              ? "bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900 dark:to-emerald-900 border-2 border-green-500 shadow-lg scale-[1.02]"
-                              : "bg-gradient-to-r from-white to-green-50 dark:from-gray-800 dark:to-green-950 border border-green-200/50 dark:border-green-800/30 hover:border-green-400 dark:hover:border-green-600 hover:shadow-md hover:scale-[1.01]"
+                              ? `${rankStyle.borderColor} shadow-lg`
+                              : `${rankStyle.borderColor} hover:shadow-md`
                           }`}
                           onClick={() => handleStockClick(stock)}
                         >
-                          {/* 순위 배지 */}
-                          <div className="absolute top-2 left-2">
-                            <div
-                              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${
-                                index === 0
-                                  ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                                  : index === 1
-                                  ? "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-                                  : "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
-                              }`}
-                            >
-                              <RankIcon className="w-3 h-3" />
-                              {index + 1}위
+                          {/* 1위 라벨 */}
+                          {actualRank === 1 && (
+                            <div className="absolute -top-2 left-4 z-10">
+                              <div className="bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold shadow-md">
+                                🏆 1위
+                              </div>
                             </div>
-                          </div>
-
-                          {/* 글로우 효과 */}
-                          {isSelected && (
-                            <div className="absolute inset-0 bg-gradient-to-r from-green-400/20 via-emerald-400/20 to-green-400/20 animate-pulse pointer-events-none"></div>
                           )}
 
-                          <div className="flex justify-between items-center p-4 pt-10">
-                            <div className="flex items-center gap-3">
-                              <div className="relative">
+                          <div className="p-4">
+                            {/* 간소화된 카드 내용 */}
+                            <div className="flex items-center gap-4">
+                              {/* 순위 뱃지 */}
+                              <div className="flex-shrink-0">
+                                <div
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm ${rankStyle.badgeColor}`}
+                                >
+                                  <span className="text-sm font-bold">
+                                    {actualRank}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* 종목 로고 */}
+                              <div className="flex-shrink-0">
                                 {stock.logoUrl ? (
                                   <img
                                     src={stock.logoUrl}
                                     alt={stock.name}
-                                    className="w-8 h-8 rounded-full object-contain"
+                                    className="w-12 h-12 rounded-full object-contain bg-gray-50 dark:bg-gray-700 p-1 shadow-sm"
                                     onError={(e) => {
-                                      // 로고 로드 실패시 이모지로 대체
                                       (
                                         e.target as HTMLImageElement
                                       ).style.display = "none";
@@ -720,242 +862,51 @@ export default function MapPage() {
                                       if (parent && stock.emoji) {
                                         const span =
                                           document.createElement("span");
-                                        span.className = "text-2xl";
+                                        span.className = "text-xl";
                                         span.textContent = stock.emoji;
                                         parent.appendChild(span);
                                       }
                                     }}
                                   />
                                 ) : (
-                                  <span className="text-2xl">
+                                  <div className="w-12 h-12 rounded-full bg-gray-50 dark:bg-gray-700 flex items-center justify-center text-xl shadow-sm">
                                     {stock.emoji || "📈"}
-                                  </span>
-                                )}
-                                {index === 0 && (
-                                  <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-yellow-500 animate-pulse" />
+                                  </div>
                                 )}
                               </div>
-                              <div className="flex flex-col">
-                                <span className="font-bold text-base text-gray-900 dark:text-gray-100">
+
+                              {/* 종목 정보 - 간소화 */}
+                              <div className="flex-1 min-w-0">
+                                {/* 종목명 - 완전히 표시 */}
+                                <div className="font-bold text-lg text-gray-900 dark:text-gray-100 leading-tight mb-1">
                                   {stock.name}
-                                </span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                                  {stock.symbol}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="text-right">
-                              <div className="font-bold text-lg text-gray-900 dark:text-gray-100">
-                                {stock.price === "데이터 없음" || stock.price === null ? "데이터 없음" : `₩${Number(stock.price).toLocaleString()}`}
-                              </div>
-                              <div
-                                className={`text-sm font-semibold ${
-                                  stock.change.startsWith("-")
-                                    ? "text-red-500 dark:text-red-400"
-                                    : "text-blue-500 dark:text-blue-400"
-                                }`}
-                              >
-                                {stock.change === "0.00%" ? stock.change : 
-                                 stock.change.startsWith("-") ? `${stock.change}%` : 
-                                 stock.change.includes("%") ? stock.change : `${stock.change}%`}
-                              </div>
-                              {/* 실시간 데이터 업데이트 시간 표시 */}
-                              {stock.realtimeData && stock.lastUpdated && (
-                                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                  {stock.lastUpdated.toLocaleTimeString('ko-KR', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    second: '2-digit'
-                                  })}
                                 </div>
-                              )}
+
+                                {/* 종목코드와 업종 */}
+                                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                                  <span className="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs">
+                                    {stock.symbol}
+                                  </span>
+                                  <span className="text-gray-400 dark:text-gray-500">
+                                    •
+                                  </span>
+                                  <span className="truncate">
+                                    {stock.sector}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
                           </div>
 
-                          {/* 호버 시 화살표 */}
-                          <div
-                            className={`absolute right-3 top-1/2 transform -translate-y-1/2 transition-all duration-200 ${
-                              isSelected
-                                ? "opacity-100 translate-x-0"
-                                : "opacity-0 translate-x-2"
-                            }`}
-                          >
-                            <div className="w-2 h-2 border-r-2 border-b-2 border-green-600 rotate-45"></div>
-                          </div>
+                          {/* 선택 상태 표시 */}
+                          {isSelected && (
+                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                              <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
-
-                    {/* 선택된 종목 상세 정보 */}
-                    {selectedStock && (
-                      <div className="mt-6 p-1 bg-gradient-to-r from-green-400 to-emerald-400 rounded-xl">
-                        <div className="bg-white dark:bg-gray-900 rounded-xl p-5 space-y-4">
-                          {/* 헤더 */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="relative">
-                                {selectedStock.logoUrl ? (
-                                  <img
-                                    src={selectedStock.logoUrl}
-                                    alt={selectedStock.name}
-                                    className="w-12 h-12 rounded-full object-contain"
-                                    onError={(e) => {
-                                      // 로고 로드 실패시 이모지로 대체
-                                      (
-                                        e.target as HTMLImageElement
-                                      ).style.display = "none";
-                                      const parent = (
-                                        e.target as HTMLImageElement
-                                      ).parentElement;
-                                      if (parent && selectedStock.emoji) {
-                                        const span =
-                                          document.createElement("span");
-                                        span.className = "text-3xl";
-                                        span.textContent = selectedStock.emoji;
-                                        parent.appendChild(span);
-                                      }
-                                    }}
-                                  />
-                                ) : (
-                                  <span className="text-3xl">
-                                    {selectedStock.emoji || "📈"}
-                                  </span>
-                                )}
-                                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                                  <TrendingUp className="w-3 h-3 text-white" />
-                                </div>
-                              </div>
-                              <div>
-                                <h3 className="font-bold text-xl text-gray-900 dark:text-gray-100">
-                                  {selectedStock.name}
-                                </h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                                  {selectedStock.symbol}
-                                </p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={handleCloseStockDetail}
-                              className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
-                            >
-                              <X className="w-5 h-5 text-gray-500" />
-                            </button>
-                          </div>
-
-                          {/* 가격 정보 - 개선된 디자인 */}
-                          <div className="relative p-6 rounded-xl bg-gradient-to-br from-green-50 via-emerald-50 to-green-100 dark:from-green-900 dark:via-emerald-900 dark:to-green-800 border border-green-200 dark:border-green-700 overflow-hidden">
-                            <div className="absolute top-2 right-2">
-                              <Sparkles className="w-5 h-5 text-green-500 opacity-60" />
-                            </div>
-                            <div className="text-center relative z-10">
-                              <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                                {selectedStock.price === "데이터 없음" || selectedStock.price === null ? "데이터 없음" : `₩${Number(selectedStock.price).toLocaleString()}`}
-                              </div>
-                              <div
-                                className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-base font-bold ${
-                                  selectedStock.change.startsWith("-")
-                                    ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-                                    : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                                }`}
-                              >
-                                <TrendingUp
-                                  className={`w-4 h-4 ${
-                                    selectedStock.change.startsWith("-")
-                                      ? "rotate-180"
-                                      : ""
-                                  }`}
-                                />
-                                {selectedStock.change === "0.00%" ? selectedStock.change : 
-                                 selectedStock.change.startsWith("-") ? `${selectedStock.change}%` : 
-                                 selectedStock.change.includes("%") ? selectedStock.change : `${selectedStock.change}%`}
-                              </div>
-                              {/* 실시간 데이터 상태 표시 */}
-                              {selectedStock.realtimeData && selectedStock.lastUpdated && (
-                                <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                                    <span>실시간 업데이트: {selectedStock.lastUpdated.toLocaleTimeString('ko-KR')}</span>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* 요약 정보 - 개선된 디자인 */}
-                          <div className="grid grid-cols-1 gap-3">
-                            <div className="p-4 rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900 dark:to-indigo-900 border border-purple-200 dark:border-purple-700">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-800 rounded-full flex items-center justify-center">
-                                    <BarChart3 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                                  </div>
-                                  <span className="font-medium text-purple-800 dark:text-purple-200">
-                                    섹터
-                                  </span>
-                                </div>
-                                <span className="font-bold text-purple-900 dark:text-purple-100">
-                                  {selectedStock.sector}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="p-4 rounded-lg bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900 dark:to-yellow-900 border border-orange-200 dark:border-orange-700">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-8 bg-orange-100 dark:bg-orange-800 rounded-full flex items-center justify-center">
-                                    <Award className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                                  </div>
-                                  <span className="font-medium text-orange-800 dark:text-orange-200">
-                                    지역 순위
-                                  </span>
-                                </div>
-                                <span className="font-bold text-orange-900 dark:text-orange-100">
-                                  {selectedStock.rank
-                                    ? `${selectedStock.rank}위`
-                                    : `상위 ${
-                                        topStocks.findIndex(
-                                          (s) =>
-                                            s.symbol === selectedStock.symbol
-                                        ) + 1
-                                      }위`}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* 액션 버튼들 - 개선된 디자인 */}
-                          <div className="space-y-3">
-                            <button
-                              onClick={() => handleGoToCommunity(selectedStock)}
-                              className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] text-base whitespace-nowrap"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                              커뮤니티
-                            </button>
-
-                            <div className="grid grid-cols-2 gap-3">
-                              <button
-                                onClick={() =>
-                                  handleToggleFavorite(selectedStock)
-                                }
-                                className="flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-pink-200 dark:border-pink-700 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-900 dark:to-rose-900 hover:from-pink-100 hover:to-rose-100 dark:hover:from-pink-800 dark:hover:to-rose-800 text-pink-700 dark:text-pink-300 font-semibold transition-all duration-200 hover:scale-[1.02] whitespace-nowrap"
-                              >
-                                <Heart className="w-4 h-4" />찜
-                              </button>
-
-                              <button
-                                onClick={() => handleViewChart(selectedStock)}
-                                className="flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-blue-200 dark:border-blue-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-800 dark:hover:to-indigo-800 text-blue-700 dark:text-blue-300 font-semibold transition-all duration-200 hover:scale-[1.02] whitespace-nowrap"
-                              >
-                                <BarChart3 className="w-4 h-4" />
-                                차트
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ) : selectedRegion ? (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -997,6 +948,173 @@ export default function MapPage() {
           </div>
         </div>
       </main>
+
+      {/* 종목 상세 정보 모달 */}
+      {showStockModal && selectedStock && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-[9999] animate-in fade-in duration-300">
+          {/* 데스크톱: 중앙 정렬, 모바일: 바텀시트 */}
+          <div className="bg-white dark:bg-gray-900 rounded-t-3xl md:rounded-2xl w-full max-w-sm sm:max-w-md md:max-w-lg max-h-[90vh] md:max-h-[85vh] shadow-2xl animate-in slide-in-from-bottom-4 md:slide-in-from-bottom-0 duration-300 relative flex flex-col">
+            {/* 모바일 핸들 */}
+            <div className="md:hidden flex justify-center pt-3 pb-2 flex-shrink-0">
+              <div className="w-12 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+            </div>
+
+            {/* 고정 닫기 버튼 */}
+            <button
+              onClick={handleCloseStockDetail}
+              aria-label="닫기"
+              className="absolute top-4 right-4 z-[10000] p-2 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-110"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* 스크롤 가능한 컨텐츠 영역 */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 pt-12 md:pt-6">
+                {/* 헤더 - 순위 배지 + 로고 + 종목명 */}
+                <div className="flex items-start gap-3">
+                  {/* 순위 배지 */}
+                  {selectedStock.rank && (
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center shadow-lg">
+                        <span className="text-white font-bold text-sm">
+                          {selectedStock.rank}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 로고 + 종목명 */}
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="relative flex-shrink-0">
+                      {selectedStock.logoUrl ? (
+                        <img
+                          src={selectedStock.logoUrl}
+                          alt={selectedStock.name}
+                          className="w-12 h-12 rounded-xl object-contain bg-gray-50 dark:bg-gray-800 p-1"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                            const parent = (e.target as HTMLImageElement)
+                              .parentElement;
+                            if (parent && selectedStock.emoji) {
+                              const span = document.createElement("span");
+                              span.className = "text-2xl w-12 h-12 flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-xl";
+                              span.textContent = selectedStock.emoji;
+                              parent.appendChild(span);
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gray-50 dark:bg-gray-800 rounded-xl flex items-center justify-center">
+                          <span className="text-xl">
+                            {selectedStock.emoji || "📈"}
+                          </span>
+                        </div>
+                      )}
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-md">
+                        <TrendingUp className="w-3 h-3 text-white" />
+                      </div>
+                    </div>
+                    
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100 truncate">
+                        {selectedStock.name}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
+                        {selectedStock.symbol}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 가격 정보 카드 */}
+                <div className="relative p-6 rounded-2xl bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 dark:from-emerald-900/30 dark:via-green-900/30 dark:to-emerald-800/30 border border-emerald-200 dark:border-emerald-700/50 shadow-lg">
+                  <div className="text-center">
+                    <div className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+                      {selectedStock.price === "데이터 없음" ||
+                      selectedStock.price === null
+                        ? "데이터 없음"
+                        : `₩${Number(selectedStock.price).toLocaleString()}`}
+                    </div>
+                    <div
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-base font-bold shadow-sm ${
+                        selectedStock.change.startsWith("-")
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 border border-red-200 dark:border-red-700"
+                          : "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border border-blue-200 dark:border-blue-700"
+                      }`}
+                    >
+                      <TrendingUp
+                        className={`w-4 h-4 ${
+                          selectedStock.change.startsWith("-") ? "rotate-180" : ""
+                        }`}
+                      />
+                      {selectedStock.change === "0.00%"
+                        ? selectedStock.change
+                        : selectedStock.change.startsWith("-")
+                        ? `${selectedStock.change}%`
+                        : selectedStock.change.includes("%")
+                        ? selectedStock.change
+                        : `${selectedStock.change}%`}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 인기도 기여도 도넛(전일 기준) */}
+                <div className="p-4 rounded-2xl bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 shadow-sm backdrop-blur-sm">
+                  <div className="mb-3 font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                    <span>인기지수</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button aria-label="인기지수 설명" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                            <Info className="w-4 h-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <div className="space-y-1">
+                            <div className="font-semibold">인기지수 알고리즘</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-300">
+                              거래추세(45%) + 커뮤니티(35%) + 모멘텀(20%)의 가중합입니다.
+                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-300">
+                              각 요소는 0~100 범위로 로그 정규화됩니다.
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <PopularityDonut
+                    key={`${selectedRegion?.id}-${selectedStock.symbol}`}
+                    regionId={selectedRegion?.id || 0}
+                    symbol={selectedStock.symbol}
+                    name={selectedStock.name}
+                    onLoaded={handlePopDetailsLoaded}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 고정 액션 버튼: 커뮤니티 / WTS */}
+            <div className="flex-shrink-0 px-4 sm:px-6 pb-4 sm:pb-6 pt-2 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => router.push(`/community/${selectedStock.symbol}`)}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  <span>커뮤니티</span>
+                </button>
+                <button
+                  onClick={() => router.push(`/stocks/${selectedStock.symbol}`)}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  <span>WTS</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

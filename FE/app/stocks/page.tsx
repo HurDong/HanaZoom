@@ -25,6 +25,7 @@ import { StockTicker } from "@/components/stock-ticker";
 import { MouseFollower } from "@/components/mouse-follower";
 import { FloatingEmojiBackground } from "@/components/floating-emoji-background";
 import api from "@/app/config/api";
+import { useUserSettingsStore } from "@/lib/stores/userSettingsStore";
 
 interface Stock {
   symbol: string;
@@ -190,6 +191,7 @@ function StockItem({ stock, priceData, wsConnected }: StockItemProps) {
 }
 
 export default function StocksPage() {
+  const { settings, isInitialized } = useUserSettingsStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [filteredStocks, setFilteredStocks] = useState<Stock[]>([]);
@@ -342,8 +344,8 @@ export default function StocksPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950">
-      {/* 마우스 따라다니는 아이콘들 */}
-      <MouseFollower />
+      {/* 마우스 따라다니는 아이콘들 (사용자 설정에 따라) */}
+      {isInitialized && settings.customCursorEnabled && <MouseFollower />}
 
       {/* 배경 패턴 */}
       <div className="absolute inset-0 pointer-events-none opacity-10 dark:opacity-5">
@@ -351,7 +353,7 @@ export default function StocksPage() {
       </div>
 
       {/* Floating Stock Symbols (사용자 설정에 따라) */}
-      <FloatingEmojiBackground />
+      {isInitialized && settings.emojiAnimationEnabled && <FloatingEmojiBackground />}
 
       {/* NavBar */}
       <div className="fixed top-0 left-0 right-0 z-[100]">

@@ -6,13 +6,12 @@ import com.hanazoom.domain.consultation.entity.ParticipantRole;
 import com.hanazoom.domain.consultation.repository.PbRoomRepository;
 import com.hanazoom.domain.consultation.repository.PbRoomParticipantRepository;
 import com.hanazoom.domain.member.entity.Member;
-import com.hanazoom.domain.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -23,7 +22,6 @@ public class PbRoomWebRTCService {
 
     private final PbRoomRepository pbRoomRepository;
     private final PbRoomParticipantRepository participantRepository;
-    private final MemberRepository memberRepository;
 
     /**
      * PB 방 생성 (단순화된 버전)
@@ -73,13 +71,30 @@ public class PbRoomWebRTCService {
     public PbRoomParticipant addParticipant(PbRoom room, Member member, ParticipantRole role) {
         log.info("참여자 추가: roomId={}, memberId={}, role={}", room.getId(), member.getId(), role);
 
-        // 이미 참여 중인지 확인
-        Optional<PbRoomParticipant> existingParticipant = participantRepository
-                .findByRoomIdAndMemberIdAndIsActiveTrue(room.getId(), member.getId());
+        // 이미 참여 중인지 확인 (중복 레코드 처리)
+        List<PbRoomParticipant> existingParticipants = participantRepository
+                .findParticipantsByRoomIdAndMemberIdAndIsActiveTrue(room.getId(), member.getId());
 
-        if (existingParticipant.isPresent()) {
-            log.info("이미 참여 중인 사용자, 기존 참여자 정보 반환: {}", existingParticipant.get().getId());
-            return existingParticipant.get();
+        if (!existingParticipants.isEmpty()) {
+            if (existingParticipants.size() > 1) {
+                log.warn("중복된 참여자 레코드 발견: roomId={}, memberId={}, count={}", 
+                        room.getId(), member.getId(), existingParticipants.size());
+                
+                // 첫 번째 레코드만 유지하고 나머지는 비활성화
+                PbRoomParticipant activeParticipant = existingParticipants.get(0);
+                for (int i = 1; i < existingParticipants.size(); i++) {
+                    PbRoomParticipant duplicate = existingParticipants.get(i);
+                    duplicate.leave();
+                    participantRepository.save(duplicate);
+                    log.info("중복 참여자 레코드 비활성화: {}", duplicate.getId());
+                }
+                
+                log.info("기존 참여자 정보 반환: {}", activeParticipant.getId());
+                return activeParticipant;
+            } else {
+                log.info("이미 참여 중인 사용자, 기존 참여자 정보 반환: {}", existingParticipants.get(0).getId());
+                return existingParticipants.get(0);
+            }
         }
 
         PbRoomParticipant participant = new PbRoomParticipant(

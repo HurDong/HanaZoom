@@ -18,14 +18,7 @@ export default function PortfolioSummaryCard({
     totalProfitLossRate,
   } = summary;
 
-  // 개발자 도구에 DTO 데이터 로깅
-  console.log("🔍 PortfolioSummary DTO 전체:", summary);
-  console.log("💵 totalBalance 값:", summary.totalBalance);
-  console.log("💵 availableCash 값:", summary.availableCash);
-  console.log("💵 settlementCash 값:", summary.settlementCash);
-  console.log("💵 withdrawableCash 값:", summary.withdrawableCash);
-  console.log("💵 frozenCash 값:", summary.frozenCash);
-  console.log("💵 totalCash 값:", summary.totalCash);
+  // 개발용 로그 제거
 
   const isProfit = (totalProfitLoss || 0) >= 0;
   const totalAssets = summary.totalBalance || 0;

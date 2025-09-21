@@ -10,6 +10,7 @@ import { RegionalPortfolioAnalysis } from "@/types/regional-portfolio";
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -17,7 +18,6 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell,
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
@@ -125,6 +125,8 @@ export default function RegionPortfolioComparison({
       setError(null);
       
       const data = await regionalPortfolioApi.getRegionalPortfolioAnalysis();
+      const top1 = data?.regionalAverage?.popularStocks?.[0];
+      console.log('[Region/API] top1:', top1?.symbol, top1?.name, 'sector:', top1?.sector);
       setComparisonData(data);
     } catch (err: any) {
       console.error("지역별 포트폴리오 분석 로딩 실패:", err);
@@ -137,9 +139,6 @@ export default function RegionPortfolioComparison({
       } else {
         setError("데이터를 불러오는데 실패했습니다.");
       }
-      
-      // 에러 발생 시 모의 데이터로 폴백
-      generateMockComparisonData();
     } finally {
       setLoading(false);
     }
@@ -186,7 +185,7 @@ export default function RegionPortfolioComparison({
         diversificationScore: 72,
       },
       investmentTrends: [
-        { sector: "IT/반도체", percentage: 35, trend: "up" },
+        { sector: "소매", percentage: 35, trend: "up" },
         { sector: "바이오/제약", percentage: 20, trend: "up" },
         { sector: "금융", percentage: 15, trend: "stable" },
         { sector: "자동차", percentage: 12, trend: "down" },
@@ -218,6 +217,10 @@ export default function RegionPortfolioComparison({
     const riskLevelMatch =
       userPortfolio.riskLevel === mockRegionData.averagePortfolio.riskLevel;
     const diversificationScore = userPortfolio.diversificationScore;
+
+    if (process.env.NEXT_PUBLIC_DEBUG_REGION === 'true') {
+      console.debug('[Region] mock popular top1:', mockRegionData.popularStocks?.[0]);
+    }
 
     const recommendations = generateRecommendations(
       userPortfolio,
@@ -270,14 +273,124 @@ export default function RegionPortfolioComparison({
     return 20;
   };
 
+  // 상위 종목에서 섹터 추론
+  const inferSectorFromTopStock = (topStock?: { symbol: string; name: string; sector?: string }): string => {
+    if (!topStock) return "기타";
+
+    if (topStock.sector) return topStock.sector; // 백엔드에서 제공된 섹터 우선 사용
+
+    const { symbol, name } = topStock;
+
+    const symbolSectorMap: Record<string, string> = {
+      "005930": "IT/반도체", // 삼성전자
+      "000660": "IT/반도체", // SK하이닉스
+      "373220": "2차전지/전기차",
+      "005380": "자동차", // 현대차
+      "000270": "자동차", // 기아
+      "047050": "철강/무역", // 포스코인터내셔널
+      "005490": "철강/소재", // 포스코
+      "003670": "2차전지/소재", // 포스코퓨처엠
+      "207940": "바이오/제약", // 삼성바이오로직스
+      "006400": "2차전지/전기차", // 삼성SDI
+      "035420": "IT/인터넷", // NAVER
+      "035720": "IT/인터넷", // 카카오
+      "096770": "정유/에너지", // SK이노베이션
+      "017670": "통신", // SK텔레콤
+      "023530": "소매", // 롯데쇼핑
+    };
+
+    if (symbolSectorMap[symbol]) return symbolSectorMap[symbol];
+
+    const nameKeywordMap: Array<{ keyword: string; sector: string }> = [
+      { keyword: "전자", sector: "IT/반도체" },
+      { keyword: "하이닉스", sector: "IT/반도체" },
+      { keyword: "반도체", sector: "IT/반도체" },
+      { keyword: "에너지", sector: "화학/에너지" },
+      { keyword: "바이오", sector: "바이오/제약" },
+      { keyword: "제약", sector: "바이오/제약" },
+      { keyword: "현대", sector: "자동차" },
+      { keyword: "기아", sector: "자동차" },
+      { keyword: "포스코", sector: "철강/소재" },
+      { keyword: "조선", sector: "조선/중공업" },
+      { keyword: "통신", sector: "통신" },
+      { keyword: "인터넷", sector: "IT/인터넷" },
+      { keyword: "NAVER", sector: "IT/인터넷" },
+      { keyword: "카카오", sector: "IT/인터넷" },
+      { keyword: "롯데", sector: "소매" },
+      { keyword: "쇼핑", sector: "소매" },
+    ];
+
+    const match = nameKeywordMap.find((m) => name?.includes(m.keyword));
+    if (match) return match.sector;
+
+    return "기타";
+  };
+
+  // 사용자 포트폴리오에서 특정 섹터의 비중 계산
+  const calculateUserSectorAllocation = (userPortfolio: any, targetSector: string): number => {
+    if (!userPortfolio?.topStocks || userPortfolio.topStocks.length === 0) {
+      return 0;
+    }
+
+    const sectorStocks = userPortfolio.topStocks.filter((stock: any) => 
+      stock.sector === targetSector || 
+      (stock.sector && stock.sector.includes(targetSector.split('/')[0]))
+    );
+
+    const totalValue = userPortfolio.topStocks.reduce((sum: number, stock: any) => 
+      sum + (stock.percentage || 0), 0
+    );
+
+    if (totalValue === 0) return 0;
+
+    const sectorValue = sectorStocks.reduce((sum: number, stock: any) => 
+      sum + (stock.percentage || 0), 0
+    );
+
+    return Math.round((sectorValue / totalValue) * 100);
+  };
+
   const generateRecommendations = (
     userPortfolio: any,
     regionData: RegionData,
     stockCountDiff: number,
     riskLevelMatch: boolean
   ) => {
-    // 사진에 맞춰 1개의 추천사항만 반환
-    return ["지역 평균보다 종목 수가 적습니다. 분산 투자를 고려해보세요."];
+    const recommendations: string[] = [];
+
+    // 종목 수 관련
+    if (stockCountDiff < 0) {
+      recommendations.push("지역 평균보다 종목 수가 적습니다. 분산 투자를 고려해보세요.");
+    }
+
+    // 핵심 섹터: 백엔드 top1에서 sector 우선 사용, 없으면 추론
+    const top1 = regionData.popularStocks?.[0];
+    const coreSector = top1?.sector || inferSectorFromTopStock(top1) || '기타';
+    console.log('[Region] coreSector 결정:', {
+      top1Symbol: top1?.symbol,
+      top1Name: top1?.name,
+      top1Sector: top1?.sector,
+      inferredSector: inferSectorFromTopStock(top1),
+      finalCoreSector: coreSector
+    });
+
+    // 지역 평균 섹터 비중
+    const regionPct =
+      regionData.investmentTrends.find(t => t.sector === coreSector)?.percentage ?? 0;
+
+    // 사용자 섹터 비중 계산
+    const userPct = calculateUserSectorAllocation(userPortfolio, coreSector);
+
+    const DIFF_THRESHOLD = 10;
+
+    console.log('[SectorCompare]', { coreSector, regionPct, userPct });
+
+    if (userPct + DIFF_THRESHOLD < regionPct) {
+      recommendations.push(`지역 핵심 섹터(${coreSector}) 비중이 낮습니다. 해당 섹터 비중 확대를 검토하세요.`);
+      console.log('[Recommendation] 부족', { coreSector, diff: regionPct - userPct });
+    }
+
+    return recommendations;
   };
 
   const calculateOverallScore = (
@@ -709,17 +822,116 @@ export default function RegionPortfolioComparison({
             </CardHeader>
             <CardContent>
               <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={comparisonData?.regionAverage?.investmentTrends || []}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="sector" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="percentage" fill="#10B981" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {(() => {
+                  const trendsData = comparisonData?.regionalAverage?.investmentTrends || [];
+                  console.log('[투자트렌드] 원본 데이터:', trendsData);
+                  console.log('[투자트렌드] comparisonData:', comparisonData);
+                  console.log('[투자트렌드] comparisonData 타입:', typeof comparisonData);
+                  console.log('[투자트렌드] comparisonData.regionalAverage:', comparisonData?.regionalAverage);
+                  console.log('[투자트렌드] comparisonData.regionAverage:', comparisonData?.regionAverage);
+                  console.log('[투자트렌드] regionalAverage:', comparisonData?.regionalAverage);
+                  console.log('[투자트렌드] regionalAverage keys:', comparisonData?.regionalAverage ? Object.keys(comparisonData.regionalAverage) : 'undefined');
+                  console.log('[투자트렌드] regionalAverage.investmentTrends:', comparisonData?.regionalAverage?.investmentTrends);
+                  
+                  // comparisonData의 모든 키 확인
+                  if (comparisonData) {
+                    console.log('[투자트렌드] comparisonData 모든 키:', Object.keys(comparisonData));
+                    console.log('[투자트렌드] comparisonData.regionalAverage 존재 여부:', 'regionalAverage' in comparisonData);
+                    console.log('[투자트렌드] comparisonData.regionAverage 존재 여부:', 'regionAverage' in comparisonData);
+                  }
+                  
+                  // 각 투자 트렌드 데이터 상세 로그
+                  if (trendsData && trendsData.length > 0) {
+                    console.log('[투자트렌드] 상세 데이터:');
+                    trendsData.forEach((trend, index) => {
+                      console.log(`  ${index + 1}. 섹터: ${trend.sector}, 비중: ${trend.percentage}%, 트렌드: ${trend.trend}`);
+                    });
+                  } else {
+                    console.log('[투자트렌드] 데이터가 비어있습니다!');
+                  }
+                  
+                  if (trendsData.length === 0) {
+                    return (
+                      <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
+                        <div className="text-center">
+                          <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p>투자 트렌드 데이터를 불러오는 중...</p>
+                          <p className="text-sm mt-2">백엔드에서 데이터를 가져오고 있습니다</p>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  // 데이터 전처리: percentage가 숫자가 아닌 경우 처리
+                  const processedData = trendsData.map(trend => ({
+                    ...trend,
+                    percentage: typeof trend.percentage === 'number' ? trend.percentage : 
+                              typeof trend.percentage === 'string' ? parseFloat(trend.percentage) : 0
+                  })).filter(trend => trend.percentage > 0) // 0보다 큰 값만 표시
+                    .sort((a, b) => b.percentage - a.percentage); // 비중 높은 순으로 정렬
+                  
+                  console.log('[투자트렌드] 전처리된 데이터:', processedData);
+                  
+                  return (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={processedData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis 
+                          dataKey="sector" 
+                          tick={{ fill: '#6B7280', fontSize: 12 }}
+                          angle={-45}
+                          textAnchor="end"
+                          height={80}
+                        />
+                        <YAxis 
+                          tick={{ fill: '#6B7280', fontSize: 12 }}
+                          label={{ value: '비중 (%)', angle: -90, position: 'insideLeft' }}
+                        />
+                        <Tooltip 
+                          formatter={(value: any) => [`${Number(value).toFixed(2)}%`, '비중']}
+                          labelFormatter={(label) => `섹터: ${label}`}
+                          contentStyle={{
+                            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                            border: '1px solid rgba(75, 85, 99, 0.8)',
+                            borderRadius: '12px',
+                            color: '#FFFFFF',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            padding: '12px 16px',
+                            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
+                            backdropFilter: 'blur(8px)'
+                          }}
+                          labelStyle={{
+                            color: '#FFFFFF',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            marginBottom: '4px'
+                          }}
+                          itemStyle={{
+                            color: '#10B981',
+                            fontSize: '14px',
+                            fontWeight: '600'
+                          }}
+                        />
+                        <Bar 
+                          dataKey="percentage" 
+                          radius={[4, 4, 0, 0]}
+                        >
+                          {processedData.map((entry, index) => (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={
+                                entry.trend === 'up' ? '#10B981' : 
+                                entry.trend === 'down' ? '#EF4444' : 
+                                '#6B7280'
+                              } 
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>

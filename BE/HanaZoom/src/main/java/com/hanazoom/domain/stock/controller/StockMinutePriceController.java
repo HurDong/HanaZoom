@@ -15,7 +15,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/stock-minute-prices")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class StockMinutePriceController {
 
     private final StockMinutePriceService stockMinutePriceService;

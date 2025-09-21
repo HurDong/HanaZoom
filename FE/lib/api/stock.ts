@@ -95,6 +95,45 @@ export const getTopStocksByRegion = async (regionId: number) => {
   return response.data;
 };
 
+// 지역×종목 인기도 상세(전일 기준, 뉴스 조각은 현재 숨김)
+export interface PopularityDetailsResponse {
+  regionId: number;
+  symbol: string;
+  date: string;
+  score: number; // 0~100 스케일 (최종 점수)
+  tradeTrend: number; // 0~100 스케일
+  community: number; // 0~100 스케일
+  momentum: number; // 0~100 스케일
+  newsImpact: number; // 0~100 스케일 (현재 0)
+  weightTradeTrend: number;
+  weightCommunity: number;
+  weightMomentum: number;
+  weightNews: number;
+  postCount: number;
+  commentCount: number;
+  voteCount: number;
+  viewCount: number;
+}
+
+export const getPopularityDetails = async (
+  regionId: number,
+  symbol: string,
+  date: string = "latest"
+): Promise<PopularityDetailsResponse> => {
+  try {
+    const res = await api.get<{ success: boolean; data: PopularityDetailsResponse }>(
+      `/regions/${regionId}/stocks/${symbol}/popularity`,
+      { params: { date } }
+    );
+    
+    
+    return res.data.data;
+  } catch (error) {
+    console.error(`❌ [API] getPopularityDetails 에러:`, error);
+    throw error;
+  }
+};
+
 // WTS 관련 API 함수들
 export const getStockRealTimePrice = async (
   stockCode: string

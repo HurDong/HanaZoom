@@ -201,10 +201,12 @@ public class RegionalPortfolioAnalysisService {
                     .map(ps -> {
                         var stockOpt = stockRepository.findBySymbol(ps.getStockSymbol());
                         String name = stockOpt.map(s -> s.getName()).orElse(ps.getStockSymbol());
+                        String sector = stockOpt.map(s -> s.getSector()).orElse(null);
                         String logoUrl = stockOpt.map(s -> s.getLogoUrl()).orElse(null);
                         return RegionalPortfolioAnalysisDto.StockInfo.builder()
                                 .symbol(ps.getStockSymbol())
                                 .name(name)
+                                .sector(sector)
                                 .logoUrl(logoUrl)
                                 .percentage(calculateHoldingPercentage(ps.getCurrentValue(), stats.getTotalValue()))
                                 .build();
@@ -247,6 +249,7 @@ public class RegionalPortfolioAnalysisService {
                         .name(a.getStock().getName())
                         .popularityScore(null)
                         .ranking(i + 1)
+                        .sector(a.getStock().getSector())
                         .logoUrl(a.getStock().getLogoUrl())
                         .build());
             }
@@ -267,19 +270,89 @@ public class RegionalPortfolioAnalysisService {
 
             // 간단한 섹터 분포 트렌드: 최신 날짜의 해당 지역 모든 RegionStock을 기반으로 계산
             List<RegionStock> latestRegionStocks = regionStockRepository.findByRegion_Id(districtId);
+            log.info("지역별 RegionStock 조회 - districtId: {}, 조회된 RegionStock 수: {}", districtId, latestRegionStocks.size());
+            
+            if (latestRegionStocks.isEmpty()) {
+                log.warn("해당 지역({})에 RegionStock 데이터가 없습니다. 기본 investmentTrends를 생성합니다.", districtId);
+                // 기본 데이터 생성
+                List<RegionalPortfolioAnalysisDto.InvestmentTrend> defaultTrends = java.util.Arrays.asList(
+                    RegionalPortfolioAnalysisDto.InvestmentTrend.builder()
+                        .sector("소매")
+                        .percentage(new BigDecimal("35"))
+                        .trend("up")
+                        .build(),
+                    RegionalPortfolioAnalysisDto.InvestmentTrend.builder()
+                        .sector("바이오/제약")
+                        .percentage(new BigDecimal("20"))
+                        .trend("stable")
+                        .build(),
+                    RegionalPortfolioAnalysisDto.InvestmentTrend.builder()
+                        .sector("금융")
+                        .percentage(new BigDecimal("15"))
+                        .trend("down")
+                        .build(),
+                    RegionalPortfolioAnalysisDto.InvestmentTrend.builder()
+                        .sector("자동차")
+                        .percentage(new BigDecimal("12"))
+                        .trend("stable")
+                        .build(),
+                    RegionalPortfolioAnalysisDto.InvestmentTrend.builder()
+                        .sector("기타")
+                        .percentage(new BigDecimal("18"))
+                        .trend("stable")
+                        .build()
+                );
+                
+                RegionalPortfolioAnalysisDto.RegionalAverageInfo result = RegionalPortfolioAnalysisDto.RegionalAverageInfo.builder()
+                        .averageStockCount(averageStockCount)
+                        .averageTotalValue(averageTotalValue)
+                        .commonRiskLevel(commonRiskLevel)
+                        .averageDiversificationScore(averageDiversificationScore)
+                        .popularStocks(popularStockInfos)
+                        .investmentTrends(defaultTrends)
+                        .build();
+                
+                log.info("기본 investmentTrends 생성 완료: {}", defaultTrends);
+                return result;
+            }
+            
             java.util.Map<String, Long> sectorCounts = latestRegionStocks.stream()
                     .map(rs -> rs.getStock())
                     .filter(st -> st != null)
-                    .map(st -> st.getSector() == null ? "기타" : st.getSector())
+                    .map(st -> {
+                        String sector = st.getSector();
+                        log.debug("주식 섹터 정보 - symbol: {}, name: {}, sector: {}", st.getSymbol(), st.getName(), sector);
+                        return sector == null ? "기타" : sector;
+                    })
                     .collect(java.util.stream.Collectors.groupingBy(s -> s, java.util.stream.Collectors.counting()));
 
             long totalCount = sectorCounts.values().stream().mapToLong(Long::longValue).sum();
+            log.info("지역 섹터 분포 계산 - districtId: {}, sectorCounts: {}, totalCount: {}", districtId, sectorCounts, totalCount);
+            
             List<RegionalPortfolioAnalysisDto.InvestmentTrend> investmentTrends = sectorCounts.entrySet().stream()
-                    .map(e -> RegionalPortfolioAnalysisDto.InvestmentTrend.builder()
-                            .sector(e.getKey())
-                            .percentage(totalCount == 0 ? BigDecimal.ZERO : new BigDecimal(e.getValue() * 100.0 / totalCount))
-                            .build())
+                    .map(e -> {
+                        BigDecimal percentage = totalCount == 0 ? BigDecimal.ZERO : 
+                            new BigDecimal(e.getValue() * 100.0 / totalCount).setScale(2, java.math.RoundingMode.HALF_UP);
+                        // 간단한 트렌드 계산: 비중에 따라 up/stable/down 결정
+                        String trend = "stable";
+                        if (percentage.compareTo(new BigDecimal("20")) > 0) {
+                            trend = "up";
+                        } else if (percentage.compareTo(new BigDecimal("5")) < 0) {
+                            trend = "down";
+                        }
+                        
+                        return RegionalPortfolioAnalysisDto.InvestmentTrend.builder()
+                                .sector(e.getKey())
+                                .percentage(percentage)
+                                .trend(trend)
+                                .build();
+                    })
                     .collect(java.util.stream.Collectors.toList());
+
+            log.info("생성된 investmentTrends: {}", investmentTrends);
+            for (RegionalPortfolioAnalysisDto.InvestmentTrend trend : investmentTrends) {
+                log.info("  - 섹터: {}, 비중: {}%, 트렌드: {}", trend.getSector(), trend.getPercentage(), trend.getTrend());
+            }
 
             RegionalPortfolioAnalysisDto.RegionalAverageInfo result = RegionalPortfolioAnalysisDto.RegionalAverageInfo.builder()
                     .averageStockCount(averageStockCount)
@@ -576,20 +649,49 @@ public class RegionalPortfolioAnalysisService {
 
         // 1) 섹터 정렬 이슈
         if (sSector < 60 && out.size() < 3) {
-            // 상위 지역 섹터 후보 추출
-            String topRegionSector = regionSector.entrySet().stream()
-                    .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
-                    .map(Map.Entry::getKey)
-                    .findFirst().orElse("핵심 섹터");
+            // 상위 지역 섹터 후보 추출 - 1등 종목의 섹터 우선 사용
+            String topRegionSector = "핵심 섹터";
+            if (regionalAverage.getPopularStocks() != null && !regionalAverage.getPopularStocks().isEmpty()) {
+                String topStockSector = regionalAverage.getPopularStocks().get(0).getSector();
+                if (topStockSector != null && !topStockSector.isEmpty()) {
+                    topRegionSector = topStockSector;
+                } else {
+                    // 섹터가 없으면 regionSector 맵에서 찾기
+                    topRegionSector = regionSector.entrySet().stream()
+                            .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
+                            .map(Map.Entry::getKey)
+                            .findFirst().orElse("핵심 섹터");
+                }
+            } else {
+                // popularStocks가 없으면 regionSector 맵에서 찾기
+                topRegionSector = regionSector.entrySet().stream()
+                        .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
+                        .map(Map.Entry::getKey)
+                        .findFirst().orElse("핵심 섹터");
+            }
             out.add(String.format("지역 핵심 섹터(%s) 비중이 낮습니다. 해당 섹터 비중 확대를 검토하세요.", topRegionSector));
         }
 
         // 2) 섹터 커버리지 부족
         if (sCover < 65 && out.size() < 3) {
-            // 미커버 섹터 하나 추천
-            String gapSector = regionSector.keySet().stream()
-                    .filter(s -> userSector.getOrDefault(s, BigDecimal.ZERO).compareTo(BigDecimal.ZERO) == 0)
-                    .findFirst().orElse("미커버 섹터");
+            // 미커버 섹터 하나 추천 - 1등 종목의 섹터 우선 사용
+            String gapSector = "미커버 섹터";
+            if (regionalAverage.getPopularStocks() != null && !regionalAverage.getPopularStocks().isEmpty()) {
+                String topStockSector = regionalAverage.getPopularStocks().get(0).getSector();
+                if (topStockSector != null && !topStockSector.isEmpty()) {
+                    gapSector = topStockSector;
+                } else {
+                    // 섹터가 없으면 regionSector 맵에서 찾기
+                    gapSector = regionSector.keySet().stream()
+                            .filter(s -> userSector.getOrDefault(s, BigDecimal.ZERO).compareTo(BigDecimal.ZERO) == 0)
+                            .findFirst().orElse("미커버 섹터");
+                }
+            } else {
+                // popularStocks가 없으면 regionSector 맵에서 찾기
+                gapSector = regionSector.keySet().stream()
+                        .filter(s -> userSector.getOrDefault(s, BigDecimal.ZERO).compareTo(BigDecimal.ZERO) == 0)
+                        .findFirst().orElse("미커버 섹터");
+            }
             out.add(String.format("지역 코어 섹터 노출이 부족합니다. %s 편입을 소액부터 시도해보세요.", gapSector));
         }
 

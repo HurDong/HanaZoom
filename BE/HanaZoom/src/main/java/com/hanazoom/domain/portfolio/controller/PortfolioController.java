@@ -8,6 +8,8 @@ import com.hanazoom.domain.portfolio.entity.AccountBalance;
 import com.hanazoom.domain.portfolio.entity.TradeHistory;
 import com.hanazoom.domain.portfolio.service.PortfolioService;
 import com.hanazoom.domain.portfolio.service.VirtualTradingService;
+import com.hanazoom.domain.consultation.repository.ConsultationRepository;
+import com.hanazoom.domain.consultation.entity.ConsultationStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -25,6 +28,7 @@ public class PortfolioController {
 
     private final PortfolioService portfolioService;
     private final VirtualTradingService virtualTradingService;
+    private final ConsultationRepository consultationRepository;
 
     // 포트폴리오 요약 정보 조회
     @GetMapping("/summary")
@@ -62,6 +66,122 @@ public class PortfolioController {
         } catch (Exception e) {
             log.error("포트폴리오 보유 주식 조회 실패: 회원={}", member.getId(), e);
             return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // PB가 고객의 포트폴리오 요약 조회
+    @GetMapping("/client/{clientId}/summary")
+    public ResponseEntity<PortfolioSummaryResponse> getClientPortfolioSummary(
+            @PathVariable String clientId,
+            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member pbMember) {
+
+        try {
+            log.info("PB가 고객 포트폴리오 요약 조회: PB={}, 고객={}", pbMember.getEmail(), clientId);
+
+            // PB 권한 확인
+            if (!pbMember.isActivePb()) {
+                log.warn("PB 권한 없음: 회원={}", pbMember.getEmail());
+                return ResponseEntity.status(403).build();
+            }
+
+            // 상담 관계 확인
+            if (!hasConsultationRelationship(pbMember.getId(), UUID.fromString(clientId))) {
+                log.warn("상담 관계 없음: PB={}, 고객={}", pbMember.getEmail(), clientId);
+                return ResponseEntity.status(403).build();
+            }
+
+            PortfolioSummaryResponse summary = portfolioService.getPortfolioSummaryByMemberId(UUID.fromString(clientId));
+
+            return ResponseEntity.ok(summary);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("고객 포트폴리오 요약 조회 실패 - 계좌 없음: 고객={}, 오류={}", clientId, e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("고객 포트폴리오 요약 조회 실패: PB={}, 고객={}", pbMember.getEmail(), clientId, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // PB가 고객의 포트폴리오 보유 주식 목록 조회
+    @GetMapping("/client/{clientId}/stocks")
+    public ResponseEntity<List<PortfolioStockResponse>> getClientPortfolioStocks(
+            @PathVariable String clientId,
+            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member pbMember) {
+
+        try {
+            log.info("PB가 고객 포트폴리오 보유 주식 조회: PB={}, 고객={}", pbMember.getEmail(), clientId);
+
+            // PB 권한 확인
+            if (!pbMember.isActivePb()) {
+                log.warn("PB 권한 없음: 회원={}", pbMember.getEmail());
+                return ResponseEntity.status(403).build();
+            }
+
+            // 상담 관계 확인
+            if (!hasConsultationRelationship(pbMember.getId(), UUID.fromString(clientId))) {
+                log.warn("상담 관계 없음: PB={}, 고객={}", pbMember.getEmail(), clientId);
+                return ResponseEntity.status(403).build();
+            }
+
+            List<PortfolioStockResponse> stocks = portfolioService.getPortfolioStocksByMemberId(UUID.fromString(clientId));
+
+            return ResponseEntity.ok(stocks);
+
+        } catch (Exception e) {
+            log.error("고객 포트폴리오 보유 주식 조회 실패: PB={}, 고객={}", pbMember.getEmail(), clientId, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // PB가 고객의 거래 내역 조회
+    @GetMapping("/client/{clientId}/trades")
+    public ResponseEntity<List<TradeHistory>> getClientTradeHistory(
+            @PathVariable String clientId,
+            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member pbMember) {
+
+        try {
+            log.info("PB가 고객 거래 내역 조회: PB={}, 고객={}", pbMember.getEmail(), clientId);
+
+            // PB 권한 확인
+            if (!pbMember.isActivePb()) {
+                log.warn("PB 권한 없음: 회원={}", pbMember.getEmail());
+                return ResponseEntity.status(403).build();
+            }
+
+            // 상담 관계 확인
+            if (!hasConsultationRelationship(pbMember.getId(), UUID.fromString(clientId))) {
+                log.warn("상담 관계 없음: PB={}, 고객={}", pbMember.getEmail(), clientId);
+                return ResponseEntity.status(403).build();
+            }
+
+            List<TradeHistory> trades = portfolioService.getTradeHistoryByMemberId(UUID.fromString(clientId));
+
+            return ResponseEntity.ok(trades);
+
+        } catch (Exception e) {
+            log.error("고객 거래 내역 조회 실패: PB={}, 고객={}", pbMember.getEmail(), clientId, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * PB와 고객 간의 상담 관계 확인
+     */
+    private boolean hasConsultationRelationship(UUID pbId, UUID clientId) {
+        try {
+            // 최근 30일 내에 승인된 상담이 있는지 확인
+            List<com.hanazoom.domain.consultation.entity.Consultation> consultations = 
+                consultationRepository.findByPbIdAndClientIdAndStatusIn(
+                    pbId, 
+                    clientId, 
+                    List.of(ConsultationStatus.APPROVED, ConsultationStatus.IN_PROGRESS, ConsultationStatus.COMPLETED)
+                );
+            
+            return !consultations.isEmpty();
+        } catch (Exception e) {
+            log.error("상담 관계 확인 실패: PB={}, 고객={}", pbId, clientId, e);
+            return false;
         }
     }
 

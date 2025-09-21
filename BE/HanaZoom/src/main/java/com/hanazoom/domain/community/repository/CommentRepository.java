@@ -34,4 +34,8 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
         // 특정 게시글의 전체 댓글 수 조회
         long countByPostAndIsDeletedFalse(Post post);
+
+        // 특정 종목의 전체 댓글 수 조회
+        @Query("SELECT COUNT(c) FROM Comment c JOIN c.post p WHERE p.stock.id = :stockId AND c.isDeleted = false")
+        int countByStockId(@Param("stockId") Long stockId);
 }

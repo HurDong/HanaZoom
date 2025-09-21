@@ -55,6 +55,7 @@ export default function PbRoomVideoConsultation({
     isVideoEnabled,
     isAudioEnabled,
     localStream,
+    mediaMode,
     connectWebSocket,
     disconnect,
     toggleVideo,
@@ -91,28 +92,56 @@ export default function PbRoomVideoConsultation({
     <div className="h-full flex flex-col">
       {/* 메인 비디오 영역 */}
       <div className="flex-1 relative bg-gray-900 rounded-lg m-2 md:m-4 overflow-hidden">
-        {/* 원격 비디오 */}
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          className="w-full h-full object-cover"
-        />
-
-        {/* 로컬 비디오 (작은 화면) */}
-        <div className="absolute top-2 right-2 md:top-4 md:right-4 w-24 h-18 md:w-48 md:h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-green-500">
-          <video
-            ref={localVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
-          {/* 로컬 비디오 오버레이 */}
-          <div className="absolute top-1 left-1 md:top-2 md:left-2 bg-black/50 text-white px-1 py-0.5 md:px-2 md:py-1 rounded text-xs">
-            {isPb ? pbName : "나"}
+        {mediaMode === "text" ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="text-center text-white max-w-md mx-auto px-4">
+              <div className="text-6xl mb-4">💬</div>
+              <h3 className="text-xl font-semibold mb-2">텍스트 채팅 모드</h3>
+              <p className="text-gray-300 mb-4">
+                카메라나 마이크가 없어도 텍스트로 상담을 진행할 수 있습니다
+              </p>
+              <div className="bg-blue-500/20 border border-blue-400/30 rounded-lg p-3 mb-4">
+                <p className="text-sm text-blue-200">
+                  💡 화상 상담을 원하시면 카메라/마이크를 연결하고 권한을 허용해주세요
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* 원격 비디오 */}
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
+            />
+
+            {/* 로컬 비디오 (작은 화면) */}
+            <div className="absolute top-2 right-2 md:top-4 md:right-4 w-24 h-18 md:w-48 md:h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-green-500">
+              {mediaMode === "text" ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="text-center text-white">
+                    <div className="text-2xl mb-2">📝</div>
+                    <p className="text-xs">텍스트 모드</p>
+                  </div>
+                </div>
+              ) : (
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+              )}
+              {/* 로컬 비디오 오버레이 */}
+              <div className="absolute top-1 left-1 md:top-2 md:left-2 bg-black/50 text-white px-1 py-0.5 md:px-2 md:py-1 rounded text-xs">
+                {isPb ? pbName : "나"}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* 연결 상태 오버레이 */}
         {!isConnected && (

@@ -80,10 +80,11 @@ public class PbRoomWebRTCController {
      * 고객이 초대 링크로 방에 참여 (로그인 없이도 가능)
      */
     @PostMapping("/{roomId}/join")
-    public ResponseEntity<?> joinRoom(@PathVariable UUID roomId) {
+    public ResponseEntity<?> joinRoom(@PathVariable UUID roomId, @RequestBody(required = false) Map<String, Object> requestBody) {
         try {
             log.info("=== 고객 입장 API 호출 시작 ===");
             log.info("roomId: {}", roomId);
+            log.info("requestBody: {}", requestBody);
 
             UUID customerId;
 

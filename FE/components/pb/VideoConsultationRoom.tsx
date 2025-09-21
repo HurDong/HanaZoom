@@ -215,12 +215,17 @@ export default function VideoConsultationRoom({
       <div className="flex-1 relative bg-gray-900 rounded-lg m-2 md:m-4 overflow-hidden">
         {mediaMode === "text" ? (
           <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center text-white">
+            <div className="text-center text-white max-w-md mx-auto px-4">
               <div className="text-6xl mb-4">💬</div>
               <h3 className="text-xl font-semibold mb-2">텍스트 채팅 모드</h3>
-              <p className="text-gray-300">
-                카메라/마이크 없이 텍스트로 상담을 진행합니다
+              <p className="text-gray-300 mb-4">
+                카메라나 마이크가 없어도 텍스트로 상담을 진행할 수 있습니다
               </p>
+              <div className="bg-blue-500/20 border border-blue-400/30 rounded-lg p-3 mb-4">
+                <p className="text-sm text-blue-200">
+                  💡 화상 상담을 원하시면 카메라/마이크를 연결하고 권한을 허용해주세요
+                </p>
+              </div>
               <Button
                 onClick={async () => {
                   const success = await requestPermissions();
@@ -231,9 +236,9 @@ export default function VideoConsultationRoom({
                   }
                 }}
                 size="sm"
-                className="mt-4 bg-green-600 hover:bg-green-700 text-white"
+                className="bg-green-600 hover:bg-green-700 text-white"
               >
-                카메라 권한 요청
+                카메라/마이크 연결 시도
               </Button>
             </div>
           </div>

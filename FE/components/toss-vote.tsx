@@ -131,8 +131,16 @@ export function TossVote({
                 "flex items-center space-x-2 text-gray-400 hover:text-red-400 transition-colors",
                 isLiked && "text-red-400"
               )}
+              title={isLiked ? "좋아요 취소" : "좋아요"}
             >
-              <Heart className={cn("w-5 h-5", isLiked && "fill-current")} />
+              <Heart 
+                className={cn("w-5 h-5", isLiked && "fill-current")}
+                style={{
+                  fill: isLiked ? 'currentColor' : 'none',
+                  stroke: 'currentColor',
+                  strokeWidth: isLiked ? 0 : 1.5
+                }}
+              />
               <span className="text-sm">{likeCount}</span>
             </button>
 

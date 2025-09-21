@@ -37,9 +37,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:3001"));
+        configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:3000", "http://localhost:3001"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
@@ -78,11 +78,18 @@ public class SecurityConfig {
                         .requestMatchers("/api/stocks/chart/**").permitAll()
                         .requestMatchers("/api/stock-minute-prices/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/community/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/community/stocks/*/posts").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/community/posts/*").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/community/posts/*/comments").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/community/comments/*/replies").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/community/posts/*/vote-results").authenticated()
                         .requestMatchers("/api/pb/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/pb-rooms/join-info").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/pb-rooms/join").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/pb-rooms/*/join").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/pb-rooms/user/join").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/portfolio/client/*/summary").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/portfolio/client/*/stocks").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/portfolio/client/*/trades").authenticated()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/favicon.ico").permitAll()
                         .anyRequest().authenticated())

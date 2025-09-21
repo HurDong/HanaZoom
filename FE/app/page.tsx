@@ -82,7 +82,7 @@ export default function StockMapLanding() {
       </div>
 
       {/* Floating Stock Symbols (사용자 설정에 따라) */}
-      <FloatingEmojiBackground />
+      {isInitialized && settings.emojiAnimationEnabled && <FloatingEmojiBackground />}
 
       {/* NavBar 컴포넌트 사용 */}
       <div className="fixed top-0 left-0 right-0 z-[100]">
@@ -139,6 +139,8 @@ export default function StockMapLanding() {
                     우리 동네에서 가장 인기 있는 주식 종목을 한눈에!
                     <br />
                     지역별 투자 트렌드를 귀여운 지도로 확인해보세요 🗺️✨
+                    <br />
+                    <span className="text-emerald-600 font-semibold">지역 특성을 반영한 맞춤형 주식 인사이트를 만나보세요!</span>
                   </p>
                 </AnimateOnScroll>
 
