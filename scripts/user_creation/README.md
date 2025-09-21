@@ -183,30 +183,27 @@ CHEONGRA_REGION_INFO = {
 
 ### 생성된 파일들
 
-4. **`cheongra_login_test_final.jmx`** - 로그인 테스트 (JWT 토큰 추출 + 사용자 정보 조회)
-5. **`cheongra_websocket_chat_test.jmx`** - WebSocket 채팅방 입장 및 메시지 전송 테스트 (로그인 + 채팅)
+4. **`cheongra_login_only_test.jmx`** - 로그인 + 사용자 정보 조회 테스트 (WebSocket 없음, 플러그인 불필요)
+5. **`cheongra_login_test_final.jmx`** - 로그인 + 사용자 정보 조회 테스트 (WebSocket 없음)
+6. **`cheongra_websocket_chat_test.jmx`** - Peter Doornbosch WebSocket 플러그인용 채팅 테스트 (로그인 + 채팅)
 
 ### WebSocket 테스트 플러그인 설치
 
-WebSocket 테스트를 위해서는 **WebSocket Samplers by Peter Doornbosch** 플러그인이 필요합니다.
+**Peter Doornbosch WebSocket 플러그인**을 사용합니다.
 
-#### 설치 방법:
+#### 방법 1: JMeter Plugins Manager (권장)
 
-1. **JMeter Plugins Manager 열기**
+1. JMeter 실행
+2. `Options` → `Plugins Manager` 메뉴 선택
+3. "Available Plugins" 탭에서 "WebSocket Samplers by Peter Doornbosch" 검색
+4. 체크박스 선택 후 "Apply Changes and Restart JMeter" 클릭
 
-   - JMeter에서 `Options` → `Plugins Manager` 클릭
+#### 방법 2: 수동 설치
 
-2. **WebSocket Samplers 플러그인 검색**
-
-   - "Available Plugins" 탭에서 "WebSocket Samplers by Peter Doornbosch" 검색
-   - 체크박스 선택 후 "Apply Changes and Restart JMeter" 클릭
-
-3. **수동 설치 (필요시)**
-   ```bash
-   wget https://jmeter-plugins.org/files/packages/jpgc-wsc-2.4.zip
-   unzip jpgc-wsc-2.4.zip
-   cp lib/ext/WebSocketSamplers-2.4.jar /path/to/jmeter/lib/ext/
-   ```
+1. 플러그인 다운로드: https://jmeter-plugins.org/files/packages/jpgc-wsc-2.4.zip
+2. 압축 해제 후 `lib/ext/WebSocketSamplers-2.4.jar` 파일을
+3. JMeter의 `lib/ext/` 폴더에 복사
+4. JMeter 재시작
 
 ### WebSocket 테스트 시나리오
 
@@ -216,11 +213,21 @@ WebSocket 테스트를 위해서는 **WebSocket Samplers by Peter Doornbosch** �
 4. **채팅방 입장**: ENTER 타입 메시지 전송
 5. **메시지 전송**: TALK 타입 메시지 전송
 
-### 테스트 설정
+### 빠른 테스트 (플러그인 불필요)
 
-- **동시 사용자**: 3명
-- **반복 횟수**: 5회
-- **채팅방 ID**: 1 (기본값, User Defined Variables에서 변경 가능)
+**`cheongra_login_only_test.jmx`** 또는 **`cheongra_login_test_final.jmx`** 사용:
+
+- **동시 사용자**: 1명 (테스트하기 쉽게 조정)
+- **반복 횟수**: 1회 (테스트하기 쉽게 조정)
+- **채팅방 ID**: 1229 (청라1동 Region ID)
+- **지역 이름**: 청라1동
+
+### WebSocket 테스트 (플러그인 필요)
+
+**`cheongra_websocket_chat_test.jmx`** 사용:
+
+- WebSocket 플러그인 설치 후 사용 가능
+- 실제 WebSocket 연결 및 채팅 기능 테스트
 
 ### 실행 결과
 
@@ -251,12 +258,13 @@ WebSocket 테스트를 위해서는 **WebSocket Samplers by Peter Doornbosch** �
 
 ### User Defined Variables
 
-- `CHAT_ROOM_ID`: 테스트할 채팅방 ID
+- `CHAT_ROOM_ID`: 테스트할 채팅방 ID (기본값: 1229 - 청라1동)
+- `REGION_NAME`: 지역 이름 (기본값: 청라1동)
 - `WS_PROTOCOL`: WebSocket 프로토콜 (ws/wss)
-- `BASE_URL`: 서버 호스트
-- `SERVER_PORT`: 서버 포트
+- `BASE_URL`: 서버 호스트 (기본값: localhost)
+- `SERVER_PORT`: 서버 포트 (기본값: 8080)
 - `CSV_FILE_PATH`: CSV 파일명 (상대 경로)
-- `DEFAULT_JWT_TOKEN`: JWT 토큰 추출 실패 시 사용할 기본값 (빈 값 권장)
+- `DEFAULT_JWT_TOKEN`: JWT 토큰 추출 실패 시 사용할 기본값
 
 ### 사용 방법
 
@@ -270,3 +278,31 @@ JMX 파일을 사용하려면:
 
 - **CSV 파일(`cheongra_users_jmeter.csv`)과 JMX 파일을 같은 디렉토리에 배치**
 - **User Defined Variables에서 서버 설정 변경** (BASE_URL, SERVER_PORT 등)
+
+### WebSocket 메시지 형식
+
+#### 채팅방 입장:
+
+```json
+{
+  "type": "ENTER",
+  "roomId": "1229",
+  "sender": "사용자명",
+  "message": "청라1동 채팅방에 입장했습니다",
+  "regionId": "1229",
+  "regionName": "청라1동"
+}
+```
+
+#### 메시지 전송:
+
+```json
+{
+  "type": "TALK",
+  "roomId": "1229",
+  "sender": "사용자명",
+  "message": "청라1동에서 보내는 테스트 메시지입니다.",
+  "regionId": "1229",
+  "regionName": "청라1동"
+}
+```
