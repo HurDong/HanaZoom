@@ -1,0 +1,9 @@
+# JMeter 플러그인 바이너리 파일 제외
+*.jar
+
+# JMeter 작업 중인 파일 제외
+*_working.jmx
+*temp*.jmx
+
+# 중간 생성 파일들 (필요시)
+*_payloads.json

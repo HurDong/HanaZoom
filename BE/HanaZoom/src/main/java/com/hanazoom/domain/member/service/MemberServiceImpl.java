@@ -231,9 +231,20 @@ public class MemberServiceImpl implements MemberService {
             log.info("✅ 회원 조회 완료 - ID: {}", member.getId());
 
             // 비밀번호 검증
-            if (!passwordUtil.matches(request.getPassword(), member.getPassword())) {
+            boolean passwordValid = passwordUtil.matches(request.getPassword(), member.getPassword());
+            // TODO : 삭제 필요
+            // BCrypt 해시로 검증 실패 시 평문으로도 시도 (Python 스크립트로 생성된 사용자들 대응)
+            if (!passwordValid && !request.getPassword().equals(member.getPassword())) {
                 log.error("❌ 비밀번호 검증 실패 - 이메일: {}", request.getEmail());
                 throw new IllegalArgumentException("이메일 또는 비밀번호가 일치하지 않습니다.");
+            }
+
+            // 평문 비밀번호로 로그인한 경우, 비밀번호를 해싱해서 업데이트
+            if (!passwordValid && request.getPassword().equals(member.getPassword())) {
+                log.info("🔄 평문 비밀번호로 로그인 - 비밀번호 해싱 업데이트 필요: {}", request.getEmail());
+                // 비밀번호를 해싱해서 업데이트
+                member.updatePassword(passwordUtil.encodePassword(request.getPassword()));
+                memberRepository.save(member);
             }
             log.info("✅ 비밀번호 검증 완료");
 
