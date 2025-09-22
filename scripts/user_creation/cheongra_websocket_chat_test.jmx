@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
   <hashTree>
-    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Peter Doornbosch WebSocket 테스트 - 청라1동 (Region ID: 1229)" enabled="true">
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="청라1동 WebSocket 초기 연결 테스트 (Region ID: 1229)" enabled="true">
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
         <collectionProp name="Arguments.arguments">
           <elementProp name="BASE_URL" elementType="Argument">
@@ -46,9 +46,11 @@
           </elementProp>
         </collectionProp>
       </elementProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
     </TestPlan>
     <hashTree>
-      <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="CSV Data Set Config" enabled="true">
+      <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="CSV Data Set Config">
         <stringProp name="filename">cheongra_users_jmeter.csv</stringProp>
         <stringProp name="fileEncoding">UTF-8</stringProp>
         <stringProp name="variableNames">email,password,name,phone,address,detail_address,zonecode,latitude,longitude</stringProp>
@@ -60,7 +62,7 @@
         <stringProp name="delimiter">,</stringProp>
       </CSVDataSet>
       <hashTree/>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="청라1동 지역채팅 테스트" enabled="true">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="청라1동 WebSocket 초기 연결 테스트" enabled="true">
         <intProp name="ThreadGroup.num_threads">1</intProp>
         <intProp name="ThreadGroup.ramp_time">1</intProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
@@ -71,7 +73,6 @@
         </elementProp>
       </ThreadGroup>
       <hashTree>
-        <!-- 로그인 API 호출 -->
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="로그인 API" enabled="true">
           <stringProp name="HTTPSampler.domain">${BASE_URL}</stringProp>
           <stringProp name="HTTPSampler.port">${SERVER_PORT}</stringProp>
@@ -85,9 +86,9 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{
-  "email": "${email}",
-  "password": "${password}"
+                <stringProp name="Argument.value">{&#xd;
+  &quot;email&quot;: &quot;${email}&quot;,&#xd;
+  &quot;password&quot;: &quot;${password}&quot;&#xd;
 }</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
@@ -108,17 +109,17 @@
             </collectionProp>
           </HeaderManager>
           <hashTree/>
-          <!-- JWT 토큰 추출 -->
           <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JWT 토큰 추출" enabled="true">
             <stringProp name="JSONPostProcessor.referenceNames">jwt_token</stringProp>
             <stringProp name="JSONPostProcessor.jsonPathExpressions">$.data.accessToken</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$.data.accessToken</stringProp>
             <stringProp name="JSONPostProcessor.match_numbers">0</stringProp>
-            <stringProp name="JSONPostProcessor.defaultValues">eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjNTg1YzI5Mi0yZTAxLTQzOWUtYWM2Zi02MzE0ZTM4NjQ2NjkiLCJlbWFpbCI6ImRwcDNjMTRjQGhvdG1haWwuY29tIiwiaWF0IjoxNzU4NDc3OTk4LCJleHAiOjE3NTg0ODE1OTh9.-sQA7X0YH5MKdl4NSf14bQexRa5GguE7gDqLsu13iJZXyI0ULJaQy3m7-ElquooE</stringProp>
+            <stringProp name="JSONPostProcessor.defaultValues">NULL</stringProp>
           </JSONPostProcessor>
           <hashTree/>
           <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="로그인 성공 확인" enabled="true">
             <collectionProp name="Asserion.test_strings">
-              <stringProp name="49586">"success":true</stringProp>
+              <stringProp name="-547797305">&quot;success&quot;:true</stringProp>
             </collectionProp>
             <stringProp name="Assertion.custom_message"></stringProp>
             <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
@@ -127,128 +128,65 @@
           </ResponseAssertion>
           <hashTree/>
         </hashTree>
-
-        <!-- WebSocket 연결 설정 -->
-        <ConfigTestElement guiclass="HttpDefaultsGui" testclass="ConfigTestElement" testname="WebSocket 연결 설정" enabled="true">
-          <stringProp name="HTTPSampler.domain">${BASE_URL}</stringProp>
-          <stringProp name="HTTPSampler.port">${SERVER_PORT}</stringProp>
-          <stringProp name="HTTPSampler.protocol">${WS_PROTOCOL}</stringProp>
-          <stringProp name="HTTPSampler.path">/ws/chat</stringProp>
-        </ConfigTestElement>
+        <eu.luminis.jmeter.wssampler.OpenWebSocketSampler guiclass="eu.luminis.jmeter.wssampler.OpenWebSocketSamplerGui" testclass="eu.luminis.jmeter.wssampler.OpenWebSocketSampler" testname="WebSocket Open Connection" enabled="true">
+          <boolProp name="TLS">false</boolProp>
+          <stringProp name="server">${BASE_URL}</stringProp>
+          <stringProp name="port">${SERVER_PORT}</stringProp>
+          <stringProp name="path">/ws/chat/region</stringProp>
+          <stringProp name="connectTimeout">20000</stringProp>
+          <stringProp name="readTimeout">6000</stringProp>
+          <stringProp name="requestHeaders">Authorization: Bearer ${jwt_token}
+Sec-WebSocket-Protocol: authorization</stringProp>
+        </eu.luminis.jmeter.wssampler.OpenWebSocketSampler>
         <hashTree/>
-
-        <!-- WebSocket 채팅방 입장 -->
-        <pl.bsc.jmeter.WebSocketSampler guiclass="pl.bsc.jmeter.WebSocketSamplerGui" testclass="pl.bsc.jmeter.WebSocketSampler" testname="WebSocket 채팅방 입장" enabled="true">
-          <stringProp name="WebSocketSampler.requestData">{
-  "type": "ENTER",
-  "roomId": "${CHAT_ROOM_ID}",
-  "sender": "${name}",
-  "message": "${REGION_NAME} 채팅방에 입장했습니다",
-  "regionId": "${CHAT_ROOM_ID}",
-  "regionName": "${REGION_NAME}"
-}</stringProp>
-          <stringProp name="WebSocketSampler.connectionId">chat_connection_${__threadNum}</stringProp>
-          <stringProp name="WebSocketSampler.server">ws://${BASE_URL}:${SERVER_PORT}</stringProp>
-          <stringProp name="WebSocketSampler.port">${SERVER_PORT}</stringProp>
-          <stringProp name="WebSocketSampler.path">/ws/chat</stringProp>
-          <stringProp name="WebSocketSampler.connectTimeOut">5000</stringProp>
-          <stringProp name="WebSocketSampler.responseTimeOut">10000</stringProp>
-        </pl.bsc.jmeter.WebSocketSampler>
-        <hashTree>
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="WebSocket 인증 헤더" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="Authorization" elementType="Header">
-                <stringProp name="Header.name">Authorization</stringProp>
-                <stringProp name="Header.value">Bearer ${jwt_token}</stringProp>
-              </elementProp>
-              <elementProp name="Sec-WebSocket-Protocol" elementType="Header">
-                <stringProp name="Header.name">Sec-WebSocket-Protocol</stringProp>
-                <stringProp name="Header.value">authorization</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="채팅방 입장 확인" enabled="true">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="49587">ENTER</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.custom_message"></stringProp>
-            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">2</intProp>
-          </ResponseAssertion>
-          <hashTree/>
-        </hashTree>
-
-        <!-- 메시지 전송 테스트 -->
-        <pl.bsc.jmeter.WebSocketSampler guiclass="pl.bsc.jmeter.WebSocketSamplerGui" testclass="pl.bsc.jmeter.WebSocketSampler" testname="WebSocket 메시지 전송" enabled="true">
-          <stringProp name="WebSocketSampler.requestData">{
-  "type": "TALK",
-  "roomId": "${CHAT_ROOM_ID}",
-  "sender": "${name}",
-  "message": "${REGION_NAME}에서 보내는 테스트 메시지입니다.",
-  "regionId": "${CHAT_ROOM_ID}",
-  "regionName": "${REGION_NAME}"
-}</stringProp>
-          <stringProp name="WebSocketSampler.connectionId">chat_connection_${__threadNum}</stringProp>
-          <stringProp name="WebSocketSampler.server">ws://${BASE_URL}:${SERVER_PORT}</stringProp>
-          <stringProp name="WebSocketSampler.port">${SERVER_PORT}</stringProp>
-          <stringProp name="WebSocketSampler.path">/ws/chat</stringProp>
-          <stringProp name="WebSocketSampler.connectTimeOut">5000</stringProp>
-          <stringProp name="WebSocketSampler.responseTimeOut">10000</stringProp>
-        </pl.bsc.jmeter.WebSocketSampler>
-        <hashTree>
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="메시지 전송 확인" enabled="true">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="49588">TALK</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.custom_message"></stringProp>
-            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">2</intProp>
-          </ResponseAssertion>
-          <hashTree/>
-        </hashTree>
-
-        <!-- View Results Tree -->
-        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="true">
-          <boolProp name="ResultCollector.error_logging">false</boolProp>
-          <objProp>
-            <name>saveConfig</name>
-            <value class="SampleSaveConfiguration">
-              <time>true</time>
-              <latency>true</latency>
-              <timestamp>true</timestamp>
-              <success>true</success>
-              <label>true</label>
-              <code>true</code>
-              <message>true</message>
-              <threadName>true</threadName>
-              <dataType>true</dataType>
-              <encoding>false</encoding>
-              <assertions>true</assertions>
-              <subresults>true</subresults>
-              <responseData>true</responseData>
-              <samplerData>false</samplerData>
-              <xml>false</xml>
-              <fieldNames>true</fieldNames>
-              <responseHeaders>false</responseHeaders>
-              <requestHeaders>false</requestHeaders>
-              <responseDataOnError>true</responseDataOnError>
-              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
-              <assertionsResultsToSave>0</assertionsResultsToSave>
-              <bytes>true</bytes>
-              <sentBytes>true</sentBytes>
-              <url>true</url>
-              <threadCounts>true</threadCounts>
-              <idleTime>true</idleTime>
-              <connectTime>true</connectTime>
-            </value>
-          </objProp>
-          <stringProp name="filename"></stringProp>
-        </ResultCollector>
+        <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="WebSocket 연결 성공 확인" enabled="true">
+          <collectionProp name="Asserion.test_strings">
+            <stringProp name="48626">101</stringProp>
+          </collectionProp>
+          <stringProp name="Assertion.custom_message"></stringProp>
+          <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+          <boolProp name="Assertion.assume_success">false</boolProp>
+          <intProp name="Assertion.test_type">1</intProp>
+        </ResponseAssertion>
         <hashTree/>
       </hashTree>
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>true</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>true</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename"></stringProp>
+      </ResultCollector>
+      <hashTree/>
     </hashTree>
   </hashTree>
 </jmeterTestPlan>

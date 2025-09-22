@@ -17,7 +17,7 @@ from datetime import datetime
 # 데이터베이스 설정
 DB_CONFIG = {
     'host': 'localhost',
-    'port': 33306,
+    'port': 3306,
     'user': 'hanazoom_user',
     'password': 'hanazoom1234!',
     'database': 'hanazoom'

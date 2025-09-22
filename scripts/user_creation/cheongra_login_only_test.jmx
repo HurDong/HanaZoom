@@ -107,10 +107,16 @@
           <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JWT 토큰 추출" enabled="true">
             <stringProp name="JSONPostProcessor.referenceNames">jwt_token</stringProp>
             <stringProp name="JSONPostProcessor.jsonPathExpressions">$.data.accessToken</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$.data.accessToken</stringProp>
             <stringProp name="JSONPostProcessor.match_numbers">0</stringProp>
-            <stringProp name="JSONPostProcessor.defaultValues">eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjNTg1YzI5Mi0yZTAxLTQzOWUtYWM2Zi02MzE0ZTM4NjQ2NjkiLCJlbWFpbCI6ImRwcDNjMTRjQGhvdG1haWwuY29tIiwiaWF0IjoxNzU4NDc3OTk4LCJleHAiOjE3NTg0ODE1OTh9.-sQA7X0YH5MKdl4NSf14bQexRa5GguE7gDqLsu13iJZXyI0ULJaQy3m7-ElquooE</stringProp>
-            <stringProp name="JSONPostProcessor.jsonPathExprs"></stringProp>
+            <stringProp name="JSONPostProcessor.defaultValues">NULL</stringProp>
           </JSONPostProcessor>
+          <hashTree/>
+          <DebugSampler guiclass="TestBeanGUI" testclass="DebugSampler" testname="JWT 토큰 디버그" enabled="true">
+            <boolProp name="displayJMeterProperties">false</boolProp>
+            <boolProp name="displayJMeterVariables">true</boolProp>
+            <boolProp name="displaySystemProperties">false</boolProp>
+          </DebugSampler>
           <hashTree/>
           <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="로그인 성공 확인" enabled="true">
             <collectionProp name="Asserion.test_strings">
