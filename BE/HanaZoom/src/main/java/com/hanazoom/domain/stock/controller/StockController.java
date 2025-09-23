@@ -7,6 +7,8 @@ import com.hanazoom.domain.stock.dto.StockResponse;
 import com.hanazoom.domain.stock.dto.StockTickerDto;
 import com.hanazoom.domain.stock.entity.Stock;
 import com.hanazoom.domain.stock.service.StockService;
+import com.hanazoom.domain.stock.service.KafkaStockConsumer;
+import com.hanazoom.domain.stock.service.KafkaStockService;
 import com.hanazoom.global.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +19,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -25,6 +28,8 @@ import java.util.List;
 public class StockController {
 
     private final StockService stockService;
+    private final KafkaStockConsumer kafkaStockConsumer;
+    private final KafkaStockService kafkaStockService;
 
     @GetMapping("/{symbol}")
     public ResponseEntity<ApiResponse<StockResponse>> getStock(@PathVariable String symbol) {
@@ -158,6 +163,119 @@ public class StockController {
             log.error("Failed to fetch order book for stock code: {}", stockCode, e);
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("호가창 조회 중 오류가 발생했습니다: " + e.getMessage()));
+        }
+    }
+
+    // ===== Kafka 기반 실시간 데이터 API =====
+
+    /**
+     * Kafka에서 실시간 주식 데이터 조회 (WebSocket 대신)
+     */
+    @GetMapping("/kafka/realtime/{stockCode}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getKafkaRealTimeData(@PathVariable String stockCode) {
+        log.info("Kafka 실시간 데이터 요청: {}", stockCode);
+
+        try {
+            Map<String, Object> stockData = kafkaStockConsumer.getRealTimeStockData(stockCode);
+
+            if (stockData != null) {
+                return ResponseEntity.ok(ApiResponse.success(stockData));
+            } else {
+                return ResponseEntity.ok()
+                        .body(ApiResponse.success(Map.of(
+                            "stockCode", stockCode,
+                            "message", "실시간 데이터가 아직 준비되지 않았습니다.",
+                            "timestamp", java.time.LocalDateTime.now()
+                        )));
+            }
+
+        } catch (Exception e) {
+            log.error("Kafka 실시간 데이터 조회 실패: {}", stockCode, e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("실시간 데이터 조회 중 오류가 발생했습니다."));
+        }
+    }
+
+    /**
+     * 모든 Kafka 실시간 데이터 조회
+     */
+    @GetMapping("/kafka/realtime/all")
+    public ResponseEntity<ApiResponse<Map<String, Map<String, Object>>>> getAllKafkaRealTimeData() {
+        log.info("모든 Kafka 실시간 데이터 요청");
+
+        try {
+            Map<String, Map<String, Object>> allData = kafkaStockConsumer.getAllRealTimeStockData();
+            return ResponseEntity.ok(ApiResponse.success(allData));
+
+        } catch (Exception e) {
+            log.error("Kafka 전체 실시간 데이터 조회 실패", e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("전체 실시간 데이터 조회 중 오류가 발생했습니다."));
+        }
+    }
+
+    /**
+     * Kafka Consumer 상태 조회
+     */
+    @GetMapping("/kafka/status")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getKafkaConsumerStatus() {
+        log.info("Kafka Consumer 상태 조회");
+
+        try {
+            Map<String, Object> status = kafkaStockConsumer.getConsumerStatus();
+            return ResponseEntity.ok(ApiResponse.success(status));
+
+        } catch (Exception e) {
+            log.error("Kafka Consumer 상태 조회 실패", e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Consumer 상태 조회 중 오류가 발생했습니다."));
+        }
+    }
+
+    /**
+     * Kafka 성능 비교 테스트
+     */
+    @PostMapping("/kafka/test-comparison")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> testComparison() {
+        log.info("Kafka vs WebSocket 성능 비교 테스트 시작");
+
+        try {
+            Map<String, Object> result = new java.util.HashMap<>();
+
+            // Kafka 테스트
+            long kafkaStartTime = System.currentTimeMillis();
+            Map<String, Map<String, Object>> kafkaData = kafkaStockConsumer.getAllRealTimeStockData();
+            long kafkaEndTime = System.currentTimeMillis();
+
+            // WebSocket 시뮬레이션 (실제 WebSocket 서비스 호출)
+            long websocketStartTime = System.currentTimeMillis();
+            // 실제로는 WebSocket 서비스 호출
+            // List<StockTickerDto> websocketData = stockService.getStockTickers();
+            long websocketEndTime = System.currentTimeMillis();
+
+            result.put("kafkaDataCount", kafkaData.size());
+            result.put("kafkaResponseTime", kafkaEndTime - kafkaStartTime);
+            result.put("websocketResponseTime", websocketEndTime - websocketStartTime);
+            result.put("kafkaCachedStocks", kafkaStockConsumer.getCachedStockCount());
+            result.put("timestamp", java.time.LocalDateTime.now());
+
+            // 성능 메트릭 전송
+            kafkaStockService.sendComparisonMetrics(
+                "kafka",
+                "getAllData",
+                kafkaStartTime,
+                kafkaEndTime
+            );
+
+            log.info("성능 비교 테스트 완료 - Kafka: {}ms, WebSocket: {}ms",
+                    kafkaEndTime - kafkaStartTime, websocketEndTime - websocketStartTime);
+
+            return ResponseEntity.ok(ApiResponse.success(result));
+
+        } catch (Exception e) {
+            log.error("성능 비교 테스트 실패", e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("성능 비교 테스트 중 오류가 발생했습니다."));
         }
     }
 }

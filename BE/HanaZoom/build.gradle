@@ -37,9 +37,12 @@ dependencies {
 
 	// async http client
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
-	
+
 	// redis client
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+	// kafka for streaming data
+	implementation 'org.springframework.kafka:spring-kafka'
 
 	// json library
 	implementation 'org.json:json:20240303'
