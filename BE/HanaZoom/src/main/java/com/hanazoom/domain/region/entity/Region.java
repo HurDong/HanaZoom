@@ -16,7 +16,9 @@ import java.util.List;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "regions")
+@Table(name = "regions", indexes = {
+    @Index(name = "idx_regions_parent_id", columnList = "parent_id")
+})
 public class Region {
 
     @Id

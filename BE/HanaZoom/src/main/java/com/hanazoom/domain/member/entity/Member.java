@@ -19,7 +19,12 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "members")
+@Table(name = "members", indexes = {
+    @Index(name = "idx_members_email", columnList = "email", unique = true),
+    @Index(name = "idx_members_region_id", columnList = "region_id"),
+    @Index(name = "idx_members_email_region", columnList = "email, region_id"),
+    @Index(name = "idx_members_status", columnList = "status")
+})
 @Getter
 @Setter
 @NoArgsConstructor
