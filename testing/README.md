@@ -31,7 +31,7 @@ testing/
 # testing 폴더로 이동
 cd testing
 
-# 자동 추적 기능이 포함된 테스트 실행
+# 자동 추적 기능이 포함된 테스트 실행 (절대 경로 사용)
 ./scripts/run_test.bat
 ```
 
@@ -41,6 +41,9 @@ cd testing
 python scripts/tracker.py save
 python scripts/tracker.py compare
 python scripts/tracker.py history
+
+# 또는 절대 경로 사용 (배치 파일과 동일)
+python "%~dp0..\scripts\tracker.py" save
 ```
 
 ### 3. 로그 분석
@@ -54,6 +57,12 @@ python logs/analyze_logs.py
 ### 자동 결과 추적
 - 테스트 완료 시 자동으로 결과를 저장
 - 이전 결과와 자동 비교
+- JSON 기반 데이터 추출 (HTML 정규식 대신)
+
+### 다중 테스트 지원
+- 매번 테스트 실행 시 새로운 결과 저장
+- 최대 10개까지 히스토리 보관
+- 시간순 정렬 및 상세 통계 제공
 - 개선율 자동 계산
 - JSON 형태로 히스토리 관리
 

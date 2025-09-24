@@ -17,12 +17,12 @@ echo 🔍 테스트 완료! 결과 분석 중...
 echo.
 
 REM Python 스크립트로 자동 분석 (JSON 기반)
-python ../scripts/tracker.py auto
+python "%~dp0..\scripts\tracker.py" auto
 
 if %errorlevel% neq 0 (
     echo.
     echo ❌ 자동 분석 중 오류 발생
-    echo 💡 수동 분석: python ../scripts/tracker.py [save/compare/history]
+    echo 💡 수동 분석: python "%~dp0..\scripts\tracker.py" [save/compare/history]
     echo.
 )
 
