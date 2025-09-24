@@ -346,8 +346,8 @@ kustomization.yaml
 # Documentation & Notes
 # =============================================
 # TIL and Dev Notes
-til/
-TIL-*.md
+# til/ - TIL files are now tracked for sharing
+# TIL-*.md - TIL files are now tracked for sharing
 *_dev.md
 *_development.md
 notes/
