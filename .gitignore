@@ -546,3 +546,30 @@ gatling-charts-highcharts-bundle-*/results/
 !gradle-wrapper.properties
 !Dockerfile
 !docker-compose.yml
+
+# =============================================
+# Tools & Utilities (keep source, ignore binaries)
+# =============================================
+# Gatling (부하테스트 도구 - 소스만 유지, 결과는 제외)
+gatling-charts-highcharts-bundle-*/target/
+gatling-charts-highcharts-bundle-*/results/
+!gatling-charts-highcharts-bundle-*/bin/
+!gatling-charts-highcharts-bundle-*/conf/
+!gatling-charts-highcharts-bundle-*/user-files/
+!gatling-charts-highcharts-bundle-*/lib/
+
+# Scripts (데이터 처리 스크립트 - 소스만 유지)
+scripts/**/*.log
+scripts/**/out_*
+scripts/**/output/
+scripts/**/temp/
+scripts/**/__pycache__/
+scripts/**/generated_*
+scripts/**/*.pyc
+!scripts/**/*.py
+!scripts/**/*.md
+!scripts/**/*.txt
+!scripts/**/*.sql
+!scripts/**/*.json
+!scripts/**/*.yml
+!scripts/**/*.yaml
