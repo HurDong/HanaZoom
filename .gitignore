@@ -573,3 +573,21 @@ scripts/**/*.pyc
 !scripts/**/*.json
 !scripts/**/*.yml
 !scripts/**/*.yaml
+
+# =============================================
+# Optimization Scripts & Config
+# =============================================
+# Entity optimization guide
+!**/entity_optimization_guide.md
+
+# Caching configuration
+!**/redis_config.yml
+!**/cache_config.json
+
+# Monitoring & APM
+!**/monitoring_setup.yml
+!**/apm_config.json
+
+# Performance test configurations
+!**/performance_config.yml
+!**/load_test_config.json
