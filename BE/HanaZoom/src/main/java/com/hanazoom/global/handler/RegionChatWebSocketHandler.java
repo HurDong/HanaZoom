@@ -48,7 +48,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
         log.info("🔌 지역 채팅 WebSocket 연결 시도: {}", session.getId());
-        
+
         // URL에서 regionId와 token 추출
         String query = session.getUri().getQuery();
         if (query == null) {
@@ -324,7 +324,40 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "USERS");
             payload.put("users", getOnlineUsers(regionId));
-            broadcastToRegion(regionId, objectMapper.writeValueAsString(payload));
+            String message = objectMapper.writeValueAsString(payload);
+
+            Set<WebSocketSession> sessions = regionChatRooms.get(regionId);
+            if (sessions != null && !sessions.isEmpty()) {
+                List<WebSocketSession> deadSessions = new ArrayList<>();
+
+                for (WebSocketSession session : sessions) {
+                    try {
+                        if (session != null && session.isOpen()) {
+                            synchronized (session) {
+                                if (session.isOpen()) {
+                                    session.sendMessage(new TextMessage(message));
+                                    log.debug("✅ 사용자 목록 브로드캐스트 성공: {}", session.getId());
+                                } else {
+                                    deadSessions.add(session);
+                                }
+                            }
+                        } else {
+                            deadSessions.add(session);
+                        }
+                    } catch (IllegalStateException e) {
+                        log.warn("⚠️ WebSocket 세션이 닫혀있어 사용자 목록 전송 불가 (무시): {}", session.getId());
+                        deadSessions.add(session);
+                    } catch (Exception e) {
+                        log.warn("❌ 사용자 목록 브로드캐스트 실패 (무시): {}", session.getId());
+                        deadSessions.add(session);
+                    }
+                }
+
+                deadSessions.forEach(sessions::remove);
+                if (!deadSessions.isEmpty()) {
+                    log.info("🧹 사용자 목록 브로드캐스트 중 정리된 죽은 세션 수: {}", deadSessions.size());
+                }
+            }
         } catch (Exception e) {
             log.error("❌ 온라인 사용자 목록 브로드캐스트 실패", e);
         }
@@ -332,28 +365,36 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
 
     private void broadcastToRegion(Long regionId, String message) {
         Set<WebSocketSession> sessions = regionChatRooms.get(regionId);
-        if (sessions != null) {
+        if (sessions != null && !sessions.isEmpty()) {
             List<WebSocketSession> deadSessions = new ArrayList<>();
-            
+
             for (WebSocketSession session : sessions) {
                 try {
-                    if (session.isOpen()) {
+                    if (session != null && session.isOpen()) {
                         synchronized (session) {
                             if (session.isOpen()) {
                                 session.sendMessage(new TextMessage(message));
+                                log.debug("✅ 메시지 브로드캐스트 성공: {}", session.getId());
+                            } else {
+                                deadSessions.add(session);
                             }
                         }
                     } else {
                         deadSessions.add(session);
                     }
+                } catch (IllegalStateException e) {
+                    log.warn("⚠️ WebSocket 세션이 닫혀있어 메시지 전송 불가 (무시): {}", session.getId());
+                    deadSessions.add(session);
                 } catch (Exception e) {
                     log.error("❌ 지역 채팅 메시지 전송 실패: {}", session.getId(), e);
                     deadSessions.add(session);
                 }
             }
 
-            // 죽은 세션들 정리
             deadSessions.forEach(sessions::remove);
+            if (!deadSessions.isEmpty()) {
+                log.info("🧹 정리된 죽은 세션 수: {}", deadSessions.size());
+            }
         }
     }
 
