@@ -3,11 +3,13 @@ chcp 65001
 REM HanaZoom 부하테스트 실행 (자동 결과 추적)
 
 echo.
-echo 🚀 HanaZoom 부하테스트 시작
+echo 🚀 HanaZoom 초안전 부하테스트 시작
+echo 💡 최대 100명까지 단계적 증가 (CPU 100% 방지)
+echo 💡 20명 → 50명 → 100명 (최대) 초안전 단계별 증가
 echo 💡 테스트 완료 후 자동으로 결과 저장 및 비교
 echo.
 
-REM Gatling 실행
+REM Gatling 실행 (단계적 2000명 테스트)
 cd ../gatling-charts-highcharts-bundle-3.10.5
 .\bin\gatling.bat
 cd ..
