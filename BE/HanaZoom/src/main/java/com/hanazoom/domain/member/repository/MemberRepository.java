@@ -6,15 +6,27 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
+import jakarta.persistence.QueryHint;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface MemberRepository extends JpaRepository<Member, UUID> {
+
+    @QueryHints(value = {
+        @QueryHint(name = "org.hibernate.readOnly", value = "true"),
+        @QueryHint(name = "org.hibernate.fetchSize", value = "100"),
+        @QueryHint(name = "org.hibernate.cacheable", value = "false")
+    })
     Optional<Member> findByEmail(String email);
 
+    @QueryHints(value = {
+        @QueryHint(name = "org.hibernate.readOnly", value = "true"),
+        @QueryHint(name = "org.hibernate.cacheable", value = "false")
+    })
     boolean existsByEmail(String email);
 
     // PB 관련 메서드들
