@@ -17,7 +17,11 @@ import java.util.List;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "regions", indexes = {
-    @Index(name = "idx_regions_parent_id", columnList = "parent_id")
+    @Index(name = "idx_regions_parent_id", columnList = "parent_id"),
+    @Index(name = "idx_regions_type", columnList = "type"),
+    @Index(name = "idx_regions_parent_type", columnList = "parent_id, type"),
+    @Index(name = "idx_regions_latitude_longitude", columnList = "latitude, longitude"),
+    @Index(name = "idx_regions_type_latitude", columnList = "type, latitude")
 })
 public class Region {
 

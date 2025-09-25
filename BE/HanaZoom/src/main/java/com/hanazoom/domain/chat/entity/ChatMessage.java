@@ -11,7 +11,12 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "chat_messages")
+@Table(name = "chat_messages", indexes = {
+    @Index(name = "idx_chat_messages_region_created", columnList = "region_id, created_at"),
+    @Index(name = "idx_chat_messages_member_created", columnList = "member_id, created_at"),
+    @Index(name = "idx_chat_messages_region", columnList = "region_id"),
+    @Index(name = "idx_chat_messages_created", columnList = "created_at")
+})
 @Getter
 @NoArgsConstructor
 public class ChatMessage {

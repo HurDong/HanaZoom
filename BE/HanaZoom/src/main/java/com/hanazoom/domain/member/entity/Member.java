@@ -23,7 +23,9 @@ import java.util.UUID;
     @Index(name = "idx_members_email", columnList = "email", unique = true),
     @Index(name = "idx_members_region_id", columnList = "region_id"),
     @Index(name = "idx_members_email_region", columnList = "email, region_id"),
-    @Index(name = "idx_members_status", columnList = "status")
+    @Index(name = "idx_members_pb_status", columnList = "pb_status"),
+    @Index(name = "idx_members_created_at", columnList = "created_at"),
+    @Index(name = "idx_members_last_login", columnList = "last_login_at")
 })
 @Getter
 @Setter
