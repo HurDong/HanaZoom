@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-청라1동(Region ID: 1229) 100명 사용자 계정 생성 스크립트
+청라1동(Region ID: 1229) 10000명 사용자 계정 생성 스크립트
 JMeter에서 사용할 수 있는 CSV 파일과 API 호출용 JSON 파일을 생성합니다.
 또한 실제 데이터베이스에 사용자 데이터를 직접 삽입할 수 있습니다.
 """
@@ -35,30 +35,18 @@ CHEONGRA_REGION_INFO = {
     "longitude": 126.6626
 }
 
-# 청라1동의 실제 주소 샘플
-CHEONGRA_ADDRESSES = [
-    "인천광역시 서구 청라대로 123",
-    "인천광역시 서구 청라대로 456",
-    "인천광역시 서구 청라대로 789",
-    "인천광역시 서구 청라대로 101",
-    "인천광역시 서구 청라대로 202",
-    "인천광역시 서구 청라대로 303",
-    "인천광역시 서구 청라대로 404",
-    "인천광역시 서구 청라대로 505",
-    "인천광역시 서구 청라대로 606",
-    "인천광역시 서구 청라대로 707",
-    "인천광역시 서구 청라대로 808",
-    "인천광역시 서구 청라대로 909",
-    "인천광역시 서구 청라대로 111",
-    "인천광역시 서구 청라대로 222",
-    "인천광역시 서구 청라대로 333",
-    "인천광역시 서구 청라대로 444",
-    "인천광역시 서구 청라대로 555",
-    "인천광역시 서구 청라대로 666",
-    "인천광역시 서구 청라대로 777",
-    "인천광역시 서구 청라대로 888",
-    "인천광역시 서구 청라대로 999"
+# 청라1동의 실제 주소 패턴 (10000명용 동적 생성)
+CHEONGRA_STREETS = [
+    "청라대로", "청라로", "경서로", "국제대로", "문화로",
+    "호수로", "중봉대로", "원창로", "하늘로", "바람로"
 ]
+
+def generate_random_address(user_id):
+    """10000명용 랜덤 주소 생성"""
+    street = random.choice(CHEONGRA_STREETS)
+    # user_id를 활용해서 다양한 건물 번호 생성
+    building_num = user_id + random.randint(1, 100) * 10
+    return f"인천광역시 서구 {street} {building_num}"
 
 # 한국식 이름 생성을 위한 성과 이름 리스트
 KOREAN_SURNAMES = [
@@ -74,10 +62,14 @@ KOREAN_NAMES = [
     "윤서", "채은", "수빈", "지아", "소율", "예원", "예린", "은서", "민서", "서현"
 ]
 
-def generate_random_email():
-    """랜덤 이메일 생성"""
-    domains = ["gmail.com", "naver.com", "daum.net", "hanmail.net", "hotmail.com"]
-    username = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+def generate_random_email(user_id):
+    """10000명용 랜덤 이메일 생성"""
+    domains = ["gmail.com", "naver.com", "daum.net", "hanmail.net", "hotmail.com", "kakao.com", "outlook.com"]
+    # user_id를 활용해서 더 다양한 이메일 생성
+    prefixes = ["user", "test", "sample", "demo", "cheongra", "incheon", "seoul", "korea"]
+    prefix = random.choice(prefixes)
+    suffix = str(user_id).zfill(4)
+    username = f"{prefix}{suffix}"
     return f"{username}@{random.choice(domains)}"
 
 def generate_random_phone():
@@ -100,10 +92,10 @@ def generate_korean_name():
 def generate_user_data(user_id):
     """사용자 데이터 생성"""
     name = generate_korean_name()
-    email = generate_random_email()
+    email = generate_random_email(user_id)
     password = generate_random_password()
     phone = generate_random_phone()
-    address = random.choice(CHEONGRA_ADDRESSES)
+    address = generate_random_address(user_id)
     detail_address = f"{random.randint(1, 30)}층 {random.randint(101, 999)}호"
 
     return {
@@ -248,7 +240,7 @@ def insert_users_to_database(users_data):
                 )
 
                 cursor.execute(sql, values)
-                print(f"✅ 사용자 {i}/100 삽입 완료: {user_data['name']} ({user_data['email']})")
+                print(f"✅ 사용자 {i}/10000 삽입 완료: {user_data['name']} ({user_data['email']})")
 
             except mysql.connector.Error as e:
                 if "Duplicate entry" in str(e):
@@ -286,14 +278,14 @@ def main():
 
     print("청라1동 사용자 생성 스크립트 시작...")
     print(f"대상 지역: {CHEONGRA_REGION_INFO['name']} (ID: {CHEONGRA_REGION_INFO['region_id']})")
-    print("생성할 사용자 수: 100명")
+    print("생성할 사용자 수: 10000명")
 
     # 사용자 데이터 생성
     users_data = []
-    for i in range(1, 101):
+    for i in range(1, 10001):
         user_data = generate_user_data(i)
         users_data.append(user_data)
-        print(f"사용자 {i}/100 생성 중... ({user_data['name']}, {user_data['email']})")
+        print(f"사용자 {i}/10000 생성 중... ({user_data['name']}, {user_data['email']})")
 
     # 파일 생성 (옵션)
     if not args.no_files:
