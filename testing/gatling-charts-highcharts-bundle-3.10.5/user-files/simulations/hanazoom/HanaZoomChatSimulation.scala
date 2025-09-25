@@ -152,10 +152,16 @@ class HanaZoomChatSimulation extends Simulation {
   // 전역 사용자 카운터 (시뮬레이션 전체에서 공유)
   var globalUserCounter = 0
 
-  // API별 성능 통계 변수들
+  // API별 성능 통계 변수들 (고도화: 더 세밀한 분석)
   var loginResponseTimes = List.empty[Long]
   var userInfoResponseTimes = List.empty[Long]
   var chatRoomResponseTimes = List.empty[Long]
+
+  // 고도화된 성능 분석 변수들
+  var requestStartTimes = Map.empty[String, Long]  // API별 시작시간
+  var responseTimeDistribution = Map.empty[String, List[Int]]  // 응답시간 분포
+  var errorCounts = Map.empty[String, Int]  // API별 에러 수
+  var throughputPerSecond = List.empty[(Long, Int)]  // 초당 처리량
 
   // 실제 10000명 사용자 부하테스트
   // 1. 로그인 API 호출 (실제 사용자 데이터 사용)
@@ -166,19 +172,18 @@ class HanaZoomChatSimulation extends Simulation {
   val loginScenario = scenario("Login API Test")
     .feed(userFeeder)
     .exec(session => {
-      globalUserCounter += 1
-      session.set("userNumber", globalUserCounter)
       session.set("startTime", System.currentTimeMillis())
     })
     .exec(session => {
-      // 요청 시작 시간 저장
+      globalUserCounter += 1
+      session.set("userNumber", globalUserCounter)
       session.set("requestTimestamp", System.currentTimeMillis())
     })
     .exec(loginRequest)
     .exec(session => {
       // 로그인 결과 로그 (jwtToken 존재 여부 확인)
       val userEmail = session("email").as[String]
-      val userNumber = session("userNumber").as[Int]
+      val userNumber = session("userNumber").asOption[Int].getOrElse(0)
       val jwtToken = session("jwtToken").asOption[String].getOrElse("NO_TOKEN")
       val userId = session("userId").asOption[String].getOrElse("NO_ID")
 
@@ -198,14 +203,15 @@ class HanaZoomChatSimulation extends Simulation {
       session.set("startTime", System.currentTimeMillis())
     })
     .exec(session => {
-      // 요청 시작 시간 저장
+      globalUserCounter += 1
+      session.set("userNumber", globalUserCounter)
       session.set("requestTimestamp", System.currentTimeMillis())
     })
     .exec(getUserInfoRequest)
     .exec(session => {
       // 사용자 정보 조회 로그 (에러 처리 포함)
       val userEmail = session("email").as[String]
-      val userNumber = session("userNumber").as[Int]
+      val userNumber = session("userNumber").asOption[Int].getOrElse(0)
       val regionId = session("regionId").asOption[String].getOrElse("UNKNOWN_REGION")
 
       if (session.isFailed) {
@@ -224,14 +230,15 @@ class HanaZoomChatSimulation extends Simulation {
       session.set("startTime", System.currentTimeMillis())
     })
     .exec(session => {
-      // 요청 시작 시간 저장
+      globalUserCounter += 1
+      session.set("userNumber", globalUserCounter)
       session.set("requestTimestamp", System.currentTimeMillis())
     })
     .exec(enterChatRoomRequest)
     .exec(session => {
       // 채팅방 입장 성공 로그 (roomName이 있을 때만)
       val userEmail = session("email").as[String]
-      val userNumber = session("userNumber").as[Int]
+      val userNumber = session("userNumber").asOption[Int].getOrElse(0)
       val roomName = session("roomName").asOption[String].getOrElse("UNKNOWN_ROOM")
       println(s"✅ $userNumber 번째 회원 $userEmail 채팅방 '$roomName' 입장 성공")
       session
@@ -246,13 +253,14 @@ class HanaZoomChatSimulation extends Simulation {
       session.set("startTime", System.currentTimeMillis())
     })
     .exec(session => {
-      // 요청 시작 시간 저장
+      globalUserCounter += 1
+      session.set("userNumber", globalUserCounter)
       session.set("requestTimestamp", System.currentTimeMillis())
     })
     .exec(loginRequest)
     .exec(session => {
       val userEmail = session("email").as[String]
-      val userNumber = session("userNumber").as[Int]
+      val userNumber = session("userNumber").asOption[Int].getOrElse(0)
       val jwtToken = session("jwtToken").asOption[String].getOrElse("NO_TOKEN")
       val userId = session("userId").asOption[String].getOrElse("NO_ID")
 
@@ -265,13 +273,14 @@ class HanaZoomChatSimulation extends Simulation {
     })
     .pause(100 milliseconds, 300 milliseconds)
     .exec(session => {
-      // 요청 시작 시간 저장
+      globalUserCounter += 1
+      session.set("userNumber", globalUserCounter)
       session.set("requestTimestamp", System.currentTimeMillis())
     })
     .exec(getUserInfoRequest)
     .exec(session => {
       val userEmail = session("email").as[String]
-      val userNumber = session("userNumber").as[Int]
+      val userNumber = session("userNumber").asOption[Int].getOrElse(0)
       val regionId = session("regionId").asOption[String].getOrElse("UNKNOWN_REGION")
 
       if (session.isFailed) {
@@ -283,26 +292,28 @@ class HanaZoomChatSimulation extends Simulation {
     })
     .pause(100 milliseconds, 300 milliseconds)
     .exec(session => {
-      // 요청 시작 시간 저장
+      globalUserCounter += 1
+      session.set("userNumber", globalUserCounter)
       session.set("requestTimestamp", System.currentTimeMillis())
     })
     .exec(enterChatRoomRequest)
     .exec(session => {
       val userEmail = session("email").as[String]
-      val userNumber = session("userNumber").as[Int]
+      val userNumber = session("userNumber").asOption[Int].getOrElse(0)
       val roomName = session("roomName").asOption[String].getOrElse("UNKNOWN_ROOM")
       println(s"✅ $userNumber 번째 회원 $userEmail 채팅방 '$roomName' 입장 성공")
       session
     })
     .pause(100 milliseconds, 300 milliseconds)
     .exec(session => {
-      // 요청 시작 시간 저장
+      globalUserCounter += 1
+      session.set("userNumber", globalUserCounter)
       session.set("requestTimestamp", System.currentTimeMillis())
     })
     .exec(getUserInfoRequest)
     .exec(session => {
       val userEmail = session("email").as[String]
-      val userNumber = session("userNumber").as[Int]
+      val userNumber = session("userNumber").asOption[Int].getOrElse(0)
       val regionId = session("regionId").asOption[String].getOrElse("UNKNOWN_REGION")
 
       if (session.isFailed) {
@@ -314,13 +325,14 @@ class HanaZoomChatSimulation extends Simulation {
     })
     .pause(100 milliseconds, 300 milliseconds)
     .exec(session => {
-      // 요청 시작 시간 저장
+      globalUserCounter += 1
+      session.set("userNumber", globalUserCounter)
       session.set("requestTimestamp", System.currentTimeMillis())
     })
     .exec(enterChatRoomRequest)
     .exec(session => {
       val userEmail = session("email").as[String]
-      val userNumber = session("userNumber").as[Int]
+      val userNumber = session("userNumber").asOption[Int].getOrElse(0)
       val roomName = session("roomName").asOption[String].getOrElse("UNKNOWN_ROOM")
       println(s"✅ $userNumber 번째 회원 $userEmail 채팅방 '$roomName' 입장 성공")
       session
@@ -376,60 +388,43 @@ class HanaZoomChatSimulation extends Simulation {
     })
 
 
-  // 성능 측정용 - 점진적 부하 증가로 병목점 찾기 (추천)
+  // 고도화된 성능 테스트 - 다양한 부하 시나리오 (추천)
   setUp(
+    // 시나리오 1: 점진적 부하 증가 (현재 방식) - 500명 목표
     chatScenario.inject(
-      // 단계 1: 100명 (현재 수준)
-      rampUsers(100).during(10 seconds),
-      // 단계 2: 300명 (2배 증가)
-      constantUsersPerSec(20).during(20 seconds),
-      // 단계 3: 500명 (3배 증가)
-      rampUsersPerSec(20).to(50).during(30 seconds),
-      // 단계 4: 500명 유지
-      constantUsersPerSec(50).during(40 seconds)
+      rampUsers(100).during(10 seconds),      // 100명 (워밍업)
+      constantUsersPerSec(20).during(20 seconds),    // 300명 (2배 증가)
+      rampUsersPerSec(20).to(50).during(30 seconds), // 500명 (3배 증가)
+      constantUsersPerSec(50).during(40 seconds)     // 500명 유지
     )
   ).protocols(httpProtocol)
 
-  // 10000개 요청 테스트용 (약 3,333명 사용자 × 3개 API = 10,000개 요청)
+  // 시나리오 2: 고부하 스트레스 테스트 (새로운 비교군) - 다른 테스트 파일에서 사용
   /*
   setUp(
     chatScenario.inject(
-      // 단계 1: 200명 동시 (워밍업) - 약 600개 요청
       rampUsers(200).during(20 seconds),
-      // 단계 2: 500명까지 증가 - 약 1,500개 요청
-      constantUsersPerSec(30).during(40 seconds),
-      // 단계 3: 1,000명까지 증가 (최대 부하) - 약 3,000개 요청
+      constantUsersPerSec(50).during(40 seconds),
       rampUsersPerSec(50).to(100).during(60 seconds),
-      // 단계 4: 1,000명 유지 - 약 4,900개 요청
-      constantUsersPerSec(100).during(60 seconds)
+      constantUsersPerSec(100).during(120 seconds)
+    )
+  ).protocols(httpProtocol)
+
+  // 시나리오 3: 스파이크 테스트 (급격한 부하 변화) - 다른 테스트 파일에서 사용
+  setUp(
+    chatScenario.inject(
+      atOnceUsers(50),
+      rampUsers(300).during(30 seconds),
+      constantUsersPerSec(100).during(60 seconds),
+      rampUsersPerSec(200).to(500).during(120 seconds),
+      constantUsersPerSec(500).during(300 seconds)
     )
   ).protocols(httpProtocol)
   */
 
-  // 각 API별 독립 실행 (세밀한 성능 분석용) - JWT 토큰 문제로 주석 처리
-  /*
-  setUp(
-    // 각 API를 별도로 테스트하여 세밀한 성능 분석
-    loginScenario.inject(
-      rampUsers(10).during(2 seconds),
-      constantUsersPerSec(2).during(5 seconds),
-      rampUsersPerSec(5).to(10).during(5 seconds),
-      constantUsersPerSec(10).during(10 seconds)
-    ),
-    userInfoScenario.inject(
-      rampUsers(10).during(2 seconds),
-      constantUsersPerSec(2).during(5 seconds),
-      rampUsersPerSec(5).to(10).during(5 seconds),
-      constantUsersPerSec(10).during(10 seconds)
-    ),
-    chatRoomScenario.inject(
-      rampUsers(10).during(2 seconds),
-      constantUsersPerSec(2).during(5 seconds),
-      rampUsersPerSec(5).to(10).during(5 seconds),
-      constantUsersPerSec(10).during(10 seconds)
-    )
-  ).protocols(httpProtocol)
-  */
+  // 다른 테스트 시나리오들 - 별도 파일에서 사용
+
+  // 각 API별 독립 실행 - 별도 파일에서 사용
 
 
 }
