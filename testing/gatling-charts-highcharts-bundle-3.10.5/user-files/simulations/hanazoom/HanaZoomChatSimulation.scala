@@ -168,6 +168,7 @@ class HanaZoomChatSimulation extends Simulation {
     .exec(session => {
       globalUserCounter += 1
       session.set("userNumber", globalUserCounter)
+      session.set("startTime", System.currentTimeMillis())
     })
     .exec(session => {
       // 요청 시작 시간 저장
@@ -194,6 +195,7 @@ class HanaZoomChatSimulation extends Simulation {
     .exec(session => {
       globalUserCounter += 1
       session.set("userNumber", globalUserCounter)
+      session.set("startTime", System.currentTimeMillis())
     })
     .exec(session => {
       // 요청 시작 시간 저장
@@ -219,6 +221,7 @@ class HanaZoomChatSimulation extends Simulation {
     .exec(session => {
       globalUserCounter += 1
       session.set("userNumber", globalUserCounter)
+      session.set("startTime", System.currentTimeMillis())
     })
     .exec(session => {
       // 요청 시작 시간 저장
@@ -240,6 +243,7 @@ class HanaZoomChatSimulation extends Simulation {
     .exec(session => {
       globalUserCounter += 1
       session.set("userNumber", globalUserCounter)
+      session.set("startTime", System.currentTimeMillis())
     })
     .exec(session => {
       // 요청 시작 시간 저장
@@ -323,55 +327,84 @@ class HanaZoomChatSimulation extends Simulation {
     })
     .pause(500 milliseconds, 2 seconds)
     .exec(session => {
-      // 테스트 완료 시 각 API별 성능 통계 출력
-      val loginCount = loginResponseTimes.size
-      val userInfoCount = userInfoResponseTimes.size
-      val chatRoomCount = chatRoomResponseTimes.size
+      // 각 단계별 성능 요약 출력 (부하 증가 시점마다)
+      val totalRequests = loginResponseTimes.size + userInfoResponseTimes.size + chatRoomResponseTimes.size
+      val totalUsers = globalUserCounter
+      val runtime = System.currentTimeMillis() - session("startTime").as[Long]
 
-      if (loginCount > 0) {
-        val loginAvg = loginResponseTimes.sum.toDouble / loginCount
+      println(s"\n" + "="*80)
+      println(s"🎯 [성능 측정 결과] 총 ${totalRequests}개 요청, ${totalUsers}명 사용자")
+      println(s"⏱️  총 실행시간: ${runtime/1000}초")
+      println(s"📊 [전체 통계] 평균: ${(loginResponseTimes.sum + userInfoResponseTimes.sum + chatRoomResponseTimes.sum).toDouble / totalRequests}ms")
+      println(s"🔥 [현재 부하] 약 ${totalUsers}명 동시 사용자")
+      println(s"="*80)
+
+      // 각 API별 상세 통계
+      if (loginResponseTimes.nonEmpty) {
+        val loginAvg = loginResponseTimes.sum.toDouble / loginResponseTimes.size
         val loginMin = loginResponseTimes.min
         val loginMax = loginResponseTimes.max
-        val loginP95 = loginResponseTimes.sorted.apply(math.max(0, (loginCount * 0.95).toInt - 1))
+        val loginP95 = loginResponseTimes.sorted.apply(math.max(0, (loginResponseTimes.size * 0.95).toInt - 1))
+        val loginCount = loginResponseTimes.size
 
-        println(s"📊 [로그인 API 통계] 총 ${loginCount}회 | 평균: ${loginAvg.toInt}ms | 범위: ${loginMin}-${loginMax}ms | 95%: ${loginP95}ms")
+        println(s"📊 [로그인 API] 총 ${loginCount}회 | 평균: ${loginAvg.toInt}ms | 범위: ${loginMin}-${loginMax}ms | 95%: ${loginP95}ms")
       }
 
-      if (userInfoCount > 0) {
-        val userInfoAvg = userInfoResponseTimes.sum.toDouble / userInfoCount
+      if (userInfoResponseTimes.nonEmpty) {
+        val userInfoAvg = userInfoResponseTimes.sum.toDouble / userInfoResponseTimes.size
         val userInfoMin = userInfoResponseTimes.min
         val userInfoMax = userInfoResponseTimes.max
-        val userInfoP95 = userInfoResponseTimes.sorted.apply(math.max(0, (userInfoCount * 0.95).toInt - 1))
+        val userInfoP95 = userInfoResponseTimes.sorted.apply(math.max(0, (userInfoResponseTimes.size * 0.95).toInt - 1))
+        val userInfoCount = userInfoResponseTimes.size
 
-        println(s"📊 [사용자 정보 API 통계] 총 ${userInfoCount}회 | 평균: ${userInfoAvg.toInt}ms | 범위: ${userInfoMin}-${userInfoMax}ms | 95%: ${userInfoP95}ms")
+        println(s"📊 [사용자 정보 API] 총 ${userInfoCount}회 | 평균: ${userInfoAvg.toInt}ms | 범위: ${userInfoMin}-${userInfoMax}ms | 95%: ${userInfoP95}ms")
       }
 
-      if (chatRoomCount > 0) {
-        val chatRoomAvg = chatRoomResponseTimes.sum.toDouble / chatRoomCount
+      if (chatRoomResponseTimes.nonEmpty) {
+        val chatRoomAvg = chatRoomResponseTimes.sum.toDouble / chatRoomResponseTimes.size
         val chatRoomMin = chatRoomResponseTimes.min
         val chatRoomMax = chatRoomResponseTimes.max
-        val chatRoomP95 = chatRoomResponseTimes.sorted.apply(math.max(0, (chatRoomCount * 0.95).toInt - 1))
+        val chatRoomP95 = chatRoomResponseTimes.sorted.apply(math.max(0, (chatRoomResponseTimes.size * 0.95).toInt - 1))
+        val chatRoomCount = chatRoomResponseTimes.size
 
-        println(s"📊 [채팅방 API 통계] 총 ${chatRoomCount}회 | 평균: ${chatRoomAvg.toInt}ms | 범위: ${chatRoomMin}-${chatRoomMax}ms | 95%: ${chatRoomP95}ms")
+        println(s"📊 [채팅방 API] 총 ${chatRoomCount}회 | 평균: ${chatRoomAvg.toInt}ms | 범위: ${chatRoomMin}-${chatRoomMax}ms | 95%: ${chatRoomP95}ms")
       }
+
+      println(s"="*80 + "\n")
 
       session
     })
 
 
-  // 통합 실행 (전체 사용자 플로우 테스트용) - 추천
+  // 성능 측정용 - 점진적 부하 증가로 병목점 찾기 (추천)
   setUp(
     chatScenario.inject(
-      // 단계 1: 10명 동시 (워밍업)
-      rampUsers(10).during(2 seconds),
-      // 단계 2: 20명까지 증가
-      constantUsersPerSec(2).during(5 seconds),
-      // 단계 3: 30명까지 증가 (최대 부하)
-      rampUsersPerSec(3).to(5).during(5 seconds),
-      // 단계 4: 30명 유지
-      constantUsersPerSec(5).during(10 seconds)
+      // 단계 1: 100명 (현재 수준)
+      rampUsers(100).during(10 seconds),
+      // 단계 2: 300명 (2배 증가)
+      constantUsersPerSec(20).during(20 seconds),
+      // 단계 3: 500명 (3배 증가)
+      rampUsersPerSec(20).to(50).during(30 seconds),
+      // 단계 4: 500명 유지
+      constantUsersPerSec(50).during(40 seconds)
     )
   ).protocols(httpProtocol)
+
+  // 10000개 요청 테스트용 (약 3,333명 사용자 × 3개 API = 10,000개 요청)
+  /*
+  setUp(
+    chatScenario.inject(
+      // 단계 1: 200명 동시 (워밍업) - 약 600개 요청
+      rampUsers(200).during(20 seconds),
+      // 단계 2: 500명까지 증가 - 약 1,500개 요청
+      constantUsersPerSec(30).during(40 seconds),
+      // 단계 3: 1,000명까지 증가 (최대 부하) - 약 3,000개 요청
+      rampUsersPerSec(50).to(100).during(60 seconds),
+      // 단계 4: 1,000명 유지 - 약 4,900개 요청
+      constantUsersPerSec(100).during(60 seconds)
+    )
+  ).protocols(httpProtocol)
+  */
 
   // 각 API별 독립 실행 (세밀한 성능 분석용) - JWT 토큰 문제로 주석 처리
   /*
