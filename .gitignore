@@ -279,6 +279,14 @@ scripts/**/*.csv.bak
 scripts/**/*.json.bak
 scripts/**/*.sql.bak
 
+# Test Data Files (사용자가 생성한 테스트 데이터)
+scripts/**/cheongra_users_insert.sql
+scripts/**/cheongra_users_insert.sql.bak
+scripts/**/jmeter.csv
+scripts/**/jmeter.csv.bak
+scripts/**/*_users_*.sql
+scripts/**/*_users_*.csv
+
 # =============================================
 # Testing & Development
 # =============================================
