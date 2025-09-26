@@ -46,149 +46,38 @@ export function FinancialCalendar({
   const [isRealData, setIsRealData] = useState<boolean>(false);
 
   useEffect(() => {
-    // 더미 데이터 설정 (실제 API 연동이 삭제되어 더미 데이터만 표시)
-    setLoading(true);
-
-    // 더미 금융 일정 데이터 (월~금 주간 일정)
-    const dummyIndicators: FinancialScheduleItem[] = [
-      // 월요일
-      {
-        date: "2025-09-29",
-        dayOfWeek: "월요일",
-        time: "08:00",
-        indicator: "산업생산지수 (Industrial Production Index)",
-        importance: "high",
-        country: "한국",
-        forecast: "전월 대비 0.5%",
-        previous: "전월 대비 -0.3%",
-      },
-      {
-        date: "2025-09-29",
-        dayOfWeek: "월요일",
-        time: "09:30",
-        indicator: "제조업 구매관리자지수 (Manufacturing PMI)",
-        importance: "medium",
-        country: "한국",
-        forecast: "48.2",
-        previous: "47.8",
-      },
-      {
-        date: "2025-09-29",
-        dayOfWeek: "월요일",
-        time: "14:00",
-        indicator: "소매판매 (Retail Sales)",
-        importance: "low",
-        country: "한국",
-        forecast: "전월 대비 1.2%",
-        previous: "전월 대비 0.8%",
-      },
-
-      // 화요일
-      {
-        date: "2025-09-30",
-        dayOfWeek: "화요일",
-        time: "08:00",
-        indicator: "실업률 (Unemployment Rate)",
-        importance: "medium",
-        country: "한국",
-        forecast: "2.4%",
-        previous: "2.5%",
-      },
-      {
-        date: "2025-09-30",
-        dayOfWeek: "화요일",
-        time: "10:00",
-        indicator: "소비자신뢰지수 (Consumer Confidence)",
-        importance: "low",
-        country: "한국",
-        forecast: "95.5",
-        previous: "94.2",
-      },
-
-      // 수요일
-      {
-        date: "2025-10-01",
-        dayOfWeek: "수요일",
-        time: "08:00",
-        indicator: "소비자물가지수 (CPI)",
-        importance: "high",
-        country: "한국",
-        forecast: "전년 대비 2.5%",
-        previous: "전년 대비 2.3%",
-      },
-      {
-        date: "2025-10-01",
-        dayOfWeek: "수요일",
-        time: "08:00",
-        indicator: "생산자물가지수 (PPI)",
-        importance: "medium",
-        country: "한국",
-        forecast: "전년 대비 3.1%",
-        previous: "전년 대비 2.9%",
-      },
-      {
-        date: "2025-10-01",
-        dayOfWeek: "수요일",
-        time: "11:00",
-        indicator: "무역수지 (Trade Balance)",
-        importance: "high",
-        country: "한국",
-        forecast: "25억 달러 흑자",
-        previous: "22억 달러 흑자",
-      },
-
-      // 목요일
-      {
-        date: "2025-10-02",
-        dayOfWeek: "목요일",
-        time: "08:00",
-        indicator: "수출입 동향 (Export/Import)",
-        importance: "high",
-        country: "한국",
-        forecast: "수출 +5.2%",
-        previous: "수출 +3.8%",
-      },
-      {
-        date: "2025-10-02",
-        dayOfWeek: "목요일",
-        time: "09:00",
-        indicator: "기업경기실사지수 (BSI)",
-        importance: "low",
-        country: "한국",
-        forecast: "78.5",
-        previous: "76.3",
-      },
-
-      // 금요일
-      {
-        date: "2025-10-03",
-        dayOfWeek: "금요일",
-        time: "08:00",
-        indicator: "국내총생산 (GDP) 잠정치",
-        importance: "high",
-        country: "한국",
-        forecast: "전기 대비 0.7%",
-        previous: "전기 대비 0.6%",
-      },
-      {
-        date: "2025-10-03",
-        dayOfWeek: "금요일",
-        time: "10:30",
-        indicator: "외환보유액 (Foreign Reserves)",
-        importance: "medium",
-        country: "한국",
-        forecast: "4,250억 달러",
-        previous: "4,230억 달러",
-      },
-    ];
-
-    // 더미 데이터 설정
-    setTimeout(() => {
-      setIndicators(dummyIndicators);
-      setIsRealData(false); // 더미 데이터임을 표시
-      setLoading(false);
-    }, 1000); // 로딩 효과를 위한 지연
+    fetchFinancialData();
   }, []);
+
+  const fetchFinancialData = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 실제 API 엔드포인트 호출
+      const response = await fetch('/api/financial-schedule');
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setIndicators(data.data);
+        setIsRealData(true);
+      } else {
+        throw new Error(data.message || '데이터를 가져올 수 없습니다.');
+      }
+    } catch (err) {
+      console.error('금융 일정 데이터 로딩 실패:', err);
+      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
+      setIndicators([]);
+      setIsRealData(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const isToday = (dateString: string) => {
     const date = new Date(dateString);
@@ -350,13 +239,20 @@ export function FinancialCalendar({
         className={`bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-gray-700 p-3 ${className}`}
       >
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
-            📅 금융 캘린더
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+              📅 금융 캘린더
+            </h3>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-xs text-blue-600 dark:text-blue-400">로딩 중...</span>
+            </div>
+          </div>
           {onToggle && (
             <button
               onClick={onToggle}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              disabled={loading}
             >
               {isCollapsed ? (
                 <ChevronDown className="w-3 h-3" />
@@ -366,28 +262,42 @@ export function FinancialCalendar({
             </button>
           )}
         </div>
-        <div className="space-y-1">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-700 animate-pulse bg-white/90 dark:bg-gray-800/50"
-            >
-              <div className="flex-shrink-0 w-12 text-center">
-                <div className="text-sm font-bold text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                  08:00
+
+        {!isCollapsed && (
+          <div className="space-y-2">
+            {/* 로딩 스켈레톤 */}
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 p-3 rounded-lg bg-white/90 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700"
+              >
+                <div className="flex-shrink-0 w-12 text-center">
+                  <div className="text-sm bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded animate-pulse">
+                    <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-full"></div>
+                  </div>
+                </div>
+
+                <div className="w-px h-8 bg-gray-200 dark:bg-gray-600"></div>
+
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded flex-1 animate-pulse"></div>
+                    <div className="w-3 h-3 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                  </div>
+                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-2/3 animate-pulse"></div>
                 </div>
               </div>
-              <div className="w-px h-8 bg-gray-200 dark:bg-gray-600"></div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-                  <div className="h-3 w-3 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                </div>
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+            ))}
+
+            {/* 로딩 메시지 */}
+            <div className="text-center py-4">
+              <div className="inline-flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                금융 일정 데이터를 불러오고 있습니다...
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -424,14 +334,19 @@ export function FinancialCalendar({
           {!isCollapsed && (
             <div className="flex items-center gap-1">
               {isRealData ? (
-                <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-xs">실제</span>
+                <div className="flex items-center gap-1 text-green-600 dark:text-green-400" title="실제 금융 일정 데이터">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs">실시간</span>
+                </div>
+              ) : error ? (
+                <div className="flex items-center gap-1 text-red-600 dark:text-red-400" title="데이터 로딩 실패">
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <span className="text-xs">오류</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400" title="데이터 없음">
                   <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                  <span className="text-xs">불러오는 중...</span>
+                  <span className="text-xs">준비 중</span>
                 </div>
               )}
             </div>
@@ -474,23 +389,79 @@ export function FinancialCalendar({
               )
           ) : (
             <div className="text-center py-8">
-              <Calendar className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-                이번 주 금융 일정이 없습니다.
-              </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">
-                데이터를 불러올 수 없습니다.
-              </p>
+              {error ? (
+                // 에러 상태 - 데이터 로딩 실패
+                <>
+                  <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                  </div>
+                  <h4 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">
+                    데이터 로딩 실패
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">
+                    금융 일정 데이터를 불러올 수 없습니다.
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    {error}
+                  </p>
+                  <button
+                    onClick={fetchFinancialData}
+                    className="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition-colors"
+                  >
+                    다시 시도
+                  </button>
+                </>
+              ) : (
+                // 데이터 없음 상태 - 정상적인 빈 상태
+                <>
+                  <Calendar className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                    이번 주 금융 일정이 없습니다.
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    새로운 일정이 등록되면 표시됩니다.
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {isCollapsed && Object.keys(groupedIndicators).length > 0 && (
+      {isCollapsed && (
         <div className="flex flex-col items-center gap-1">
-          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-          <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+          {error ? (
+            // 에러 상태
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="데이터 로딩 실패"></div>
+          ) : isRealData && Object.keys(groupedIndicators).length > 0 ? (
+            // 데이터 있음
+            <>
+              {Object.keys(groupedIndicators).length > 0 &&
+                Object.entries(groupedIndicators)
+                  .flatMap(([_, indicators]) => indicators)
+                  .filter((_, index) => index < 3) // 최대 3개까지만 표시
+                  .map((indicator, index) => (
+                    <div
+                      key={index}
+                      className={`w-2 h-2 rounded-full ${
+                        indicator.importance === 'high'
+                          ? 'bg-red-500'
+                          : indicator.importance === 'medium'
+                          ? 'bg-orange-500'
+                          : 'bg-green-500'
+                      }`}
+                      title={`${indicator.indicator} (${indicator.importance})`}
+                    ></div>
+                  ))
+              }
+              {Object.keys(groupedIndicators).length === 0 && (
+                <div className="w-2 h-2 bg-gray-400 rounded-full" title="데이터 없음"></div>
+              )}
+            </>
+          ) : (
+            // 로딩 중 또는 데이터 없음
+            <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" title="로딩 중"></div>
+          )}
         </div>
       )}
     </div>
