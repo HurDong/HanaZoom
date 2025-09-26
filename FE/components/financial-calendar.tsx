@@ -54,8 +54,8 @@ export function FinancialCalendar({
     setError(null);
 
     try {
-      // 실제 API 엔드포인트 호출
-      const response = await fetch('/api/financial-schedule');
+      // 실제 API 엔드포인트 호출 - ECOS API 사용
+      const response = await fetch('/api/v1/ecos/weekly-schedule');
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -346,7 +346,7 @@ export function FinancialCalendar({
               ) : (
                 <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400" title="데이터 없음">
                   <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                  <span className="text-xs">준비 중</span>
+                  <span className="text-xs">API 오류</span>
                 </div>
               )}
             </div>
@@ -412,14 +412,14 @@ export function FinancialCalendar({
                   </button>
                 </>
               ) : (
-                // 데이터 없음 상태 - 정상적인 빈 상태
+                // 데이터 없음 상태 - 실제 데이터가 없을 때
                 <>
                   <Calendar className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                     이번 주 금융 일정이 없습니다.
                   </p>
                   <p className="text-xs text-gray-400 dark:text-gray-500">
-                    새로운 일정이 등록되면 표시됩니다.
+                    한국은행 API에서 데이터를 가져올 수 없습니다.
                   </p>
                 </>
               )}
@@ -459,8 +459,8 @@ export function FinancialCalendar({
               )}
             </>
           ) : (
-            // 로딩 중 또는 데이터 없음
-            <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" title="로딩 중"></div>
+            // 데이터 없음 (API 오류)
+            <div className="w-2 h-2 bg-gray-400 rounded-full" title="데이터 없음"></div>
           )}
         </div>
       )}

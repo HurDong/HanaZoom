@@ -87,6 +87,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/pb-rooms/join-info").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/pb-rooms/*/join").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/pb-rooms/user/join").permitAll()
+                        .requestMatchers("/api/v1/ecos/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/portfolio/client/*/summary").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/portfolio/client/*/stocks").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/portfolio/client/*/trades").authenticated()
