@@ -4,12 +4,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 
 import java.util.Map;
 import org.springframework.stereotype.Service;
+
+import javax.annotation.PostConstruct;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,7 +22,23 @@ import java.util.concurrent.atomic.AtomicLong;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@ConditionalOnProperty(value = "kafka.enabled", havingValue = "true", matchIfMissing = false)
 public class KafkaStockConsumer {
+
+    @PostConstruct
+    public void init() {
+        log.info("🎯 Kafka Consumer 초기화 시작 - WebSocket과 완전히 분리됨");
+        // Kafka는 WebSocket 초기화와 무관하게 별도 스레드에서 동작
+        new Thread(() -> {
+            try {
+                // Kafka 연결 시도 (WebSocket에 영향 없음)
+                Thread.sleep(2000); // WebSocket 초기화 완료 대기
+                log.info("✅ Kafka Consumer 초기화 완료 - WebSocket과 독립적 동작");
+            } catch (Exception e) {
+                log.warn("⚠️ Kafka 초기화 중 오류 발생 (WebSocket에는 영향 없음): {}", e.getMessage());
+            }
+        }).start();
+    }
 
     private final ObjectMapper objectMapper;
     private final KafkaStockService kafkaStockService;

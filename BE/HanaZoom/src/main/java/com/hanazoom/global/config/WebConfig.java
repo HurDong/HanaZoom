@@ -27,6 +27,14 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     @Bean
+    public WebClient kisWebClient() {
+        return WebClient.builder()
+                .baseUrl("https://openapivts.koreainvestment.com:29443")
+                .defaultHeader("Content-Type", "application/json")
+                .build();
+    }
+
+    @Bean
     public RestTemplate restTemplate() {
         return new RestTemplate();
     }
