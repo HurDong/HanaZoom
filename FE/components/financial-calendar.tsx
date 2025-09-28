@@ -16,14 +16,18 @@ import {
 
 // 금융 일정 아이템 타입 정의
 interface FinancialScheduleItem {
-  date: string; // 발표 날짜 (YYYY-MM-DD)
-  dayOfWeek: string; // 요일
-  time: string; // 발표 시간
-  indicator: string; // 지표명
-  importance: string; // 중요도
-  country: string; // 국가
-  previous?: string; // 이전 값
-  forecast?: string; // 예상 값
+  indicatorCode: string;
+  nameKo: string;
+  nameEn: string;
+  cycle: string;
+  unit: string;
+  scheduledDate: string;
+  publishedAt: string | null;
+  timeKey: string;
+  previous?: string;
+  actual?: string;
+  status: "SCHEDULED" | "RELEASED" | "DELAYED";
+  source: string;
 }
 
 // 금융 캘린더 컴포넌트 Props
@@ -46,74 +50,126 @@ export function FinancialCalendar({
   const [isRealData, setIsRealData] = useState<boolean>(false);
 
   useEffect(() => {
-    // 더미 데이터 설정 (실제 API 연동이 삭제되어 더미 데이터만 표시)
-    setLoading(true);
-
-    // 더미 금융 일정 데이터
-    const dummyIndicators: FinancialScheduleItem[] = [
-      {
-        date: "2025-09-29",
-        dayOfWeek: "월요일",
-        time: "08:00",
-        indicator: "산업생산지수 (Industrial Production Index)",
-        importance: "high",
-        country: "한국",
-        forecast: "전월 대비 0.5%",
-        previous: "전월 대비 -0.3%",
-      },
-      {
-        date: "2025-10-01",
-        dayOfWeek: "수요일",
-        time: "08:00",
-        indicator: "소비자물가지수 (CPI)",
-        importance: "high",
-        country: "한국",
-        forecast: "전년 대비 2.5%",
-        previous: "전년 대비 2.3%",
-      },
-      {
-        date: "2025-09-30",
-        dayOfWeek: "화요일",
-        time: "08:00",
-        indicator: "실업률 (Unemployment Rate)",
-        importance: "medium",
-        country: "한국",
-        forecast: "2.4%",
-        previous: "2.5%",
-      },
-    ];
-
-    // 더미 데이터 설정
-    setTimeout(() => {
-      setIndicators(dummyIndicators);
-      setIsRealData(false); // 더미 데이터임을 표시
-      setLoading(false);
-    }, 1000); // 로딩 효과를 위한 지연
+    fetchFinancialCalendar();
   }, []);
 
-  const getImportanceIcon = (importance: string) => {
-    switch (importance) {
-      case "high":
-        return <AlertCircle className="w-3 h-3 text-red-500" />;
-      case "medium":
-        return <AlertCircle className="w-3 h-3 text-yellow-500" />;
-      case "low":
-        return <AlertCircle className="w-3 h-3 text-gray-400" />;
-      default:
-        return <AlertCircle className="w-3 h-3 text-gray-400" />;
+  const fetchFinancialCalendar = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 현재 날짜를 YYYY-MM-DD 형식으로
+      const today = new Date();
+      const baseDate = today.toISOString().split("T")[0];
+
+      // API 호출
+      const response = await fetch(
+        `/api/v1/calendar/weekly?baseDate=${baseDate}&includeAll=false`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        // API 응답 데이터 변환
+        const transformedIndicators: FinancialScheduleItem[] =
+          data.data.items.map((item: any) => ({
+            indicatorCode: item.indicatorCode,
+            nameKo: item.nameKo,
+            nameEn: item.nameEn,
+            cycle: item.cycle,
+            unit: item.unit,
+            scheduledDate: item.scheduledDate,
+            publishedAt: item.publishedAt,
+            timeKey: item.timeKey,
+            previous: item.previous,
+            actual: item.actual,
+            status: item.status,
+            source: item.source,
+          }));
+
+        setIndicators(transformedIndicators);
+        setIsRealData(true);
+      } else {
+        throw new Error(data.message || "API 호출에 실패했습니다.");
+      }
+    } catch (err) {
+      console.error("금융 캘린더 데이터 조회 실패:", err);
+      setError(
+        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다."
+      );
+      setIsRealData(false);
+
+      // 오류 시 더미 데이터로 폴백
+      const dummyIndicators: FinancialScheduleItem[] = [
+        {
+          indicatorCode: "CPI_M",
+          nameKo: "소비자물가지수",
+          nameEn: "Consumer Price Index",
+          cycle: "월간",
+          unit: "전월 대비",
+          scheduledDate: "2025-10-02",
+          publishedAt: null,
+          timeKey: "매월 2일",
+          status: "SCHEDULED",
+          source: "ECOS",
+        },
+        {
+          indicatorCode: "IP_M",
+          nameKo: "산업생산지수",
+          nameEn: "Industrial Production Index",
+          cycle: "월간",
+          unit: "전월 대비",
+          scheduledDate: "2025-09-30",
+          publishedAt: null,
+          timeKey: "매월 말일",
+          status: "SCHEDULED",
+          source: "ECOS",
+        },
+        {
+          indicatorCode: "GDP_Q_ADV",
+          nameKo: "GDP성장률(전기대비)",
+          nameEn: "GDP Growth Rate",
+          cycle: "분기",
+          unit: "%",
+          scheduledDate: "2025-11-15",
+          publishedAt: null,
+          timeKey: "분기 종료 후 45일",
+          status: "SCHEDULED",
+          source: "ECOS",
+        },
+      ];
+
+      setIndicators(dummyIndicators);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getImportanceLabel = (importance: string) => {
-    switch (importance) {
-      case "high":
-        return "높음";
-      case "medium":
-        return "중간";
-      case "low":
-        return "낮음";
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "RELEASED":
+        return <div className="w-3 h-3 bg-green-500 rounded-full" />;
+      case "DELAYED":
+        return <div className="w-3 h-3 bg-red-500 rounded-full" />;
+      case "SCHEDULED":
       default:
-        return "알 수 없음";
+        return <div className="w-3 h-3 bg-gray-400 rounded-full" />;
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "RELEASED":
+        return "발표됨";
+      case "DELAYED":
+        return "지연";
+      case "SCHEDULED":
+      default:
+        return "예정";
     }
   };
 
@@ -139,11 +195,13 @@ export function FinancialCalendar({
   };
 
   const renderIndicator = (indicator: FinancialScheduleItem, index: number) => {
+    const isTodayScheduled = isToday(indicator.scheduledDate);
+
     return (
       <div
-        key={`${indicator.date}-${indicator.indicator}-${index}`}
+        key={`${indicator.scheduledDate}-${indicator.indicatorCode}-${index}`}
         className={`p-2 rounded-lg border transition-all duration-200 hover:shadow-sm ${
-          isToday(indicator.date)
+          isTodayScheduled
             ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700"
             : "bg-white/80 border-gray-200 dark:bg-gray-800/80 dark:border-gray-700"
         }`}
@@ -153,24 +211,29 @@ export function FinancialCalendar({
             <div className="flex items-center gap-1 mb-1">
               <div className="flex items-center gap-1">
                 <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">
-                  {indicator.indicator}
+                  {indicator.nameKo}
                 </h4>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  ({indicator.nameEn})
+                </span>
               </div>
-              {getImportanceIcon(indicator.importance)}
+              {getStatusIcon(indicator.status)}
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {getImportanceLabel(indicator.importance)}
+                {getStatusLabel(indicator.status)}
               </span>
             </div>
 
             <div className="flex items-center gap-2 mb-1">
-              <div className="flex items-center gap-1">
-                <span className="font-mono font-bold text-sm text-gray-900 dark:text-gray-100">
-                  {indicator.forecast || "예측치 없음"}
-                </span>
-                <span className="text-xs text-gray-600 dark:text-gray-400">
-                  {indicator.previous ? "예측" : ""}
-                </span>
-              </div>
+              {indicator.actual && (
+                <div className="flex items-center gap-1">
+                  <span className="font-mono font-bold text-sm text-gray-900 dark:text-gray-100">
+                    {indicator.actual}
+                  </span>
+                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                    실제
+                  </span>
+                </div>
+              )}
 
               {indicator.previous && (
                 <div className="flex items-center gap-1">
@@ -188,18 +251,26 @@ export function FinancialCalendar({
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
-                  <span>{formatDate(indicator.date)}</span>
+                  <span>{formatDate(indicator.scheduledDate)}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  <span>{indicator.time}</span>
+                  <span>{indicator.timeKey}</span>
                 </div>
               </div>
               <div className="text-right">
-                <div className="font-medium">{indicator.dayOfWeek}</div>
-                <div className="text-xs text-gray-400">{indicator.country}</div>
+                <div className="font-medium">{indicator.cycle}</div>
+                <div className="text-xs text-gray-400">{indicator.unit}</div>
               </div>
             </div>
+
+            {/* 발표 시간 표시 */}
+            {indicator.publishedAt && (
+              <div className="mt-1 text-xs text-green-600 dark:text-green-400">
+                발표됨:{" "}
+                {new Date(indicator.publishedAt).toLocaleString("ko-KR")}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -341,9 +412,16 @@ export function FinancialCalendar({
 
       {isCollapsed && indicators.length > 0 && (
         <div className="flex flex-col items-center gap-1">
-          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+          {indicators.slice(0, 3).map((indicator, index) => (
+            <div key={index} className="flex flex-col items-center gap-1">
+              {getStatusIcon(indicator.status)}
+              <span className="text-xs text-gray-500 dark:text-gray-400 truncate w-8 text-center">
+                {indicator.nameKo.length > 3
+                  ? indicator.nameKo.substring(0, 3) + "..."
+                  : indicator.nameKo}
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>
