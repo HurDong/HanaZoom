@@ -64,7 +64,7 @@ export function FinancialCalendar({
 
       // API 호출
       const response = await fetch(
-        `/api/v1/calendar/weekly?baseDate=${baseDate}&includeAll=false`
+        `/api/v1/calendar/weekly?baseDate=${baseDate}&includeAll=true`
       );
 
       if (!response.ok) {
