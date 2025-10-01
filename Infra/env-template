@@ -11,10 +11,19 @@ IMAGE_TAG=${ENV_SUFFIX}-latest
 SPRING_PROFILES_ACTIVE=${ENV_SUFFIX}
 NODE_ENV=${ENV_SUFFIX}
 
-# Database Settings
+# Database Settings (MySQL)
 DB_USERNAME=hanazoom_user
 DB_PASSWORD=your_secure_password
 DB_ROOT_PASSWORD=your_secure_root_password
+
+# Redis Settings
+REDIS_PASSWORD=redis1234!
+
+# MongoDB Settings (for chat history)
+MONGO_ROOT_USERNAME=admin
+MONGO_ROOT_PASSWORD=admin1234!
+MONGO_USERNAME=hanazoom_mongo
+MONGO_PASSWORD=mongo1234!
 
 # Logging
 LOG_LEVEL=info  # or debug for dev environment 

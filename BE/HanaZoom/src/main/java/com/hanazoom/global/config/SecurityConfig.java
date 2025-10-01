@@ -39,7 +39,8 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:3000", "http://localhost:3001"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept",
+                "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
@@ -87,6 +88,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/pb-rooms/join-info").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/pb-rooms/*/join").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/pb-rooms/user/join").permitAll()
+                        .requestMatchers("/api/v1/calendar/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/portfolio/client/*/summary").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/portfolio/client/*/stocks").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/portfolio/client/*/trades").authenticated()

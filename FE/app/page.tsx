@@ -6,13 +6,13 @@ import {
   MapPin,
   Users,
   Sparkles,
-  BarChart3,
   ChevronDown,
   ArrowRight,
   TrendingUp,
   TrendingDown,
   Map,
   LogIn,
+  Calendar,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,6 +24,7 @@ import { FloatingEmojiBackground } from "@/components/floating-emoji-background"
 import { useState, useEffect, useRef } from "react";
 import NavBar from "./components/Navbar";
 import { StockTicker } from "@/components/stock-ticker";
+import { FinancialCalendar } from "@/components/financial-calendar";
 import { isLoggedIn } from "./utils/auth";
 import { useUserSettingsStore } from "@/lib/stores/userSettingsStore";
 
@@ -34,6 +35,7 @@ export default function StockMapLanding() {
   const { settings, isInitialized } = useUserSettingsStore();
   const [scrolled, setScrolled] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [isCalendarCollapsed, setIsCalendarCollapsed] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
 
   const handleLoadingComplete = () => {
@@ -73,6 +75,13 @@ export default function StockMapLanding() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 overflow-hidden relative transition-colors duration-500">
+      {/* 금융 캘린더 사이드바 - 고정 위치 */}
+      <div className="fixed right-4 top-1/2 transform -translate-y-1/2 z-50">
+        <FinancialCalendar
+          isCollapsed={isCalendarCollapsed}
+          onToggle={() => setIsCalendarCollapsed(!isCalendarCollapsed)}
+        />
+      </div>
       {/* 마우스 따라다니는 아이콘들 (사용자 설정에 따라) */}
       {isInitialized && settings.customCursorEnabled && <MouseFollower />}
 
@@ -82,7 +91,9 @@ export default function StockMapLanding() {
       </div>
 
       {/* Floating Stock Symbols (사용자 설정에 따라) */}
-      {isInitialized && settings.emojiAnimationEnabled && <FloatingEmojiBackground />}
+      {isInitialized && settings.emojiAnimationEnabled && (
+        <FloatingEmojiBackground />
+      )}
 
       {/* NavBar 컴포넌트 사용 */}
       <div className="fixed top-0 left-0 right-0 z-[100]">
@@ -140,7 +151,9 @@ export default function StockMapLanding() {
                     <br />
                     지역별 투자 트렌드를 귀여운 지도로 확인해보세요 🗺️✨
                     <br />
-                    <span className="text-emerald-600 font-semibold">지역 특성을 반영한 맞춤형 주식 인사이트를 만나보세요!</span>
+                    <span className="text-emerald-600 font-semibold">
+                      지역 특성을 반영한 맞춤형 주식 인사이트를 만나보세요!
+                    </span>
                   </p>
                 </AnimateOnScroll>
 
@@ -246,7 +259,7 @@ export default function StockMapLanding() {
                 <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-green-200 dark:border-green-700 hover:shadow-lg dark:hover:shadow-green-900/20 transition-all duration-300 hover:scale-105 backdrop-blur-sm group">
                   <CardContent className="p-6 space-y-4">
                     <div className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-green-500 dark:from-emerald-500 dark:to-green-400 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                      <BarChart3 className="w-6 h-6 text-white" />
+                      <TrendingUp className="w-6 h-6 text-white" />
                     </div>
                     <h3 className="text-xl font-bold text-green-900 dark:text-green-100">
                       실시간 트렌드

@@ -51,10 +51,37 @@ services:
     networks:
       - app-network
 
+  # MongoDB Service (for chat history)
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-admin1234!}
+      - MONGO_INITDB_DATABASE=hanazoom_chat
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+      - ./mongodb/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: always
+    networks:
+      - app-network
+
 volumes:
   mysql_data:
     driver: local
   redis_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  mongodb_config:
     driver: local
 
 networks:

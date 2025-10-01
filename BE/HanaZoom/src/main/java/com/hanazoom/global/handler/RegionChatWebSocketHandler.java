@@ -5,6 +5,7 @@ import com.hanazoom.domain.member.entity.Member;
 import com.hanazoom.domain.member.repository.MemberRepository;
 import com.hanazoom.domain.region.entity.Region;
 import com.hanazoom.domain.region.repository.RegionRepository;
+import com.hanazoom.domain.chat.service.RegionChatService;
 import com.hanazoom.global.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,20 +36,21 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
     private final JwtUtil jwtUtil;
     private final MemberRepository memberRepository;
     private final RegionRepository regionRepository;
+    private final RegionChatService regionChatService;
 
     // 지역별 채팅방 관리: regionId -> Set<WebSocketSession>
     private final Map<Long, Set<WebSocketSession>> regionChatRooms = new ConcurrentHashMap<>();
-    
+
     // 세션별 사용자 정보 관리: sessionId -> Member
     private final Map<String, Member> sessionMembers = new ConcurrentHashMap<>();
-    
+
     // 세션별 지역 정보 관리: sessionId -> regionId
     private final Map<String, Long> sessionRegions = new ConcurrentHashMap<>();
 
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
         log.info("🔌 지역 채팅 WebSocket 연결 시도: {}", session.getId());
-        
+
         // URL에서 regionId와 token 추출
         String query = session.getUri().getQuery();
         if (query == null) {
@@ -69,7 +71,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
 
         try {
             Long regionId = Long.parseLong(regionIdStr);
-            
+
             // JWT 토큰 검증
             if (!jwtUtil.validateToken(token)) {
                 log.warn("⚠️ 유효하지 않은 토큰: {}", token.substring(0, 20) + "...");
@@ -80,7 +82,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             // 사용자 정보 조회
             UUID memberId = jwtUtil.getMemberIdFromToken(token);
             Member member = memberRepository.findById(memberId).orElse(null);
-            
+
             if (member == null) {
                 log.warn("⚠️ 사용자를 찾을 수 없습니다: {}", memberId);
                 session.close(CloseStatus.POLICY_VIOLATION.withReason("User not found"));
@@ -102,15 +104,15 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             // 지역 채팅방에 참여
             regionChatRooms.computeIfAbsent(regionId, k -> ConcurrentHashMap.newKeySet()).add(session);
 
-            log.info("✅ 지역 채팅 WebSocket 연결 성공: 사용자={}, 지역={}, 세션={}", 
-                member.getName(), region.getName(), session.getId());
+            log.info("✅ 지역 채팅 WebSocket 연결 성공: 사용자={}, 지역={}, 세션={}",
+                    member.getName(), region.getName(), session.getId());
 
             // 환영 메시지 전송
             sendWelcomeMessage(session, member, region);
 
             // 해당 지역의 다른 사용자들에게 입장 알림
-            broadcastToRegion(regionId, createSystemMessage("ENTER", 
-                member.getName() + "님이 입장했습니다.", member.getName()));
+            broadcastToRegion(regionId, createSystemMessage("ENTER",
+                    member.getName() + "님이 입장했습니다.", member.getName()));
 
             // 온라인 사용자 목록 브로드캐스트
             broadcastUsers(regionId);
@@ -146,7 +148,8 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
 
             switch (type) {
                 case "CHAT":
-                    handleChatMessage(session, member, regionId, content, senderId, images, imageCount, portfolioStocks);
+                    handleChatMessage(session, member, regionId, content, senderId, images, imageCount,
+                            portfolioStocks);
                     break;
                 case "TYPING":
                     handleTypingMessage(session, member, regionId, jsonMessage.optBoolean("isTyping", false));
@@ -170,8 +173,8 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
         Long regionId = sessionRegions.get(session.getId());
 
         if (member != null && regionId != null) {
-            log.info("❌ 지역 채팅 WebSocket 연결 종료: 사용자={}, 지역={}, 상태={}", 
-                member.getName(), regionId, status);
+            log.info("❌ 지역 채팅 WebSocket 연결 종료: 사용자={}, 지역={}, 상태={}",
+                    member.getName(), regionId, status);
 
             // 지역 채팅방에서 제거
             Set<WebSocketSession> roomSessions = regionChatRooms.get(regionId);
@@ -183,8 +186,8 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             }
 
             // 퇴장 알림 전송
-            broadcastToRegion(regionId, createSystemMessage("LEAVE", 
-                member.getName() + "님이 퇴장했습니다.", member.getName()));
+            broadcastToRegion(regionId, createSystemMessage("LEAVE",
+                    member.getName() + "님이 퇴장했습니다.", member.getName()));
 
             // 온라인 사용자 목록 브로드캐스트
             broadcastUsers(regionId);
@@ -197,31 +200,105 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void handleTransportError(@NonNull WebSocketSession session, @NonNull Throwable exception) throws Exception {
-        log.error("🚨 지역 채팅 WebSocket 전송 오류: session={}, error={}", 
-            session.getId(), exception.getMessage(), exception);
+        log.error("🚨 지역 채팅 WebSocket 전송 오류: session={}, error={}",
+                session.getId(), exception.getMessage(), exception);
         super.handleTransportError(session, exception);
     }
 
-    private void handleChatMessage(WebSocketSession session, Member member, Long regionId, String content, String senderId, Object images, int imageCount, Object portfolioStocks) {
+    private void handleChatMessage(WebSocketSession session, Member member, Long regionId, String content,
+            String senderId, Object images, int imageCount, Object portfolioStocks) {
         if ((content == null || content.trim().isEmpty()) && imageCount == 0 && portfolioStocks == null) {
-                return;
-            }
+            return;
+        }
 
         // 채팅 메시지 생성
         String messageId = UUID.randomUUID().toString();
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        
+
+        // 이미지 리스트 변환
+        List<String> imageList = null;
+        if (images != null && imageCount > 0) {
+            try {
+                if (images instanceof JSONArray) {
+                    JSONArray arr = (JSONArray) images;
+                    imageList = new ArrayList<>();
+                    for (int i = 0; i < arr.length(); i++) {
+                        imageList.add(arr.getString(i));
+                    }
+                } else if (images instanceof Collection) {
+                    imageList = new ArrayList<>((Collection<String>) images);
+                }
+            } catch (Exception e) {
+                log.warn("⚠️ 이미지 변환 실패", e);
+            }
+        }
+
+        // 보유종목 정보 변환
+        List<Map<String, Object>> portfolioList = null;
+        if (portfolioStocks != null) {
+            try {
+                portfolioList = new ArrayList<>();
+
+                if (portfolioStocks instanceof JSONArray) {
+                    JSONArray arr = (JSONArray) portfolioStocks;
+                    for (int i = 0; i < arr.length(); i++) {
+                        JSONObject obj = arr.getJSONObject(i);
+                        Map<String, Object> map = objectMapper.readValue(
+                                obj.toString(), new TypeReference<Map<String, Object>>() {
+                                });
+                        portfolioList.add(map);
+                    }
+                } else if (portfolioStocks instanceof String) {
+                    JSONArray arr = new JSONArray((String) portfolioStocks);
+                    for (int i = 0; i < arr.length(); i++) {
+                        JSONObject obj = arr.getJSONObject(i);
+                        Map<String, Object> map = objectMapper.readValue(
+                                obj.toString(), new TypeReference<Map<String, Object>>() {
+                                });
+                        portfolioList.add(map);
+                    }
+                } else if (portfolioStocks instanceof Collection) {
+                    String json = objectMapper.writeValueAsString(portfolioStocks);
+                    portfolioList = objectMapper.readValue(json, new TypeReference<List<Map<String, Object>>>() {
+                    });
+                }
+            } catch (Exception e) {
+                log.warn("⚠️ 보유종목 변환 실패", e);
+                portfolioList = new ArrayList<>();
+            }
+        }
+
+        // MongoDB에 메시지 저장 (비동기로 처리하여 WebSocket 성능에 영향 없도록)
+        final List<String> finalImageList = imageList;
+        final List<Map<String, Object>> finalPortfolioList = portfolioList;
+        String finalSenderId = senderId.isEmpty() ? member.getId().toString() : senderId;
+
+        try {
+            regionChatService.saveChatMessage(
+                    messageId,
+                    regionId,
+                    finalSenderId,
+                    member.getName(),
+                    content,
+                    "CHAT",
+                    finalImageList,
+                    imageCount > 0 ? imageCount : null,
+                    finalPortfolioList);
+        } catch (Exception e) {
+            log.error("❌ 채팅 메시지 저장 실패 (무시하고 계속)", e);
+        }
+
         // 해당 지역의 모든 사용자에게 개별적으로 메시지 전송 (isMyMessage 설정을 위해)
         Set<WebSocketSession> sessions = regionChatRooms.get(regionId);
         if (sessions != null) {
             List<WebSocketSession> deadSessions = new ArrayList<>();
-            
+
             for (WebSocketSession targetSession : sessions) {
                 try {
                     if (targetSession.isOpen()) {
                         // 현재 세션이면 isMyMessage = true, 아니면 false
                         boolean isMyMessage = targetSession.equals(session);
-                        
+
                         Map<String, Object> chatMessage = new HashMap<>();
                         chatMessage.put("id", messageId);
                         chatMessage.put("type", "CHAT");
@@ -230,8 +307,8 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
                         chatMessage.put("content", content);
                         chatMessage.put("createdAt", timestamp);
                         chatMessage.put("isMyMessage", isMyMessage);
-                        chatMessage.put("senderId", senderId.isEmpty() ? member.getId().toString() : senderId); // 현재 사용자 식별용
-                        
+                        chatMessage.put("senderId", finalSenderId);
+
                         // 이미지가 있는 경우 추가
                         if (images != null && imageCount > 0) {
                             chatMessage.put("images", images);
@@ -239,47 +316,14 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
                         }
 
                         // 보유종목 정보가 있는 경우 추가
-                        if (portfolioStocks != null) {
-                            try {
-                                List<Map<String, Object>> portfolioList = new ArrayList<>();
-
-                                if (portfolioStocks instanceof JSONArray) {
-                                    JSONArray arr = (JSONArray) portfolioStocks;
-                                    for (int i = 0; i < arr.length(); i++) {
-                                        JSONObject obj = arr.getJSONObject(i);
-                                        Map<String, Object> map = objectMapper.readValue(
-                                            obj.toString(), new TypeReference<Map<String, Object>>() {}
-                                        );
-                                        portfolioList.add(map);
-                                    }
-                                } else if (portfolioStocks instanceof String) {
-                                    // 문자열로 들어온 경우
-                                    JSONArray arr = new JSONArray((String) portfolioStocks);
-                                    for (int i = 0; i < arr.length(); i++) {
-                                        JSONObject obj = arr.getJSONObject(i);
-                                        Map<String, Object> map = objectMapper.readValue(
-                                            obj.toString(), new TypeReference<Map<String, Object>>() {}
-                                        );
-                                        portfolioList.add(map);
-                                    }
-                                } else if (portfolioStocks instanceof Collection) {
-                                    // 이미 컬렉션 형태인 경우 그대로 변환 시도
-                                    String json = objectMapper.writeValueAsString(portfolioStocks);
-                                    portfolioList = objectMapper.readValue(json, new TypeReference<List<Map<String, Object>>>() {});
-                                } else {
-                                    log.warn("⚠️ 알 수 없는 portfolioStocks 타입: {}", portfolioStocks.getClass());
-                                }
-
-                                chatMessage.put("portfolioStocks", portfolioList);
-                            } catch (Exception e) {
-                                // 실패 시 빈 배열로 설정
-                                chatMessage.put("portfolioStocks", new ArrayList<>());
-                            }
+                        if (finalPortfolioList != null && !finalPortfolioList.isEmpty()) {
+                            chatMessage.put("portfolioStocks", finalPortfolioList);
                         }
 
                         synchronized (targetSession) {
                             if (targetSession.isOpen()) {
-                                targetSession.sendMessage(new TextMessage(objectMapper.valueToTree(chatMessage).toString()));
+                                targetSession
+                                        .sendMessage(new TextMessage(objectMapper.valueToTree(chatMessage).toString()));
                             }
                         }
                     } else {
@@ -334,7 +378,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
         Set<WebSocketSession> sessions = regionChatRooms.get(regionId);
         if (sessions != null) {
             List<WebSocketSession> deadSessions = new ArrayList<>();
-            
+
             for (WebSocketSession session : sessions) {
                 try {
                     if (session.isOpen()) {
@@ -361,12 +405,12 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
         Set<WebSocketSession> sessions = regionChatRooms.get(regionId);
         if (sessions != null) {
             List<WebSocketSession> deadSessions = new ArrayList<>();
-            
+
             for (WebSocketSession session : sessions) {
                 if (session.equals(excludeSession)) {
                     continue; // 자신 제외
                 }
-                
+
                 try {
                     if (session.isOpen()) {
                         synchronized (session) {
