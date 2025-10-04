@@ -40,6 +40,7 @@ import {
 import { toast } from "sonner";
 import { useStockWebSocket } from "@/hooks/useStockWebSocket";
 import type { StockPriceData } from "@/lib/api/stock";
+import { searchStocks, StockSearchResult } from "@/lib/api/stock";
 import Select from "react-select";
 
 // React Select 타입 정의
@@ -453,16 +454,70 @@ export default function CommunityPage() {
     fetchUserRegion();
   }, [activeTab]);
 
+  // Elasticsearch 검색 결과 상태
+  const [elasticSearchResults, setElasticSearchResults] = useState<
+    StockSearchResult[]
+  >([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Elasticsearch 검색 (디바운싱)
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setElasticSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await searchStocks(searchQuery);
+        if (response.success) {
+          setElasticSearchResults(response.data);
+        }
+      } catch (error) {
+        console.error("Elasticsearch 검색 실패:", error);
+        setElasticSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
   // 필터링 및 정렬된 종목 목록
   const filteredAndSortedStocks = useMemo(() => {
-    let filtered = allStocks.filter((stock) => {
-      const matchesSearch =
-        stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        stock.symbol.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesSector =
-        selectedSector === "all" || stock.sector === selectedSector;
-      return matchesSearch && matchesSector;
-    });
+    let filtered: any[];
+
+    // 검색어가 있으면 Elasticsearch 결과 사용
+    if (searchQuery.trim() && elasticSearchResults.length > 0) {
+      filtered = elasticSearchResults.map((result) => ({
+        symbol: result.symbol,
+        name: result.name,
+        sector: result.sector,
+        currentPrice: parseFloat(result.currentPrice) || 0,
+        changePercent: parseFloat(result.priceChangePercent) || 0,
+        volume: 0,
+        logoUrl: result.logoUrl,
+      }));
+    } else {
+      // 검색어 없으면 로컬 필터링
+      filtered = allStocks.filter((stock) => {
+        const matchesSearch =
+          !searchQuery.trim() ||
+          stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          stock.symbol.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSector =
+          selectedSector === "all" || stock.sector === selectedSector;
+        return matchesSearch && matchesSector;
+      });
+    }
+
+    // 섹터 필터링 (Elasticsearch 결과에도 적용)
+    if (selectedSector !== "all") {
+      filtered = filtered.filter((stock) => stock.sector === selectedSector);
+    }
 
     // 정렬
     filtered.sort((a, b) => {
@@ -479,7 +534,7 @@ export default function CommunityPage() {
     });
 
     return filtered;
-  }, [allStocks, searchQuery, selectedSector, sortBy]);
+  }, [allStocks, searchQuery, selectedSector, sortBy, elasticSearchResults]);
 
   // 고유한 업종 목록
   const uniqueSectors = useMemo(() => {
@@ -648,10 +703,12 @@ export default function CommunityPage() {
         }
       `}</style>
       {isInitialized && settings.customCursorEnabled && <MouseFollower />}
-      
+
       {/* Floating Stock Symbols (사용자 설정에 따라) */}
-      {isInitialized && settings.emojiAnimationEnabled && <FloatingEmojiBackground />}
-      
+      {isInitialized && settings.emojiAnimationEnabled && (
+        <FloatingEmojiBackground />
+      )}
+
       <NavBar />
 
       <div className="fixed top-16 left-0 right-0 z-[60]">
@@ -1100,14 +1157,28 @@ export default function CommunityPage() {
 
                 {/* 페이지 정보 */}
                 <div className="text-center mt-4">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {currentPage + 1} / {Math.ceil(totalStocks / pageSize)}{" "}
-                    페이지
-                  </span>
-                  <span className="mx-2 text-gray-400">•</span>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    총 {totalStocks.toLocaleString()}개 종목
-                  </span>
+                  {searchQuery.trim() ? (
+                    // 검색 결과 표시
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      <span className="font-semibold text-green-600 dark:text-green-400">
+                        "{searchQuery}"
+                      </span>{" "}
+                      검색 결과: {filteredAndSortedStocks.length}개 종목
+                      {isSearching && " (검색 중...)"}
+                    </span>
+                  ) : (
+                    // 전체 목록 표시
+                    <>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {currentPage + 1} / {Math.ceil(totalStocks / pageSize)}{" "}
+                        페이지
+                      </span>
+                      <span className="mx-2 text-gray-400">•</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        총 {totalStocks.toLocaleString()}개 종목
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             )}

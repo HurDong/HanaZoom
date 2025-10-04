@@ -12,7 +12,6 @@ import {
   TrendingDown,
   Map,
   LogIn,
-  Calendar,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,7 +23,6 @@ import { FloatingEmojiBackground } from "@/components/floating-emoji-background"
 import { useState, useEffect, useRef } from "react";
 import NavBar from "./components/Navbar";
 import { StockTicker } from "@/components/stock-ticker";
-import { FinancialCalendar } from "@/components/financial-calendar";
 import { isLoggedIn } from "./utils/auth";
 import { useUserSettingsStore } from "@/lib/stores/userSettingsStore";
 
@@ -35,7 +33,6 @@ export default function StockMapLanding() {
   const { settings, isInitialized } = useUserSettingsStore();
   const [scrolled, setScrolled] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
-  const [isCalendarCollapsed, setIsCalendarCollapsed] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
 
   const handleLoadingComplete = () => {
@@ -75,13 +72,6 @@ export default function StockMapLanding() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 overflow-hidden relative transition-colors duration-500">
-      {/* 금융 캘린더 사이드바 - 고정 위치 */}
-      <div className="fixed right-4 top-1/2 transform -translate-y-1/2 z-50">
-        <FinancialCalendar
-          isCollapsed={isCalendarCollapsed}
-          onToggle={() => setIsCalendarCollapsed(!isCalendarCollapsed)}
-        />
-      </div>
       {/* 마우스 따라다니는 아이콘들 (사용자 설정에 따라) */}
       {isInitialized && settings.customCursorEnabled && <MouseFollower />}
 

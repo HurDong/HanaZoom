@@ -13,6 +13,25 @@ export interface Stock {
   marketCap: number | null;
 }
 
+// Elasticsearch 검색 결과 타입
+export interface StockSearchResult {
+  symbol: string;
+  name: string;
+  sector: string;
+  currentPrice: string;
+  priceChangePercent: string;
+  logoUrl: string;
+  score: number;
+  matchType: string;
+  highlightedName?: string;
+  // 프론트엔드 호환성 필드
+  stockCode: string;
+  stockName: string;
+  price: string;
+  change: string;
+  changeRate: string;
+}
+
 // WTS 관련 타입 정의
 export interface StockPriceData {
   stockCode: string;
@@ -83,10 +102,43 @@ export const getStocks = async (page = 0, size = 20) => {
   return response.data;
 };
 
-export const searchStocks = async (query: string) => {
+// Elasticsearch 기반 주식 검색 (오타 허용 + 형태소 분석)
+export const searchStocks = async (
+  query: string
+): Promise<{ success: boolean; data: StockSearchResult[] }> => {
   const response = await api.get("/stocks/search", {
     params: { query },
   });
+  return response.data;
+};
+
+// 자동완성 제안
+export const suggestStocks = async (
+  prefix: string
+): Promise<{ success: boolean; data: string[] }> => {
+  const response = await api.get("/stocks/suggest", {
+    params: { prefix },
+  });
+  return response.data;
+};
+
+// 섹터별 검색
+export const searchStocksBySector = async (
+  keyword: string,
+  sector: string
+): Promise<{ success: boolean; data: StockSearchResult[] }> => {
+  const response = await api.get("/stocks/search/sector", {
+    params: { keyword, sector },
+  });
+  return response.data;
+};
+
+// Elasticsearch 수동 동기화 (관리자용)
+export const syncStocksToElasticsearch = async (): Promise<{
+  success: boolean;
+  data: string;
+}> => {
+  const response = await api.post("/stocks/sync");
   return response.data;
 };
 
@@ -121,12 +173,13 @@ export const getPopularityDetails = async (
   date: string = "latest"
 ): Promise<PopularityDetailsResponse> => {
   try {
-    const res = await api.get<{ success: boolean; data: PopularityDetailsResponse }>(
-      `/regions/${regionId}/stocks/${symbol}/popularity`,
-      { params: { date } }
-    );
-    
-    
+    const res = await api.get<{
+      success: boolean;
+      data: PopularityDetailsResponse;
+    }>(`/regions/${regionId}/stocks/${symbol}/popularity`, {
+      params: { date },
+    });
+
     return res.data.data;
   } catch (error) {
     console.error(`❌ [API] getPopularityDetails 에러:`, error);
