@@ -18,7 +18,11 @@ import {
   X,
   Upload,
 } from "lucide-react";
-import { getAccessToken, refreshAccessToken } from "@/app/utils/auth";
+import {
+  getAccessToken,
+  refreshAccessToken,
+  useAuthStore,
+} from "@/app/utils/auth";
 import { useRouter } from "next/navigation";
 import {
   Collapsible,
@@ -40,6 +44,10 @@ import StockMention from "./StockMention";
 import PortfolioStockSelector from "./PortfolioStockSelector";
 import PortfolioStockCard from "./PortfolioStockCard";
 import { type PortfolioStock } from "@/lib/api/portfolio";
+import {
+  getRecentMessages,
+  type RegionChatMessage as ApiChatMessage,
+} from "@/lib/api/chat";
 
 interface ChatMessage {
   id: string;
@@ -113,7 +121,11 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showPortfolioSelector, setShowPortfolioSelector] = useState(false);
-  const [attachedPortfolioStocks, setAttachedPortfolioStocks] = useState<PortfolioStock[]>([]);
+  const [attachedPortfolioStocks, setAttachedPortfolioStocks] = useState<
+    PortfolioStock[]
+  >([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
 
   const isActionAllowed = useCallback((action: string) => {
     const now = Date.now();
@@ -132,6 +144,71 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // 이전 채팅 메시지 로드
+  const loadChatHistory = useCallback(async () => {
+    if (isLoadingHistory || hasLoadedHistory) return;
+
+    setIsLoadingHistory(true);
+    try {
+      console.log(`📥 이전 채팅 메시지 로드 시작: regionId=${regionId}`);
+
+      // 현재 사용자 ID 가져오기
+      const currentUserIdValue = useAuthStore.getState().getCurrentUserId();
+      console.log(`👤 현재 사용자 ID: ${currentUserIdValue}`);
+
+      const historyMessages = await getRecentMessages(regionId, 50);
+
+      if (historyMessages && historyMessages.length > 0) {
+        console.log(`✅ ${historyMessages.length}개의 이전 메시지 로드 완료`);
+
+        // API 메시지를 ChatMessage 형식으로 변환
+        const convertedMessages: ChatMessage[] = historyMessages.map(
+          (msg: ApiChatMessage) => {
+            // 현재 사용자가 보낸 메시지인지 확인
+            const isMyMessage =
+              currentUserIdValue && msg.memberId === currentUserIdValue;
+
+            console.log(
+              `📝 메시지 ID: ${msg.id}, 발신자: ${msg.memberId}, 내 메시지: ${isMyMessage}`
+            );
+
+            return {
+              id: msg.id,
+              type: msg.messageType,
+              messageType: msg.messageType,
+              memberName: msg.memberName,
+              content: msg.content,
+              createdAt: msg.createdAt,
+              showHeader: true,
+              senderId: msg.memberId,
+              isMyMessage: isMyMessage,
+              images: msg.images,
+              portfolioStocks: msg.portfolioStocks,
+            };
+          }
+        );
+
+        // 기존 메시지와 병합 (중복 제거)
+        setMessages((prevMessages) => {
+          const existingIds = new Set(prevMessages.map((m) => m.id));
+          const newMessages = convertedMessages.filter(
+            (m) => !existingIds.has(m.id)
+          );
+          return [...newMessages, ...prevMessages];
+        });
+
+        setHasLoadedHistory(true);
+      } else {
+        console.log("📭 이전 채팅 메시지가 없습니다.");
+        setHasLoadedHistory(true);
+      }
+    } catch (error) {
+      console.error("❌ 이전 채팅 메시지 로드 실패:", error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [regionId, isLoadingHistory, hasLoadedHistory]);
 
   const closeWebSocket = useCallback(() => {
     if (isClosing.current || !ws.current) return;
@@ -243,7 +320,11 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
             }
 
             // 보유종목이 있는 경우 content가 없어도 처리
-            if (!data || (!data.content || data.content.trim() === "") && !data.portfolioStocks) {
+            if (
+              !data ||
+              ((!data.content || data.content.trim() === "") &&
+                !data.portfolioStocks)
+            ) {
               return;
             }
 
@@ -252,27 +333,18 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
               setOnlineUsers(data.users);
             }
 
-            // 현재 사용자의 session ID 저장 (첫 번째 메시지에서)
-            if (data.senderId && !currentSessionId) {
-              setCurrentSessionId(data.senderId);
-            }
-
-            // 현재 사용자 ID 저장 (첫 번째 메시지에서)
-            if (data.senderId && !currentUserId) {
-              setCurrentUserId(data.senderId);
-            }
-
-            // 내가 보낸 메시지인지 판단 (서버에서 isMyMessage가 없거나 false인 경우)
-            if (data.senderId && currentUserId) {
-              data.isMyMessage = data.senderId === currentUserId;
+            // 내가 보낸 메시지인지 판단
+            const userId =
+              currentUserId || useAuthStore.getState().getCurrentUserId();
+            if (data.senderId && userId) {
+              data.isMyMessage = data.senderId === userId;
             }
 
             if (!receivedMessageIds.current.has(data.id)) {
               receivedMessageIds.current.add(data.id);
-              
+
               // 보유종목 정보가 있는지 확인
               if (data.portfolioStocks) {
-                
                 // portfolioStocks가 배열이 아닌 경우 처리
                 if (!Array.isArray(data.portfolioStocks)) {
                   // 빈 배열로 초기화 (데이터 손실 방지)
@@ -280,28 +352,30 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                 }
               } else if (data.content === "보유종목을 공유했습니다.") {
                 // 임시로 하드코딩된 보유종목 데이터 추가 (테스트용)
-                data.portfolioStocks = [{
-                  id: 1,
-                  stockSymbol: "000660",
-                  stockName: "SK하이닉스",
-                  quantity: 1,
-                  availableQuantity: 1,
-                  frozenQuantity: 0,
-                  avgPurchasePrice: 260250,
-                  totalPurchaseAmount: 260250,
-                  currentPrice: 348250,
-                  currentValue: 348250,
-                  profitLoss: 88000,
-                  profitLossRate: 33.81,
-                  firstPurchaseDate: "2024-01-01T00:00:00.000Z",
-                  lastPurchaseDate: "2024-01-01T00:00:00.000Z",
-                  lastSaleDate: "",
-                  allocationRate: 0,
-                  isProfitable: true,
-                  performanceStatus: "PROFIT"
-                }];
+                data.portfolioStocks = [
+                  {
+                    id: 1,
+                    stockSymbol: "000660",
+                    stockName: "SK하이닉스",
+                    quantity: 1,
+                    availableQuantity: 1,
+                    frozenQuantity: 0,
+                    avgPurchasePrice: 260250,
+                    totalPurchaseAmount: 260250,
+                    currentPrice: 348250,
+                    currentValue: 348250,
+                    profitLoss: 88000,
+                    profitLossRate: 33.81,
+                    firstPurchaseDate: "2024-01-01T00:00:00.000Z",
+                    lastPurchaseDate: "2024-01-01T00:00:00.000Z",
+                    lastSaleDate: "",
+                    allocationRate: 0,
+                    isProfitable: true,
+                    performanceStatus: "PROFIT",
+                  },
+                ];
               }
-              
+
               setMessages((prev) => [...prev, data]);
             }
           } catch (err) {
@@ -402,7 +476,18 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   }, [connectWebSocket]);
 
   useEffect(() => {
+    // 현재 사용자 ID를 초기화
+    const userId = useAuthStore.getState().getCurrentUserId();
+    if (userId) {
+      setCurrentUserId(userId);
+      console.log(`✅ 현재 사용자 ID 초기화: ${userId}`);
+    }
+
+    // WebSocket 연결 초기화
     initializeWebSocket();
+
+    // 이전 채팅 메시지 로드
+    loadChatHistory();
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -432,7 +517,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         clearTimeout(typingTimeoutRef.current);
       }
     };
-  }, [closeWebSocket, initializeWebSocket]);
+  }, [closeWebSocket, initializeWebSocket, loadChatHistory]);
 
   // Heartbeat mechanism
   const heartbeatInterval = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -473,7 +558,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
 
     // 이미지가 있는 경우 Base64로 변환
     if (selectedImages.length > 0) {
-      const imagePromises = selectedImages.map(file => {
+      const imagePromises = selectedImages.map((file) => {
         return new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target?.result as string);
@@ -481,30 +566,37 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         });
       });
 
-      Promise.all(imagePromises).then(base64Images => {
-        ws.current?.send(JSON.stringify({ 
-          content: newMessage,
-          senderId: currentUserId,
-          images: base64Images,
-          imageCount: base64Images.length
-        }));
+      Promise.all(imagePromises).then((base64Images) => {
+        ws.current?.send(
+          JSON.stringify({
+            content: newMessage,
+            senderId: currentUserId,
+            images: base64Images,
+            imageCount: base64Images.length,
+          })
+        );
       });
     } else {
       // 표시용 토큰 제거 후 순수 텍스트 구성
       const tokenRegex = /\s?\[PORTFOLIO:[^\]]+\]/g;
-      const cleanMessage = newMessage.replace(tokenRegex, '').trim();
+      const cleanMessage = newMessage.replace(tokenRegex, "").trim();
 
       // 선택기에서 담아둔 원본 포트폴리오 데이터를 그대로 전송
       const portfolioStocks: PortfolioStock[] = attachedPortfolioStocks;
-      const messageContent = cleanMessage || (portfolioStocks.length > 0 ? "보유종목을 공유했습니다." : "");
+      const messageContent =
+        cleanMessage ||
+        (portfolioStocks.length > 0 ? "보유종목을 공유했습니다." : "");
 
       if (ws.current && ws.current.readyState === WebSocket.OPEN) {
         try {
-          ws.current.send(JSON.stringify({ 
-            content: messageContent,
-            senderId: currentUserId,
-            portfolioStocks: portfolioStocks.length > 0 ? portfolioStocks : undefined
-          }));
+          ws.current.send(
+            JSON.stringify({
+              content: messageContent,
+              senderId: currentUserId,
+              portfolioStocks:
+                portfolioStocks.length > 0 ? portfolioStocks : undefined,
+            })
+          );
         } catch (error) {
           // ignore
         }
@@ -644,14 +736,12 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         setShowMention(true);
         setMentionQuery(query);
         setMentionPosition(lastAtSymbol);
-        setShowPortfolioMention(false); // 보유종목 멘션 숨기기
       } else {
         setShowMention(false);
       }
     } else {
       setShowMention(false);
     }
-
 
     handleTyping();
   };
@@ -661,26 +751,26 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
     const files = event.target.files;
     if (!files) return;
 
-    const imageFiles = Array.from(files).filter(file => 
-      file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024 // 5MB 제한
+    const imageFiles = Array.from(files).filter(
+      (file) => file.type.startsWith("image/") && file.size <= 5 * 1024 * 1024 // 5MB 제한
     );
 
     if (imageFiles.length === 0) {
-      alert('이미지 파일만 업로드 가능하며, 파일 크기는 5MB 이하여야 합니다.');
+      alert("이미지 파일만 업로드 가능하며, 파일 크기는 5MB 이하여야 합니다.");
       return;
     }
 
-    setSelectedImages(prev => [...prev, ...imageFiles]);
-    
+    setSelectedImages((prev) => [...prev, ...imageFiles]);
+
     // 미리보기 URL 생성
-    const newPreviewUrls = imageFiles.map(file => URL.createObjectURL(file));
-    setImagePreviewUrls(prev => [...prev, ...newPreviewUrls]);
+    const newPreviewUrls = imageFiles.map((file) => URL.createObjectURL(file));
+    setImagePreviewUrls((prev) => [...prev, ...newPreviewUrls]);
   };
 
   // 사진 제거
   const removeImage = (index: number) => {
-    setSelectedImages(prev => prev.filter((_, i) => i !== index));
-    setImagePreviewUrls(prev => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviewUrls((prev) => {
       URL.revokeObjectURL(prev[index]); // 메모리 해제
       return prev.filter((_, i) => i !== index);
     });
@@ -695,12 +785,11 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
   const handleSelectPortfolioStock = (stock: PortfolioStock) => {
     // 실제 데이터는 상태로 보관하고, 입력창에는 표시용 토큰만 추가
     const displayToken = ` [PORTFOLIO:${stock.stockSymbol}:${stock.stockName}]`;
-    setNewMessage(prev => (prev + displayToken).trimStart());
-    setAttachedPortfolioStocks(prev => [...prev, stock]);
+    setNewMessage((prev) => (prev + displayToken).trimStart());
+    setAttachedPortfolioStocks((prev) => [...prev, stock]);
     setShowPortfolioSelector(false);
     handleTyping();
   };
-
 
   if (error) {
     return (
@@ -850,6 +939,16 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
 
         <CardContent className="flex-1 flex flex-col p-4 min-h-[400px]">
           <div className="flex-1 overflow-y-auto space-y-3 mb-4 p-2 bg-background/50 rounded-lg">
+            {/* 이전 채팅 로딩 인디케이터 */}
+            {isLoadingHistory && (
+              <div className="flex justify-center py-4">
+                <div className="text-sm text-muted-foreground flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  <span>이전 채팅을 불러오는 중...</span>
+                </div>
+              </div>
+            )}
+
             <AnimatePresence>
               {messages
                 .filter(
@@ -860,9 +959,15 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                   const isMyMessage = message.isMyMessage === true;
 
                   // 연속된 메시지인지 확인 (같은 사용자가 보낸 연속 메시지)
-                  const prevMessage = index > 0 ? messages.filter(m => m.content && m.content.trim() !== "")[index - 1] : null;
-                  const isConsecutiveMessage = prevMessage && 
-                    prevMessage.memberName === message.memberName && 
+                  const prevMessage =
+                    index > 0
+                      ? messages.filter(
+                          (m) => m.content && m.content.trim() !== ""
+                        )[index - 1]
+                      : null;
+                  const isConsecutiveMessage =
+                    prevMessage &&
+                    prevMessage.memberName === message.memberName &&
                     prevMessage.messageType === message.messageType &&
                     message.messageType !== "SYSTEM" &&
                     message.messageType !== "WELCOME" &&
@@ -870,14 +975,15 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                     message.messageType !== "LEAVE";
 
                   // showHeader 결정: 연속 메시지가 아니고, 시스템 메시지가 아닌 경우에만 헤더 표시
-                  const showHeader = !isConsecutiveMessage && 
+                  const showHeader =
+                    !isConsecutiveMessage &&
                     message.messageType !== "SYSTEM" &&
                     message.messageType !== "WELCOME" &&
                     message.messageType !== "ENTER" &&
                     message.messageType !== "LEAVE";
 
                   return (
-                      <motion.div
+                    <motion.div
                       key={message.id}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -932,13 +1038,13 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                                   ? "bg-muted/40 text-muted-foreground rounded-full px-4 py-1.5 text-center max-w-[95%] text-xs whitespace-nowrap"
                                   : isMyMessage
                                   ? `bg-blue-500 text-white max-w-[85%] transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md ${
-                                      isConsecutiveMessage 
-                                        ? "rounded-2xl rounded-br-sm" 
+                                      isConsecutiveMessage
+                                        ? "rounded-2xl rounded-br-sm"
                                         : "rounded-2xl rounded-br-md"
                                     }`
                                   : `bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 max-w-[85%] transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md ${
-                                      isConsecutiveMessage 
-                                        ? "rounded-2xl rounded-bl-sm" 
+                                      isConsecutiveMessage
+                                        ? "rounded-2xl rounded-bl-sm"
                                         : "rounded-2xl rounded-bl-md"
                                     }`
                               }`}
@@ -946,36 +1052,49 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                               {renderMessageContent(message.content)}
                               {message.images && message.images.length > 0 && (
                                 <div className="mt-2 space-y-2">
-                                  {message.images.map((image: string, imgIndex: number) => (
-                                    <div key={imgIndex} className="relative group">
-                                      <img
-                                        src={image}
-                                        alt={`첨부 이미지 ${imgIndex + 1}`}
-                                        className="max-w-[200px] max-h-[200px] rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                        onClick={() => {
-                                          // 이미지 확대 보기 (임시)
-                                          window.open(image, '_blank');
-                                        }}
-                                      />
-                                    </div>
-                                  ))}
+                                  {message.images.map(
+                                    (image: string, imgIndex: number) => (
+                                      <div
+                                        key={imgIndex}
+                                        className="relative group"
+                                      >
+                                        <img
+                                          src={image}
+                                          alt={`첨부 이미지 ${imgIndex + 1}`}
+                                          className="max-w-[200px] max-h-[200px] rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                          onClick={() => {
+                                            // 이미지 확대 보기 (임시)
+                                            window.open(image, "_blank");
+                                          }}
+                                        />
+                                      </div>
+                                    )
+                                  )}
                                 </div>
                               )}
-                              {message.portfolioStocks && message.portfolioStocks.length > 0 && (
-                                <div className="mt-2 space-y-2">
-                                  {message.portfolioStocks.map((stock: PortfolioStock, stockIndex: number) => (
-                                    <PortfolioStockCard
-                                      key={stockIndex}
-                                      stock={stock}
-                                    />
-                                  ))}
-                                </div>
-                              )}
-                              {message.content === "보유종목을 공유했습니다." && !message.portfolioStocks && (
-                                <div className="mt-2 p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded text-xs">
-                                  ⚠️ 보유종목 데이터가 없습니다. 콘솔을 확인해주세요.
-                                </div>
-                              )}
+                              {message.portfolioStocks &&
+                                message.portfolioStocks.length > 0 && (
+                                  <div className="mt-2 space-y-2">
+                                    {message.portfolioStocks.map(
+                                      (
+                                        stock: PortfolioStock,
+                                        stockIndex: number
+                                      ) => (
+                                        <PortfolioStockCard
+                                          key={stockIndex}
+                                          stock={stock}
+                                        />
+                                      )
+                                    )}
+                                  </div>
+                                )}
+                              {message.content === "보유종목을 공유했습니다." &&
+                                !message.portfolioStocks && (
+                                  <div className="mt-2 p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded text-xs">
+                                    ⚠️ 보유종목 데이터가 없습니다. 콘솔을
+                                    확인해주세요.
+                                  </div>
+                                )}
                             </div>
                             {message.messageType !== "SYSTEM" &&
                               message.messageType !== "WELCOME" &&
@@ -983,8 +1102,8 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                               message.messageType !== "LEAVE" && (
                                 <span
                                   className={`text-[10px] text-muted-foreground/60 ${
-                                    isConsecutiveMessage 
-                                      ? "opacity-0 group-hover:opacity-100" 
+                                    isConsecutiveMessage
+                                      ? "opacity-0 group-hover:opacity-100"
                                       : "opacity-0 group-hover:opacity-100"
                                   } transition-opacity ${
                                     isMyMessage ? "mr-2" : "ml-2"
@@ -1027,51 +1146,51 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
           {typingUsers.size > 0 && (
             <div className="text-xs text-muted-foreground mb-2 ml-2">
               {Array.from(typingUsers).join(", ")}님이 입력하고 있습니다...
-              </div>
-            )}
+            </div>
+          )}
 
-            {/* 선택된 이미지 미리보기 */}
-            {imagePreviewUrls.length > 0 && (
-              <div className="mb-4 p-3 bg-muted/30 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    첨부할 이미지 ({imagePreviewUrls.length}개)
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedImages([]);
-                      setImagePreviewUrls([]);
-                    }}
-                    className="h-6 w-6 p-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {imagePreviewUrls.map((url, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={url}
-                        alt={`미리보기 ${index + 1}`}
-                        className="w-16 h-16 object-cover rounded-lg border"
-                      />
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="absolute -top-2 -right-2 h-5 w-5 rounded-full"
-                        onClick={() => removeImage(index)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+          {/* 선택된 이미지 미리보기 */}
+          {imagePreviewUrls.length > 0 && (
+            <div className="mb-4 p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-muted-foreground">
+                  첨부할 이미지 ({imagePreviewUrls.length}개)
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedImages([]);
+                    setImagePreviewUrls([]);
+                  }}
+                  className="h-6 w-6 p-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-            )}
+              <div className="flex flex-wrap gap-2">
+                {imagePreviewUrls.map((url, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={url}
+                      alt={`미리보기 ${index + 1}`}
+                      className="w-16 h-16 object-cover rounded-lg border"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-5 w-5 rounded-full"
+                      onClick={() => removeImage(index)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-            <div className="flex items-center space-x-2 shrink-0 pt-3 border-t">
+          <div className="flex items-center space-x-2 shrink-0 pt-3 border-t">
             <EmojiPicker onEmojiSelect={handleEmojiSelect} />
             <Button
               variant="ghost"
@@ -1131,7 +1250,6 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                 onSelect={handleSelectPortfolioStock}
               />
 
-
               <Input
                 value={newMessage}
                 onChange={handleInputChange}
@@ -1153,14 +1271,17 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                 </Button>
                 <Button
                   onClick={sendMessage}
-                  disabled={(!newMessage.trim() && selectedImages.length === 0) || readyState !== "open"}
+                  disabled={
+                    (!newMessage.trim() && selectedImages.length === 0) ||
+                    readyState !== "open"
+                  }
                   size="icon"
                   variant="ghost"
                   className="h-8 w-8 hover:bg-transparent"
                 >
                   <Send
                     className={`h-4 w-4 ${
-                      (newMessage.trim() || selectedImages.length > 0)
+                      newMessage.trim() || selectedImages.length > 0
                         ? "text-primary"
                         : "text-muted-foreground"
                     }`}

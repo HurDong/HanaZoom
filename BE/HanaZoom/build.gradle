@@ -43,6 +43,12 @@ dependencies {
 
 	// kafka for streaming data
 	implementation 'org.springframework.kafka:spring-kafka'
+  
+	// mongodb
+	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+
+	// elasticsearch
+	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
 
 	// json library
 	implementation 'org.json:json:20240303'

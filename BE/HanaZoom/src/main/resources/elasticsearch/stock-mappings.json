@@ -1,0 +1,60 @@
+{
+  "properties": {
+    "id": {
+      "type": "long"
+    },
+    "name": {
+      "type": "text",
+      "analyzer": "nori_analyzer",
+      "fields": {
+        "keyword": {
+          "type": "keyword"
+        },
+        "ngram": {
+          "type": "text",
+          "analyzer": "ngram_analyzer"
+        },
+        "initial": {
+          "type": "text",
+          "analyzer": "initial_analyzer"
+        }
+      }
+    },
+    "symbol": {
+      "type": "keyword",
+      "fields": {
+        "text": {
+          "type": "text"
+        }
+      }
+    },
+    "sector": {
+      "type": "text",
+      "analyzer": "nori_analyzer",
+      "fields": {
+        "keyword": {
+          "type": "keyword"
+        }
+      }
+    },
+    "currentPrice": {
+      "type": "double"
+    },
+    "priceChangePercent": {
+      "type": "double"
+    },
+    "logoUrl": {
+      "type": "keyword",
+      "index": false
+    },
+    "nameSuggest": {
+      "type": "completion",
+      "contexts": [
+        {
+          "name": "sector",
+          "type": "category"
+        }
+      ]
+    }
+  }
+}

@@ -5,10 +5,13 @@ import com.hanazoom.domain.stock.dto.StockBasicInfoResponse;
 import com.hanazoom.domain.stock.dto.StockPriceResponse;
 import com.hanazoom.domain.stock.dto.StockResponse;
 import com.hanazoom.domain.stock.dto.StockTickerDto;
+import com.hanazoom.domain.stock.dto.StockSearchResult;
 import com.hanazoom.domain.stock.entity.Stock;
 import com.hanazoom.domain.stock.service.StockService;
 import com.hanazoom.domain.stock.service.KafkaStockConsumer;
 import com.hanazoom.domain.stock.service.KafkaStockService;
+import com.hanazoom.domain.stock.service.StockSearchService;
+import com.hanazoom.domain.stock.service.StockSyncService;
 import com.hanazoom.global.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +34,8 @@ import java.util.Map;
 public class StockController {
 
     private final StockService stockService;
+    private final StockSearchService stockSearchService;
+    private final StockSyncService stockSyncService;
 
     @Autowired(required = false)
     private KafkaStockConsumer kafkaStockConsumer;
@@ -54,10 +59,99 @@ public class StockController {
         return ResponseEntity.ok(ApiResponse.success(tickers));
     }
 
+    /**
+     * Elasticsearch 기반 주식 검색 (오타 허용 + 형태소 분석)
+     */
     @GetMapping("/search")
-    public ResponseEntity<ApiResponse<List<StockTickerDto>>> searchStocks(@RequestParam String query) {
-        List<StockTickerDto> stocks = stockService.searchStocks(query);
-        return ResponseEntity.ok(ApiResponse.success(stocks));
+    public ResponseEntity<ApiResponse<List<StockSearchResult>>> searchStocks(@RequestParam String query) {
+        try {
+            log.info("🔍 주식 검색 요청: {}", query);
+            List<StockSearchResult> results = stockSearchService.searchStocks(query);
+
+            // 검색 결과가 없으면 fallback으로 MySQL 검색
+            if (results.isEmpty()) {
+                log.info("⚠️ Elasticsearch 결과 없음, MySQL fallback 사용");
+                List<StockTickerDto> mysqlResults = stockService.searchStocks(query);
+
+                // StockTickerDto를 StockSearchResult로 변환
+                results = mysqlResults.stream()
+                        .map(this::convertToSearchResult)
+                        .collect(java.util.stream.Collectors.toList());
+            }
+
+            return ResponseEntity.ok(ApiResponse.success(results));
+        } catch (Exception e) {
+            log.error("❌ 주식 검색 실패", e);
+            // 에러 시 MySQL fallback
+            List<StockTickerDto> fallbackResults = stockService.searchStocks(query);
+            List<StockSearchResult> results = fallbackResults.stream()
+                    .map(this::convertToSearchResult)
+                    .collect(java.util.stream.Collectors.toList());
+            return ResponseEntity.ok(ApiResponse.success(results));
+        }
+    }
+
+    /**
+     * 자동완성 제안
+     */
+    @GetMapping("/suggest")
+    public ResponseEntity<ApiResponse<List<String>>> suggestStocks(@RequestParam String prefix) {
+        try {
+            List<String> suggestions = stockSearchService.getSuggestions(prefix);
+            return ResponseEntity.ok(ApiResponse.success(suggestions));
+        } catch (Exception e) {
+            log.error("❌ 자동완성 실패", e);
+            return ResponseEntity.ok(ApiResponse.success(java.util.Collections.emptyList()));
+        }
+    }
+
+    /**
+     * 섹터별 검색
+     */
+    @GetMapping("/search/sector")
+    public ResponseEntity<ApiResponse<List<StockSearchResult>>> searchByKeywordAndSector(
+            @RequestParam String keyword,
+            @RequestParam String sector) {
+        try {
+            List<StockSearchResult> results = stockSearchService.searchByKeywordAndSector(keyword, sector);
+            return ResponseEntity.ok(ApiResponse.success(results));
+        } catch (Exception e) {
+            log.error("❌ 섹터별 검색 실패", e);
+            return ResponseEntity.ok(ApiResponse.success(java.util.Collections.emptyList()));
+        }
+    }
+
+    /**
+     * Elasticsearch 수동 동기화 (관리자용)
+     */
+    @PostMapping("/sync")
+    public ResponseEntity<ApiResponse<Void>> syncToElasticsearch() {
+        try {
+            stockSyncService.syncAllStocksToElasticsearch();
+            return ResponseEntity.ok(ApiResponse.success("Elasticsearch 동기화 완료"));
+        } catch (Exception e) {
+            log.error("❌ 동기화 실패", e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("동기화 실패: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * StockTickerDto를 StockSearchResult로 변환
+     */
+    private StockSearchResult convertToSearchResult(StockTickerDto dto) {
+        StockSearchResult result = StockSearchResult.builder()
+                .symbol(dto.getSymbol())
+                .name(dto.getName())
+                .sector(dto.getSector())
+                .currentPrice(dto.getCurrentPrice())
+                .priceChangePercent(dto.getChangeRate())
+                .logoUrl(dto.getLogoUrl())
+                .score(0.0f)
+                .matchType("MYSQL_FALLBACK")
+                .build();
+        result.setCompatibilityFields();
+        return result;
     }
 
     /**
