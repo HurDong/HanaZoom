@@ -7,3 +7,6 @@
 
 # 중간 생성 파일들 (필요시)
 *_payloads.json
+
+cheongra_users_insert.sql
+cheongra_users_jmeter.csv

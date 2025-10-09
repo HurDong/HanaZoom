@@ -8,6 +8,7 @@ import java.time.Duration;
 import com.hanazoom.domain.stock.service.StockChartService;
 import com.hanazoom.domain.stock.service.StockMinutePriceService;
 import com.hanazoom.domain.stock.service.StockService;
+import com.hanazoom.domain.stock.service.KafkaStockService;
 import com.hanazoom.domain.stock.entity.StockMinutePrice;
 import com.hanazoom.domain.stock.entity.Stock;
 import com.hanazoom.domain.stock.repository.StockRepository;
@@ -50,6 +51,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
     private final KisApiService kisApiService;
     private final KisConfig kisConfig;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final KafkaStockService kafkaStockService;
     private final ObjectMapper objectMapper;
     private final StockChartService stockChartService;
     private final MarketTimeUtils marketTimeUtils;
@@ -721,6 +723,21 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                             
                             // 구독자들에게 브로드캐스트
                             broadcastToSubscribers(stockCode, stockData);
+
+                            // Kafka로 실시간 데이터 전송
+                            try {
+                                kafkaStockService.sendRealTimeStockData(
+                                    stockCode,
+                                    stockName,
+                                    displayCurrentPrice,
+                                    changePrice,
+                                    changeRate,
+                                    normalizedChangeSign
+                                );
+                                log.debug("📤 Kafka 실시간 데이터 전송: {} - {}", stockCode, displayCurrentPrice);
+                            } catch (Exception e) {
+                                log.debug("⚠️ Kafka 데이터 전송 실패 (무시): {}", stockCode);
+                            }
 
                             // 캔들 차트 데이터 업데이트 (Redis 에러 무시)
                             try {

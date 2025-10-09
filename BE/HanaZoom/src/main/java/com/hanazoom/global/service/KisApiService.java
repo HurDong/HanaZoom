@@ -1,6 +1,7 @@
 package com.hanazoom.global.service;
 
 import com.hanazoom.global.config.KisConfig;
+import com.hanazoom.domain.stock.service.KafkaStockService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
@@ -25,16 +26,33 @@ public class KisApiService {
 
     private final KisConfig kisConfig;
     private final WebClient webClient;
+    private final KafkaStockService kafkaStockService;
     private static final Path KEY_PATH = Paths.get("kis_keys.json");
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     @PostConstruct
     public void init() {
-        loadKeysFromFile();
-        if (!isAccessTokenValid()) {
-            issueAccessToken();
-        } else if (kisConfig.getApprovalKey() == null) {
-            issueApprovalKey();
+        log.info("🏗️ KisApiService Bean 생성됨 - kisConfig: {}, webClient: {}",
+                kisConfig != null ? "설정됨" : "NULL",
+                webClient != null ? "설정됨" : "NULL");
+        log.info("✅ KisApiService Bean 생성 완료");
+
+        log.info("🎯 KisApiService 초기화 시작");
+        try {
+            loadKeysFromFile();
+            log.info("📁 토큰 파일 로드 완료");
+
+            if (!isAccessTokenValid()) {
+                log.info("🔄 토큰이 유효하지 않아 새 토큰 발급 시도");
+                issueAccessToken();
+            } else if (kisConfig.getApprovalKey() == null) {
+                log.info("🔑 승인키가 없어 승인키 발급 시도");
+                issueApprovalKey();
+            } else {
+                log.info("✅ 모든 토큰이 유효합니다");
+            }
+        } catch (Exception e) {
+            log.error("❌ KisApiService 초기화 실패", e);
         }
     }
 
@@ -87,13 +105,16 @@ public class KisApiService {
 
     @Scheduled(cron = "0 0 2 * * *") // 매일 새벽 2시에 실행
     public void issueAccessToken() {
-        log.info("Requesting KIS access token...");
+        log.info("🔑 KIS Access Token 발급 시작");
+        log.info("📝 요청 정보 - URL: {}, AppKey: {}", kisConfig.getTokenUrl(), kisConfig.getAppKey() != null ? "설정됨" : "NULL");
+
         JSONObject body = new JSONObject();
         body.put("grant_type", "client_credentials");
         body.put("appkey", kisConfig.getAppKey());
         body.put("appsecret", kisConfig.getAppSecret());
 
         try {
+            log.info("🌐 WebClient 호출 시작: {}", kisConfig.getTokenUrl());
             String response = webClient.post()
                     .uri(kisConfig.getTokenUrl())
                     .contentType(MediaType.APPLICATION_JSON)
@@ -101,16 +122,21 @@ public class KisApiService {
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
+            log.info("📥 WebClient 응답 수신: {} bytes", response != null ? response.length() : 0);
 
             JSONObject responseJson = new JSONObject(response);
             String accessToken = responseJson.getString("access_token");
             kisConfig.setAccessToken(accessToken);
-            log.info("KIS Access Token issued successfully.");
+            log.info("✅ KIS Access Token 발급 성공!");
 
             issueApprovalKey();
 
         } catch (Exception e) {
-            log.error("Failed to issue KIS access token", e);
+            log.error("❌ KIS Access Token 발급 실패", e);
+            log.error("🔍 실패 원인: {}", e.getMessage());
+            if (e.getCause() != null) {
+                log.error("🔍 근본 원인: {}", e.getCause().getMessage());
+            }
         }
     }
 
