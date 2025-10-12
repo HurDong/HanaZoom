@@ -87,8 +87,7 @@ services:
       - MYSQL_DATABASE=hanazoom
       - MYSQL_USER=hanazoom_user
       - MYSQL_PASSWORD=hanazoom1234!
-      # UTF-8 설정 추가
-      - MYSQL_INIT_CONNECT='SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci'
+      # UTF-8 설정 (간단하게)
       - MYSQL_CHARSET=utf8mb4
       - MYSQL_COLLATION=utf8mb4_unicode_ci
     volumes:
@@ -97,7 +96,6 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --default-time-zone=+09:00
-      - --init-connect='SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci'
     healthcheck:
       test:
         [
