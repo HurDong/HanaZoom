@@ -3,14 +3,16 @@ version: "3.8"
 services:
   # Spring Boot Backend
   backend:
-    image: ${ECR_REGISTRY}/hanazoom-backend:${IMAGE_TAG:-latest}
+    build:
+      context: ../../BE/HanaZoom
+      dockerfile: Dockerfile
     container_name: hanazoom-backend
     ports:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       # Java 메모리 최적화
-      - JAVA_OPTS=-Xmx1024m -Xms512m -XX:MaxMetaspaceSize=256m
+      - JAVA_OPTS=-Xmx896m -Xms512m -XX:MaxMetaspaceSize=256m
       # MySQL (RDS 연결)
       - SPRING_DATASOURCE_URL=${DB_URL}
       - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
@@ -28,6 +30,8 @@ services:
       - SPRING_DATA_MONGODB_AUTHENTICATION_DATABASE=hanazoom_chat
       # Elasticsearch (같은 네트워크 내부)
       - SPRING_ELASTICSEARCH_URIS=http://elasticsearch:9200
+      # Kafka (같은 네트워크 내부)
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       # KIS API
       - KIS_APP_KEY=${KIS_APP_KEY}
       - KIS_APP_SECRET=${KIS_APP_SECRET}
@@ -42,12 +46,18 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ACCESS_TOKEN_VALIDITY=3600000
       - JWT_REFRESH_TOKEN_VALIDITY=604800000
+      # CORS
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
     depends_on:
+      mysql:
+        condition: service_healthy
       redis:
         condition: service_healthy
       mongodb:
         condition: service_healthy
       elasticsearch:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     restart: always
     networks:
@@ -59,18 +69,56 @@ services:
       options:
         max-size: "100m"
         max-file: "5"
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health", "||", "exit", "1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 90s
     deploy:
       resources:
         limits:
-          memory: 1.5G
+          memory: 1.2G
         reservations:
-          memory: 1G
+          memory: 768M
+
+  # MySQL Service (RDS 대신 로컬)
+  mysql:
+    image: mysql:8.0
+    container_name: hanazoom-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root1234!
+      - MYSQL_DATABASE=hanazoom
+      - MYSQL_USER=hanazoom_user
+      - MYSQL_PASSWORD=hanazoom1234!
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-proot1234!",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
   # Redis Service (메모리 최적화)
   redis:
@@ -120,7 +168,7 @@ services:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
       - ../mongodb/init:/docker-entrypoint-initdb.d:ro
-    command: mongod --wiredTigerCacheSizeGB 0.5 --auth
+    command: mongod --wiredTigerCacheSizeGB 0.25 --auth
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -138,9 +186,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
-        reservations:
           memory: 512M
+        reservations:
+          memory: 256M
 
   # Elasticsearch Service (메모리 최적화 - Kibana 제거)
   elasticsearch:
@@ -149,18 +197,12 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      # 메모리 256MB로 최적화
-      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+      # 메모리 512MB로 증가
+      - "ES_JAVA_OPTS=-Xms256m -Xmx512m"
       - cluster.name=hanazoom-cluster
       # 메모리 락 비활성화 (메모리 절약)
       - bootstrap.memory_lock=false
-      # 캐시 크기 최적화
-      - indices.memory.index_buffer_size=30%
-      - indices.fielddata.cache.size=20%
-      - indices.queries.cache.size=10%
-      # 세그먼트 병합 최적화
-      - index.merge.scheduler.max_thread_count=1
-      # 샤드 및 복제 설정
+      # 클러스터 레벨 설정만 사용 (인덱스 레벨 설정 제거)
       - cluster.routing.allocation.disk.threshold_enabled=true
       - cluster.routing.allocation.disk.watermark.low=85%
       - cluster.routing.allocation.disk.watermark.high=90%
@@ -176,7 +218,8 @@ services:
         /usr/local/bin/docker-entrypoint.sh
       "
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      test:
+        ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -192,11 +235,109 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 1.2G
         reservations:
+          memory: 512M
+
+  # Zookeeper Service (Kafka 의존성)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: hanazoom-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      # 메모리 최적화
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx128m"
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
           memory: 256M
+        reservations:
+          memory: 128M
+
+  # Kafka Service (메모리 최적화)
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: hanazoom-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      # 메모리 최적화 (512MB)
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+      # 로그 및 세그먼트 최적화
+      KAFKA_LOG_RETENTION_HOURS: 24
+      KAFKA_LOG_SEGMENT_BYTES: 536870912
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+      # 성능 최적화
+      KAFKA_NUM_NETWORK_THREADS: 3
+      KAFKA_NUM_IO_THREADS: 4
+      KAFKA_SOCKET_SEND_BUFFER_BYTES: 102400
+      KAFKA_SOCKET_RECEIVE_BUFFER_BYTES: 102400
+      KAFKA_SOCKET_REQUEST_MAX_BYTES: 104857600
+      # 자동 토픽 생성 활성화
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "kafka-broker-api-versions",
+          "--bootstrap-server",
+          "localhost:9092",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: always
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 512M
 
 volumes:
+  mysql_data:
+    driver: local
   redis_data:
     driver: local
   mongodb_data:
@@ -205,10 +346,15 @@ volumes:
     driver: local
   elasticsearch_data:
     driver: local
+  zookeeper_data:
+    driver: local
+  zookeeper_logs:
+    driver: local
+  kafka_data:
+    driver: local
   backend-logs:
     driver: local
 
 networks:
   app-network:
     driver: bridge
-
