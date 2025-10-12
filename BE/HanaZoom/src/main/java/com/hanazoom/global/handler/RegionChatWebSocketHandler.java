@@ -50,9 +50,13 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
         log.info("🔌 지역 채팅 WebSocket 연결 시도: {}", session.getId());
+        log.info("🔍 WebSocket URI: {}", session.getUri());
+        log.info("🔍 WebSocket 헤더: {}", session.getHandshakeHeaders());
 
         // URL에서 regionId와 token 추출
         String query = session.getUri().getQuery();
+        log.info("🔍 쿼리 문자열: {}", query);
+
         if (query == null) {
             log.warn("⚠️ 쿼리 파라미터가 없습니다: {}", session.getUri());
             session.close(CloseStatus.BAD_DATA.withReason("Missing query parameters"));
@@ -62,6 +66,9 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
         Map<String, String> params = parseQueryParams(query);
         String regionIdStr = params.get("regionId");
         String token = params.get("token");
+
+        log.info("🔍 추출된 파라미터: regionId={}, token={}", regionIdStr,
+                token != null ? token.substring(0, 20) + "..." : "null");
 
         if (regionIdStr == null || token == null) {
             log.warn("⚠️ 필수 파라미터가 누락되었습니다: regionId={}, token={}", regionIdStr, token);

@@ -23,8 +23,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        String token = extractToken(request);
         String requestURI = request.getRequestURI();
+
+        // WebSocket 요청은 필터를 건너뛰고 핸들러에서 직접 인증 처리
+        if (requestURI.startsWith("/ws/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String token = extractToken(request);
 
         if (token != null) {
             try {
@@ -33,7 +40,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     Member member = jwtUtil.getMemberFromToken(token);
 
                     if (member != null) {
-                        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(member,
+                        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                                member,
                                 null, member.getAuthorities());
                         SecurityContextHolder.getContext().setAuthentication(authentication);
                         System.out.println("🔐 JWT 인증 성공 - URI: " + requestURI + ", Member ID: " + member.getId());
@@ -46,8 +54,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             } catch (Exception e) {
                 System.out.println("❌ JWT 토큰 처리 중 오류 발생: " + e.getMessage() + " - URI: " + requestURI);
             }
-        } else {
-            System.out.println("⚠️ Authorization 헤더에서 토큰을 찾을 수 없음 - URI: " + requestURI);
         }
 
         filterChain.doFilter(request, response);

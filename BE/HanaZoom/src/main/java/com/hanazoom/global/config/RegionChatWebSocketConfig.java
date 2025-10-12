@@ -24,8 +24,7 @@ public class RegionChatWebSocketConfig implements WebSocketConfigurer {
         // 환경 변수에서 읽어온 origins를 배열로 변환
         String[] origins = allowedOrigins.split(",");
         registry.addHandler(regionChatWebSocketHandler, "/ws/chat/region")
-                .setAllowedOriginPatterns(origins)
-                .withSockJS() // SockJS 지원 추가 (안정성 향상)
-                .setHeartbeatTime(25000); // 하트비트 시간 설정 (밀리초)
+                .setAllowedOriginPatterns(origins);
+        // SockJS 제거: 프론트엔드에서 기본 WebSocket을 사용하므로
     }
 }
