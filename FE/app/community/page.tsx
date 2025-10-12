@@ -396,14 +396,13 @@ export default function CommunityPage() {
         try {
           const token = getAccessToken();
           if (token) {
-            const response = await fetch(
-              "http://localhost:8080/api/v1/members/me",
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              }
-            );
+            const apiBaseUrl =
+              process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+            const response = await fetch(`${apiBaseUrl}/api/v1/members/me`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
             if (response.ok) {
               const data = await response.json();
               // TODO: setLoginData를 호출하여 사용자 정보 업데이트
@@ -428,14 +427,13 @@ export default function CommunityPage() {
 
       try {
         setIsLoadingRegion(true);
-        const response = await fetch(
-          "http://localhost:8080/api/v1/chat/region-info",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const apiBaseUrl =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+        const response = await fetch(`${apiBaseUrl}/api/v1/chat/region-info`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         if (response.ok) {
           const data = await response.json();

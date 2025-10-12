@@ -262,12 +262,11 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
 
         // Create new WebSocket connection with encoded token
         const encodedToken = encodeURIComponent(token);
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const host =
-          window.location.hostname === "localhost"
-            ? "localhost:8080"
-            : window.location.host;
-        const wsUrl = `${protocol}//${host}/ws/chat/region?regionId=${regionId}&token=${encodedToken}`;
+        const apiBaseUrl =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+        const wsUrl =
+          apiBaseUrl.replace(/^http/, "ws") +
+          `/ws/chat/region?regionId=${regionId}&token=${encodedToken}`;
 
         console.log(
           "Connecting to WebSocket:",

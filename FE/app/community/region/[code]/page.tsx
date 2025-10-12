@@ -49,14 +49,13 @@ export default function RegionDiscussionPage() {
         }
 
         // 사용자의 지역 정보 가져오기
-        const response = await fetch(
-          "http://localhost:8080/api/v1/chat/region-info",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const apiBaseUrl =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+        const response = await fetch(`${apiBaseUrl}/api/v1/chat/region-info`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         if (!response.ok) {
           throw new Error("지역 정보를 가져오는데 실패했습니다.");
@@ -67,7 +66,7 @@ export default function RegionDiscussionPage() {
 
         // 지역 통계 정보 가져오기
         const statsResponse = await fetch(
-          `http://localhost:8080/api/v1/regions/${regionId}/stats`,
+          `${apiBaseUrl}/api/v1/regions/${regionId}/stats`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

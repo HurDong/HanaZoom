@@ -112,11 +112,9 @@ export function useStockWebSocket({
 
     // 서버 상태 확인 (선택적)
     try {
-      const protocol =
-        window.location.protocol === "https:" ? "https:" : "http:";
-      const host = window.location.hostname;
-      const port = process.env.NODE_ENV === "production" ? "" : ":8080";
-      const healthCheckUrl = `${protocol}//${host}${port}/api/v1/websocket/health`;
+      const apiBaseUrl =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const healthCheckUrl = `${apiBaseUrl}/api/v1/websocket/health`;
 
       console.log("🔍 서버 상태 확인 중:", healthCheckUrl);
 
@@ -140,18 +138,17 @@ export function useStockWebSocket({
     }
 
     try {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.hostname;
-      const port = process.env.NODE_ENV === "production" ? ":8080" : ":8080";
-      const wsUrl = `${protocol}//${host}${port}/ws/stocks`;
+      // 환경 변수에서 API URL 가져오기
+      const apiBaseUrl =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      // http/https를 ws/wss로 변환
+      const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/stocks";
 
       console.log("🔄 웹소켓 연결 시도:", wsUrl);
       console.log("🔄 연결 환경:", {
-        protocol,
-        host,
-        port,
+        apiBaseUrl,
+        wsUrl,
         NODE_ENV: process.env.NODE_ENV,
-        fullUrl: wsUrl,
         windowLocation: window.location.href,
       });
 
@@ -222,7 +219,6 @@ export function useStockWebSocket({
             case "STOCK_UPDATE":
               if (message.data?.stockData) {
                 const stockData: StockPriceData = message.data.stockData;
-
 
                 setState((prev) => {
                   // 동일한 데이터인지 확인하여 불필요한 업데이트 방지

@@ -7,7 +7,15 @@ import PbRoomVideoConsultation from "@/components/pb/PbRoomVideoConsultation";
 import Navbar from "@/app/components/Navbar";
 import { useAuthStore } from "@/app/utils/auth";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Users, Settings, X, MessageSquare, PieChart } from "lucide-react";
+import {
+  Copy,
+  Check,
+  Users,
+  Settings,
+  X,
+  MessageSquare,
+  PieChart,
+} from "lucide-react";
 import { getMyInfo } from "@/lib/api/members";
 import { Client } from "@stomp/stompjs";
 import ClientPortfolioView from "@/components/pb/ClientPortfolioView";
@@ -112,17 +120,21 @@ export default function ConsultationRoomPage() {
       // 스토어에서 직접 토큰 가져오기
       const currentToken = useAuthStore.getState().accessToken;
 
+      const apiBaseUrl =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/pb-room";
+
       console.log("🔌 채팅 WebSocket 연결 시도:", {
         consultationId,
         hasToken: !!currentToken,
         tokenPreview: currentToken
           ? currentToken.substring(0, 20) + "..."
           : "없음",
-        brokerURL: "ws://localhost:8080/ws/pb-room",
+        brokerURL: wsUrl,
       });
 
       const client = new Client({
-        brokerURL: "ws://localhost:8080/ws/pb-room",
+        brokerURL: wsUrl,
         connectHeaders: {
           Authorization: `Bearer ${currentToken}`,
         },
@@ -163,9 +175,12 @@ export default function ConsultationRoomPage() {
               console.log("📝 수신된 메시지를 상태에 추가:", newMessage);
               setChatMessages((prev) => {
                 // 중복된 메시지가 있는지 확인
-                const exists = prev.some(msg => msg.id === newMessage.id);
+                const exists = prev.some((msg) => msg.id === newMessage.id);
                 if (exists) {
-                  console.log("⚠️ 중복된 메시지 감지, 추가하지 않음:", newMessage.id);
+                  console.log(
+                    "⚠️ 중복된 메시지 감지, 추가하지 않음:",
+                    newMessage.id
+                  );
                   return prev;
                 }
                 const updated = [...prev, newMessage];
@@ -227,9 +242,12 @@ export default function ConsultationRoomPage() {
 
     setChatMessages((prev) => {
       // 중복된 메시지가 있는지 확인
-      const exists = prev.some(msg => msg.id === newMessage.id);
+      const exists = prev.some((msg) => msg.id === newMessage.id);
       if (exists) {
-        console.log("⚠️ 중복된 로컬 메시지 감지, 추가하지 않음:", newMessage.id);
+        console.log(
+          "⚠️ 중복된 로컬 메시지 감지, 추가하지 않음:",
+          newMessage.id
+        );
         return prev;
       }
       const updated = [...prev, newMessage];
@@ -303,7 +321,7 @@ export default function ConsultationRoomPage() {
       console.log("🔍 API 호출 정보:", {
         url: `/api/pb-rooms/${consultationId}/join`,
         consultationId,
-        method: "POST"
+        method: "POST",
       });
 
       const headers: HeadersInit = {
@@ -318,7 +336,7 @@ export default function ConsultationRoomPage() {
       console.log("📡 요청 헤더:", headers);
       console.log("📡 요청 본문:", {
         consultationId: consultationId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       const response = await fetch(`/api/pb-rooms/${consultationId}/join`, {
@@ -326,12 +344,15 @@ export default function ConsultationRoomPage() {
         headers,
         body: JSON.stringify({
           consultationId: consultationId,
-          timestamp: new Date().toISOString()
-        })
+          timestamp: new Date().toISOString(),
+        }),
       });
 
       console.log("📡 응답 상태:", response.status, response.statusText);
-      console.log("📡 응답 헤더:", Object.fromEntries(response.headers.entries()));
+      console.log(
+        "📡 응답 헤더:",
+        Object.fromEntries(response.headers.entries())
+      );
 
       if (response.ok) {
         try {
@@ -352,10 +373,10 @@ export default function ConsultationRoomPage() {
           errorData = {
             error: `HTTP ${response.status}: ${response.statusText}`,
             status: response.status,
-            statusText: response.statusText
+            statusText: response.statusText,
           };
         }
-        
+
         console.error("❌ 고객 입장 API 오류:", {
           status: response.status,
           statusText: response.statusText,
@@ -363,9 +384,9 @@ export default function ConsultationRoomPage() {
           url: `/api/pb-rooms/${consultationId}/join`,
           method: "POST",
           consultationId: consultationId,
-          hasToken: !!currentToken
+          hasToken: !!currentToken,
         });
-        
+
         // 사용자에게 친화적인 에러 메시지 표시
         if (response.status === 401) {
           console.error("🔐 인증 실패 - 로그인이 필요합니다");
@@ -375,7 +396,9 @@ export default function ConsultationRoomPage() {
           alert("존재하지 않는 방입니다.");
         } else if (response.status === 403) {
           console.error("🚫 접근 권한이 없습니다 - 백엔드 보안 설정 확인 필요");
-          console.error("💡 해결 방법: SecurityConfig.java에서 /api/pb-rooms/*/join 경로를 permitAll()로 설정");
+          console.error(
+            "💡 해결 방법: SecurityConfig.java에서 /api/pb-rooms/*/join 경로를 permitAll()로 설정"
+          );
           alert("접근 권한이 없습니다. 관리자에게 문의하세요.");
         } else {
           console.error("❌ 서버 오류:", response.status);
@@ -639,18 +662,24 @@ export default function ConsultationRoomPage() {
                 onEndConsultation={() => router.push(isPb ? "/pb-admin" : "/")}
                 onParticipantJoined={(participant) => {
                   console.log("👤 참여자 입장:", participant);
-                  
+
                   // 고객이 입장한 경우 clientId 업데이트
                   if (participant.role === "GUEST") {
-                    console.log("🎯 고객 입장 감지 - clientId 업데이트:", participant.id);
+                    console.log(
+                      "🎯 고객 입장 감지 - clientId 업데이트:",
+                      participant.id
+                    );
                     setActualClientId(participant.id);
                   }
-                  
+
                   setParticipants((prev) => {
                     // 중복된 참여자가 있는지 확인
-                    const exists = prev.some(p => p.id === participant.id);
+                    const exists = prev.some((p) => p.id === participant.id);
                     if (exists) {
-                      console.log("⚠️ 중복된 참여자 감지, 추가하지 않음:", participant.id);
+                      console.log(
+                        "⚠️ 중복된 참여자 감지, 추가하지 않음:",
+                        participant.id
+                      );
                       return prev;
                     }
                     return [...prev, participant];
@@ -745,7 +774,10 @@ export default function ConsultationRoomPage() {
                         messages: chatMessages,
                       });
                       return chatMessages.map((msg, index) => (
-                        <div key={`${msg.id}-${index}`} className="flex flex-col space-y-1">
+                        <div
+                          key={`${msg.id}-${index}`}
+                          className="flex flex-col space-y-1"
+                        >
                           <div
                             className={`flex ${
                               msg.userType === "pb"
@@ -931,9 +963,3 @@ export default function ConsultationRoomPage() {
     </div>
   );
 }
-
-
-
-
-
-
