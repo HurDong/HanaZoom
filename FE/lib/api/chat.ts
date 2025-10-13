@@ -1,7 +1,6 @@
 import { getAccessToken } from "@/app/utils/auth";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export interface RegionChatMessage {
   id: string;
@@ -161,4 +160,3 @@ export async function getMessageCount(regionId: number): Promise<number> {
     return 0;
   }
 }
-
