@@ -86,6 +86,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/stocks/chart/**").permitAll()
                         .requestMatchers("/api/stock-minute-prices/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers("/api/v1/chat/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/community/stocks/*/posts").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/community/posts/*").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/community/posts/*/comments").authenticated()
