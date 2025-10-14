@@ -158,18 +158,26 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
         clientSessions.add(session);
+        
+        log.info("✅ 클라이언트 WebSocket 연결 성공: 세션={}, 총연결수={}", 
+            session.getId(), clientSessions.size());
 
         // 연결 성공 메시지 전송
         sendToClient(session, createMessage("CONNECTION_ESTABLISHED", "웹소켓 연결이 성공했습니다.", null));
+        
+        log.info("📤 CONNECTION_ESTABLISHED 메시지 전송 완료: 세션={}", session.getId());
     }
 
     @Override
     protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) throws Exception {
         try {
             String payload = message.getPayload();
+            log.info("📥 클라이언트 메시지 수신: 세션={}, 메시지={}", session.getId(), payload);
 
             JSONObject jsonMessage = new JSONObject(payload);
             String type = jsonMessage.getString("type");
+
+            log.info("📨 메시지 타입: {}, 세션={}", type, session.getId());
 
             switch (type) {
                 case "SUBSCRIBE":
@@ -237,6 +245,8 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                 var stockCodes = message.getJSONArray("stockCodes");
                 List<String> codes = new ArrayList<>();
 
+                log.info("📡 구독 요청 수신: 세션={}, 종목수={}", session.getId(), stockCodes.length());
+
                 for (int i = 0; i < stockCodes.length(); i++) {
                     String stockCode = stockCodes.getString(i);
                     codes.add(stockCode);
@@ -246,9 +256,10 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                             k -> ConcurrentHashMap.newKeySet());
                     if (!subscribers.contains(session)) {
                         subscribers.add(session);
-
+                        log.info("✅ 새 구독 추가: 세션={}, 종목={}, 총구독자수={}", 
+                            session.getId(), stockCode, subscribers.size());
                     } else {
-
+                        log.info("ℹ️ 이미 구독 중: 세션={}, 종목={}", session.getId(), stockCode);
                     }
                 }
 
@@ -300,6 +311,8 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
             return;
         }
         
+        log.info("📤 캐시된 데이터 전송 시작: 세션={}, 종목수={}", session.getId(), stockCodes.size());
+        
         for (String stockCode : stockCodes) {
             try {
                 // 1. 실시간 데이터 먼저 확인
@@ -309,13 +322,19 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                 if (cachedData == null) {
                     cachedData = (String) redisTemplate.opsForValue().get("stock:closing:" + stockCode);
                     if (cachedData != null) {
-                        log.info("장종료 종가 데이터 사용: 종목={}", stockCode);
+                        log.info("📊 장종료 종가 데이터 사용: 종목={}", stockCode);
                     }
                 }
                 
                 if (cachedData != null) {
                     StockPriceResponse stockData = objectMapper.readValue(cachedData, StockPriceResponse.class);
+                    log.info("📤 캐시된 데이터 전송: 세션={}, 종목={}, 현재가={}, 데이터길이={}", 
+                        session.getId(), stockCode, stockData.getCurrentPrice(), cachedData.length());
+                    log.info("📊 캐시된 데이터 상세: 종목={}, 현재가={}, 전일대비={}, 등락률={}", 
+                        stockCode, stockData.getCurrentPrice(), stockData.getChangePrice(), stockData.getChangeRate());
                     sendToClient(session, createMessage("STOCK_UPDATE", "실시간 주식 데이터", Map.of("stockData", stockData)));
+                } else {
+                    log.warn("⚠️ 캐시된 데이터 없음: 종목={}", stockCode);
                 }
             } catch (Exception e) {
                 log.error("❌ 캐시된 데이터 전송 오류: {}", stockCode, e);
@@ -565,6 +584,25 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                             String changeSign = dataParts[3].trim(); // 등락구분 (5=하락, 2=상승, 3=보합)
                             String changePrice = dataParts[4].trim(); // 전일대비
                             String changeRate = dataParts[5].trim(); // 등락률
+                            
+                            // 등락률 직접 계산 (KIS WebSocket의 등락률이 부정확할 수 있음)
+                            String calculatedChangeRate = "0";
+                            try {
+                                    double currentPriceValue = Double.parseDouble(currentPrice);
+                                    double changePriceValue = Double.parseDouble(changePrice);
+                                    
+                                    if (currentPriceValue > 0 && changePriceValue != 0) {
+                                            double changeRateValue = (changePriceValue / (currentPriceValue - changePriceValue)) * 100;
+                                            calculatedChangeRate = String.format("%.2f", changeRateValue);
+                                    }
+                            } catch (Exception e) {
+                                    log.warn("WebSocket 등락률 계산 실패, KIS 값 사용: 종목={}, 에러={}", stockCode, e.getMessage());
+                                    calculatedChangeRate = changeRate;
+                            }
+                            
+                            // 현재가 수신 로그 추가
+                            log.info("📊 KIS 실시간 현재가 수신: 종목={}, 현재가={}, 전일대비={}, 계산된등락률={}, KIS등락률={}", 
+                                stockCode, currentPrice, changePrice, calculatedChangeRate, changeRate);
 
                             // 전일대비가 음수인 경우 KIS에서 이미 -가 붙어있음
                             // 전일대비율도 마찬가지로 이미 -가 붙어있음
@@ -678,7 +716,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                                     .stockName(stockName)
                                     .currentPrice(displayCurrentPrice)
                                     .changePrice(changePrice)
-                                    .changeRate(changeRate)
+                                    .changeRate(calculatedChangeRate)
                                     .changeSign(normalizedChangeSign)
                                     .volume(volume)
                                     .openPrice(openPrice)
@@ -706,22 +744,42 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                             if (isRedisConnectionAvailable()) {
                                 try {
                                     String key = "stock:realtime:" + stockCode;
-                                    redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(stockData));
+                                    String stockDataJson = objectMapper.writeValueAsString(stockData);
+                                    
+                                    log.info("💾 Redis 캐시 저장: 종목={}, 현재가={}, 키={}", 
+                                        stockCode, displayCurrentPrice, key);
+                                    
+                                    redisTemplate.opsForValue().set(key, stockDataJson);
+                                    
+                                    // 저장 확인
+                                    String savedData = (String) redisTemplate.opsForValue().get(key);
+                                    if (savedData != null) {
+                                        log.info("✅ Redis 저장 확인: 종목={}, 저장된데이터길이={}", 
+                                            stockCode, savedData.length());
+                                    } else {
+                                        log.warn("⚠️ Redis 저장 실패: 종목={}", stockCode);
+                                    }
 
                                     // 장종료 시점에 종가 데이터를 별도로 영구 보관
                                     if (isAfterMarketClose) {
                                         String closingPriceKey = "stock:closing:" + stockCode;
-                                        redisTemplate.opsForValue().set(closingPriceKey, objectMapper.writeValueAsString(stockData));
+                                        redisTemplate.opsForValue().set(closingPriceKey, stockDataJson);
                                         log.info("장종료 종가 데이터 저장: 종목={}, 종가={}", stockCode, currentPrice);
                                     }
                                 } catch (Exception e) {
-                                    log.debug("Redis 실시간 데이터 캐시 저장 실패 (무시): {}", stockCode);
+                                    log.error("❌ Redis 실시간 데이터 캐시 저장 실패: 종목={}, 에러={}", stockCode, e.getMessage());
                                 }
+                            } else {
+                                log.warn("⚠️ Redis 연결 불가 - 캐시 저장 건너뜀: 종목={}", stockCode);
                             }
 
                             // 거래량 데이터 디버깅 로그 제거 (너무 많이 찍힘)
                             
                             // 구독자들에게 브로드캐스트
+                            Set<WebSocketSession> subscribers = stockSubscriptions.get(stockCode);
+                            int subscriberCount = subscribers != null ? subscribers.size() : 0;
+                            log.info("📡 현재가 브로드캐스트 시작: 종목={}, 현재가={}, 구독자수={}", 
+                                stockCode, displayCurrentPrice, subscriberCount);
                             broadcastToSubscribers(stockCode, stockData);
 
                             // Kafka로 실시간 데이터 전송
@@ -731,7 +789,7 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                                     stockName,
                                     displayCurrentPrice,
                                     changePrice,
-                                    changeRate,
+                                    calculatedChangeRate,
                                     normalizedChangeSign
                                 );
                                 log.debug("📤 Kafka 실시간 데이터 전송: {} - {}", stockCode, displayCurrentPrice);

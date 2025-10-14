@@ -195,11 +195,17 @@ public class KisApiService {
             issueAccessToken();
         }
 
+        String url = "https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/quotations/inquire-price"
+                + "?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=" + stockCode;
+        
+        log.info("🌐 KIS API 현재가 조회 요청: URL={}, 종목코드={}", url, stockCode);
+        log.info("🔑 인증 정보: accessToken={}, appKey={}", 
+            kisConfig.getAccessToken() != null ? "있음" : "없음", 
+            kisConfig.getAppKey() != null ? "있음" : "없음");
+
         try {
             String response = webClient.get()
-                    .uri("https://openapivts.koreainvestment.com:29443/uapi/domestic-stock/v1/quotations/inquire-price"
-                            +
-                            "?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=" + stockCode)
+                    .uri(url)
                     .header("authorization", "Bearer " + kisConfig.getAccessToken())
                     .header("appkey", kisConfig.getAppKey())
                     .header("appsecret", kisConfig.getAppSecret())
@@ -208,11 +214,39 @@ public class KisApiService {
                     .bodyToMono(String.class)
                     .block();
 
-            log.info("Successfully fetched current price for stock: {}", stockCode);
+            log.info("✅ KIS API 현재가 조회 성공: 종목={}, 응답길이={}", stockCode, response != null ? response.length() : 0);
             return response;
 
         } catch (Exception e) {
-            log.error("Failed to fetch current stock price for code: {}", stockCode, e);
+            log.error("❌ KIS API 현재가 조회 실패: 종목={}, 에러={}", stockCode, e.getMessage());
+            if (e.getCause() != null) {
+                log.error("❌ 근본 원인: {}", e.getCause().getMessage());
+            }
+            
+            // 500 에러인 경우 재시도 로직 추가
+            if (e.getMessage().contains("500")) {
+                log.warn("🔄 500 에러 발생 - 토큰 재발급 후 재시도");
+                try {
+                    issueAccessToken();
+                    Thread.sleep(1000); // 1초 대기
+                    
+                    String retryResponse = webClient.get()
+                            .uri(url)
+                            .header("authorization", "Bearer " + kisConfig.getAccessToken())
+                            .header("appkey", kisConfig.getAppKey())
+                            .header("appsecret", kisConfig.getAppSecret())
+                            .header("tr_id", "FHKST01010100")
+                            .retrieve()
+                            .bodyToMono(String.class)
+                            .block();
+                    
+                    log.info("✅ 재시도 성공: 종목={}", stockCode);
+                    return retryResponse;
+                } catch (Exception retryException) {
+                    log.error("❌ 재시도도 실패: {}", retryException.getMessage());
+                }
+            }
+            
             throw new RuntimeException("주식 현재가 조회 실패: " + stockCode, e);
         }
     }

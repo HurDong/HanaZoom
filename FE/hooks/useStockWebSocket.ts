@@ -187,6 +187,14 @@ export function useStockWebSocket({
           connecting: false,
           error: null,
         }));
+        
+        // 연결 완료 후 구독 요청 (백업용)
+        if (stockCodes.length > 0) {
+          setTimeout(() => {
+            console.log("🔄 onopen에서 구독 요청:", stockCodes);
+            subscribe(stockCodes);
+          }, 200); // 200ms 지연
+        }
       };
 
       ws.onmessage = (event) => {
@@ -196,9 +204,12 @@ export function useStockWebSocket({
           switch (message.type) {
             case "CONNECTION_ESTABLISHED":
               console.log("✅ 서버 연결 확인:", message.message);
-              // 구독할 종목 코드들 전송
+              // 구독할 종목 코드들 전송 (약간의 지연 후)
               if (stockCodes.length > 0) {
-                subscribe(stockCodes);
+                setTimeout(() => {
+                  console.log("🔄 구독 요청 지연 실행:", stockCodes);
+                  subscribe(stockCodes);
+                }, 100); // 100ms 지연
               }
               break;
 
@@ -222,7 +233,16 @@ export function useStockWebSocket({
             case "STOCK_UPDATE":
               if (message.data?.stockData) {
                 const stockData: StockPriceData = message.data.stockData;
-
+                
+                // 현재가 수신 로그 추가
+                console.log("📊 실시간 현재가 수신:", {
+                  stockCode: stockData.stockCode,
+                  stockName: stockData.stockName,
+                  currentPrice: stockData.currentPrice,
+                  changePrice: stockData.changePrice,
+                  changeRate: stockData.changeRate,
+                  timestamp: new Date().toISOString()
+                });
 
                 setState((prev) => {
                   // 동일한 데이터인지 확인하여 불필요한 업데이트 방지
@@ -402,16 +422,29 @@ export function useStockWebSocket({
   }, []);
 
   const sendMessage = useCallback((message: any) => {
+    console.log("📤 메시지 전송 시도:", {
+      messageType: message.type,
+      wsReadyState: wsRef.current?.readyState,
+      wsOpen: wsRef.current?.readyState === WebSocket.OPEN,
+      hasWsRef: !!wsRef.current
+    });
+    
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       try {
-        wsRef.current.send(JSON.stringify(message));
+        const messageStr = JSON.stringify(message);
+        console.log("📤 전송할 메시지:", messageStr);
+        wsRef.current.send(messageStr);
+        console.log("✅ 메시지 전송 성공");
         return true;
       } catch (error) {
         console.error("🔴 메시지 전송 실패:", error);
         return false;
       }
     }
-    console.warn("⚠️ 웹소켓이 연결되지 않음");
+    console.warn("⚠️ 웹소켓이 연결되지 않음:", {
+      readyState: wsRef.current?.readyState,
+      expected: WebSocket.OPEN
+    });
     return false;
   }, []);
 
@@ -422,18 +455,27 @@ export function useStockWebSocket({
       );
       if (uniqueCodes.length === 0) return false;
 
+      console.log("📡 구독 요청 전송:", {
+        stockCodes: uniqueCodes,
+        connected: state.connected,
+        wsReadyState: wsRef.current?.readyState
+      });
+
       const success = sendMessage({
         type: "SUBSCRIBE",
         stockCodes: uniqueCodes,
       });
 
       if (success) {
+        console.log("✅ 구독 메시지 전송 성공");
         // 구독 상태는 서버 응답(SUBSCRIBED)에서만 업데이트
+      } else {
+        console.error("❌ 구독 메시지 전송 실패");
       }
 
       return success;
     },
-    [sendMessage]
+    [sendMessage, state.connected]
   );
 
   const unsubscribe = useCallback(

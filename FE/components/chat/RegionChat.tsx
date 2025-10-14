@@ -59,6 +59,8 @@ interface ChatMessage {
   showHeader?: boolean; // 서버에서 보내는 추가 정보
   senderId?: string; // 현재 사용자 식별용
   isMyMessage?: boolean; // 내가 보낸 메시지 여부
+  images?: string[];
+  portfolioStocks?: any[];
 }
 
 interface RegionChatProps {
@@ -69,8 +71,8 @@ interface RegionChatProps {
 type WebSocketReadyState = "connecting" | "open" | "closed";
 
 const MAX_RECONNECT_ATTEMPTS = 5;
-const RECONNECT_DELAY = 2000;
-const CONNECTION_TIMEOUT = 5000;
+const RECONNECT_DELAY = 500; // 재연결 지연 시간 더 단축
+const CONNECTION_TIMEOUT = 3000; // 연결 타임아웃 단축
 
 // WebSocket 상태 코드에 대한 설명
 const WS_CLOSE_CODES: Record<number, string> = {
@@ -166,8 +168,8 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         const convertedMessages: ChatMessage[] = historyMessages.map(
           (msg: ApiChatMessage) => {
             // 현재 사용자가 보낸 메시지인지 확인
-            const isMyMessage =
-              currentUserIdValue && msg.memberId === currentUserIdValue;
+            const isMyMessage: boolean =
+              !!(currentUserIdValue && msg.memberId === currentUserIdValue);
 
             console.log(
               `📝 메시지 ID: ${msg.id}, 발신자: ${msg.memberId}, 내 메시지: ${isMyMessage}`
@@ -260,6 +262,13 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
           }
         }, CONNECTION_TIMEOUT);
 
+        // 토큰 유효성 검사
+        if (!token || token.trim() === '') {
+          console.error("WebSocket connection failed: No token provided");
+          setError("인증 토큰이 없습니다. 다시 로그인해주세요.");
+          return;
+        }
+
         // Create new WebSocket connection with encoded token
         const encodedToken = encodeURIComponent(token);
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -271,7 +280,14 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
 
         console.log(
           "Connecting to WebSocket:",
-          wsUrl.replace(encodedToken, "REDACTED")
+          wsUrl.replace(encodedToken, "REDACTED"),
+          {
+            protocol,
+            host,
+            regionId,
+            tokenPresent: !!token,
+            tokenLength: token.length
+          }
         );
 
         ws.current = new WebSocket(wsUrl);
@@ -280,14 +296,18 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         ws.current.binaryType = "arraybuffer";
 
         ws.current.onopen = () => {
+          console.log("🔌 WebSocket 연결 성공!");
           setReadyState("open");
+          setError(null); // 연결 성공 시 오류 상태 초기화
           reconnectAttempts.current = 0;
           if (connectionTimeoutId.current) {
             clearTimeout(connectionTimeoutId.current);
           }
 
-          // Send initial heartbeat
-          sendHeartbeat();
+          // 연결 성공 즉시 PING 전송 (서버 응답 확인)
+          setTimeout(() => {
+            sendHeartbeat();
+          }, 100);
         };
 
         ws.current.onmessage = (event) => {
@@ -308,8 +328,15 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
               return;
             }
 
-            // heartbeat 메시지 필터링
-            if (data.type === "PING" || data.type === "PONG") {
+            // heartbeat 메시지 처리
+            if (data.type === "PING") {
+              // 서버에서 PING을 보내면 PONG으로 응답
+              sendHeartbeat();
+              return;
+            }
+            
+            if (data.type === "PONG") {
+              console.log("💓 서버 PONG 수신 - 연결 안정성 확인됨");
               return;
             }
 
@@ -386,27 +413,33 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         ws.current.onclose = (event) => {
           const reason = WS_CLOSE_CODES[event.code] || "알 수 없는 이유";
           console.log(
-            `WebSocket closed with code: ${event.code} (${reason}), reason: ${event.reason}`
+            `🔌 WebSocket 연결 종료: code=${event.code} (${reason}), reason=${event.reason}`
           );
 
           if (!isClosing.current) {
             if (event.code === 1006) {
               // 비정상 종료의 경우 즉시 재연결 시도
+              console.log("🔄 비정상 종료 - 재연결 시도");
               handleReconnect(token);
             } else if (event.code === 1000) {
               // 정상 종료의 경우 재연결 시도하지 않음
+              console.log("✅ 정상 종료 - 재연결하지 않음");
               setReadyState("closed");
             } else {
               // 그 외의 경우 재연결 시도
+              console.log("🔄 기타 종료 - 재연결 시도");
               handleReconnect(token);
             }
           }
         };
 
         ws.current.onerror = (event) => {
-          console.error("WebSocket error:", event);
-          console.log("Connection state:", ws.current?.readyState);
-          console.log("Region ID:", regionId);
+          console.error("WebSocket error:", {
+            type: event.type,
+            readyState: ws.current?.readyState,
+            regionId: regionId,
+            url: ws.current?.url?.replace(/token=[^&]*/, 'token=REDACTED')
+          });
 
           // 에러 상태 설정
           setError("WebSocket 연결에 오류가 발생했습니다.");
@@ -414,11 +447,30 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
 
           // 연결 상태가 CONNECTING인 경우에만 재연결 시도
           if (ws.current?.readyState === WebSocket.CONNECTING) {
-            handleReconnect(token);
+            // 토큰 만료 가능성이 있으므로 토큰 갱신 후 재연결 시도
+            setTimeout(async () => {
+              try {
+                const refreshResult = await refreshAccessToken();
+                if (refreshResult) {
+                  const newToken = await getAccessToken();
+                  if (newToken) {
+                    connectWebSocket(newToken);
+                  }
+                }
+              } catch (refreshError) {
+                console.error("Token refresh failed during reconnection:", refreshError);
+                handleReconnect(token);
+              }
+            }, 1000);
           }
         };
       } catch (err) {
-        console.error("Error connecting to WebSocket:", err);
+        console.error("Error connecting to WebSocket:", {
+          error: err,
+          regionId: regionId,
+          token: token ? "present" : "missing",
+          host: window.location.hostname
+        });
         setError("WebSocket 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
         setReadyState("closed");
         handleReconnect(token);
@@ -445,7 +497,7 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
 
       reconnectTimeoutId.current = setTimeout(() => {
         connectWebSocket(token);
-      }, RECONNECT_DELAY * Math.min(reconnectAttempts.current, 3));
+      }, RECONNECT_DELAY * Math.min(reconnectAttempts.current, 2)); // 최대 지연 시간을 2배로 제한
     },
     [connectWebSocket, isActionAllowed]
   );
@@ -455,19 +507,46 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
       let token = await getAccessToken();
 
       if (!token) {
+        console.log("No access token found, attempting to refresh...");
         const refreshResult = await refreshAccessToken();
         if (!refreshResult) {
-          setError("인증이 필요합니다.");
+          console.error("Token refresh failed");
+          setError("인증이 필요합니다. 다시 로그인해주세요.");
           return;
         }
         token = await getAccessToken();
       }
 
       if (!token) {
-        setError("인증이 필요합니다.");
+        console.error("No token available after refresh attempt");
+        setError("인증 토큰을 가져올 수 없습니다.");
         return;
       }
 
+      // 토큰 만료 시간 확인 (JWT 디코딩)
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+        const expirationTime = payload.exp;
+        
+        if (expirationTime && currentTime >= expirationTime) {
+          console.log("Token expired, attempting to refresh...");
+          const refreshResult = await refreshAccessToken();
+          if (refreshResult) {
+            token = await getAccessToken();
+            console.log("Token refreshed successfully");
+          } else {
+            console.error("Token refresh failed after expiration");
+            setError("토큰이 만료되었습니다. 다시 로그인해주세요.");
+            return;
+          }
+        }
+      } catch (decodeError) {
+        console.warn("Could not decode token for expiration check:", decodeError);
+        // 토큰 디코딩 실패해도 연결 시도
+      }
+
+      console.log("Token obtained, connecting to WebSocket...");
       connectWebSocket(token);
     } catch (err) {
       console.error("Error initializing WebSocket:", err);

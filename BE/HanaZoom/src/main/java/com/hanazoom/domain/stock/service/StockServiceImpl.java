@@ -16,8 +16,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,6 +32,8 @@ public class StockServiceImpl implements StockService {
         private final StockRepository stockRepository;
         private final KisApiService kisApiService;
         private final MarketTimeUtils marketTimeUtils;
+        private final RedisTemplate<String, Object> redisTemplate;
+        private final ObjectMapper objectMapper;
 
         @Override
         @Transactional(readOnly = true)
@@ -207,7 +211,7 @@ public class StockServiceImpl implements StockService {
 
         @Override
         public StockPriceResponse getRealTimePrice(String stockCode) {
-                log.info("Fetching real-time price for stock code: {}", stockCode);
+                log.info("🔍 DB에서 현재가 조회 시작: {}", stockCode);
 
                 try {
                         String response = kisApiService.getCurrentStockPrice(stockCode);
@@ -215,10 +219,13 @@ public class StockServiceImpl implements StockService {
 
                         // KIS API 응답 구조: rt_cd (성공코드), output (데이터)
                         if (!"0".equals(jsonResponse.optString("rt_cd"))) {
+                                log.error("❌ KIS API 오류: {}", jsonResponse.optString("msg1"));
                                 throw new RuntimeException("KIS API 오류: " + jsonResponse.optString("msg1"));
                         }
 
                         JSONObject output = jsonResponse.getJSONObject("output");
+                        log.info("📊 KIS API 현재가 응답: 종목={}, 현재가={}, 전일대비={}", 
+                            stockCode, output.optString("stck_prpr", "0"), output.optString("prdy_vrss", "0"));
 
                         // 시장 운영 상태 확인
                         MarketTimeUtils.MarketTimeInfo marketInfo = marketTimeUtils.getMarketTimeInfo();
@@ -233,6 +240,7 @@ public class StockServiceImpl implements StockService {
                         // 원본 현재가와 전일종가
                         String originalCurrentPrice = output.optString("stck_prpr", "0");
                         String previousClose = output.optString("stck_sdpr", "0");
+                        String changePrice = output.optString("prdy_vrss", "0");
 
                         // 장종료 후에는 종가(전일종가가 아닌 당일 종가)를 현재가로 사용
                         // KIS API에서 장종료 후에는 stck_prpr이 당일 종가를 나타냄
@@ -242,12 +250,30 @@ public class StockServiceImpl implements StockService {
                                 log.info("시장 종료 후 - 종가({})를 현재가로 표시: {}", displayCurrentPrice, stockCode);
                         }
 
-                        return StockPriceResponse.builder()
+                        // 등락률 직접 계산 (KIS API의 prdy_ctrt가 부정확할 수 있음)
+                        String calculatedChangeRate = "0";
+                        try {
+                                double currentPriceValue = Double.parseDouble(displayCurrentPrice);
+                                double changePriceValue = Double.parseDouble(changePrice);
+                                
+                                if (currentPriceValue > 0 && changePriceValue != 0) {
+                                        double changeRateValue = (changePriceValue / (currentPriceValue - changePriceValue)) * 100;
+                                        calculatedChangeRate = String.format("%.2f", changeRateValue);
+                                }
+                        } catch (Exception e) {
+                                log.warn("등락률 계산 실패, KIS API 값 사용: 종목={}, 에러={}", stockCode, e.getMessage());
+                                calculatedChangeRate = output.optString("prdy_ctrt", "0");
+                        }
+                        
+                        log.info("📊 등락률 계산: 종목={}, 현재가={}, 변동가={}, 계산된등락률={}, KIS등락률={}", 
+                            stockCode, displayCurrentPrice, changePrice, calculatedChangeRate, output.optString("prdy_ctrt", "0"));
+
+                        StockPriceResponse stockPriceResponse = StockPriceResponse.builder()
                                         .stockCode(stockCode)
                                         .stockName(output.optString("hts_kor_isnm", "")) // 종목명
                                         .currentPrice(displayCurrentPrice) // 장종료 시 종가 표시
-                                        .changePrice(output.optString("prdy_vrss", "0")) // 전일대비
-                                        .changeRate(output.optString("prdy_ctrt", "0")) // 전일대비율
+                                        .changePrice(changePrice) // 전일대비
+                                        .changeRate(calculatedChangeRate) // 계산된 전일대비율
                                         .changeSign(output.optString("prdy_vrss_sign", "3")) // 전일대비구분
                                         .openPrice(output.optString("stck_oprc", "0")) // 시가
                                         .highPrice(output.optString("stck_hgpr", "0")) // 고가
@@ -263,9 +289,49 @@ public class StockServiceImpl implements StockService {
                                         .marketStatus(marketInfo.getStatusMessage())
                                         .build();
 
+                        // KIS API로 가져온 최신 데이터를 Redis에 저장
+                        try {
+                                String key = "stock:realtime:" + stockCode;
+                                String stockDataJson = objectMapper.writeValueAsString(stockPriceResponse);
+                                redisTemplate.opsForValue().set(key, stockDataJson);
+                                log.info("💾 KIS API 데이터 Redis 저장: 종목={}, 현재가={}, 키={}", 
+                                    stockCode, displayCurrentPrice, key);
+                        } catch (Exception e) {
+                                log.error("❌ KIS API 데이터 Redis 저장 실패: 종목={}, 에러={}", stockCode, e.getMessage());
+                        }
+
+                        return stockPriceResponse;
+
                 } catch (Exception e) {
-                        log.error("Failed to fetch real-time price for stock code: {}", stockCode, e);
-                        throw new RuntimeException("실시간 주식 가격 조회 실패", e);
+                        log.error("❌ KIS API 호출 실패: 종목={}, 에러={}", stockCode, e.getMessage());
+                        
+                        // KIS API 실패 시 DB에서 기본 정보라도 반환
+                        try {
+                                Stock stock = stockRepository.findBySymbol(stockCode).orElse(null);
+                                if (stock != null) {
+                                        log.warn("⚠️ KIS API 실패 - DB 데이터로 fallback: 종목={}, 현재가={}", 
+                                            stockCode, stock.getCurrentPrice());
+                                        
+                                        return StockPriceResponse.builder()
+                                                .stockCode(stockCode)
+                                                .stockName(stock.getName())
+                                                .currentPrice(stock.getCurrentPrice() != null ? stock.getCurrentPrice().toString() : "0")
+                                                .changePrice(stock.getPriceChange() != null ? stock.getPriceChange().toString() : "0")
+                                                .changeRate(stock.getPriceChangePercent() != null ? stock.getPriceChangePercent().toString() : "0")
+                                                .changeSign("3") // 보합
+                                                .volume(stock.getVolume() != null ? stock.getVolume().toString() : "0")
+                                                .marketCap(stock.getMarketCap() != null ? stock.getMarketCap().toString() : "0")
+                                                .updatedTime(String.valueOf(System.currentTimeMillis()))
+                                                .isMarketOpen(false) // DB 데이터이므로 실시간 아님
+                                                .isAfterMarketClose(false)
+                                                .marketStatus("DB 데이터 (실시간 연결 실패)")
+                                                .build();
+                                }
+                        } catch (Exception dbException) {
+                                log.error("❌ DB fallback도 실패: {}", dbException.getMessage());
+                        }
+                        
+                        throw new RuntimeException("주식 현재가 조회 실패: " + stockCode, e);
                 }
         }
 

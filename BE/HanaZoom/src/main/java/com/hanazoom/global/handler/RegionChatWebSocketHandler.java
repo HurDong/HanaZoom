@@ -50,6 +50,8 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
         log.info("🔌 지역 채팅 WebSocket 연결 시도: {}", session.getId());
+        log.info("🔌 연결 URI: {}", session.getUri());
+        log.info("🔌 연결 헤더: {}", session.getHandshakeHeaders());
 
         // URL에서 regionId와 token 추출
         String query = session.getUri().getQuery();
@@ -58,10 +60,14 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             session.close(CloseStatus.BAD_DATA.withReason("Missing query parameters"));
             return;
         }
+        
+        log.info("🔌 쿼리 파라미터: {}", query);
 
         Map<String, String> params = parseQueryParams(query);
         String regionIdStr = params.get("regionId");
         String token = params.get("token");
+
+        log.info("🔌 파싱된 파라미터: regionId={}, token={}", regionIdStr, token != null ? token.substring(0, 20) + "..." : "null");
 
         if (regionIdStr == null || token == null) {
             log.warn("⚠️ 필수 파라미터가 누락되었습니다: regionId={}, token={}", regionIdStr, token);
@@ -73,11 +79,15 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             Long regionId = Long.parseLong(regionIdStr);
 
             // JWT 토큰 검증
+            log.info("🔌 JWT 토큰 검증 시작...");
+            log.info("🔌 토큰 길이: {}, 토큰 시작: {}", token.length(), token.substring(0, Math.min(50, token.length())));
+            
             if (!jwtUtil.validateToken(token)) {
                 log.warn("⚠️ 유효하지 않은 토큰: {}", token.substring(0, 20) + "...");
                 session.close(CloseStatus.POLICY_VIOLATION.withReason("Invalid token"));
                 return;
             }
+            log.info("✅ JWT 토큰 검증 성공");
 
             // 사용자 정보 조회
             UUID memberId = jwtUtil.getMemberIdFromToken(token);
@@ -107,6 +117,9 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             log.info("✅ 지역 채팅 WebSocket 연결 성공: 사용자={}, 지역={}, 세션={}",
                     member.getName(), region.getName(), session.getId());
 
+            // 연결 즉시 PONG 메시지 전송 (연결 안정성 확인)
+            sendToSession(session, createMessage("PONG", "연결 성공", null));
+
             // 환영 메시지 전송
             sendWelcomeMessage(session, member, region);
 
@@ -122,6 +135,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             session.close(CloseStatus.BAD_DATA.withReason("Invalid regionId format"));
         } catch (Exception e) {
             log.error("❌ 지역 채팅 WebSocket 연결 실패", e);
+            log.error("❌ 연결 실패 상세 정보: regionId={}, token={}", regionIdStr, token != null ? token.substring(0, 20) + "..." : "null");
             session.close(CloseStatus.SERVER_ERROR.withReason("Connection failed"));
         }
     }
