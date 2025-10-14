@@ -89,7 +89,8 @@ export const usePbRoomWebRTC = ({
 
       const apiBaseUrl =
         process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/pb-room";
+      const tokenParam = accessToken ? `?token=${encodeURIComponent(accessToken)}` : "";
+      const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/pb-room" + tokenParam;
 
       // 백엔드 서버 상태 확인
       try {

@@ -122,7 +122,8 @@ export default function ConsultationRoomPage() {
 
       const apiBaseUrl =
         process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/pb-room";
+      const tokenParam = currentToken ? `?token=${encodeURIComponent(currentToken)}` : "";
+      const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/pb-room" + tokenParam;
 
       console.log("🔌 채팅 WebSocket 연결 시도:", {
         consultationId,
