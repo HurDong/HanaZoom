@@ -947,7 +947,12 @@ public class ConsultationService {
     private void updatePbRating(Member pb) {
         Double averageRating = consultationRepository.getAverageRatingByPbId(pb.getId());
         if (averageRating != null) {
+            // 상담이 있는 경우 실제 평균 평점 사용
             pb.updatePbRating(averageRating);
+            memberRepository.save(pb);
+        } else {
+            // 상담이 없는 경우 기본 평점 5.0 유지
+            pb.updatePbRating(5.0);
             memberRepository.save(pb);
         }
     }

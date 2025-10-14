@@ -218,6 +218,12 @@ public class PbService {
                 .map(Region::getName)
                 .orElse("") : "";
 
+        // PB 담당 구역 우선순위: pb_region > regionName (fallback)
+        String displayRegion = pb.getPbRegion();
+        if (displayRegion == null || displayRegion.trim().isEmpty()) {
+            displayRegion = regionName; // pb_region이 없으면 regionId로부터 가져온 지역명 사용
+        }
+
         List<String> specialties = List.of();
         if (pb.getPbSpecialties() != null && !pb.getPbSpecialties().isEmpty()) {
             // JSON 파싱 로직 (실제로는 JSON 라이브러리 사용)
@@ -229,8 +235,8 @@ public class PbService {
                 .name(pb.getName())
                 .email(pb.getEmail())
                 .phone(pb.getPhone())
-                .region(pb.getPbRegion())
-                .regionName(regionName)
+                .region(displayRegion) // 우선순위 적용된 지역 정보
+                .regionName(regionName) // 원본 지역명 (참고용)
                 .rating(pb.getPbRating())
                 .totalConsultations(pb.getPbTotalConsultations())
                 .specialties(specialties)

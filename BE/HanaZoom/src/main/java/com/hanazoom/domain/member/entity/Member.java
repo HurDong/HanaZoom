@@ -97,7 +97,7 @@ public class Member implements UserDetails {
     private String pbRegion;
 
     @Column(name = "pb_rating")
-    private Double pbRating = 0.0;
+    private Double pbRating = 5.0;
 
     @Column(name = "pb_total_consultations")
     private Integer pbTotalConsultations = 0;
