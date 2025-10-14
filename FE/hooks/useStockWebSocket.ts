@@ -141,8 +141,10 @@ export function useStockWebSocket({
       // 환경 변수에서 API URL 가져오기
       const apiBaseUrl =
         process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      // http/https를 ws/wss로 변환
-      const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/stocks";
+      // http/https를 ws/wss로 변환 + 토큰 쿼리 전달(가능 시)
+      const token = localStorage.getItem("accessToken") || undefined;
+      const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
+      const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/stocks" + tokenParam;
 
       console.log("🔄 웹소켓 연결 시도:", wsUrl);
       console.log("🔄 연결 환경:", {
