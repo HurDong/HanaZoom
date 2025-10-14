@@ -234,14 +234,18 @@ export function useStockWebSocket({
               if (message.data?.stockData) {
                 const stockData: StockPriceData = message.data.stockData;
                 
-                // 현재가 수신 로그 추가
+                // 현재가 수신 로그 추가 (더 자세한 정보)
                 console.log("📊 실시간 현재가 수신:", {
                   stockCode: stockData.stockCode,
                   stockName: stockData.stockName,
                   currentPrice: stockData.currentPrice,
                   changePrice: stockData.changePrice,
                   changeRate: stockData.changeRate,
-                  timestamp: new Date().toISOString()
+                  volume: stockData.volume,
+                  marketStatus: stockData.marketStatus,
+                  timestamp: new Date().toISOString(),
+                  wsReadyState: wsRef.current?.readyState,
+                  subscribedCodes: Array.from(subscribedCodesRef.current)
                 });
 
                 setState((prev) => {
@@ -553,10 +557,25 @@ export function useStockWebSocket({
   // 주기적 하트비트 및 데이터 수신 상태 확인
   useEffect(() => {
     if (state.connected) {
-      // ping 전송
+      // ping 전송 및 상태 모니터링
       pingIntervalRef.current = setInterval(() => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           ping();
+          
+          // 주기적으로 연결 상태와 구독 상태 로깅
+          console.log("🔍 웹소켓 상태 체크:", {
+            readyState: wsRef.current.readyState,
+            connected: true,
+            subscribedCodes: Array.from(subscribedCodesRef.current),
+            stockCodes: stockCodes,
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          console.warn("⚠️ 웹소켓 연결 끊어짐:", {
+            readyState: wsRef.current?.readyState,
+            connected: false,
+            timestamp: new Date().toISOString()
+          });
         }
       }, state.pingInterval);
 

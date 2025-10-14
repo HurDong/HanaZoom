@@ -410,12 +410,20 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
             String message = createMessage("STOCK_UPDATE", "실시간 주식 데이터", Map.of("stockData", stockData));
 
             List<WebSocketSession> deadSessions = new ArrayList<>();
+            int successCount = 0;
+            int failCount = 0;
+            
             for (WebSocketSession session : subscribers) {
                 try {
                     if (session != null && session.isOpen()) {
                         synchronized (session) {
                             if (session.isOpen()) {
                                 session.sendMessage(new TextMessage(message));
+                                successCount++;
+                                log.debug("✅ 실시간 데이터 전송 성공: 세션={}, 종목={}", session.getId(), stockCode);
+                            } else {
+                                deadSessions.add(session);
+                                failCount++;
                             }
                         }
                     } else {
@@ -435,6 +443,12 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
             if (subscribers.isEmpty()) {
                 stockSubscriptions.remove(stockCode);
             }
+            
+            // 브로드캐스트 결과 로깅
+            log.info("📡 브로드캐스트 완료: 종목={}, 성공={}, 실패={}, 총구독자={}", 
+                stockCode, successCount, failCount, subscribers.size());
+        } else {
+            log.debug("📡 브로드캐스트 건너뜀: 종목={}, 구독자 없음", stockCode);
         }
     }
 
