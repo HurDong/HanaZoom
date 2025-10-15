@@ -27,7 +27,7 @@ public class SettlementScheduler {
     private final AccountBalanceRepository accountBalanceRepository;
     private final AccountRepository accountRepository;
 
-    // 매일 자정에 정산 처리
+
     @Scheduled(cron = "0 0 0 * * ?")
     @Transactional
     public void processSettlements() {
@@ -35,7 +35,7 @@ public class SettlementScheduler {
         log.info("정산 처리 시작: {}", today);
 
         try {
-            // 오늘 정산 완료될 스케줄들 조회
+
             List<SettlementSchedule> completedSchedules = settlementScheduleRepository
                     .findBySettlementDateAndStatus(today, SettlementStatus.PENDING);
 
@@ -54,7 +54,7 @@ public class SettlementScheduler {
 
     private void processSettlement(SettlementSchedule schedule) {
         try {
-            // 정산 대기 → 인출 가능으로 상태 변경
+
             AccountBalance balance = schedule.getAccountBalance();
             if (balance == null) {
                 balance = accountBalanceRepository.findById(schedule.getAccountBalanceId())
@@ -65,7 +65,7 @@ public class SettlementScheduler {
 
             final AccountBalance finalBalance = balance;
 
-            // Account 정보 조회
+
             var account = accountRepository.findById(finalBalance.getAccountId())
                     .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다: " + finalBalance.getAccountId()));
 
@@ -76,10 +76,10 @@ public class SettlementScheduler {
             finalBalance.setSettlementCash(finalBalance.getSettlementCash().subtract(schedule.getSettlementAmount()));
             finalBalance.setWithdrawableCash(finalBalance.getWithdrawableCash().add(schedule.getSettlementAmount()));
 
-            // 스케줄 상태 업데이트
+
             schedule.completeSettlement();
 
-            // 잔고 저장
+
             accountBalanceRepository.save(finalBalance);
             settlementScheduleRepository.save(schedule);
 
@@ -91,7 +91,7 @@ public class SettlementScheduler {
         }
     }
 
-    // 수동 정산 처리 (테스트용)
+
     public void processSettlementManually(Long scheduleId) {
         log.info("수동 정산 처리 시작: ID={}", scheduleId);
 
@@ -112,7 +112,7 @@ public class SettlementScheduler {
         }
     }
 
-    // 특정 날짜의 정산 처리 (테스트용)
+
     public void processSettlementsForDate(LocalDate date) {
         log.info("특정 날짜 정산 처리 시작: {}", date);
 

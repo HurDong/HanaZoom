@@ -28,20 +28,20 @@ public class ChatController {
     public ResponseEntity<ApiResponse<RegionChatInfo>> getRegionChatInfo(
             @RequestHeader("Authorization") String authHeader) {
         try {
-            // Bearer 토큰에서 JWT 추출
+
             String token = authHeader.replace("Bearer ", "");
 
-            // JWT에서 이메일 추출
+
             String email = jwtUtil.getEmailFromToken(token);
 
-            // 사용자 지역 조회
+
             Long regionId = memberService.getUserRegionId(email);
 
             if (regionId == null) {
                 return ResponseEntity.badRequest().body(ApiResponse.error("지역 정보를 찾을 수 없습니다."));
             }
 
-            // 지역 이름 가져오기
+
             String regionName = regionService.getFullRegionName(regionId);
             String roomName = regionName != null ? regionName + " 채팅방" : "지역 " + regionId + "번 채팅방";
 
@@ -54,14 +54,6 @@ public class ChatController {
         }
     }
 
-    /**
-     * 특정 지역의 이전 채팅 메시지를 조회합니다.
-     *
-     * @param regionId 지역 ID
-     * @param page     페이지 번호 (기본값: 0)
-     * @param size     페이지 크기 (기본값: 50)
-     * @return 이전 채팅 메시지 목록
-     */
     @GetMapping("/region/{regionId}/messages")
     public ResponseEntity<ApiResponse<List<RegionChatMessage>>> getRegionMessages(
             @PathVariable Long regionId,
@@ -80,13 +72,6 @@ public class ChatController {
         }
     }
 
-    /**
-     * 특정 지역의 최근 N개 메시지를 조회합니다.
-     *
-     * @param regionId 지역 ID
-     * @param limit    조회할 메시지 개수 (기본값: 50)
-     * @return 최근 채팅 메시지 목록
-     */
     @GetMapping("/region/{regionId}/recent")
     public ResponseEntity<ApiResponse<List<RegionChatMessage>>> getRecentMessages(
             @PathVariable Long regionId,
@@ -104,12 +89,6 @@ public class ChatController {
         }
     }
 
-    /**
-     * 특정 지역의 총 메시지 개수를 조회합니다.
-     *
-     * @param regionId 지역 ID
-     * @return 메시지 개수
-     */
     @GetMapping("/region/{regionId}/count")
     public ResponseEntity<ApiResponse<Long>> getMessageCount(@PathVariable Long regionId) {
         try {

@@ -36,11 +36,11 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse createOrder(Member member, OrderRequest request) {
-        // Stock 엔티티 조회
+
         Stock stock = stockRepository.findBySymbol(request.getStockCode())
                 .orElseThrow(() -> new BusinessException("STOCK_NOT_FOUND"));
         
-        // 주문 생성 로직
+
         Order order = Order.builder()
                 .member(member)
                 .stock(stock)
@@ -57,10 +57,10 @@ public class OrderServiceImpl implements OrderService {
         Order savedOrder = orderRepository.save(order);
         log.info("주문 생성 완료: orderId={}, memberId={}, stockCode={}", savedOrder.getId(), member.getId(), request.getStockCode());
         
-        // 시장가 주문인 경우 즉시 체결 처리
+
         if (request.getOrderMethod() == Order.OrderMethod.MARKET) {
             try {
-                // 현재가 조회 (실제로는 실시간 가격 서비스에서 가져와야 함)
+
                 String currentPrice = stockService.getRealTimePrice(request.getStockCode()).getCurrentPrice();
                 orderMatchingService.executeMarketOrder(savedOrder, new BigDecimal(currentPrice));
             } catch (Exception e) {

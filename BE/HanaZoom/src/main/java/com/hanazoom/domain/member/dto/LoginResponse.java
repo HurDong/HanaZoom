@@ -17,7 +17,7 @@ public class LoginResponse {
     private final String accessToken;
     private final String refreshToken;
 
-    // PB 관련 필드들
+
     private final boolean isPb;
     private final String pbStatus;
 

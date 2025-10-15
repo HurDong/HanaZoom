@@ -29,7 +29,7 @@ public class PortfolioStock {
     @Column(name = "stock_symbol", nullable = false, length = 20)
     private String stockSymbol;
 
-    // 보유 수량
+
     @Column(nullable = false)
     private Integer quantity = 0;
 
@@ -39,14 +39,14 @@ public class PortfolioStock {
     @Column(name = "frozen_quantity", nullable = false)
     private Integer frozenQuantity = 0;
 
-    // 평균 매수가
+
     @Column(name = "avg_purchase_price", nullable = false, precision = 15, scale = 2)
     private BigDecimal avgPurchasePrice = BigDecimal.ZERO;
 
     @Column(name = "total_purchase_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalPurchaseAmount = BigDecimal.ZERO;
 
-    // 현재 평가 정보
+
     @Column(name = "current_price", precision = 15, scale = 2)
     private BigDecimal currentPrice;
 
@@ -59,7 +59,7 @@ public class PortfolioStock {
     @Column(name = "profit_loss_rate", nullable = false, precision = 5, scale = 2)
     private BigDecimal profitLossRate = BigDecimal.ZERO;
 
-    // 메타 정보
+
     @Column(name = "first_purchase_date")
     private LocalDate firstPurchaseDate;
 
@@ -90,7 +90,7 @@ public class PortfolioStock {
         this.lastPurchaseDate = LocalDate.now();
     }
 
-    // 매수 처리
+
     public void buy(Integer quantity, BigDecimal price) {
         if (quantity <= 0 || price.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("수량과 가격은 0보다 커야 합니다.");
@@ -99,7 +99,7 @@ public class PortfolioStock {
         BigDecimal newTotalAmount = this.totalPurchaseAmount.add(price.multiply(BigDecimal.valueOf(quantity)));
         int newTotalQuantity = this.quantity + quantity;
 
-        // 평균 매수가 재계산
+
         this.avgPurchasePrice = newTotalAmount.divide(BigDecimal.valueOf(newTotalQuantity), 2,
                 java.math.RoundingMode.HALF_UP);
         this.totalPurchaseAmount = newTotalAmount;
@@ -110,13 +110,13 @@ public class PortfolioStock {
         updateCurrentValue();
     }
 
-    // 매도 처리
+
     public void sell(Integer quantity) {
         if (quantity <= 0 || quantity > this.availableQuantity) {
             throw new IllegalArgumentException("매도 가능한 수량이 부족합니다.");
         }
 
-        // 매도 수량만큼 총 매수금액에서 차감 (FIFO 방식)
+
         BigDecimal sellAmount = this.avgPurchasePrice.multiply(BigDecimal.valueOf(quantity));
         this.totalPurchaseAmount = this.totalPurchaseAmount.subtract(sellAmount);
         
@@ -124,7 +124,7 @@ public class PortfolioStock {
         this.availableQuantity -= quantity;
         this.lastSaleDate = LocalDate.now();
 
-        // 보유 수량이 0이 되면 평균 매수가 초기화
+
         if (this.quantity == 0) {
             this.avgPurchasePrice = BigDecimal.ZERO;
             this.totalPurchaseAmount = BigDecimal.ZERO;
@@ -133,31 +133,31 @@ public class PortfolioStock {
         updateCurrentValue();
     }
 
-    // 현재가 업데이트
+
     public void updateCurrentPrice(BigDecimal currentPrice) {
         this.currentPrice = currentPrice;
         updateCurrentValue();
     }
 
-    // 현재 평가금액 및 손익 계산
+
     public void updateCurrentValue() {
         if (this.currentPrice != null && this.quantity > 0 && this.totalPurchaseAmount.compareTo(BigDecimal.ZERO) > 0) {
             this.currentValue = this.currentPrice.multiply(BigDecimal.valueOf(this.quantity));
             this.profitLoss = this.currentValue.subtract(this.totalPurchaseAmount);
 
-            // 수익률 계산 (총 매수금액이 0보다 클 때만)
+
             this.profitLossRate = this.profitLoss
                     .divide(this.totalPurchaseAmount, 4, java.math.RoundingMode.HALF_UP)
                     .multiply(BigDecimal.valueOf(100));
         } else {
-            // 보유 수량이 0이거나 매수금액이 0인 경우
+
             this.currentValue = BigDecimal.ZERO;
             this.profitLoss = BigDecimal.ZERO;
             this.profitLossRate = BigDecimal.ZERO;
         }
     }
 
-    // 수량 동결/해제
+
     public void freezeQuantity(Integer quantity) {
         if (quantity > this.availableQuantity) {
             throw new IllegalArgumentException("동결할 수량이 매도 가능 수량을 초과합니다.");
@@ -174,12 +174,12 @@ public class PortfolioStock {
         this.availableQuantity += quantity;
     }
 
-    // 보유 수량 확인
+
     public boolean hasQuantity(int quantity) {
         return this.availableQuantity >= quantity;
     }
 
-    // 수익률 확인
+
     public boolean isProfitable() {
         return this.profitLoss.compareTo(BigDecimal.ZERO) > 0;
     }

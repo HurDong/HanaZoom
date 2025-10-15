@@ -29,8 +29,8 @@ public class WebRTCSignalingController {
     private final ConsultationService consultationService;
     private final JwtUtil jwtUtil;
 
-    // 활성 상담 세션 관리 - 클라이언트별로 격리
-    // Key: "clientId:consultationId", Value: ConsultationSession
+
+
     private final Map<String, ConsultationSession> activeSessions = new ConcurrentHashMap<>();
 
     @MessageMapping("/consultation/{consultationId}/join")
@@ -40,16 +40,16 @@ public class WebRTCSignalingController {
             SimpMessageHeaderAccessor headerAccessor) {
         
         try {
-            // 클라이언트 ID 추출
+
             String clientId = getClientId(headerAccessor);
             
-            // 인증된 사용자 정보 가져오기
+
             UUID userId = getCurrentUserId(headerAccessor);
             String userRole = getUserRole(consultationId, userId);
             
             log.info("클라이언트 {}에서 사용자 {}가 상담 {}에 참여 시도 (역할: {})", clientId, userId, consultationId, userRole);
             
-            // 클라이언트별 상담 세션 생성 또는 참여
+
             String sessionKey = clientId + ":" + consultationId;
             ConsultationSession session = activeSessions.computeIfAbsent(sessionKey, 
                 key -> new ConsultationSession(consultationId, clientId));
@@ -57,7 +57,7 @@ public class WebRTCSignalingController {
             boolean isFirstParticipant = session.getParticipants().isEmpty();
             session.addParticipant(userId.toString(), userRole, headerAccessor.getSessionId());
             
-            // 첫 번째 참여자(PB)가 참여하면 상담 상태를 IN_PROGRESS로 변경 (가능한 상태일 때만)
+
             if (isFirstParticipant && "PB".equals(userRole)) {
                 try {
                     UUID cId = UUID.fromString(consultationId);
@@ -73,7 +73,7 @@ public class WebRTCSignalingController {
                 }
             }
             
-            // 참여자에게 성공 응답
+
             Map<String, Object> participantsMap = new java.util.HashMap<>();
             session.getParticipants().forEach((id, participant) -> {
                 participantsMap.put(id, Map.of(
@@ -97,7 +97,7 @@ public class WebRTCSignalingController {
                 response
             );
             
-            // 다른 참여자들에게 새 참여자 알림
+
             ParticipantJoinedEvent event = ParticipantJoinedEvent.builder()
                 .consultationId(consultationId)
                 .userId(userId.toString())
@@ -136,7 +136,7 @@ public class WebRTCSignalingController {
             UUID userId = getCurrentUserId(headerAccessor);
             log.info("클라이언트 {}에서 상담 {}의 사용자 {}가 offer 전송", clientId, consultationId, userId);
             
-            // 다른 참여자들에게 offer 전달
+
             OfferEvent event = OfferEvent.builder()
                 .consultationId(consultationId)
                 .fromUserId(userId.toString())
@@ -165,7 +165,7 @@ public class WebRTCSignalingController {
             UUID userId = getCurrentUserId(headerAccessor);
             log.info("클라이언트 {}에서 상담 {}의 사용자 {}가 answer 전송", clientId, consultationId, userId);
             
-            // 다른 참여자들에게 answer 전달
+
             AnswerEvent event = AnswerEvent.builder()
                 .consultationId(consultationId)
                 .fromUserId(userId.toString())
@@ -194,7 +194,7 @@ public class WebRTCSignalingController {
             UUID userId = getCurrentUserId(headerAccessor);
             log.info("클라이언트 {}에서 상담 {}의 사용자 {}가 ICE candidate 전송", clientId, consultationId, userId);
             
-            // 다른 참여자들에게 ICE candidate 전달
+
             IceCandidateEvent event = IceCandidateEvent.builder()
                 .consultationId(consultationId)
                 .fromUserId(userId.toString())
@@ -222,7 +222,7 @@ public class WebRTCSignalingController {
             UUID userId = getCurrentUserId(headerAccessor);
             log.info("클라이언트 {}에서 사용자 {}가 상담 {}에서 나감", clientId, userId, consultationId);
             
-            // 클라이언트별 세션에서 참여자 제거
+
             String sessionKey = clientId + ":" + consultationId;
             ConsultationSession session = activeSessions.get(sessionKey);
             if (session != null) {
@@ -230,7 +230,7 @@ public class WebRTCSignalingController {
                 String userRole = participant != null ? participant.getRole() : null;
                 session.removeParticipant(userId.toString());
                 
-                // 다른 참여자들에게 나감 알림
+
                 ParticipantLeftEvent event = ParticipantLeftEvent.builder()
                     .consultationId(consultationId)
                     .userId(userId.toString())
@@ -241,7 +241,7 @@ public class WebRTCSignalingController {
                     event
                 );
                 
-                // PB가 나가거나 세션이 비어있으면 상담 종료
+
                 if ("PB".equals(userRole) || session.getParticipants().isEmpty()) {
                     try {
                         consultationService.endConsultation(UUID.fromString(consultationId), userId, "화상 상담 종료");
@@ -251,7 +251,7 @@ public class WebRTCSignalingController {
                     }
                 }
                 
-                // 세션이 비어있으면 제거
+
                 if (session.getParticipants().isEmpty()) {
                     activeSessions.remove(sessionKey);
                 }
@@ -273,7 +273,7 @@ public class WebRTCSignalingController {
             UUID userId = getCurrentUserId(headerAccessor);
             log.info("클라이언트 {}에서 상담 {}의 사용자 {}가 채팅 메시지 전송", clientId, consultationId, userId);
             
-            // 채팅 메시지 이벤트 생성
+
             ChatMessageEvent event = ChatMessageEvent.builder()
                 .consultationId(consultationId)
                 .userId(userId.toString())
@@ -282,7 +282,7 @@ public class WebRTCSignalingController {
                 .timestamp(System.currentTimeMillis())
                 .build();
             
-            // 모든 참여자에게 채팅 메시지 전달
+
             messagingTemplate.convertAndSend(
                 "/topic/consultation/" + consultationId + "/chat", 
                 event
@@ -294,7 +294,7 @@ public class WebRTCSignalingController {
     }
 
     private String getClientId(SimpMessageHeaderAccessor headerAccessor) {
-        // WebSocket 세션 속성에서 클라이언트 ID 확인
+
         if (headerAccessor != null) {
             Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
             if (sessionAttributes != null) {
@@ -305,12 +305,12 @@ public class WebRTCSignalingController {
             }
         }
         
-        // 클라이언트 ID가 없으면 기본값 반환 (기존 호환성)
+
         return "default";
     }
 
     private UUID getCurrentUserId(SimpMessageHeaderAccessor headerAccessor) {
-        // 1. SecurityContext에서 사용자 정보 확인
+
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof Member) {
             Member member = (Member) authentication.getPrincipal();
@@ -318,7 +318,7 @@ public class WebRTCSignalingController {
             return member.getId();
         }
         
-        // 2. WebSocket 세션 속성에서 사용자 정보 확인
+
         if (headerAccessor != null) {
             Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
             if (sessionAttributes != null) {
@@ -342,17 +342,17 @@ public class WebRTCSignalingController {
 
     private String getUserRole(String consultationId, UUID userId) {
         try {
-            // UUID 형식 검증
+
             UUID consultationUuid;
             try {
                 consultationUuid = UUID.fromString(consultationId);
             } catch (IllegalArgumentException e) {
                 log.warn("잘못된 상담 ID 형식: {}", consultationId);
-                // 테스트용 상담 ID인 경우 기본적으로 PB 권한 부여
+
                 return "PB";
             }
             
-            // 상담 정보를 조회하여 사용자가 PB인지 고객인지 확인
+
             var consultation = consultationService.getConsultationById(consultationUuid, userId);
             
             if (consultation.getPbId().equals(userId)) {
@@ -364,13 +364,13 @@ public class WebRTCSignalingController {
             }
         } catch (Exception e) {
             log.error("사용자 역할 확인 실패: {}", e.getMessage(), e);
-            // 오류 발생 시 기본적으로 PB 권한 부여 (테스트용)
+
             log.warn("기본 PB 권한으로 설정: {}", userId);
             return "PB";
         }
     }
 
-    // 내부 클래스들
+
     public static class ConsultationSession {
         private final String consultationId;
         private final String clientId;
@@ -405,7 +405,7 @@ public class WebRTCSignalingController {
             this.sessionId = sessionId;
         }
 
-        // Getters
+
         public String getUserId() { return userId; }
         public String getRole() { return role; }
         public String getSessionId() { return sessionId; }

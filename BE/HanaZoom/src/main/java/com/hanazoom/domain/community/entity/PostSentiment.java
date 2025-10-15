@@ -4,9 +4,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum PostSentiment {
-    BULLISH, // 상승 전망
-    BEARISH, // 하락 전망
-    NEUTRAL; // 중립
+    BULLISH, 
+    BEARISH, 
+    NEUTRAL; 
 
     @JsonCreator
     public static PostSentiment fromString(String value) {

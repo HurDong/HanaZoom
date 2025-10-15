@@ -11,10 +11,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 
-/**
- * 금융 캘린더 API 컨트롤러
- * ECOS 기반 주간 경제지표 캘린더 제공
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/calendar")
@@ -23,10 +19,6 @@ public class FinancialCalendarController {
 
     private final FinancialCalendarService financialCalendarService;
 
-    /**
-     * 주간 금융 캘린더 조회
-     * GET /api/v1/calendar/weekly?baseDate=YYYY-MM-DD&includeAll=true|false
-     */
     @GetMapping("/weekly")
     public ResponseEntity<ApiResponse<FinancialCalendarDto>> getWeeklyFinancialCalendar(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate baseDate,

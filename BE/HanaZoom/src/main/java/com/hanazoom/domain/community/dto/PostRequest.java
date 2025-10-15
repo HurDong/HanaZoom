@@ -11,9 +11,9 @@ public class PostRequest {
     private String title;
     private String content;
     private String imageUrl;
-    private PostType postType = PostType.TEXT; // 기본값 설정
+    private PostType postType = PostType.TEXT; 
     private PostSentiment sentiment;
-    private boolean hasVote = false; // 기본값 설정
+    private boolean hasVote = false; 
     private String voteQuestion;
     private java.util.List<String> voteOptions;
 }

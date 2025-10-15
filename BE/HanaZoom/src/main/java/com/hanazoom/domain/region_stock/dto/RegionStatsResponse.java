@@ -23,9 +23,9 @@ public class RegionStatsResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Stats {
-        private int todayPostCount; // 오늘 작성된 게시글 수
-        private int todayCommentCount; // 오늘 작성된 댓글 수
-        private int todayTotalViews; // 오늘 총 조회수
+        private int todayPostCount; 
+        private int todayCommentCount; 
+        private int todayTotalViews; 
     }
 
     @Getter
@@ -33,10 +33,10 @@ public class RegionStatsResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class TrendingStock {
-        private String symbol; // 종목 코드
-        private String name; // 종목명
-        private int regionalRanking; // 지역 내 순위
-        private BigDecimal popularityScore; // 인기도 점수
-        private BigDecimal trendScore; // 트렌드 점수
+        private String symbol; 
+        private String name; 
+        private int regionalRanking; 
+        private BigDecimal popularityScore; 
+        private BigDecimal trendScore; 
     }
 }

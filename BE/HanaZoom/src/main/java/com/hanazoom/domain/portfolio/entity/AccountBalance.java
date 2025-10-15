@@ -29,7 +29,7 @@ public class AccountBalance {
     @Column(name = "balance_date", nullable = false)
     private LocalDate balanceDate;
 
-    // 현금 잔고
+
     @Column(name = "cash_balance", nullable = false, precision = 15, scale = 2)
     private BigDecimal cashBalance = BigDecimal.ZERO;
 
@@ -39,14 +39,14 @@ public class AccountBalance {
     @Column(name = "frozen_cash", nullable = false, precision = 15, scale = 2)
     private BigDecimal frozenCash = BigDecimal.ZERO;
 
-    // 정산 관련 현금
+
     @Column(name = "settlement_cash", nullable = false, precision = 15, scale = 2)
     private BigDecimal settlementCash = BigDecimal.ZERO;
 
     @Column(name = "withdrawable_cash", nullable = false, precision = 15, scale = 2)
     private BigDecimal withdrawableCash = BigDecimal.ZERO;
 
-    // 주식 평가 정보
+
     @Column(name = "total_stock_value", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalStockValue = BigDecimal.ZERO;
 
@@ -56,7 +56,7 @@ public class AccountBalance {
     @Column(name = "total_profit_loss_rate", nullable = false, precision = 5, scale = 2)
     private BigDecimal totalProfitLossRate = BigDecimal.ZERO;
 
-    // 계좌 총액
+
     @Column(name = "total_balance", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalBalance = BigDecimal.ZERO;
 
@@ -86,7 +86,7 @@ public class AccountBalance {
         calculateTotalBalance();
     }
 
-    // 총 잔고 계산
+
     public void calculateTotalBalance() {
         this.totalBalance = this.availableCash
                 .add(this.settlementCash)
@@ -95,7 +95,7 @@ public class AccountBalance {
                 .add(this.totalStockValue);
     }
 
-    // 현금 잔고 업데이트
+
     public void updateCashBalance(BigDecimal cashBalance, BigDecimal availableCash, BigDecimal frozenCash) {
         this.cashBalance = cashBalance != null ? cashBalance : BigDecimal.ZERO;
         this.availableCash = availableCash != null ? availableCash : BigDecimal.ZERO;
@@ -103,7 +103,7 @@ public class AccountBalance {
         calculateTotalBalance();
     }
 
-    // 주식 평가 정보 업데이트
+
     public void updateStockValue(BigDecimal totalStockValue, BigDecimal totalProfitLoss,
             BigDecimal totalProfitLossRate) {
         this.totalStockValue = totalStockValue != null ? totalStockValue : BigDecimal.ZERO;
@@ -112,7 +112,7 @@ public class AccountBalance {
         calculateTotalBalance();
     }
 
-    // 전체 잔고 정보 업데이트
+
     public void updateBalance(BigDecimal cashBalance, BigDecimal availableCash, BigDecimal frozenCash,
             BigDecimal totalStockValue, BigDecimal totalProfitLoss, BigDecimal totalProfitLossRate) {
         updateCashBalance(cashBalance, availableCash, frozenCash);

@@ -30,21 +30,21 @@ public class PortfolioPerformance {
     @Column(name = "performance_date", nullable = false)
     private LocalDate performanceDate;
 
-    // 일일 성과
+
     @Column(name = "daily_return", nullable = false, precision = 5, scale = 2)
     private BigDecimal dailyReturn = BigDecimal.ZERO;
 
     @Column(name = "daily_profit_loss", nullable = false, precision = 15, scale = 2)
     private BigDecimal dailyProfitLoss = BigDecimal.ZERO;
 
-    // 누적 성과
+
     @Column(name = "total_return", nullable = false, precision = 5, scale = 2)
     private BigDecimal totalReturn = BigDecimal.ZERO;
 
     @Column(name = "total_profit_loss", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalProfitLoss = BigDecimal.ZERO;
 
-    // 위험 지표
+
     @Column(precision = 5, scale = 2)
     private BigDecimal volatility;
 
@@ -54,7 +54,7 @@ public class PortfolioPerformance {
     @Column(name = "max_drawdown", precision = 5, scale = 2)
     private BigDecimal maxDrawdown;
 
-    // 자산 구성
+
     @Column(name = "stock_allocation_rate", nullable = false, precision = 5, scale = 2)
     private BigDecimal stockAllocationRate = BigDecimal.ZERO;
 
@@ -88,35 +88,35 @@ public class PortfolioPerformance {
         this.cashAllocationRate = cashAllocationRate != null ? cashAllocationRate : BigDecimal.ZERO;
     }
 
-    // 일일 성과 업데이트
+
     public void updateDailyPerformance(BigDecimal dailyReturn, BigDecimal dailyProfitLoss) {
         this.dailyReturn = dailyReturn != null ? dailyReturn : BigDecimal.ZERO;
         this.dailyProfitLoss = dailyProfitLoss != null ? dailyProfitLoss : BigDecimal.ZERO;
     }
 
-    // 누적 성과 업데이트
+
     public void updateTotalPerformance(BigDecimal totalReturn, BigDecimal totalProfitLoss) {
         this.totalReturn = totalReturn != null ? totalReturn : BigDecimal.ZERO;
         this.totalProfitLoss = totalProfitLoss != null ? totalProfitLoss : BigDecimal.ZERO;
     }
 
-    // 위험 지표 업데이트
+
     public void updateRiskMetrics(BigDecimal volatility, BigDecimal sharpeRatio, BigDecimal maxDrawdown) {
         this.volatility = volatility;
         this.sharpeRatio = sharpeRatio;
         this.maxDrawdown = maxDrawdown;
     }
 
-    // 자산 배분 업데이트
+
     public void updateAllocation(BigDecimal stockAllocationRate, BigDecimal cashAllocationRate) {
         this.stockAllocationRate = stockAllocationRate != null ? stockAllocationRate : BigDecimal.ZERO;
         this.cashAllocationRate = cashAllocationRate != null ? cashAllocationRate : BigDecimal.ZERO;
 
-        // 자산 배분 합계가 100%가 되도록 정규화
+
         normalizeAllocation();
     }
 
-    // 자산 배분 정규화 (합계가 100%가 되도록)
+
     private void normalizeAllocation() {
         BigDecimal total = this.stockAllocationRate.add(this.cashAllocationRate);
         if (total.compareTo(BigDecimal.ZERO) > 0) {
@@ -129,7 +129,7 @@ public class PortfolioPerformance {
         }
     }
 
-    // 성과 등급 계산
+
     public String getPerformanceGrade() {
         if (this.totalReturn.compareTo(BigDecimal.valueOf(20)) >= 0) {
             return "A+";
@@ -148,7 +148,7 @@ public class PortfolioPerformance {
         }
     }
 
-    // 위험 등급 계산
+
     public String getRiskGrade() {
         if (this.volatility == null) {
             return "N/A";
@@ -165,12 +165,12 @@ public class PortfolioPerformance {
         }
     }
 
-    // 수익률이 양수인지 확인
+
     public boolean isPositiveReturn() {
         return this.totalReturn.compareTo(BigDecimal.ZERO) > 0;
     }
 
-    // 일일 수익률이 양수인지 확인
+
     public boolean isPositiveDailyReturn() {
         return this.dailyReturn.compareTo(BigDecimal.ZERO) > 0;
     }

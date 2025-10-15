@@ -27,9 +27,6 @@ public class ConsultationController {
 
     private final ConsultationService consultationService;
 
-    /**
-     * 상담 예약 요청 (일반 회원)
-     */
     @PostMapping
     public ResponseEntity<ApiResponse<ConsultationResponseDto>> createConsultation(
             @Valid @RequestBody ConsultationRequestDto requestDto) {
@@ -42,9 +39,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(response, "상담 예약이 요청되었습니다"));
     }
 
-    /**
-     * 상담 승인/거절 (PB)
-     */
     @PostMapping("/{consultationId}/approve")
     public ResponseEntity<ApiResponse<ConsultationResponseDto>> approveConsultation(
             @PathVariable String consultationId,
@@ -53,7 +47,7 @@ public class ConsultationController {
         UUID pbId = getCurrentUserId();
         approvalDto.setConsultationId(consultationId);
 
-        // 수동 검증
+
         if (approvalDto.getPbMessage() == null || approvalDto.getPbMessage().trim().isEmpty()) {
             throw new IllegalArgumentException("PB 메시지는 필수입니다");
         }
@@ -67,9 +61,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(response, message));
     }
 
-    /**
-     * 상담 시작 (PB)
-     */
     @PostMapping("/{consultationId}/start")
     public ResponseEntity<ApiResponse<ConsultationResponseDto>> startConsultation(
             @PathVariable String consultationId) {
@@ -78,7 +69,7 @@ public class ConsultationController {
         log.info("상담 시작 요청: pbId={}, consultationId={}", pbId, consultationId);
 
         try {
-            // 상담 정보 조회하여 디버깅 정보 출력
+
             var consultation = consultationService.getConsultationById(
                     UUID.fromString(consultationId), pbId);
             log.info("상담 정보 조회 성공: consultationId={}, pbId={}, clientId={}",
@@ -106,9 +97,6 @@ public class ConsultationController {
         }
     }
 
-    /**
-     * 상담 종료 (PB)
-     */
     @PostMapping("/{consultationId}/end")
     public ResponseEntity<ApiResponse<ConsultationResponseDto>> endConsultation(
             @PathVariable String consultationId,
@@ -123,9 +111,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(response, "상담이 종료되었습니다"));
     }
 
-    /**
-     * 상담 취소
-     */
     @PostMapping("/{consultationId}/cancel")
     public ResponseEntity<ApiResponse<ConsultationResponseDto>> cancelConsultation(
             @PathVariable String consultationId,
@@ -134,8 +119,8 @@ public class ConsultationController {
         UUID userId = getCurrentUserId();
         log.info("상담 취소: userId={}, consultationId={}", userId, consultationId);
 
-        // 현재 사용자가 고객인지 PB인지 확인 (실제로는 권한 체크 로직 필요)
-        boolean isClient = true; // 임시로 고객으로 설정
+
+        boolean isClient = true; 
 
         ConsultationResponseDto response = consultationService.cancelConsultation(
                 UUID.fromString(consultationId), userId, cancelRequest.getReason(), isClient);
@@ -143,9 +128,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(response, "상담이 취소되었습니다"));
     }
 
-    /**
-     * 상담 평가 (고객)
-     */
     @PostMapping("/{consultationId}/rate")
     public ResponseEntity<ApiResponse<ConsultationResponseDto>> rateConsultation(
             @PathVariable String consultationId,
@@ -162,9 +144,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(response, "상담 평가가 완료되었습니다"));
     }
 
-    /**
-     * 고객별 상담 목록 조회
-     */
     @GetMapping("/my-consultations")
     public ResponseEntity<ApiResponse<Page<ConsultationResponseDto>>> getMyConsultations(
             @PageableDefault(size = 10) Pageable pageable) {
@@ -177,9 +156,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(consultations, "상담 목록을 조회했습니다"));
     }
 
-    /**
-     * PB별 상담 목록 조회
-     */
     @GetMapping("/pb-consultations")
     public ResponseEntity<ApiResponse<Page<ConsultationResponseDto>>> getPbConsultations(
             @PageableDefault(size = 10) Pageable pageable) {
@@ -192,9 +168,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(consultations, "PB 상담 목록을 조회했습니다"));
     }
 
-    /**
-     * PB별 캘린더용 상담 목록 조회 (날짜 범위별)
-     */
     @GetMapping("/pb-calendar")
     public ResponseEntity<ApiResponse<List<ConsultationResponseDto>>> getPbCalendarConsultations(
             @RequestParam(required = false) String startDate,
@@ -209,9 +182,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(consultations, "PB 캘린더 상담 목록을 조회했습니다"));
     }
 
-    /**
-     * PB 대시보드 정보 조회
-     */
     @GetMapping("/pb-dashboard")
     public ResponseEntity<ApiResponse<PbDashboardDto>> getPbDashboard() {
         UUID pbId = getCurrentUserId();
@@ -221,9 +191,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(dashboard, "PB 대시보드 정보를 조회했습니다"));
     }
 
-    /**
-     * 상담 상세 정보 조회
-     */
     @GetMapping("/{consultationId}")
     public ResponseEntity<ApiResponse<ConsultationResponseDto>> getConsultation(
             @PathVariable String consultationId) {
@@ -237,9 +204,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(consultation, "상담 정보를 조회했습니다"));
     }
 
-    /**
-     * 평가 가능한 상담 목록 조회
-     */
     @GetMapping("/for-rating")
     public ResponseEntity<ApiResponse<List<ConsultationResponseDto>>> getConsultationsForRating() {
         UUID clientId = getCurrentUserId();
@@ -250,9 +214,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(consultations, "평가 가능한 상담 목록을 조회했습니다"));
     }
 
-    /**
-     * 가능한 상담 시간 조회
-     */
     @GetMapping("/available-times")
     public ResponseEntity<ApiResponse<List<String>>> getAvailableTimes(
             @RequestParam String pbId,
@@ -270,9 +231,6 @@ public class ConsultationController {
         }
     }
 
-    /**
-     * 모든 시간 슬롯과 예약 상태 조회 (예약된 시간 포함)
-     */
     @GetMapping("/time-slots")
     public ResponseEntity<ApiResponse<Map<String, Boolean>>> getTimeSlotsWithStatus(
             @RequestParam String pbId,
@@ -291,9 +249,6 @@ public class ConsultationController {
         }
     }
 
-    /**
-     * 상담 유형 목록 조회
-     */
     @GetMapping("/types")
     public ResponseEntity<ApiResponse<List<ConsultationTypeDto>>> getConsultationTypes() {
         log.info("상담 유형 목록 조회");
@@ -345,9 +300,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(types, "상담 유형 목록을 조회했습니다"));
     }
 
-    /**
-     * PB의 고객 목록 조회
-     */
     @GetMapping("/pb-clients")
     public ResponseEntity<ApiResponse<List<PbClientDto>>> getPbClients() {
         UUID pbId = getCurrentUserId();
@@ -358,9 +310,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(clients, "고객 목록을 조회했습니다"));
     }
 
-    /**
-     * PB의 시간 상태 조회 (불가능 시간 + 고객 예약 시간)
-     */
     @GetMapping("/pb-time-status")
     public ResponseEntity<ApiResponse<PbTimeStatusDto>> getPbTimeStatus(
             @RequestParam String date) {
@@ -372,9 +321,6 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(timeStatus, "시간 상태를 조회했습니다"));
     }
 
-    /**
-     * PB 지역별 고객 현황 조회
-     */
     @GetMapping("/pb-region-stats")
     public ResponseEntity<ApiResponse<List<RegionClientStatsDto>>> getPbRegionStats() {
         UUID pbId = getCurrentUserId();
@@ -385,7 +331,7 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.success(regionStats, "지역별 고객 현황을 조회했습니다"));
     }
 
-    // Helper method to get current user ID
+
     private UUID getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -403,7 +349,7 @@ public class ConsultationController {
         throw new IllegalStateException("인증된 사용자 정보를 찾을 수 없습니다");
     }
 
-    // Inner DTO classes
+
     @lombok.Data
     @lombok.Builder
     @lombok.NoArgsConstructor

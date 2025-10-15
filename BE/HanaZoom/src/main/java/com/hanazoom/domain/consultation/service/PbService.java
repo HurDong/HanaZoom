@@ -38,9 +38,6 @@ public class PbService {
     private final RegionRepository regionRepository;
     private final ConsultationRepository consultationRepository;
 
-    /**
-     * PB 상담 가능 시간 등록
-     */
     @Transactional
     public void setAvailability(SetAvailabilityRequestDto requestDto, UUID pbId) {
         Member pb = memberRepository.findById(pbId)
@@ -52,7 +49,7 @@ public class PbService {
 
         log.info("PB {}의 상담 불가능 시간 등록 요청: {}개 슬롯", pbId, requestDto.getAvailableSlots().size());
 
-        // 요청 데이터 상세 로그
+
         for (int i = 0; i < requestDto.getAvailableSlots().size(); i++) {
             var slot = requestDto.getAvailableSlots().get(i);
             log.info("슬롯 {}: startTime={}, endTime={}", i, slot.getStartTime(), slot.getEndTime());
@@ -60,7 +57,7 @@ public class PbService {
 
         List<Consultation> availableSlots = requestDto.getAvailableSlots().stream()
                 .map(slot -> {
-                    // 주말(토요일, 일요일) 등록 차단
+
                     if (isWeekend(slot.getStartTime())) {
                         throw new IllegalStateException("주말(토요일, 일요일)에는 상담 불가능 시간을 등록할 수 없습니다. 평일을 선택해주세요.");
                     }
@@ -71,12 +68,12 @@ public class PbService {
 
                     return Consultation.builder()
                             .pb(pb)
-                            .client(pb) // client_id에 PB 자신의 ID를 설정
+                            .client(pb) 
                             .scheduledAt(slot.getStartTime())
                             .durationMinutes((int) durationMinutes)
-                            .status(ConsultationStatus.UNAVAILABLE) // 불가능한 시간으로 설정
-                            .consultationType(ConsultationType.SLOT) // 기본 유형 설정
-                            .fee(BigDecimal.ZERO) // 기본 수수료 0으로 설정
+                            .status(ConsultationStatus.UNAVAILABLE) 
+                            .consultationType(ConsultationType.SLOT) 
+                            .fee(BigDecimal.ZERO) 
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -85,9 +82,6 @@ public class PbService {
         log.info("PB {}의 상담 불가능 시간 {}개가 성공적으로 등록되었습니다.", pbId, availableSlots.size());
     }
 
-    /**
-     * PB 상담 불가능 시간 삭제
-     */
     @Transactional
     public void removeUnavailableTime(UUID pbId, String date, String time) {
         log.info("PB {}의 상담 불가능 시간 삭제 요청: date={}, time={}", pbId, date, time);
@@ -100,7 +94,7 @@ public class PbService {
         }
 
         try {
-            // 날짜와 시간을 LocalDateTime으로 변환
+
             LocalDate targetDate = LocalDate.parse(date);
             String[] timeParts = time.split(":");
             int hours = Integer.parseInt(timeParts[0]);
@@ -108,11 +102,11 @@ public class PbService {
 
             LocalDateTime scheduledAt = targetDate.atTime(hours, minutes);
 
-            // 해당 시간의 모든 상담 기록 조회 (PB 자신의 스케줄 찾기)
+
             List<Consultation> consultationsAtTime = consultationRepository
                     .findByPbIdAndScheduledAtBetween(pbId, scheduledAt, scheduledAt.plusMinutes(1));
 
-            // PB 자기 자신의 스케줄 찾기 (client_id == pb_id 또는 UNAVAILABLE 상태)
+
             Optional<Consultation> pbOwnSchedule = consultationsAtTime.stream()
                     .filter(c -> c.isPbOwnSchedule() || c.getStatus() == ConsultationStatus.UNAVAILABLE)
                     .findFirst();
@@ -123,12 +117,12 @@ public class PbService {
 
             Consultation consultation = pbOwnSchedule.get();
 
-            // 실제 고객 예약인 경우 삭제 불가
+
             if (consultation.isClientBooking() && consultation.getStatus() != ConsultationStatus.UNAVAILABLE) {
                 throw new IllegalStateException("고객이 예약한 시간은 삭제할 수 없습니다.");
             }
 
-            // PB 자신의 불가능 시간 삭제
+
             consultationRepository.delete(consultation);
             log.info("PB {}의 상담 불가능 시간이 삭제되었습니다: {}", pbId, scheduledAt);
 
@@ -138,21 +132,15 @@ public class PbService {
         }
     }
 
-    /**
-     * 활성 PB 목록 조회
-     */
     public Page<PbListResponseDto> getActivePbList(String region, String specialty, Pageable pageable) {
         log.info("활성 PB 목록 조회: region={}, specialty={}", region, specialty);
 
-        // 실제로는 복잡한 쿼리로 필터링
+
         Page<Member> pbMembers = memberRepository.findByIsPbTrueAndPbStatus(PbStatus.ACTIVE, pageable);
 
         return pbMembers.map(this::convertToPbListResponseDto);
     }
 
-    /**
-     * PB 상세 정보 조회
-     */
     public PbListResponseDto getPbDetail(String pbId) {
         log.info("PB 상세 정보 조회: pbId={}", pbId);
 
@@ -166,9 +154,6 @@ public class PbService {
         return convertToPbListResponseDto(pb);
     }
 
-    /**
-     * 지역별 PB 목록 조회
-     */
     public List<PbListResponseDto> getPbListByRegion(Long regionId) {
         log.info("지역별 PB 목록 조회: regionId={}", regionId);
 
@@ -180,9 +165,6 @@ public class PbService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 전문 분야별 PB 목록 조회
-     */
     public List<PbListResponseDto> getPbListBySpecialty(String specialty) {
         log.info("전문 분야별 PB 목록 조회: specialty={}", specialty);
 
@@ -195,9 +177,6 @@ public class PbService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 추천 PB 목록 조회 (평점 높은 순)
-     */
     public List<PbListResponseDto> getRecommendedPbList(int limit) {
         log.info("추천 PB 목록 조회: limit={}", limit);
 
@@ -209,24 +188,21 @@ public class PbService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * PB 정보를 DTO로 변환
-     */
     private PbListResponseDto convertToPbListResponseDto(Member pb) {
-        // Optional을 사용하여 안전하게 지역명 조회
+
         String regionName = pb.getRegionId() != null ? regionRepository.findById(pb.getRegionId())
                 .map(Region::getName)
                 .orElse("") : "";
 
-        // PB 담당 구역 우선순위: pb_region > regionName (fallback)
+
         String displayRegion = pb.getPbRegion();
         if (displayRegion == null || displayRegion.trim().isEmpty()) {
-            displayRegion = regionName; // pb_region이 없으면 regionId로부터 가져온 지역명 사용
+            displayRegion = regionName; 
         }
 
         List<String> specialties = List.of();
         if (pb.getPbSpecialties() != null && !pb.getPbSpecialties().isEmpty()) {
-            // JSON 파싱 로직 (실제로는 JSON 라이브러리 사용)
+
             specialties = List.of(pb.getPbSpecialties().split(","));
         }
 
@@ -235,22 +211,19 @@ public class PbService {
                 .name(pb.getName())
                 .email(pb.getEmail())
                 .phone(pb.getPhone())
-                .region(displayRegion) // 우선순위 적용된 지역 정보
-                .regionName(regionName) // 원본 지역명 (참고용)
+                .region(displayRegion) 
+                .regionName(regionName) 
                 .rating(pb.getPbRating())
                 .totalConsultations(pb.getPbTotalConsultations())
                 .specialties(specialties)
                 .experienceYears(pb.getPbExperienceYears())
-                .profileImage(null) // 실제로는 프로필 이미지 URL
+                .profileImage(null) 
                 .introduction("전문적인 투자 상담을 제공합니다.")
                 .isAvailable(pb.isActivePb())
                 .statusMessage(pb.isActivePb() ? "상담 가능" : "상담 불가")
                 .build();
     }
 
-    /**
-     * 주말(토요일, 일요일) 여부 확인
-     */
     private boolean isWeekend(LocalDateTime dateTime) {
         DayOfWeek dayOfWeek = dateTime.getDayOfWeek();
         return dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;

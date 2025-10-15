@@ -33,11 +33,11 @@ public class Consultation {
     @JoinColumn(name = "pb_id", nullable = false)
     private Member pb;
 
-    @Enumerated(EnumType.ORDINAL) // STRING에서 ORDINAL로 변경
+    @Enumerated(EnumType.ORDINAL) 
     @Column(name = "consultation_type", nullable = false)
     private ConsultationType consultationType;
 
-    @Enumerated(EnumType.ORDINAL) // STRING에서 ORDINAL로 변경
+    @Enumerated(EnumType.ORDINAL) 
     @Column(name = "status", nullable = false)
     private ConsultationStatus status = ConsultationStatus.PENDING;
 
@@ -87,7 +87,7 @@ public class Consultation {
     private LocalDateTime cancelledAt;
 
     @Column(name = "cancelled_by")
-    @Enumerated(EnumType.ORDINAL) // STRING에서 ORDINAL로 변경
+    @Enumerated(EnumType.ORDINAL) 
     private CancelledBy cancelledBy;
 
     @CreationTimestamp
@@ -106,13 +106,13 @@ public class Consultation {
         this.pb = pb;
         this.consultationType = consultationType;
         this.scheduledAt = scheduledAt;
-        this.durationMinutes = durationMinutes != null ? durationMinutes : 30; // 30분으로 변경
+        this.durationMinutes = durationMinutes != null ? durationMinutes : 30; 
         this.fee = fee;
         this.clientMessage = clientMessage;
         this.status = status != null ? status : ConsultationStatus.PENDING;
     }
 
-    // 고객 예약 시 정보 업데이트 (더 이상 사용하지 않음 - 직접 생성 방식 사용)
+
     @Deprecated
     public void bookByClient(Member client, ConsultationType consultationType, String clientMessage, BigDecimal fee) {
         if (this.status != ConsultationStatus.AVAILABLE) {
@@ -125,19 +125,19 @@ public class Consultation {
         this.status = ConsultationStatus.PENDING;
     }
 
-    // 상담 승인
+
     public void approve(String pbMessage) {
         this.status = ConsultationStatus.APPROVED;
         this.pbMessage = pbMessage;
     }
 
-    // 상담 거절
+
     public void reject(String pbMessage) {
         this.status = ConsultationStatus.REJECTED;
         this.pbMessage = pbMessage;
     }
 
-    // 상담 시작
+
     public void start(String meetingUrl, String meetingId) {
         this.status = ConsultationStatus.IN_PROGRESS;
         this.startedAt = LocalDateTime.now();
@@ -145,14 +145,14 @@ public class Consultation {
         this.meetingId = meetingId;
     }
 
-    // 상담 종료
+
     public void end(String consultationNotes) {
         this.status = ConsultationStatus.COMPLETED;
         this.endedAt = LocalDateTime.now();
         this.consultationNotes = consultationNotes;
     }
 
-    // 상담 취소
+
     public void cancel(String reason, CancelledBy cancelledBy) {
         this.isCancelled = true;
         this.cancellationReason = reason;
@@ -161,24 +161,24 @@ public class Consultation {
         this.status = ConsultationStatus.CANCELLED;
     }
 
-    // 고객 평가
+
     public void rateByClient(Integer rating, String feedback) {
         this.clientRating = rating;
         this.clientFeedback = feedback;
     }
 
-    // 상담 정보 업데이트
+
     public void updateSchedule(LocalDateTime newScheduledAt, Integer newDurationMinutes) {
         this.scheduledAt = newScheduledAt;
         this.durationMinutes = newDurationMinutes;
     }
 
-    // 수수료 설정
+
     public void setFee(BigDecimal fee) {
         this.fee = fee;
     }
 
-    // 상담 상태 확인 메서드들
+
     public boolean isPending() {
         return this.status == ConsultationStatus.PENDING;
     }
@@ -203,7 +203,7 @@ public class Consultation {
         return this.status == ConsultationStatus.REJECTED;
     }
 
-    // 상담 시간 계산
+
     public long getActualDurationMinutes() {
         if (startedAt != null && endedAt != null) {
             return java.time.Duration.between(startedAt, endedAt).toMinutes();
@@ -211,13 +211,13 @@ public class Consultation {
         return 0;
     }
 
-    // 상담 가능 여부 확인
+
     public boolean canBeCancelled() {
         return !isCancelled() && !isCompleted() && !isInProgress();
     }
 
     public boolean canBeStarted() {
-        // 테스트를 위해 PENDING 상태도 시작 가능하도록 수정
+
         return (isApproved() || isPending()) && !isCancelled() && !isCompleted();
     }
 
@@ -225,7 +225,7 @@ public class Consultation {
         return isInProgress();
     }
 
-    // 상담 상태 변경 메서드
+
     public void approve() {
         if (this.status != ConsultationStatus.PENDING) {
             throw new IllegalStateException("승인할 수 없는 상태입니다. 현재 상태: " + this.status);
@@ -234,13 +234,13 @@ public class Consultation {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // PB 자기 자신의 스케줄(불가능 시간)인지 확인
+
     public boolean isPbOwnSchedule() {
         return this.client != null && this.pb != null &&
                 this.client.getId().equals(this.pb.getId());
     }
 
-    // 실제 고객 예약인지 확인 (PB 자기 자신의 스케줄이 아닌 경우)
+
     public boolean isClientBooking() {
         return !isPbOwnSchedule();
     }

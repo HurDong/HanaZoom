@@ -16,47 +16,47 @@ public class KakaoAddressResponse {
     @NoArgsConstructor
     public static class Document {
         @JsonProperty("y")
-        private Double latitude; // 위도
+        private Double latitude; 
 
         @JsonProperty("x")
-        private Double longitude; // 경도
+        private Double longitude; 
 
         @JsonProperty("address")
-        private Address address; // 주소 정보
+        private Address address; 
 
         @JsonProperty("road_address")
-        private RoadAddress roadAddress; // 도로명 주소 정보
+        private RoadAddress roadAddress; 
     }
 
     @Getter
     @NoArgsConstructor
     public static class Address {
         @JsonProperty("address_name")
-        private String addressName; // 전체 주소
+        private String addressName; 
 
         @JsonProperty("region_1depth_name")
-        private String region1DepthName; // 시도명 (예: 서울특별시)
+        private String region1DepthName; 
 
         @JsonProperty("region_2depth_name")
-        private String region2DepthName; // 구군명 (예: 강남구)
+        private String region2DepthName; 
 
         @JsonProperty("region_3depth_name")
-        private String region3DepthName; // 동면명 (예: 삼성동)
+        private String region3DepthName; 
     }
 
     @Getter
     @NoArgsConstructor
     public static class RoadAddress {
         @JsonProperty("address_name")
-        private String addressName; // 전체 도로명 주소
+        private String addressName; 
 
         @JsonProperty("region_1depth_name")
-        private String region1DepthName; // 시도명
+        private String region1DepthName; 
 
         @JsonProperty("region_2depth_name")
-        private String region2DepthName; // 구군명
+        private String region2DepthName; 
 
         @JsonProperty("region_3depth_name")
-        private String region3DepthName; // 동명
+        private String region3DepthName; 
     }
 }

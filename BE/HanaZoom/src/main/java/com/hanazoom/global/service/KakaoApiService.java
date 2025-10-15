@@ -27,7 +27,7 @@ public class KakaoApiService {
                         .build())
                 .retrieve()
                 .bodyToMono(KakaoAddressResponse.class)
-                .block(); // 비동기 결과를 동기적으로 기다림
+                .block();
 
         if (response != null && response.getDocuments() != null && !response.getDocuments().isEmpty()) {
             return response.getDocuments().get(0);
@@ -43,10 +43,7 @@ public class KakaoApiService {
             return null;
         }
 
-        // 1. 먼저 행정구역 정보로 매칭 시도
         Long regionId = findRegionByAddressInfo(document);
-
-        // 2. 행정구역 정보로 찾지 못한 경우 좌표로 매칭
         if (regionId == null && document.getLatitude() != null && document.getLongitude() != null) {
             regionId = findRegionByCoordinates(document.getLatitude(), document.getLongitude());
         }
@@ -56,7 +53,7 @@ public class KakaoApiService {
 
     private Long findRegionByAddressInfo(KakaoAddressResponse.Document document) {
         try {
-            // 일반 주소 정보 우선 사용
+
             KakaoAddressResponse.Address address = document.getAddress();
             if (address != null) {
                 return matchRegionHierarchy(
@@ -65,7 +62,7 @@ public class KakaoApiService {
                         address.getRegion3DepthName());
             }
 
-            // 도로명 주소 정보 사용
+
             KakaoAddressResponse.RoadAddress roadAddress = document.getRoadAddress();
             if (roadAddress != null) {
                 return matchRegionHierarchy(
@@ -85,7 +82,7 @@ public class KakaoApiService {
             return null;
         }
 
-        // 동명까지 있는 경우 전체 매칭 시도
+
         if (dongName != null && !dongName.trim().isEmpty()) {
             Region region = regionRepository.findByFullAddress(cityName, districtName, dongName)
                     .orElse(null);
@@ -94,7 +91,7 @@ public class KakaoApiService {
             }
         }
 
-        // 동이 없거나 매칭되지 않은 경우 구군 레벨까지만 매칭
+
         Region region = regionRepository.findByDistrictAddress(cityName, districtName)
                 .orElse(null);
         if (region != null) {

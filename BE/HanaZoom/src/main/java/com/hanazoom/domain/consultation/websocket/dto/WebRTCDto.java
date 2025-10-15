@@ -9,7 +9,7 @@ import java.util.Map;
 
 public class WebRTCDto {
 
-    // 참여 요청
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -18,7 +18,7 @@ public class WebRTCDto {
         private String consultationId;
     }
 
-    // 참여 응답
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -32,37 +32,37 @@ public class WebRTCDto {
         private String error;
     }
 
-    // Offer 요청
+
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class OfferRequest {
         private String toUserId;
-        private Object offer; // RTCSessionDescription
+        private Object offer; 
     }
 
-    // Answer 요청
+
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class AnswerRequest {
         private String toUserId;
-        private Object answer; // RTCSessionDescription
+        private Object answer; 
     }
 
-    // ICE Candidate 요청
+
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class IceCandidateRequest {
         private String toUserId;
-        private Object candidate; // RTCIceCandidate
+        private Object candidate; 
     }
 
-    // 이벤트 클래스들
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -115,18 +115,18 @@ public class WebRTCDto {
         private Object candidate;
     }
 
-    // 상담 상태 이벤트
+
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ConsultationStatusEvent {
         private String consultationId;
-        private String status; // STARTED, ENDED, PAUSED
+        private String status; 
         private String message;
     }
 
-    // 채팅 메시지 요청
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -136,7 +136,7 @@ public class WebRTCDto {
         private String message;
     }
 
-    // 채팅 메시지 이벤트
+
     @Data
     @Builder
     @NoArgsConstructor

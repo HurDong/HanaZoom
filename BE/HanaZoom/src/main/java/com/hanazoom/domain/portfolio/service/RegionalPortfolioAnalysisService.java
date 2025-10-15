@@ -41,18 +41,12 @@ public class RegionalPortfolioAnalysisService {
     private final KakaoApiService kakaoApiService;
     private final StockRepository stockRepository;
 
-    /**
-     * 사용자의 지역별 포트폴리오 분석 결과를 조회합니다.
-     * 
-     * @param memberId 현재 로그인한 사용자의 ID
-     * @return 지역별 포트폴리오 분석 결과
-     */
     public RegionalPortfolioAnalysisDto analyzeRegionalPortfolio(UUID memberId) {
         log.info("=== 지역별 포트폴리오 분석 시작 ===");
         log.info("요청된 memberId: {}", memberId);
 
         try {
-            // 1. 사용자 정보 조회
+
             log.info("1단계: 사용자 정보 조회 시작");
             Member member = memberRepository.findById(memberId)
                     .orElseThrow(() -> {
@@ -62,7 +56,7 @@ public class RegionalPortfolioAnalysisService {
             log.info("✅ 사용자 정보 조회 완료 - ID: {}, 이름: {}, regionId: {}", 
                     member.getId(), member.getName(), member.getRegionId());
 
-        // 2. 사용자의 지역구 ID 조회 (regionId 기반)
+
         log.info("2단계: 지역구 ID 조회 시작");
         Long districtId = getDistrictIdFromMember(member);
         if (districtId == null) {
@@ -71,25 +65,25 @@ public class RegionalPortfolioAnalysisService {
         }
         log.info("✅ 지역구 ID 조회 완료 - districtId: {}", districtId);
 
-        // 2-1. 지역명 조회
+
         log.info("2-1단계: 지역명 조회 시작");
         String regionName = regionRepository.findRegionNameById(districtId)
                 .orElse("알 수 없는 지역");
         log.info("✅ 지역명 조회 완료 - regionName: {}", regionName);
 
-            // 3. 사용자 포트폴리오 분석
+
             log.info("3단계: 사용자 포트폴리오 분석 시작");
             RegionalPortfolioAnalysisDto.UserPortfolioInfo userPortfolio = analyzeUserPortfolio(member);
             log.info("✅ 사용자 포트폴리오 분석 완료 - 종목수: {}, 총가치: {}", 
                     userPortfolio.getStockCount(), userPortfolio.getTotalValue());
 
-            // 4. 지역 평균 데이터 분석
+
             log.info("4단계: 지역 평균 데이터 분석 시작");
             RegionalPortfolioAnalysisDto.RegionalAverageInfo regionalAverage = analyzeRegionalAverage(districtId);
             log.info("✅ 지역 평균 데이터 분석 완료 - 평균종목수: {}, 평균총가치: {}", 
                     regionalAverage.getAverageStockCount(), regionalAverage.getAverageTotalValue());
 
-            // 5. 비교 분석 및 점수 계산
+
             log.info("5단계: 비교 분석 및 점수 계산 시작");
             RegionalPortfolioAnalysisDto.ComparisonResult comparison = comparePortfolios(userPortfolio, regionalAverage);
             int suitabilityScore = calculateSuitabilityScore(userPortfolio, regionalAverage, comparison);
@@ -116,20 +110,17 @@ public class RegionalPortfolioAnalysisService {
         }
     }
 
-    /**
-     * 사용자의 지역구 ID를 조회합니다. (regionId 기반으로 단순화)
-     */
     private Long getDistrictIdFromMember(Member member) {
         log.info("사용자 지역 정보 조회 시작 - memberId: {}, regionId: {}", member.getId(), member.getRegionId());
         
-        // regionId가 null인 경우 예외 발생
+
         if (member.getRegionId() == null) {
             log.error("❌ 사용자의 regionId가 null입니다. memberId: {}", member.getId());
             throw new IllegalArgumentException("사용자의 지역 정보가 설정되지 않았습니다.");
         }
 
         try {
-            // 1. 먼저 regionId가 DISTRICT인지 확인
+
             log.info("regionId로 지역구 조회 시도 - regionId: {}", member.getRegionId());
             Optional<Region> district = regionRepository.findDistrictByRegionId(member.getRegionId());
             
@@ -139,7 +130,7 @@ public class RegionalPortfolioAnalysisService {
                 return district.get().getId();
             }
             
-            // 2. regionId가 NEIGHBORHOOD인 경우 부모 지역구 조회
+
             log.info("regionId가 DISTRICT가 아닙니다. NEIGHBORHOOD인지 확인 - regionId: {}", member.getRegionId());
             Optional<Region> parentDistrict = regionRepository.findDistrictByNeighborhoodId(member.getRegionId());
             
@@ -149,7 +140,7 @@ public class RegionalPortfolioAnalysisService {
                 return parentDistrict.get().getId();
             }
             
-            // 3. 둘 다 실패한 경우
+
             log.error("❌ regionId로 지역구를 찾을 수 없습니다. regionId: {}", member.getRegionId());
             throw new IllegalArgumentException("지역구 정보를 찾을 수 없습니다. regionId: " + member.getRegionId());
 
@@ -162,14 +153,11 @@ public class RegionalPortfolioAnalysisService {
         }
     }
 
-    /**
-     * 사용자 포트폴리오를 분석합니다.
-     */
     private RegionalPortfolioAnalysisDto.UserPortfolioInfo analyzeUserPortfolio(Member member) {
         log.info("사용자 포트폴리오 분석 시작 - memberId: {}", member.getId());
         
         try {
-            // 사용자의 메인 계좌 조회
+
             Account mainAccount = member.getMainAccount();
             if (mainAccount == null) {
                 log.warn("⚠️ 사용자의 메인 계좌가 없습니다. 빈 포트폴리오 반환");
@@ -177,22 +165,22 @@ public class RegionalPortfolioAnalysisService {
             }
             log.info("메인 계좌 조회 완료 - accountId: {}", mainAccount.getId());
 
-            // 포트폴리오 통계 조회
+
             log.info("포트폴리오 통계 조회 시작");
             PortfolioStockRepository.UserPortfolioStats stats = portfolioStockRepository
                     .getUserPortfolioStats(mainAccount.getId());
             log.info("포트폴리오 통계 조회 완료 - 종목수: {}, 총가치: {}, 평균수익률: {}", 
                     stats.getStockCount(), stats.getTotalValue(), stats.getAvgProfitLossRate());
 
-            // 위험도 계산
+
             String riskLevel = calculateRiskLevel(stats.getAvgProfitLossRate());
             log.info("위험도 계산 완료 - riskLevel: {}", riskLevel);
 
-            // 분산도 계산
+
             int diversificationScore = calculateDiversificationScore(stats.getStockCount());
             log.info("분산도 계산 완료 - diversificationScore: {}", diversificationScore);
 
-            // 상위 보유 종목 TOP5 (평가금액 기준)
+
             List<PortfolioStock> topHoldings = portfolioStockRepository
                     .findTopHoldingStocksByAccountId(mainAccount.getId());
 
@@ -230,14 +218,11 @@ public class RegionalPortfolioAnalysisService {
         }
     }
 
-    /**
-     * 지역 평균 데이터를 분석합니다.
-     */
     private RegionalPortfolioAnalysisDto.RegionalAverageInfo analyzeRegionalAverage(Long districtId) {
         log.info("지역 평균 데이터 분석 시작 - districtId: {}", districtId);
         
         try {
-            // 인기 주식 TOP 5 조회 (전체 기간 누적 인기도 기준)
+
             log.info("인기 주식 TOP 5 조회 시작 (전체 기간 누적)");
             List<RegionStockRepository.RegionStockPopularityAgg> aggTop = regionStockRepository
                     .findTopPopularStocksAggregatedByRegion(districtId, PageRequest.of(0, 5));
@@ -255,26 +240,26 @@ public class RegionalPortfolioAnalysisService {
             }
             log.info("인기 주식 정보 변환 완료 - 변환된 주식 수: {}", popularStockInfos.size());
 
-            // 실제 지역 평균 통계 조회
+
             log.info("지역 평균 통계 조회 시작");
             RegionStockRepository.RegionalPortfolioStats regionalStats = regionStockRepository
                     .getRegionalPortfolioStats(districtId);
             log.info("지역 평균 통계 조회 완료 - 종목수: {}, 평균인기도: {}, 평균트렌드: {}", 
                     regionalStats.getStockCount(), regionalStats.getAvgPopularityScore(), regionalStats.getAvgTrendScore());
 
-            // 실제 데이터로 계산
-            int averageStockCount = (int) regionalStats.getStockCount();
-            BigDecimal averageTotalValue = new BigDecimal("15000000"); // TODO: 실제 평균 자산 계산 필요
-            String commonRiskLevel = "보통"; // TODO: 실제 위험도 계산 필요
-            int averageDiversificationScore = 72; // TODO: 실제 분산도 계산 필요
 
-            // 간단한 섹터 분포 트렌드: 최신 날짜의 해당 지역 모든 RegionStock을 기반으로 계산
+            int averageStockCount = (int) regionalStats.getStockCount();
+            BigDecimal averageTotalValue = new BigDecimal("15000000"); 
+            String commonRiskLevel = "보통"; 
+            int averageDiversificationScore = 72; 
+
+
             List<RegionStock> latestRegionStocks = regionStockRepository.findByRegion_Id(districtId);
             log.info("지역별 RegionStock 조회 - districtId: {}, 조회된 RegionStock 수: {}", districtId, latestRegionStocks.size());
             
             if (latestRegionStocks.isEmpty()) {
                 log.warn("해당 지역({})에 RegionStock 데이터가 없습니다. 기본 investmentTrends를 생성합니다.", districtId);
-                // 기본 데이터 생성
+
                 List<RegionalPortfolioAnalysisDto.InvestmentTrend> defaultTrends = java.util.Arrays.asList(
                     RegionalPortfolioAnalysisDto.InvestmentTrend.builder()
                         .sector("소매")
@@ -333,7 +318,7 @@ public class RegionalPortfolioAnalysisService {
                     .map(e -> {
                         BigDecimal percentage = totalCount == 0 ? BigDecimal.ZERO : 
                             new BigDecimal(e.getValue() * 100.0 / totalCount).setScale(2, java.math.RoundingMode.HALF_UP);
-                        // 간단한 트렌드 계산: 비중에 따라 up/stable/down 결정
+
                         String trend = "stable";
                         if (percentage.compareTo(new BigDecimal("20")) > 0) {
                             trend = "up";
@@ -372,9 +357,6 @@ public class RegionalPortfolioAnalysisService {
         }
     }
 
-    /**
-     * 포트폴리오를 비교 분석합니다.
-     */
     private RegionalPortfolioAnalysisDto.ComparisonResult comparePortfolios(
             RegionalPortfolioAnalysisDto.UserPortfolioInfo userPortfolio,
             RegionalPortfolioAnalysisDto.RegionalAverageInfo regionalAverage) {
@@ -382,7 +364,7 @@ public class RegionalPortfolioAnalysisService {
         int stockCountDifference = userPortfolio.getStockCount() - regionalAverage.getAverageStockCount();
         boolean riskLevelMatch = userPortfolio.getRiskLevel().equals(regionalAverage.getCommonRiskLevel());
 
-        // 추천사항 생성
+
         List<String> recommendations = generateRecommendations(
                 userPortfolio, regionalAverage, stockCountDifference, riskLevelMatch);
 
@@ -394,46 +376,43 @@ public class RegionalPortfolioAnalysisService {
                 .build();
     }
 
-    /**
-     * 지역 적합도 점수를 계산합니다.
-     */
     private int calculateSuitabilityScore(
             RegionalPortfolioAnalysisDto.UserPortfolioInfo userPortfolio,
             RegionalPortfolioAnalysisDto.RegionalAverageInfo regionalAverage,
             RegionalPortfolioAnalysisDto.ComparisonResult comparison) {
-        // ------------------ 섹터 중심 적합도 산출 ------------------
-        // 1) 섹터 분포 (사용자 / 지역)
+
+
         java.util.Map<String, java.math.BigDecimal> userSectorDist = buildUserSectorDistribution(userPortfolio);
         java.util.Map<String, java.math.BigDecimal> regionSectorDist = buildRegionSectorDistribution(regionalAverage);
 
-        double sSector = computeSectorAlignmentScore(userSectorDist, regionSectorDist); // 0~100
+        double sSector = computeSectorAlignmentScore(userSectorDist, regionSectorDist); 
 
-        // 2) 섹터 내 비중 정렬도: 사용자 종목 비중 vs 해당 섹터 타겟 가중
-        double sIntra = computeIntraSectorWeightScore(userPortfolio, regionSectorDist); // 0~100
 
-        // 3) 섹터 커버리지(가중 Jaccard)
-        double sCoverage = computeSectorCoverageScore(userSectorDist, regionSectorDist); // 0~100
+        double sIntra = computeIntraSectorWeightScore(userPortfolio, regionSectorDist); 
 
-        // 4) 집중도 페널티 (Top5 비중)
-        double pConc = computeConcentrationPenalty(userPortfolio); // 0~100, 나중에 가중 감점
 
-        // 5) 섹터 HHI 초과 페널티
-        double pHHI = computeSectorHHIPenalty(userSectorDist, regionSectorDist); // 0~100
+        double sCoverage = computeSectorCoverageScore(userSectorDist, regionSectorDist); 
 
-        // 가중 합성
+
+        double pConc = computeConcentrationPenalty(userPortfolio); 
+
+
+        double pHHI = computeSectorHHIPenalty(userSectorDist, regionSectorDist); 
+
+
         double w1 = 0.45, w2 = 0.25, w3 = 0.20, gamma = 0.05, delta = 0.05;
         double score = w1 * sSector + w2 * sIntra + w3 * sCoverage
                 - gamma * pConc - delta * pHHI;
 
-        // 위험도 일치 보너스/페널티(소폭): 일치 +3, 불일치 -3
+
         score += comparison.isRiskLevelMatch() ? 3 : -3;
 
-        // 0~100 클램프
+
         score = Math.max(0, Math.min(100, score));
         return (int) Math.round(score);
     }
 
-    // ------------------ Sector-based scoring helpers ------------------
+
 
     private java.util.Map<String, java.math.BigDecimal> buildUserSectorDistribution(
             RegionalPortfolioAnalysisDto.UserPortfolioInfo userPortfolio) {
@@ -446,7 +425,7 @@ public class RegionalPortfolioAnalysisService {
             java.math.BigDecimal pct = s.getPercentage() == null ? java.math.BigDecimal.ZERO : s.getPercentage();
             sectorToWeight.merge(sector, pct, java.math.BigDecimal::add);
         }
-        // 정규화 (합계 100 -> 1로 변환)
+
         java.math.BigDecimal total = sectorToWeight.values().stream().reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
         if (total.compareTo(java.math.BigDecimal.ZERO) > 0) {
             sectorToWeight.replaceAll((k, v) -> v.divide(total, 6, java.math.RoundingMode.HALF_UP));
@@ -463,7 +442,7 @@ public class RegionalPortfolioAnalysisService {
             java.math.BigDecimal pct = t.getPercentage() == null ? java.math.BigDecimal.ZERO : t.getPercentage();
             sectorToWeight.merge(t.getSector(), pct, java.math.BigDecimal::add);
         }
-        // 입력이 0~100 비율일 수 있으니 정규화
+
         java.math.BigDecimal total = sectorToWeight.values().stream().reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
         if (total.compareTo(java.math.BigDecimal.ZERO) > 0) {
             sectorToWeight.replaceAll((k, v) -> v.divide(total, 6, java.math.RoundingMode.HALF_UP));
@@ -473,8 +452,8 @@ public class RegionalPortfolioAnalysisService {
 
     private double computeSectorAlignmentScore(java.util.Map<String, java.math.BigDecimal> p,
                                                java.util.Map<String, java.math.BigDecimal> q) {
-        // JS Divergence 기반 0~100
-        double d = jsDivergence(p, q); // 0~ln2
+
+        double d = jsDivergence(p, q); 
         double max = Math.log(2);
         double score = (max <= 0) ? 0 : (1.0 - d / max) * 100.0;
         return clamp(score);
@@ -483,7 +462,7 @@ public class RegionalPortfolioAnalysisService {
     private double computeIntraSectorWeightScore(RegionalPortfolioAnalysisDto.UserPortfolioInfo user,
                                                  java.util.Map<String, java.math.BigDecimal> regionSector) {
         if (user.getTopStocks() == null || user.getTopStocks().isEmpty()) return 0.0;
-        // 벡터: w_i = 내 종목 비중(합=1로 정규화), r_i = 해당 종목의 섹터 타겟 가중
+
         java.util.List<Double> w = new java.util.ArrayList<>();
         java.util.List<Double> r = new java.util.ArrayList<>();
 
@@ -499,13 +478,13 @@ public class RegionalPortfolioAnalysisService {
             w.add(wi);
             r.add(ri);
         }
-        double sim = cosineSimilarity(w, r); // 0~1
+        double sim = cosineSimilarity(w, r); 
         return clamp(sim * 100.0);
     }
 
     private double computeSectorCoverageScore(java.util.Map<String, java.math.BigDecimal> p,
                                               java.util.Map<String, java.math.BigDecimal> q) {
-        // 가중 Jaccard: Σ min / Σ max
+
         java.util.HashSet<String> keys = new java.util.HashSet<>();
         keys.addAll(p.keySet());
         keys.addAll(q.keySet());
@@ -531,8 +510,8 @@ public class RegionalPortfolioAnalysisService {
         for (int i = 0; i < Math.min(5, pcts.size()); i++) top5 = top5.add(pcts.get(i));
         double c5 = total.compareTo(java.math.BigDecimal.ZERO) == 0 ? 0.0
                 : top5.divide(total, 6, java.math.RoundingMode.HALF_UP).doubleValue();
-        double theta = 0.6; // 60%
-        double penalty = Math.max(0.0, (c5 - theta) / (1.0 - theta)) * 100.0; // 0~100
+        double theta = 0.6; 
+        double penalty = Math.max(0.0, (c5 - theta) / (1.0 - theta)) * 100.0; 
         return clamp(penalty);
     }
 
@@ -541,7 +520,7 @@ public class RegionalPortfolioAnalysisService {
         double hhiU = user.values().stream().mapToDouble(v -> Math.pow(v.doubleValue(), 2)).sum();
         double hhiR = region.values().stream().mapToDouble(v -> Math.pow(v.doubleValue(), 2)).sum();
         double delta = Math.max(0.0, hhiU - hhiR);
-        double deltaMax = 0.5; // 경험적 상한
+        double deltaMax = 0.5; 
         double penalty = Math.min(1.0, delta / deltaMax) * 100.0;
         return clamp(penalty);
     }
@@ -559,7 +538,7 @@ public class RegionalPortfolioAnalysisService {
             kl1 += kl(a, m);
             kl2 += kl(b, m);
         }
-        return 0.5 * (kl1 + kl2); // 0~ln2
+        return 0.5 * (kl1 + kl2); 
     }
 
     private double kl(double a, double b) {
@@ -583,9 +562,6 @@ public class RegionalPortfolioAnalysisService {
 
     private double clamp(double v) { return Math.max(0.0, Math.min(100.0, v)); }
 
-    /**
-     * 위험도를 계산합니다.
-     */
     private String calculateRiskLevel(BigDecimal avgProfitLossRate) {
         if (avgProfitLossRate == null) return "보통";
         
@@ -595,9 +571,6 @@ public class RegionalPortfolioAnalysisService {
         return "낮음";
     }
 
-    /**
-     * 분산도를 계산합니다.
-     */
     private int calculateDiversificationScore(long stockCount) {
         if (stockCount <= 1) return 20;
         if (stockCount <= 3) return 40;
@@ -613,9 +586,6 @@ public class RegionalPortfolioAnalysisService {
         return part.multiply(new BigDecimal("100")).divide(total, 2, java.math.RoundingMode.HALF_UP);
     }
 
-    /**
-     * 빈 사용자 포트폴리오를 생성합니다.
-     */
     private RegionalPortfolioAnalysisDto.UserPortfolioInfo createEmptyUserPortfolio() {
         return RegionalPortfolioAnalysisDto.UserPortfolioInfo.builder()
                 .stockCount(0)
@@ -626,9 +596,6 @@ public class RegionalPortfolioAnalysisService {
                 .build();
     }
 
-    /**
-     * 추천사항을 생성합니다.
-     */
     private List<String> generateRecommendations(
             RegionalPortfolioAnalysisDto.UserPortfolioInfo userPortfolio,
             RegionalPortfolioAnalysisDto.RegionalAverageInfo regionalAverage,
@@ -637,33 +604,33 @@ public class RegionalPortfolioAnalysisService {
 
         List<String> out = new ArrayList<>();
 
-        // 지표 계산 재사용 (섹터 기반)
+
         Map<String, BigDecimal> userSector = buildUserSectorDistribution(userPortfolio);
         Map<String, BigDecimal> regionSector = buildRegionSectorDistribution(regionalAverage);
 
-        double sSector = computeSectorAlignmentScore(userSector, regionSector);     // 0~100
-        double sIntra  = computeIntraSectorWeightScore(userPortfolio, regionSector);// 0~100
-        double sCover  = computeSectorCoverageScore(userSector, regionSector);      // 0~100
-        double pConc   = computeConcentrationPenalty(userPortfolio);                // 0~100
-        double pHHI    = computeSectorHHIPenalty(userSector, regionSector);         // 0~100
+        double sSector = computeSectorAlignmentScore(userSector, regionSector);     
+        double sIntra  = computeIntraSectorWeightScore(userPortfolio, regionSector);
+        double sCover  = computeSectorCoverageScore(userSector, regionSector);      
+        double pConc   = computeConcentrationPenalty(userPortfolio);                
+        double pHHI    = computeSectorHHIPenalty(userSector, regionSector);         
 
-        // 1) 섹터 정렬 이슈
+
         if (sSector < 60 && out.size() < 3) {
-            // 상위 지역 섹터 후보 추출 - 1등 종목의 섹터 우선 사용
+
             String topRegionSector = "핵심 섹터";
             if (regionalAverage.getPopularStocks() != null && !regionalAverage.getPopularStocks().isEmpty()) {
                 String topStockSector = regionalAverage.getPopularStocks().get(0).getSector();
                 if (topStockSector != null && !topStockSector.isEmpty()) {
                     topRegionSector = topStockSector;
                 } else {
-                    // 섹터가 없으면 regionSector 맵에서 찾기
+
                     topRegionSector = regionSector.entrySet().stream()
                             .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
                             .map(Map.Entry::getKey)
                             .findFirst().orElse("핵심 섹터");
                 }
             } else {
-                // popularStocks가 없으면 regionSector 맵에서 찾기
+
                 topRegionSector = regionSector.entrySet().stream()
                         .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
                         .map(Map.Entry::getKey)
@@ -672,22 +639,22 @@ public class RegionalPortfolioAnalysisService {
             out.add(String.format("지역 핵심 섹터(%s) 비중이 낮습니다. 해당 섹터 비중 확대를 검토하세요.", topRegionSector));
         }
 
-        // 2) 섹터 커버리지 부족
+
         if (sCover < 65 && out.size() < 3) {
-            // 미커버 섹터 하나 추천 - 1등 종목의 섹터 우선 사용
+
             String gapSector = "미커버 섹터";
             if (regionalAverage.getPopularStocks() != null && !regionalAverage.getPopularStocks().isEmpty()) {
                 String topStockSector = regionalAverage.getPopularStocks().get(0).getSector();
                 if (topStockSector != null && !topStockSector.isEmpty()) {
                     gapSector = topStockSector;
                 } else {
-                    // 섹터가 없으면 regionSector 맵에서 찾기
+
                     gapSector = regionSector.keySet().stream()
                             .filter(s -> userSector.getOrDefault(s, BigDecimal.ZERO).compareTo(BigDecimal.ZERO) == 0)
                             .findFirst().orElse("미커버 섹터");
                 }
             } else {
-                // popularStocks가 없으면 regionSector 맵에서 찾기
+
                 gapSector = regionSector.keySet().stream()
                         .filter(s -> userSector.getOrDefault(s, BigDecimal.ZERO).compareTo(BigDecimal.ZERO) == 0)
                         .findFirst().orElse("미커버 섹터");
@@ -695,22 +662,22 @@ public class RegionalPortfolioAnalysisService {
             out.add(String.format("지역 코어 섹터 노출이 부족합니다. %s 편입을 소액부터 시도해보세요.", gapSector));
         }
 
-        // 3) 섹터 내 비중 정렬 이슈
+
         if (sIntra < 60 && out.size() < 3) {
             out.add("섹터 내부 종목 비중이 지역 선호와 다릅니다. 동일 섹터 내 종목·비중 재배치를 권장합니다.");
         }
 
-        // 4) 집중도/HHI 페널티
+
         if ((pConc > 20 || pHHI > 20) && out.size() < 3) {
             out.add("상위/섹터 집중도가 높습니다. 상위 종목 비중을 줄여 분산도를 높이세요.");
         }
 
-        // 5) 위험도 정렬
+
         if (!riskLevelMatch && out.size() < 3) {
             out.add("지역 평균과 위험도 수준이 다릅니다. 변동성 관리(현금·채권·저변동 ETF 등)를 고려하세요.");
         }
 
-        // 보강: 종목 수 차이만으로는 강한 메시지를 내지 않음(보조)
+
         if (out.isEmpty()) {
             if (stockCountDifference < -2) {
                 out.add("지역 평균 대비 보유 종목 수가 적습니다. 저평가 섹터/종목으로 분산을 확대하세요.");
@@ -723,9 +690,6 @@ public class RegionalPortfolioAnalysisService {
     }
 
 
-    /**
-     * PopularStockInfo 리스트로 변환합니다.
-     */
     private List<RegionalPortfolioAnalysisDto.PopularStockInfo> convertToPopularStockInfoList(
             List<RegionStock> popularStocks) {
         log.info("PopularStockInfo 변환 시작 - 입력 주식 수: {}", popularStocks.size());

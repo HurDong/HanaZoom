@@ -61,33 +61,33 @@ public class Watchlist {
         this.isActive = true;
     }
 
-    // 관심종목 비활성화
+
     public void deactivate() {
         this.isActive = false;
     }
 
-    // 관심종목 재활성화
+
     public void activate() {
         this.isActive = true;
     }
 
-    // 알림 가격 설정
+
     public void setAlertPrice(BigDecimal alertPrice) {
         this.alertPrice = alertPrice;
     }
 
-    // 알림 타입 설정
+
     public void setAlertType(AlertType alertType) {
         this.alertType = alertType;
     }
 
-    // 알림 설정 제거
+
     public void removeAlert() {
         this.alertPrice = null;
         this.alertType = null;
     }
 
-    // 가격 알림이 필요한지 확인
+
     public boolean needsPriceAlert(BigDecimal currentPrice) {
         if (!this.isActive || this.alertPrice == null) {
             return false;

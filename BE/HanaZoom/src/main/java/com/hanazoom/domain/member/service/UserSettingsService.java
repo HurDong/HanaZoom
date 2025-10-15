@@ -22,9 +22,6 @@ public class UserSettingsService {
     private final UserSettingsRepository userSettingsRepository;
     private final MemberRepository memberRepository;
 
-    /**
-     * 사용자 설정 조회
-     */
     public UserSettingsDto getUserSettings(UUID memberId) {
         log.info("🔍 사용자 설정 조회 시작 - memberId: {}", memberId);
         
@@ -39,9 +36,6 @@ public class UserSettingsService {
         return dto;
     }
 
-    /**
-     * 사용자 설정 업데이트
-     */
     @Transactional
     public UserSettingsDto updateUserSettings(UUID memberId, UpdateUserSettingsRequest request) {
         log.info("🔄 사용자 설정 업데이트 시작 - memberId: {}", memberId);
@@ -52,7 +46,7 @@ public class UserSettingsService {
                     return createDefaultSettings(memberId);
                 });
 
-        // 각 필드별로 업데이트
+
         if (request.getTheme() != null) {
             settings.updateTheme(request.getTheme());
             log.info("🎨 테마 설정 업데이트: {}", request.getTheme());
@@ -92,9 +86,6 @@ public class UserSettingsService {
         return dto;
     }
 
-    /**
-     * 기본 사용자 설정 생성
-     */
     @Transactional
     public UserSettings createDefaultSettings(UUID memberId) {
         log.info("📝 기본 사용자 설정 생성 시작 - memberId: {}", memberId);
@@ -113,9 +104,6 @@ public class UserSettingsService {
         return savedSettings;
     }
 
-    /**
-     * 사용자 설정 삭제 (회원 탈퇴 시)
-     */
     @Transactional
     public void deleteUserSettings(UUID memberId) {
         log.info("🗑️ 사용자 설정 삭제 시작 - memberId: {}", memberId);

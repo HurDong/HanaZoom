@@ -54,7 +54,7 @@ public class Notification {
     @CreatedDate
     private LocalDateTime createdAt;
 
-    // 가격 변동 알림용 추가 필드
+
     @Column(name = "stock_symbol")
     private String stockSymbol;
 
@@ -67,7 +67,7 @@ public class Notification {
     @Column(name = "current_price")
     private Long currentPrice;
 
-    // 커뮤니티 알림용 추가 필드
+
     @Column(name = "post_id")
     private Long postId;
 

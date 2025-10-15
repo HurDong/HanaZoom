@@ -23,22 +23,16 @@ public class RegionalPortfolioController {
     private final RegionalPortfolioAnalysisService regionalPortfolioAnalysisService;
     private final MemberRepository memberRepository;
 
-    /**
-     * 현재 로그인한 사용자의 지역별 포트폴리오 분석 결과를 조회합니다.
-     * 
-     * @param authentication 현재 로그인한 사용자 정보
-     * @return 지역별 포트폴리오 분석 결과
-     */
     @GetMapping("/analysis")
     public ResponseEntity<?> getRegionalPortfolioAnalysis(
             Authentication authentication) {
         
         try {
-            // 현재 로그인한 사용자의 이메일 추출
+
             String userEmail = authentication.getName();
             log.info("지역별 포트폴리오 분석 요청 - userEmail: {}", userEmail);
             
-            // 이메일로 사용자 조회
+
             UUID memberId = memberRepository.findByEmail(userEmail)
                     .orElseThrow(() -> {
                         log.error("❌ 사용자를 찾을 수 없습니다: {}", userEmail);
@@ -48,7 +42,7 @@ public class RegionalPortfolioController {
             
             log.info("사용자 조회 완료 - memberId: {}", memberId);
             
-            // 지역별 포트폴리오 분석 수행
+
             RegionalPortfolioAnalysisDto analysis = regionalPortfolioAnalysisService
                     .analyzeRegionalPortfolio(memberId);
             

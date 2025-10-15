@@ -13,10 +13,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
-/**
- * 주문 만료 처리 스케줄러
- * 매일 자정에 전날 미체결 주문을 자동으로 취소 처리
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -34,17 +30,13 @@ public class OrderExpirationScheduler {
         return extra > 0 ? head.toString() + " (+" + extra + ")" : head.toString();
     }
 
-    /**
-     * 매일 자정에 전날 미체결 주문을 자동 취소
-     * cron = "0 0 0 * * ?" : 매일 00:00:00에 실행
-     */
     @Scheduled(cron = "0 0 0 * * ?")
     @Transactional
     public void cancelExpiredOrders() {
         LocalDate today = LocalDate.now();
         LocalDate yesterday = today.minusDays(1);
         
-        // 전날 00:00:00부터 23:59:59까지의 시간 범위
+
         LocalDateTime startOfYesterday = yesterday.atStartOfDay();
         LocalDateTime endOfYesterday = yesterday.atTime(LocalTime.MAX);
         
@@ -52,7 +44,7 @@ public class OrderExpirationScheduler {
         log.info("📅 처리 대상 날짜: {} ({} ~ {})", yesterday, startOfYesterday, endOfYesterday);
 
         try {
-            // 전날 생성된 미체결 주문 조회 (PENDING, PARTIAL_FILLED 상태)
+
             List<Order> expiredOrders = orderRepository.findExpiredOrders(
                 startOfYesterday, 
                 endOfYesterday
@@ -61,7 +53,7 @@ public class OrderExpirationScheduler {
             log.info("🔍 만료된 미체결 주문: {}건, ids={}", expiredOrders.size(),
                 summarizeIds(expiredOrders.stream().map(Order::getId).toList(), SUMMARY_LIMIT));
             
-            // 상세 로그는 DEBUG 레벨로
+
             for (Order order : expiredOrders) {
                 log.debug("📋 만료 주문 상세: orderId={}, status={}, createdAt={}, stockCode={}, memberId={}", 
                     order.getId(), 
@@ -77,7 +69,7 @@ public class OrderExpirationScheduler {
                 try {
                     log.info("🔄 주문 취소 처리 시작: orderId={}, 현재상태={}", order.getId(), order.getStatus());
                     
-                    // 주문 취소 처리
+
                     order.cancel();
                     orderRepository.save(order);
                     cancelledCount++;
@@ -101,10 +93,6 @@ public class OrderExpirationScheduler {
         }
     }
 
-    /**
-     * 서버 시작 시 기존 만료된 주문들 정리
-     * 서버가 중단되었다가 재시작된 경우 누락된 만료 주문들을 처리
-     */
     @Transactional
     public void cleanupExpiredOrdersOnStartup() {
         LocalDate today = LocalDate.now();
@@ -114,7 +102,7 @@ public class OrderExpirationScheduler {
         log.info("📅 조회 기준: 오늘 이전의 모든 미체결 주문 ({} 이전)", todayStart);
 
         try {
-            // 오늘 이전의 모든 미체결 주문 조회
+
             List<Order> expiredOrders = orderRepository.findPendingOrdersBefore(todayStart);
             
             log.info("🔍 오늘 이전 미체결 주문: {}건, ids={}", expiredOrders.size(),
@@ -163,15 +151,12 @@ public class OrderExpirationScheduler {
         }
     }
     
-    /**
-     * 디버깅용: 모든 미체결 주문 조회 및 로그 출력
-     */
     @Transactional(readOnly = true)
     public void debugPendingOrders() {
         log.info("🔍 디버깅: 모든 미체결 주문 조회 시작");
         
         try {
-            // 모든 미체결 주문 조회
+
             List<Order> allPendingOrders = orderRepository.findAllPendingOrders();
             log.info("📊 전체 미체결 주문: {}건, ids={}", allPendingOrders.size(),
                 summarizeIds(allPendingOrders.stream().map(Order::getId).toList(), SUMMARY_LIMIT));
@@ -185,7 +170,7 @@ public class OrderExpirationScheduler {
                     order.getMember().getId());
             }
             
-            // 오늘 이전의 미체결 주문 조회
+
             LocalDateTime todayStart = LocalDate.now().atStartOfDay();
             List<Order> oldPendingOrders = orderRepository.findPendingOrdersBefore(todayStart);
             log.info("📅 오늘 이전 미체결 주문: {}건, ids={}", oldPendingOrders.size(),

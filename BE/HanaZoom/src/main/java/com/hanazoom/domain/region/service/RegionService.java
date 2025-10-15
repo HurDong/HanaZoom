@@ -35,15 +35,15 @@ public class RegionService {
                 .map(region -> {
                     StringBuilder fullName = new StringBuilder();
 
-                    // 동 이름 추가
+
                     if (region.getType() == RegionType.NEIGHBORHOOD) {
                         fullName.append(region.getName());
 
-                        // 구 이름 추가
+
                         if (region.getParent() != null && region.getParent().getType() == RegionType.DISTRICT) {
                             fullName.insert(0, region.getParent().getName() + " ");
 
-                            // 시 이름 추가
+
                             if (region.getParent().getParent() != null
                                     && region.getParent().getParent().getType() == RegionType.CITY) {
                                 fullName.insert(0, region.getParent().getParent().getName() + " ");
@@ -52,7 +52,7 @@ public class RegionService {
                     } else if (region.getType() == RegionType.DISTRICT) {
                         fullName.append(region.getName());
 
-                        // 시 이름 추가
+
                         if (region.getParent() != null && region.getParent().getType() == RegionType.CITY) {
                             fullName.insert(0, region.getParent().getName() + " ");
                         }

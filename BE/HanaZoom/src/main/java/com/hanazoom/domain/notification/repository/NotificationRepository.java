@@ -16,7 +16,7 @@ import java.util.UUID;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
-    // 사용자별 알림 조회 (최신순) - 성능 최적화
+
     @QueryHints(value = {
         @QueryHint(name = "org.hibernate.readOnly", value = "true"),
         @QueryHint(name = "org.hibernate.fetchSize", value = "50"),
@@ -24,7 +24,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     })
     Page<Notification> findByMemberIdOrderByCreatedAtDesc(UUID memberId, Pageable pageable);
 
-    // 사용자별 읽지 않은 알림 개수 - 성능 최적화
+
     @QueryHints(value = {
         @QueryHint(name = "org.hibernate.readOnly", value = "true"),
         @QueryHint(name = "org.hibernate.cacheable", value = "false")
@@ -32,7 +32,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("SELECT COUNT(n) FROM Notification n WHERE n.member.id = :memberId AND n.isRead = false")
     long countUnreadByMemberId(@Param("memberId") UUID memberId);
 
-    // 사용자별 읽지 않은 알림 목록 - 성능 최적화
+
     @QueryHints(value = {
         @QueryHint(name = "org.hibernate.readOnly", value = "true"),
         @QueryHint(name = "org.hibernate.fetchSize", value = "100"),
@@ -40,7 +40,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     })
     List<Notification> findByMemberIdAndIsReadFalseOrderByCreatedAtDesc(UUID memberId);
 
-    // 특정 주식에 대한 가격 변동 알림 조회 (중복 방지용) - 성능 최적화
+
     @QueryHints(value = {
         @QueryHint(name = "org.hibernate.readOnly", value = "true"),
         @QueryHint(name = "org.hibernate.fetchSize", value = "20"),
@@ -50,7 +50,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     List<Notification> findRecentPriceNotifications(@Param("memberId") UUID memberId,
             @Param("stockSymbol") String stockSymbol, @Param("since") java.time.LocalDateTime since);
 
-    // 특정 게시글/댓글에 대한 알림 조회 (중복 방지용) - 성능 최적화
+
     @QueryHints(value = {
         @QueryHint(name = "org.hibernate.readOnly", value = "true"),
         @QueryHint(name = "org.hibernate.fetchSize", value = "20"),

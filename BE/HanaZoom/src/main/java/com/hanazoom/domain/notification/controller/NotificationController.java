@@ -24,7 +24,7 @@ public class NotificationController {
 
     private final NotificationService notificationService;
 
-    // 사용자별 알림 조회
+
     @GetMapping
     public ResponseEntity<Page<NotificationDto>> getUserNotifications(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -36,7 +36,7 @@ public class NotificationController {
         return ResponseEntity.ok(notifications);
     }
 
-    // 읽지 않은 알림 개수 조회
+
     @GetMapping("/unread-count")
     public ResponseEntity<Map<String, Object>> getUnreadCount(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -52,7 +52,7 @@ public class NotificationController {
         return ResponseEntity.ok(response);
     }
 
-    // 알림 읽음 처리
+
     @PatchMapping("/{notificationId}/read")
     public ResponseEntity<Map<String, Object>> markAsRead(
             @PathVariable Long notificationId,
@@ -69,7 +69,7 @@ public class NotificationController {
         return ResponseEntity.ok(response);
     }
 
-    // 모든 알림 읽음 처리
+
     @PatchMapping("/read-all")
     public ResponseEntity<Map<String, Object>> markAllAsRead(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -85,7 +85,7 @@ public class NotificationController {
         return ResponseEntity.ok(response);
     }
 
-    // 알림 삭제
+
     @DeleteMapping("/{notificationId}")
     public ResponseEntity<Map<String, Object>> deleteNotification(
             @PathVariable Long notificationId,
@@ -102,13 +102,13 @@ public class NotificationController {
         return ResponseEntity.ok(response);
     }
 
-    // 테스트용 알림 생성 API
+
     @PostMapping("/test/create")
     public ResponseEntity<Map<String, Object>> createTestNotification() {
         try {
             UUID testMemberId = UUID.fromString("e2fb8dd0-70e7-4549-9bab-eeafcbe70f56");
 
-            // 테스트용 주식 가격 변동 알림 생성
+
             notificationService.createPriceChangeNotification(
                     testMemberId,
                     "005930",

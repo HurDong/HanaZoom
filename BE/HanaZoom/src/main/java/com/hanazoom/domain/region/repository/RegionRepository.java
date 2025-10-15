@@ -13,10 +13,10 @@ import java.util.Optional;
 public interface RegionRepository extends JpaRepository<Region, Long> {
         List<Region> findByParent(Region parent);
 
-        // 지역명으로 지역 찾기
+
         Optional<Region> findByNameAndType(String name, RegionType type);
 
-        // 계층적 구조로 지역 찾기 (시도 > 구군 > 동)
+
         @Query("""
                         SELECT dong FROM Region city
                         JOIN Region district ON district.parent = city
@@ -33,7 +33,7 @@ public interface RegionRepository extends JpaRepository<Region, Long> {
                         @Param("districtName") String districtName,
                         @Param("dongName") String dongName);
 
-        // 구군 레벨까지만 매칭 (동이 없는 경우)
+
         @Query("""
                         SELECT district FROM Region city
                         JOIN Region district ON district.parent = city
@@ -46,7 +46,7 @@ public interface RegionRepository extends JpaRepository<Region, Long> {
                         @Param("cityName") String cityName,
                         @Param("districtName") String districtName);
 
-        // 좌표 기반으로 가장 가까운 지역 찾기 (폴백 용도)
+
         @Query(value = """
                         SELECT r.*, (
                             6371 * acos(
@@ -68,15 +68,15 @@ public interface RegionRepository extends JpaRepository<Region, Long> {
                         @Param("latitude") Double latitude,
                         @Param("longitude") Double longitude);
 
-        // 사용자의 지역 ID로부터 지역구(DISTRICT) ID 조회
+
         @Query("SELECT r FROM Region r WHERE r.id = :regionId AND r.type = 'DISTRICT'")
         Optional<Region> findDistrictByRegionId(@Param("regionId") Long regionId);
         
-        // 사용자의 지역 ID가 동(NEIGHBORHOOD)인 경우 부모 지역구 조회
+
         @Query("SELECT r.parent FROM Region r WHERE r.id = :regionId AND r.type = 'NEIGHBORHOOD'")
         Optional<Region> findDistrictByNeighborhoodId(@Param("regionId") Long regionId);
 
-        // 지역구의 이름 조회
+
         @Query("SELECT r.name FROM Region r WHERE r.id = :regionId")
         Optional<String> findRegionNameById(@Param("regionId") Long regionId);
 }

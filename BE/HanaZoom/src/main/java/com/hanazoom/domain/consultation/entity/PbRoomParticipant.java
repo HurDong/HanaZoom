@@ -63,25 +63,25 @@ public class PbRoomParticipant {
         this.joinedAt = LocalDateTime.now();
     }
 
-    // 참여자 나가기
+
     public void leave() {
         this.isActive = false;
         this.leftAt = LocalDateTime.now();
     }
 
-    // 강퇴
+
     public void kick() {
         this.isActive = false;
         this.leftAt = LocalDateTime.now();
     }
 
-    // 참여자 재입장
+
     public void rejoin() {
         this.isActive = true;
         this.leftAt = null;
     }
 
-    // 세션 ID 업데이트
+
     public void updateSessionId(String sessionId) {
         this.clientSessionId = sessionId;
     }

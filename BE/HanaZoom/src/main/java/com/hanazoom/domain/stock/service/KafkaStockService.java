@@ -23,14 +23,11 @@ public class KafkaStockService {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
-    // Topics
+
     private static final String STOCK_REALTIME_TOPIC = "stock-realtime-data";
     private static final String STOCK_BATCH_TOPIC = "stock-batch-data";
     private static final String PERFORMANCE_METRICS_TOPIC = "performance-metrics";
 
-    /**
-     * 실시간 주식 데이터 전송
-     */
     public CompletableFuture<SendResult<String, String>> sendRealTimeStockData(
             String stockCode,
             String stockName,
@@ -59,9 +56,6 @@ public class KafkaStockService {
         }
     }
 
-    /**
-     * 배치 주식 데이터 전송
-     */
     public CompletableFuture<SendResult<String, String>> sendBatchStockData(
             String batchId,
             Map<String, Object> stockBatch
@@ -81,9 +75,6 @@ public class KafkaStockService {
         }
     }
 
-    /**
-     * 성능 메트릭 전송
-     */
     public CompletableFuture<SendResult<String, String>> sendPerformanceMetrics(
             String metricType,
             Map<String, Object> metrics
@@ -103,9 +94,6 @@ public class KafkaStockService {
         }
     }
 
-    /**
-     * WTS 페이지 성능 모니터링 데이터 전송
-     */
     public CompletableFuture<SendResult<String, String>> sendWTSPerformanceMetrics(
             int activeUsers,
             int totalStocks,
@@ -123,9 +111,6 @@ public class KafkaStockService {
         return sendPerformanceMetrics("wts-page-performance", metrics);
     }
 
-    /**
-     * WebSocket vs Kafka 성능 비교 메트릭
-     */
     public CompletableFuture<SendResult<String, String>> sendComparisonMetrics(
             String method,
             String operation,
@@ -133,8 +118,8 @@ public class KafkaStockService {
             long endTime
     ) {
         Map<String, Object> metrics = new HashMap<>();
-        metrics.put("method", method); // "websocket" or "kafka"
-        metrics.put("operation", operation); // "send", "receive", "process"
+        metrics.put("method", method); 
+        metrics.put("operation", operation); 
         metrics.put("duration", endTime - startTime);
         metrics.put("timestamp", LocalDateTime.now());
 

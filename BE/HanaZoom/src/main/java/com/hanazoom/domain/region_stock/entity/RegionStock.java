@@ -82,9 +82,6 @@ public class RegionStock {
         this.trendScore = trendScore;
     }
 
-    /**
-     * 인기도 점수를 1 증가시킵니다.
-     */
     public void increasePopularityScore() {
         if (this.popularityScore == null) {
             this.popularityScore = BigDecimal.ONE;
@@ -93,9 +90,6 @@ public class RegionStock {
         }
     }
 
-    /**
-     * 지역 내 순위를 업데이트합니다.
-     */
     public void updateRegionalRanking(int newRanking) {
         this.regionalRanking = newRanking;
     }

@@ -42,32 +42,29 @@ public class ConsultationService {
     private final PortfolioStockRepository portfolioStockRepository;
     private final AccountBalanceRepository accountBalanceRepository;
 
-    /**
-     * 상담 예약 요청 (고객)
-     */
     @Transactional
     public ConsultationResponseDto createConsultation(ConsultationRequestDto requestDto, UUID clientId) {
         log.info("상담 예약 요청: clientId={}, pbId={}, type={}", clientId, requestDto.getPbId(),
                 requestDto.getConsultationType());
 
-        // 고객 정보 조회
+
         Member client = memberRepository.findById(clientId)
                 .orElseThrow(() -> new IllegalArgumentException("고객 정보를 찾을 수 없습니다"));
 
         UUID pbId = UUID.fromString(requestDto.getPbId());
 
-        // PB 정보 조회
+
         Member pb = memberRepository.findById(pbId)
                 .orElseThrow(() -> new IllegalArgumentException("PB 정보를 찾을 수 없습니다"));
 
         LocalDateTime scheduledAt = requestDto.getScheduledAt();
 
-        // 주말(토요일, 일요일) 상담 차단
+
         if (isWeekend(scheduledAt)) {
             throw new IllegalStateException("주말(토요일, 일요일)에는 상담을 진행하지 않습니다. 평일을 선택해주세요.");
         }
 
-        // 해당 시간에 이미 예약이나 불가능 시간이 등록되어 있는지 확인
+
         List<Consultation> existingConsultations = consultationRepository
                 .findByPbIdAndScheduledAtBetween(pbId, scheduledAt,
                         scheduledAt.plusMinutes(requestDto.getDurationMinutes()));
@@ -76,11 +73,11 @@ public class ConsultationService {
             throw new IllegalStateException("선택한 시간이 더 이상 예약 가능하지 않습니다. 다른 시간을 선택해주세요.");
         }
 
-        // 수수료 설정
+
         BigDecimal fee = requestDto.getFee() != null ? requestDto.getFee()
                 : BigDecimal.valueOf(requestDto.getConsultationType().getDefaultFee());
 
-        // 새로운 상담 예약 생성
+
         Consultation consultation = Consultation.builder()
                 .pb(pb)
                 .client(client)
@@ -99,15 +96,12 @@ public class ConsultationService {
         return convertToResponseDto(consultation);
     }
 
-    /**
-     * 상담 승인/거절
-     */
     @Transactional
     public ConsultationResponseDto approveConsultation(ConsultationApprovalDto approvalDto, UUID pbId) {
         log.info("상담 승인/거절: pbId={}, consultationId={}, approved={}",
                 pbId, approvalDto.getConsultationId(), approvalDto.isApproved());
 
-        // consultationId 검증
+
         if (approvalDto.getConsultationId() == null || approvalDto.getConsultationId().trim().isEmpty()) {
             throw new IllegalArgumentException("상담 ID가 필요합니다");
         }
@@ -115,12 +109,12 @@ public class ConsultationService {
         Consultation consultation = consultationRepository.findById(UUID.fromString(approvalDto.getConsultationId()))
                 .orElseThrow(() -> new IllegalArgumentException("상담 정보를 찾을 수 없습니다"));
 
-        // PB 권한 확인
+
         if (!consultation.getPb().getId().equals(pbId)) {
             throw new IllegalArgumentException("해당 상담을 처리할 권한이 없습니다");
         }
 
-        // 상태 확인
+
         if (!consultation.isPending()) {
             throw new IllegalStateException("대기중인 상담만 처리할 수 있습니다");
         }
@@ -136,9 +130,6 @@ public class ConsultationService {
         return convertToResponseDto(consultation);
     }
 
-    /**
-     * 상담 시작
-     */
     @Transactional
     public ConsultationResponseDto startConsultation(UUID consultationId, UUID pbId) {
         log.info("상담 시작: consultationId={}, pbId={}", consultationId, pbId);
@@ -146,12 +137,12 @@ public class ConsultationService {
         Consultation consultation = consultationRepository.findById(consultationId)
                 .orElseThrow(() -> new IllegalArgumentException("상담 정보를 찾을 수 없습니다"));
 
-        // PB 권한 확인
+
         if (!consultation.getPb().getId().equals(pbId)) {
             throw new IllegalArgumentException("해당 상담을 시작할 권한이 없습니다");
         }
 
-        // 상태 확인
+
         log.info("상담 상태 확인: status={}, isApproved={}, isPending={}, isCancelled={}, isCompleted={}",
                 consultation.getStatus(), consultation.isApproved(), consultation.isPending(),
                 consultation.isCancelled(), consultation.isCompleted());
@@ -160,7 +151,7 @@ public class ConsultationService {
             throw new IllegalStateException("상담을 시작할 수 없는 상태입니다. 현재 상태: " + consultation.getStatus());
         }
 
-        // 미팅 URL 생성 (실제로는 화상회의 서비스 연동)
+
         String meetingUrl = generateMeetingUrl(consultationId);
         String meetingId = consultationId.toString();
 
@@ -170,9 +161,6 @@ public class ConsultationService {
         return convertToResponseDto(consultation);
     }
 
-    /**
-     * 상담 종료
-     */
     @Transactional
     public ConsultationResponseDto endConsultation(UUID consultationId, UUID pbId, String consultationNotes) {
         log.info("상담 종료: consultationId={}, pbId={}", consultationId, pbId);
@@ -180,19 +168,19 @@ public class ConsultationService {
         Consultation consultation = consultationRepository.findById(consultationId)
                 .orElseThrow(() -> new IllegalArgumentException("상담 정보를 찾을 수 없습니다"));
 
-        // PB 권한 확인
+
         if (!consultation.getPb().getId().equals(pbId)) {
             throw new IllegalArgumentException("해당 상담을 종료할 권한이 없습니다");
         }
 
-        // 상태 확인
+
         if (!consultation.canBeEnded()) {
             throw new IllegalStateException("상담을 종료할 수 없는 상태입니다");
         }
 
         consultation.end(consultationNotes);
 
-        // PB 상담 횟수 증가
+
         consultation.getPb().incrementConsultationCount();
         memberRepository.save(consultation.getPb());
 
@@ -201,9 +189,6 @@ public class ConsultationService {
         return convertToResponseDto(consultation);
     }
 
-    /**
-     * 상담 취소
-     */
     @Transactional
     public ConsultationResponseDto cancelConsultation(UUID consultationId, UUID userId, String reason,
             boolean isClient) {
@@ -212,7 +197,7 @@ public class ConsultationService {
         Consultation consultation = consultationRepository.findById(consultationId)
                 .orElseThrow(() -> new IllegalArgumentException("상담 정보를 찾을 수 없습니다"));
 
-        // 권한 확인
+
         boolean hasPermission = isClient ? consultation.getClient().getId().equals(userId)
                 : consultation.getPb().getId().equals(userId);
 
@@ -220,7 +205,7 @@ public class ConsultationService {
             throw new IllegalArgumentException("해당 상담을 취소할 권한이 없습니다");
         }
 
-        // 상태 확인
+
         if (!consultation.canBeCancelled()) {
             throw new IllegalStateException("상담을 취소할 수 없는 상태입니다");
         }
@@ -233,9 +218,6 @@ public class ConsultationService {
         return convertToResponseDto(consultation);
     }
 
-    /**
-     * 상담 평가
-     */
     @Transactional
     public ConsultationResponseDto rateConsultation(ConsultationRatingDto ratingDto, UUID clientId) {
         log.info("상담 평가: consultationId={}, clientId={}, rating={}",
@@ -244,19 +226,19 @@ public class ConsultationService {
         Consultation consultation = consultationRepository.findById(UUID.fromString(ratingDto.getConsultationId()))
                 .orElseThrow(() -> new IllegalArgumentException("상담 정보를 찾을 수 없습니다"));
 
-        // 고객 권한 확인
+
         if (!consultation.getClient().getId().equals(clientId)) {
             throw new IllegalArgumentException("해당 상담을 평가할 권한이 없습니다");
         }
 
-        // 상태 확인
+
         if (!consultation.isCompleted()) {
             throw new IllegalStateException("완료된 상담만 평가할 수 있습니다");
         }
 
         consultation.rateByClient(ratingDto.getRating(), ratingDto.getFeedback());
 
-        // PB 평점 업데이트
+
         updatePbRating(consultation.getPb());
 
         log.info("상담 평가 완료: consultationId={}", consultation.getId());
@@ -264,25 +246,16 @@ public class ConsultationService {
         return convertToResponseDto(consultation);
     }
 
-    /**
-     * 고객별 상담 목록 조회
-     */
     public Page<ConsultationResponseDto> getConsultationsByClient(UUID clientId, Pageable pageable) {
         Page<Consultation> consultations = consultationRepository.findByClientId(clientId, pageable);
         return consultations.map(this::convertToResponseDto);
     }
 
-    /**
-     * PB별 상담 목록 조회
-     */
     public Page<ConsultationResponseDto> getConsultationsByPb(UUID pbId, Pageable pageable) {
         Page<Consultation> consultations = consultationRepository.findByPbId(pbId, pageable);
         return consultations.map(this::convertToResponseDto);
     }
 
-    /**
-     * PB별 캘린더용 상담 목록 조회 (날짜 범위별)
-     */
     public List<ConsultationResponseDto> getPbCalendarConsultations(UUID pbId, String startDate, String endDate) {
         LocalDateTime start = null;
         LocalDateTime end = null;
@@ -302,24 +275,21 @@ public class ConsultationService {
         } else if (end != null) {
             consultations = consultationRepository.findByPbIdAndScheduledAtBefore(pbId, end);
         } else {
-            // 날짜 범위가 없으면 최근 30일간의 상담 조회
+
             LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
             consultations = consultationRepository.findByPbIdAndScheduledAtAfter(pbId, thirtyDaysAgo);
         }
 
         return consultations.stream()
-                // PB 자기 자신의 스케줄(불가능 시간)은 제외하고 실제 고객 예약만 표시
+
                 .filter(c -> c.isClientBooking())
-                // 취소되거나 거절된 상담은 캘린더에서 제외
+
                 .filter(c -> c.getStatus() != ConsultationStatus.CANCELLED &&
                         c.getStatus() != ConsultationStatus.REJECTED)
                 .map(this::convertToResponseDto)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * PB 대시보드 정보 조회
-     */
     public PbDashboardDto getPbDashboard(UUID pbId) {
         Member pb = memberRepository.findById(pbId)
                 .orElseThrow(() -> new IllegalArgumentException("PB 정보를 찾을 수 없습니다"));
@@ -327,40 +297,40 @@ public class ConsultationService {
         LocalDateTime today = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
         LocalDateTime tomorrow = today.plusDays(1);
 
-        // 오늘의 상담
+
         List<Consultation> todayConsultationsRaw = consultationRepository
                 .findByPbIdAndScheduledAtBetween(pbId, today, tomorrow);
         List<Consultation> todayConsultations = todayConsultationsRaw.stream()
                 .filter(c -> c.isClientBooking())
-                // 취소되거나 거절된 상담은 제외
+
                 .filter(c -> c.getStatus() != ConsultationStatus.CANCELLED &&
                         c.getStatus() != ConsultationStatus.REJECTED)
                 .collect(Collectors.toList());
 
-        // 대기중인 상담
+
         List<Consultation> pendingConsultations = consultationRepository
                 .findPendingConsultationsByPbId(pbId, ConsultationStatus.PENDING)
                 .stream()
                 .filter(c -> c.isClientBooking())
                 .collect(Collectors.toList());
 
-        // 진행중인 상담
+
         List<Consultation> inProgressConsultations = consultationRepository
                 .findInProgressConsultationsByPbId(pbId, ConsultationStatus.IN_PROGRESS)
                 .stream()
                 .filter(c -> c.isClientBooking())
                 .collect(Collectors.toList());
 
-        // 최근 상담 (최대 5개)
+
         Page<Consultation> recentConsultations = consultationRepository
                 .findRecentConsultationsByPbId(pbId, Pageable.ofSize(5));
 
-        // 통계 정보
+
         long totalCompleted = consultationRepository.countCompletedConsultationsByPbId(pbId,
                 ConsultationStatus.COMPLETED);
         Double averageRating = consultationRepository.getAverageRatingByPbId(pbId);
 
-        // 상담 유형별 통계
+
         List<Object[]> typeStats = consultationRepository.getConsultationTypeStatistics(pbId,
                 ConsultationStatus.COMPLETED);
         Map<String, Long> typeStatistics = typeStats.stream()
@@ -368,7 +338,7 @@ public class ConsultationService {
                         stat -> ((ConsultationType) stat[0]).getDisplayName(),
                         stat -> (Long) stat[1]));
 
-        // 다음 예정된 상담 (오늘 이후의 모든 예정된 상담에서 가장 가까운 것)
+
         LocalDateTime now = LocalDateTime.now();
         List<Consultation> futureConsultations = consultationRepository
                 .findByPbIdAndScheduledAtAfter(pbId, now)
@@ -410,14 +380,11 @@ public class ConsultationService {
                 .build();
     }
 
-    /**
-     * 상담 상세 정보 조회
-     */
     public ConsultationResponseDto getConsultationById(UUID consultationId, UUID userId) {
         Consultation consultation = consultationRepository.findById(consultationId)
                 .orElseThrow(() -> new IllegalArgumentException("상담 정보를 찾을 수 없습니다"));
 
-        // 권한 확인 (고객 또는 PB)
+
         boolean hasPermission = consultation.getClient().getId().equals(userId) ||
                 consultation.getPb().getId().equals(userId);
 
@@ -428,30 +395,24 @@ public class ConsultationService {
         return convertToResponseDto(consultation);
     }
 
-    /**
-     * 평가 가능한 상담 목록 조회
-     */
     public List<ConsultationResponseDto> getConsultationsForRating(UUID clientId) {
         List<Consultation> consultations = consultationRepository.findCompletedConsultationsForRating(clientId,
                 ConsultationStatus.COMPLETED);
         return consultations.stream().map(this::convertToResponseDto).toList();
     }
 
-    /**
-     * PB의 고객 목록 조회
-     */
     public List<PbClientDto> getPbClients(UUID pbId) {
         log.info("PB 고객 목록 조회: pbId={}", pbId);
 
         try {
-            // PB가 상담한 모든 고유 고객들을 조회 (UNAVAILABLE 상태 제외)
+
             List<Consultation> consultations = consultationRepository.findDistinctClientsByPbId(pbId,
                     ConsultationStatus.UNAVAILABLE);
 
             Map<UUID, PbClientDto> clientMap = new HashMap<>();
 
             for (Consultation consultation : consultations) {
-                // PB 자기 자신의 스케줄은 제외
+
                 if (consultation.isPbOwnSchedule()) {
                     continue;
                 }
@@ -460,7 +421,7 @@ public class ConsultationService {
                 UUID clientId = client.getId();
 
                 if (!clientMap.containsKey(clientId)) {
-                    // 새로운 고객인 경우
+
                     PbClientDto clientDto = PbClientDto.builder()
                             .id(clientId.toString())
                             .name(client.getName())
@@ -469,15 +430,15 @@ public class ConsultationService {
                             .totalConsultations(0)
                             .completedConsultations(0)
                             .averageRating(0.0)
-                            .totalAssets(calculateTotalAssets(clientId)) // 포트폴리오에서 계산
-                            .riskLevel(calculateRiskLevel(clientId)) // 포트폴리오에서 계산
-                            .portfolioScore(calculatePortfolioScore(clientId)) // 포트폴리오에서 계산
+                            .totalAssets(calculateTotalAssets(clientId)) 
+                            .riskLevel(calculateRiskLevel(clientId)) 
+                            .portfolioScore(calculatePortfolioScore(clientId)) 
                             .build();
 
                     clientMap.put(clientId, clientDto);
                 }
 
-                // 상담 통계 업데이트
+
                 PbClientDto clientDto = clientMap.get(clientId);
                 clientDto.incrementTotalConsultations();
 
@@ -490,7 +451,7 @@ public class ConsultationService {
 
                 LocalDateTime now = LocalDateTime.now();
 
-                // 마지막 상담 일시 업데이트 (오늘 이전의 완료된 상담 중 가장 최근)
+
                 if (consultation.getStatus() == ConsultationStatus.COMPLETED &&
                         consultation.getScheduledAt().isBefore(now)) {
                     if (clientDto.getLastConsultation() == null ||
@@ -500,7 +461,7 @@ public class ConsultationService {
                     }
                 }
 
-                // 다음 예정 상담 업데이트 (오늘 이후의 예정된 상담 중 가장 가까운)
+
                 if ((consultation.getStatus() == ConsultationStatus.APPROVED ||
                         consultation.getStatus() == ConsultationStatus.PENDING ||
                         consultation.getStatus() == ConsultationStatus.IN_PROGRESS) &&
@@ -520,9 +481,6 @@ public class ConsultationService {
         }
     }
 
-    /**
-     * 고객의 총 자산 계산 (포트폴리오 기반 - 실제 고객 페이지와 동일한 로직)
-     */
     private BigDecimal calculateTotalAssets(UUID clientId) {
         try {
             Member client = memberRepository.findById(clientId).orElse(null);
@@ -536,7 +494,7 @@ public class ConsultationService {
                 return BigDecimal.ZERO;
             }
 
-            // 계좌 잔고 조회 (최신 잔고)
+
             AccountBalance balance = accountBalanceRepository
                     .findLatestBalanceByAccountIdOrderByDateDesc(mainAccount.getId())
                     .orElse(null);
@@ -545,26 +503,23 @@ public class ConsultationService {
                 return BigDecimal.ZERO;
             }
 
-            // 주식 평가금액 조회
+
             BigDecimal totalStockValue = portfolioStockRepository.findTotalStockValueByAccountId(mainAccount.getId());
 
-            // 총 현금 = 사용가능현금 + 결제예정현금 + 출금가능현금
+
             BigDecimal totalCash = balance.getAvailableCash()
                     .add(balance.getSettlementCash())
                     .add(balance.getWithdrawableCash());
 
-            // 총 자산 = 현금 + 주식 평가금액 (실제 고객 페이지와 동일한 계산)
+
             return totalCash.add(totalStockValue != null ? totalStockValue : BigDecimal.ZERO);
         } catch (Exception e) {
             log.warn("총 자산 계산 실패: clientId={}", clientId, e);
-            // 포트폴리오 데이터가 없는 경우 임시 값 반환
+
             return BigDecimal.valueOf(50000000 + (clientId.hashCode() % 100000000));
         }
     }
 
-    /**
-     * 고객의 위험도 계산 (포트폴리오 기반)
-     */
     private String calculateRiskLevel(UUID clientId) {
         try {
             Member client = memberRepository.findById(clientId).orElse(null);
@@ -578,15 +533,15 @@ public class ConsultationService {
                 return "보통";
             }
 
-            // 포트폴리오 통계 조회
+
             PortfolioStockRepository.UserPortfolioStats stats = portfolioStockRepository
                     .getUserPortfolioStats(mainAccount.getId());
 
-            // 기존 포트폴리오 로직과 동일한 위험도 계산
+
             return calculateRiskLevelFromProfitRate(stats.getAvgProfitLossRate());
         } catch (Exception e) {
             log.warn("위험도 계산 실패: clientId={}", clientId, e);
-            // 포트폴리오 데이터가 없는 경우 임시 값 반환
+
             int hash = Math.abs(clientId.hashCode() % 3);
             return switch (hash) {
                 case 0 -> "낮음";
@@ -596,9 +551,6 @@ public class ConsultationService {
         }
     }
 
-    /**
-     * 평균 수익률을 기반으로 위험도를 계산 (기존 포트폴리오 로직과 동일)
-     */
     private String calculateRiskLevelFromProfitRate(BigDecimal avgProfitLossRate) {
         if (avgProfitLossRate == null)
             return "보통";
@@ -611,9 +563,6 @@ public class ConsultationService {
         return "낮음";
     }
 
-    /**
-     * 고객의 포트폴리오 점수 계산 (실제 포트폴리오 데이터 기반)
-     */
     private int calculatePortfolioScore(UUID clientId) {
         try {
             Member client = memberRepository.findById(clientId).orElse(null);
@@ -626,7 +575,7 @@ public class ConsultationService {
                 return 75;
             }
 
-            // 포트폴리오 통계 조회
+
             PortfolioStockRepository.UserPortfolioStats stats = portfolioStockRepository
                     .getUserPortfolioStats(mainAccount.getId());
 
@@ -634,53 +583,53 @@ public class ConsultationService {
                 return 75;
             }
 
-            // 포트폴리오 점수 계산 로직
-            int score = 50; // 기본 점수
 
-            // 1. 분산 투자 점수 (보유 종목 수에 따라)
+            int score = 50; 
+
+
             long stockCount = stats.getStockCount();
             if (stockCount >= 10) {
-                score += 20; // 10종목 이상: +20점
+                score += 20; 
             } else if (stockCount >= 5) {
-                score += 15; // 5-9종목: +15점
+                score += 15; 
             } else if (stockCount >= 3) {
-                score += 10; // 3-4종목: +10점
+                score += 10; 
             } else if (stockCount >= 1) {
-                score += 5; // 1-2종목: +5점
+                score += 5; 
             }
 
-            // 2. 수익률 점수 (평균 수익률에 따라)
+
             BigDecimal avgProfitRate = stats.getAvgProfitLossRate();
             if (avgProfitRate != null) {
                 double rate = avgProfitRate.doubleValue();
                 if (rate >= 20) {
-                    score += 25; // 20% 이상: +25점
+                    score += 25; 
                 } else if (rate >= 10) {
-                    score += 20; // 10-19%: +20점
+                    score += 20; 
                 } else if (rate >= 5) {
-                    score += 15; // 5-9%: +15점
+                    score += 15; 
                 } else if (rate >= 0) {
-                    score += 10; // 0-4%: +10점
+                    score += 10; 
                 } else if (rate >= -10) {
-                    score += 5; // -10~-1%: +5점
+                    score += 5; 
                 }
-                // -10% 이하는 추가 점수 없음
+
             }
 
-            // 3. 포트폴리오 규모 점수 (총 가치에 따라)
+
             BigDecimal totalValue = stats.getTotalValue();
             if (totalValue != null) {
                 long value = totalValue.longValue();
-                if (value >= 100000000) { // 1억 이상
+                if (value >= 100000000) { 
                     score += 5;
-                } else if (value >= 50000000) { // 5천만 이상
+                } else if (value >= 50000000) { 
                     score += 3;
-                } else if (value >= 10000000) { // 1천만 이상
+                } else if (value >= 10000000) { 
                     score += 1;
                 }
             }
 
-            // 점수 범위 제한 (0-100)
+
             return Math.min(Math.max(score, 0), 100);
         } catch (Exception e) {
             log.warn("포트폴리오 점수 계산 실패: clientId={}", clientId, e);
@@ -688,22 +637,19 @@ public class ConsultationService {
         }
     }
 
-    /**
-     * PB의 지역별 고객 현황 조회
-     */
     public List<RegionClientStatsDto> getPbRegionClientStats(UUID pbId) {
         log.info("PB 지역별 고객 현황 조회: pbId={}", pbId);
 
         try {
-            // PB가 상담한 모든 고유 고객들을 조회 (UNAVAILABLE 상태 제외)
+
             List<Consultation> consultations = consultationRepository.findDistinctClientsByPbId(pbId,
                     ConsultationStatus.UNAVAILABLE);
 
-            // 지역별로 고객 수 집계
+
             Map<String, RegionClientStatsDto> regionStatsMap = new HashMap<>();
 
             for (Consultation consultation : consultations) {
-                // PB 자기 자신의 스케줄은 제외
+
                 if (consultation.isPbOwnSchedule()) {
                     continue;
                 }
@@ -711,7 +657,7 @@ public class ConsultationService {
                 Member client = consultation.getClient();
                 String region = client.getAddress() != null ? client.getAddress() : "기타 지역";
 
-                // 지역 정보 정규화 (시/구 단위로)
+
                 region = normalizeRegion(region);
 
                 RegionClientStatsDto stats = regionStatsMap.computeIfAbsent(region, k -> RegionClientStatsDto.builder()
@@ -722,7 +668,7 @@ public class ConsultationService {
                         .averageRating(0.0)
                         .build());
 
-                // 고유 고객 수 증가 (같은 고객이 여러 상담을 했을 수 있으므로 Set으로 관리)
+
                 stats.addClient(client.getId());
                 stats.incrementTotalConsultations();
 
@@ -734,7 +680,7 @@ public class ConsultationService {
                 }
             }
 
-            // 고객 수 계산 및 평균 평점 계산
+
             regionStatsMap.values().forEach(RegionClientStatsDto::calculateFinalStats);
 
             return regionStatsMap.values().stream()
@@ -747,37 +693,31 @@ public class ConsultationService {
         }
     }
 
-    /**
-     * 지역 정보 정규화 (시/구 단위로 통합)
-     */
     private String normalizeRegion(String address) {
         if (address == null || address.trim().isEmpty()) {
             return "기타 지역";
         }
 
-        // 서울특별시, 부산광역시 등에서 시/구 추출
+
         String[] parts = address.split(" ");
         if (parts.length >= 2) {
             String city = parts[0];
             String district = parts[1];
 
-            // 특별시, 광역시의 경우 구까지만
+
             if (city.contains("서울") || city.contains("부산") || city.contains("대구") ||
                     city.contains("인천") || city.contains("광주") || city.contains("대전") || city.contains("울산")) {
                 return city + " " + district;
             }
-            // 도의 경우 시까지만
+
             else if (city.contains("도")) {
                 return district;
             }
         }
 
-        return parts[0]; // 첫 번째 부분만 반환
+        return parts[0]; 
     }
 
-    /**
-     * PB의 기존 시간 상태 조회 (불가능 시간 + 고객 예약 시간)
-     */
     public PbTimeStatusDto getPbTimeStatus(UUID pbId, String date) {
         log.info("PB 시간 상태 조회: pbId={}, date={}", pbId, date);
 
@@ -786,7 +726,7 @@ public class ConsultationService {
             LocalDateTime startOfDay = targetDate.atStartOfDay();
             LocalDateTime endOfDay = targetDate.plusDays(1).atStartOfDay();
 
-            // 주말인 경우 빈 상태 반환
+
             if (isWeekend(startOfDay)) {
                 log.info("주말({})이므로 시간 상태를 빈 상태로 반환합니다.", targetDate.getDayOfWeek());
                 return PbTimeStatusDto.builder()
@@ -795,17 +735,17 @@ public class ConsultationService {
                         .build();
             }
 
-            // 해당 날짜의 모든 상담 기록 조회
+
             List<Consultation> allConsultations = consultationRepository
                     .findByPbIdAndScheduledAtBetween(pbId, startOfDay, endOfDay);
 
-            // PB 자신이 등록한 불가능 시간 (client_id == pb_id인 경우 또는 UNAVAILABLE 상태)
+
             List<String> unavailableTimes = allConsultations.stream()
                     .filter(c -> c.isPbOwnSchedule() || c.getStatus() == ConsultationStatus.UNAVAILABLE)
                     .map(c -> c.getScheduledAt().toLocalTime().toString())
                     .collect(Collectors.toList());
 
-            // 실제 고객이 예약한 시간 (client_id != pb_id인 실제 고객 예약)
+
             List<PbTimeStatusDto.ClientBooking> clientBookings = allConsultations.stream()
                     .filter(c -> c.isClientBooking() && c.getStatus() != ConsultationStatus.UNAVAILABLE)
                     .map(c -> PbTimeStatusDto.ClientBooking.builder()
@@ -828,18 +768,15 @@ public class ConsultationService {
         }
     }
 
-    /**
-     * 가능한 상담 시간 조회
-     */
     public List<String> getAvailableTimes(String pbId, String date, Integer durationMinutes) {
         log.info("가능한 상담 시간 조회: pbId={}, date={}, durationMinutes={}", pbId, date, durationMinutes);
 
         try {
-            // getTimeSlotsWithStatus를 사용하여 예약 가능한 시간만 반환
+
             Map<String, Boolean> timeSlotsStatus = getTimeSlotsWithStatus(pbId, date, durationMinutes);
 
             return timeSlotsStatus.entrySet().stream()
-                    .filter(entry -> entry.getValue()) // 예약 가능한 시간만
+                    .filter(entry -> entry.getValue()) 
                     .map(entry -> entry.getKey())
                     .sorted()
                     .collect(Collectors.toList());
@@ -850,9 +787,6 @@ public class ConsultationService {
         }
     }
 
-    /**
-     * 모든 시간 슬롯과 예약 상태 조회 (예약된 시간 포함)
-     */
     public Map<String, Boolean> getTimeSlotsWithStatus(String pbId, String date, Integer durationMinutes) {
         log.info("시간 슬롯 상태 조회: pbId={}, date={}, durationMinutes={}", pbId, date, durationMinutes);
 
@@ -862,39 +796,39 @@ public class ConsultationService {
             LocalDateTime startOfDay = targetDate.atStartOfDay();
             LocalDateTime endOfDay = targetDate.plusDays(1).atStartOfDay();
 
-            // 주말인 경우 빈 맵 반환
+
             if (isWeekend(startOfDay)) {
                 log.info("주말({})이므로 모든 시간 슬롯을 사용 불가로 처리합니다.", targetDate.getDayOfWeek());
                 return new HashMap<>();
             }
 
-            // 해당 날짜에 PB가 등록한 모든 상담 시간 조회 (예약된 것 포함)
+
             List<Consultation> allSlots = consultationRepository
                     .findByPbIdAndScheduledAtBetween(pbUuid, startOfDay, endOfDay);
 
-            // DB에 있는 시간들을 Set으로 변환 (예약된 시간 + 불가능한 시간)
+
             Set<String> unavailableTimes = allSlots.stream()
                     .map(consultation -> consultation.getScheduledAt().toLocalTime().toString())
                     .collect(Collectors.toSet());
 
-            // 전체 시간 범위 생성 (09:00 ~ 18:00, 30분 간격)
-            Map<String, Boolean> timeSlots = new HashMap<>();
-            LocalTime startTime = LocalTime.of(9, 0); // 09:00
-            LocalTime endTime = LocalTime.of(18, 0); // 18:00
 
-            // 기본 상담 시간 (분 단위, 기본값 60분)
+            Map<String, Boolean> timeSlots = new HashMap<>();
+            LocalTime startTime = LocalTime.of(9, 0); 
+            LocalTime endTime = LocalTime.of(18, 0); 
+
+
             int consultationDurationMinutes = (durationMinutes != null && durationMinutes > 0) ? durationMinutes : 60;
 
             LocalTime currentTime = startTime;
             while (!currentTime.isAfter(endTime)) {
                 String timeString = currentTime.toString();
 
-                // 현재 시간부터 상담 시간만큼의 모든 슬롯이 비어있는지 확인
+
                 boolean isAvailable = isTimeSlotAvailable(currentTime, consultationDurationMinutes, unavailableTimes,
                         endTime);
 
                 timeSlots.put(timeString, isAvailable);
-                currentTime = currentTime.plusMinutes(30); // 30분씩 증가
+                currentTime = currentTime.plusMinutes(30); 
             }
 
             return timeSlots;
@@ -905,53 +839,47 @@ public class ConsultationService {
         }
     }
 
-    // Private helper methods
 
-    /**
-     * 특정 시간부터 상담 시간만큼 연속된 슬롯이 모두 비어있는지 확인
-     */
+
     private boolean isTimeSlotAvailable(LocalTime startTime, int durationMinutes, Set<String> unavailableTimes,
             LocalTime businessEndTime) {
         LocalTime currentTime = startTime;
         LocalTime consultationEndTime = startTime.plusMinutes(durationMinutes);
 
-        // 상담 종료 시간이 업무 시간을 초과하는지 확인
+
         if (consultationEndTime.isAfter(businessEndTime)) {
             return false;
         }
 
-        // 상담 시간 동안의 모든 30분 슬롯이 비어있는지 확인
+
         while (currentTime.isBefore(consultationEndTime)) {
             if (unavailableTimes.contains(currentTime.toString())) {
-                return false; // 하나라도 예약되어 있으면 불가능
+                return false; 
             }
             currentTime = currentTime.plusMinutes(30);
         }
 
-        return true; // 모든 슬롯이 비어있으면 예약 가능
+        return true; 
     }
 
-    /**
-     * 주말(토요일, 일요일) 여부 확인
-     */
     private boolean isWeekend(LocalDateTime dateTime) {
         java.time.DayOfWeek dayOfWeek = dateTime.getDayOfWeek();
         return dayOfWeek == java.time.DayOfWeek.SATURDAY || dayOfWeek == java.time.DayOfWeek.SUNDAY;
     }
 
     private String generateMeetingUrl(UUID consultationId) {
-        // 실제로는 화상회의 서비스 (Zoom, Google Meet 등) 연동
-        return "https://meet.hanazoom.com/" + consultationId.toString();
+
+        return "https:
     }
 
     private void updatePbRating(Member pb) {
         Double averageRating = consultationRepository.getAverageRatingByPbId(pb.getId());
         if (averageRating != null) {
-            // 상담이 있는 경우 실제 평균 평점 사용
+
             pb.updatePbRating(averageRating);
             memberRepository.save(pb);
         } else {
-            // 상담이 없는 경우 기본 평점 5.0 유지
+
             pb.updatePbRating(5.0);
             memberRepository.save(pb);
         }
@@ -1019,27 +947,24 @@ public class ConsultationService {
                 .build();
     }
 
-    // WebSocket용 메서드들 추가
 
-    /**
-     * WebSocket 상담 참여 처리
-     */
+
     public ConsultationJoinResponse joinConsultation(UUID consultationId, String userId, String clientId) {
         log.info("WebSocket 상담 참여 처리: consultationId={}, userId={}, clientId={}", consultationId, userId, clientId);
 
         try {
-            // 참여자 정보 생성
+
             Map<String, Object> participant = new HashMap<>();
             participant.put("userId", userId);
             participant.put("clientId", clientId);
             participant.put("role", "participant");
             participant.put("joinedAt", System.currentTimeMillis());
 
-            // 참여자 목록 생성
+
             Map<String, Object> participants = new HashMap<>();
             participants.put(userId, participant);
 
-            // 응답 생성
+
             ConsultationJoinResponse response = new ConsultationJoinResponse();
             response.setSuccess(true);
             response.setConsultationId(consultationId.toString());
@@ -1059,15 +984,12 @@ public class ConsultationService {
         }
     }
 
-    /**
-     * WebSocket 상담 나가기 처리
-     */
     public void leaveConsultation(UUID consultationId, String userId) {
         log.info("WebSocket 상담 나가기 처리: consultationId={}, userId={}", consultationId, userId);
 
         try {
-            // 상담 나가기 로직 구현
-            // 실제로는 데이터베이스에서 참여자 정보를 업데이트하거나 제거
+
+
             log.info("WebSocket 상담 나가기 성공: consultationId={}, userId={}", consultationId, userId);
 
         } catch (Exception e) {

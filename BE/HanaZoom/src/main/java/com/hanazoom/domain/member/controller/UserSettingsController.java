@@ -25,9 +25,6 @@ public class UserSettingsController {
     private final UserSettingsService userSettingsService;
     private final MemberRepository memberRepository;
 
-    /**
-     * Authentication에서 사용자 ID를 가져오는 헬퍼 메서드
-     */
     private UUID getMemberIdFromAuthentication(Authentication authentication) {
         String email = authentication.getName();
         log.info("🔍 Authentication에서 이메일 추출: {}", email);
@@ -39,9 +36,6 @@ public class UserSettingsController {
         return member.getId();
     }
 
-    /**
-     * 사용자 설정 조회
-     */
     @GetMapping
     public ResponseEntity<ApiResponse<UserSettingsDto>> getUserSettings(Authentication authentication) {
         try {
@@ -60,9 +54,6 @@ public class UserSettingsController {
         }
     }
 
-    /**
-     * 사용자 설정 업데이트
-     */
     @PutMapping
     public ResponseEntity<ApiResponse<UserSettingsDto>> updateUserSettings(
             @Valid @RequestBody UpdateUserSettingsRequest request,
@@ -87,9 +78,6 @@ public class UserSettingsController {
         }
     }
 
-    /**
-     * 특정 설정만 업데이트 (테마)
-     */
     @PatchMapping("/theme")
     public ResponseEntity<ApiResponse<UserSettingsDto>> updateTheme(
             @RequestParam String theme,
@@ -119,9 +107,6 @@ public class UserSettingsController {
         }
     }
 
-    /**
-     * 특정 설정만 업데이트 (마우스 커서)
-     */
     @PatchMapping("/cursor")
     public ResponseEntity<ApiResponse<UserSettingsDto>> updateCustomCursor(
             @RequestParam boolean enabled,
@@ -147,9 +132,6 @@ public class UserSettingsController {
         }
     }
 
-    /**
-     * 특정 설정만 업데이트 (이모지 애니메이션)
-     */
     @PatchMapping("/emoji")
     public ResponseEntity<ApiResponse<UserSettingsDto>> updateEmojiAnimation(
             @RequestParam boolean enabled,

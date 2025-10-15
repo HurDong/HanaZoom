@@ -50,13 +50,13 @@ public class DataRetentionPolicy {
     private LocalDateTime updatedAt;
 
     public enum DataType {
-        TICK_DATA("틱 데이터", 30), // 30일 보관
-        ONE_MINUTE("1분봉", 90), // 90일 보관
-        FIVE_MINUTES("5분봉", 180), // 180일 보관
-        FIFTEEN_MINUTES("15분봉", 365), // 1년 보관
-        DAILY("일봉", 2555), // 7년 보관
-        WEEKLY("주봉", 3650), // 10년 보관
-        MONTHLY("월봉", 10950); // 30년 보관
+        TICK_DATA("틱 데이터", 30), 
+        ONE_MINUTE("1분봉", 90), 
+        FIVE_MINUTES("5분봉", 180), 
+        FIFTEEN_MINUTES("15분봉", 365), 
+        DAILY("일봉", 2555), 
+        WEEKLY("주봉", 3650), 
+        MONTHLY("월봉", 10950); 
 
         private final String description;
         private final int defaultRetentionDays;

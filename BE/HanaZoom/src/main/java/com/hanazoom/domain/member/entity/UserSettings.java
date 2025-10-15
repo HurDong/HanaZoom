@@ -32,24 +32,24 @@ public class UserSettings {
     @JoinColumn(name = "member_id", nullable = false, unique = true)
     private Member member;
 
-    // 테마 설정
+
     @Column(name = "theme", nullable = false)
     @Enumerated(EnumType.STRING)
     private ThemeType theme = ThemeType.SYSTEM;
 
-    // 마우스 커서 설정
+
     @Column(name = "custom_cursor_enabled", nullable = false)
     private boolean customCursorEnabled = true;
 
-    // 이모지 애니메이션 설정
+
     @Column(name = "emoji_animation_enabled", nullable = false)
     private boolean emojiAnimationEnabled = true;
 
-    // 알림 설정
+
     @Column(name = "push_notifications_enabled", nullable = false)
     private boolean pushNotificationsEnabled = true;
 
-    // 지도 설정
+
     @Column(name = "default_map_zoom", nullable = false)
     private Integer defaultMapZoom = 8;
 
@@ -58,7 +58,7 @@ public class UserSettings {
     private MapStyleType mapStyle = MapStyleType.STANDARD;
 
 
-    // UI 밀도 설정
+
     @Column(name = "ui_density", nullable = false)
     @Enumerated(EnumType.STRING)
     private UiDensityType uiDensity = UiDensityType.NORMAL;
@@ -111,7 +111,7 @@ public class UserSettings {
         this.uiDensity = density;
     }
 
-    // 열거형 정의
+
     public enum ThemeType {
         LIGHT, DARK, SYSTEM
     }

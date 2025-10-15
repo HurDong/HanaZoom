@@ -18,20 +18,20 @@ public class PopularityDetailsResponse {
     private String symbol;
     private LocalDate date;
 
-    // 최종 점수 및 구성요소 점수(0~100 스케일)
-    private BigDecimal score;            // 0~100 스케일
-    private BigDecimal tradeTrend;       // 0~100 스케일
-    private BigDecimal community;        // 0~100 스케일
-    private BigDecimal momentum;         // 0~100 스케일
-    private BigDecimal newsImpact;       // 0~100 스케일 (현재 미구현, 0 고정)
 
-    // 구성요소 가중치(합산 사용)
-    private BigDecimal weightTradeTrend; // 예: 0.45
-    private BigDecimal weightCommunity;  // 예: 0.35
-    private BigDecimal weightMomentum;   // 예: 0.20
-    private BigDecimal weightNews;       // 예: 0.10 (미구현 시 0 또는 소량)
+    private BigDecimal score;            
+    private BigDecimal tradeTrend;       
+    private BigDecimal community;        
+    private BigDecimal momentum;         
+    private BigDecimal newsImpact;       
 
-    // 커뮤니티 원시 지표(전일)
+
+    private BigDecimal weightTradeTrend; 
+    private BigDecimal weightCommunity;  
+    private BigDecimal weightMomentum;   
+    private BigDecimal weightNews;       
+
+
     private int postCount;
     private int commentCount;
     private int voteCount;

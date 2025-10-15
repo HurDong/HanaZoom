@@ -12,10 +12,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 한국은행 ECOS API 컨트롤러 (디버깅용)
- * 실제 경제지표 데이터를 제공하는 REST API 엔드포인트
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/ecos")
@@ -24,10 +20,6 @@ public class EcosController {
 
     private final EcosApiService ecosApiService;
 
-    /**
-     * 금주 금융 캘린더 조회
-     * GET /api/v1/ecos/weekly-schedule
-     */
     @GetMapping("/weekly-schedule")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getWeeklyFinancialCalendar() {
         try {

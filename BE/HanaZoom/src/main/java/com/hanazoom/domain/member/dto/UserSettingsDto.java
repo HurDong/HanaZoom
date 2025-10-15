@@ -18,20 +18,20 @@ public class UserSettingsDto {
     private UUID id;
     private UUID memberId;
     
-    // 테마 설정
+
     private UserSettings.ThemeType theme;
     private boolean customCursorEnabled;
     private boolean emojiAnimationEnabled;
     
-    // 알림 설정
+
     private boolean pushNotificationsEnabled;
     
-    // 지도 설정
+
     private Integer defaultMapZoom;
     private UserSettings.MapStyleType mapStyle;
     
     
-    // UI 밀도 설정
+
     private UserSettings.UiDensityType uiDensity;
     
     private LocalDateTime createdAt;

@@ -10,21 +10,6 @@ import org.springframework.stereotype.Component;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * 종목 로고 업데이트를 위한 CommandLineRunner
- * 
- * 사용법:
- * 1. 전체 종목 로고 업데이트: --stock-logo-update=all
- * 2. 로고가 없는 종목만 업데이트: --stock-logo-update=missing
- * 3. 특정 종목만 업데이트: --stock-logo-update=symbols
- * --stock-symbols=005930,000660,035420
- * 
- * 실행 예시:
- * java -jar hanazoom.jar --stock-logo-update=all
- * java -jar hanazoom.jar --stock-logo-update=missing
- * java -jar hanazoom.jar --stock-logo-update=symbols
- * --stock-symbols=005930,000660,035420
- */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -80,7 +65,6 @@ public class StockLogoUpdaterRunner implements CommandLineRunner {
             log.error("로고 업데이트 중 오류 발생", e);
         }
 
-        // 스크립트 실행 후 애플리케이션 종료
         System.exit(0);
     }
 

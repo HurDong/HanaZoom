@@ -18,7 +18,7 @@ public class TestNotificationController {
 
     private final NotificationService notificationService;
 
-    // 간단한 테스트용 알림 생성
+
     @PostMapping("/notification")
     public ResponseEntity<Map<String, Object>> createTestNotification() {
         try {
@@ -26,7 +26,7 @@ public class TestNotificationController {
 
             UUID testMemberId = UUID.fromString("e2fb8dd0-70e7-4549-9bab-eeafcbe70f56");
 
-            // 테스트용 주식 가격 변동 알림 생성
+
             notificationService.createPriceChangeNotification(
                     testMemberId,
                     "005930",
@@ -54,7 +54,7 @@ public class TestNotificationController {
         }
     }
 
-    // 간단한 상태 확인
+
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> healthCheck() {
         Map<String, Object> response = new HashMap<>();

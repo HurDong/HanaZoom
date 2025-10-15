@@ -7,10 +7,6 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
 
-/**
- * 비동기 처리를 위한 설정
- * Elasticsearch 동기화 등에 사용
- */
 @Configuration
 @EnableAsync
 public class AsyncConfig {

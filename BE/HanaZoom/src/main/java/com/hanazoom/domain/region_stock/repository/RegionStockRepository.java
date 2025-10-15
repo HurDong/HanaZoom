@@ -25,22 +25,22 @@ public interface RegionStockRepository extends JpaRepository<RegionStock, Long> 
 
         Optional<RegionStock> findByRegionAndStock(Region region, Stock stock);
 
-        // 특정 지역의 모든 RegionStock 조회
+
         List<RegionStock> findByRegion_Id(Long regionId);
 
-        // 여러 지역의 모든 RegionStock 조회 (배치 처리용)
+
         List<RegionStock> findByRegion_IdIn(List<Long> regionIds);
 
-        // 여러 지역의 특정 날짜 데이터 조회
+
         List<RegionStock> findByRegion_IdInAndDataDate(List<Long> regionIds, LocalDate date);
 
-        // 특정 지역의 특정 날짜 데이터 조회
+
         List<RegionStock> findByRegion_IdAndDataDate(Long regionId, LocalDate date);
 
-        // 특정 지역-주식-날짜로 단건 조회 (집계시 중복 방지용)
+
         Optional<RegionStock> findByRegion_IdAndStock_IdAndDataDate(Long regionId, Long stockId, LocalDate date);
 
-        // 특정 지역의 특정 날짜 데이터 중 인기도 상위 5개 조회
+
         @Query("SELECT rs FROM RegionStock rs " +
                         "WHERE rs.region.id = :regionId " +
                         "AND rs.dataDate = :date " +
@@ -50,7 +50,7 @@ public interface RegionStockRepository extends JpaRepository<RegionStock, Long> 
                         @Param("date") LocalDate date,
                         Pageable pageable);
 
-        // 특정 지역의 최신 날짜 데이터 중 인기도 상위 N개 조회
+
         @Query("SELECT rs FROM RegionStock rs " +
                         "WHERE rs.region.id = :regionId " +
                         "AND rs.dataDate = (SELECT MAX(rs2.dataDate) FROM RegionStock rs2 WHERE rs2.region.id = :regionId) "
@@ -60,16 +60,16 @@ public interface RegionStockRepository extends JpaRepository<RegionStock, Long> 
                         @Param("regionId") Long regionId,
                         Pageable pageable);
 
-        // 특정 지역의 최신 데이터 날짜 조회
+
         @Query("SELECT MAX(rs.dataDate) FROM RegionStock rs WHERE rs.region.id = :regionId")
         LocalDate findLatestDataDateByRegionId(@Param("regionId") Long regionId);
 
-        // 특정 지역과 날짜 기준으로 기존 데이터 삭제 (상향 집계 갱신용)
+
         @Modifying
         @Query("DELETE FROM RegionStock rs WHERE rs.region.id = :regionId AND rs.dataDate = :date")
         void deleteByRegionIdAndDataDate(@Param("regionId") Long regionId, @Param("date") LocalDate date);
 
-        // 특정 지역의 특정 날짜 통계 집계
+
         @Query("SELECT COALESCE(SUM(rs.postCount), 0) as postCount, " +
                         "COALESCE(SUM(rs.commentCount), 0) as commentCount, " +
                         "COALESCE(SUM(rs.viewCount), 0) as viewCount " +
@@ -88,7 +88,7 @@ public interface RegionStockRepository extends JpaRepository<RegionStock, Long> 
                 int getViewCount();
         }
 
-        // 지역별 포트폴리오 분석을 위한 집계 쿼리
+
         @Query("SELECT " +
                 "COUNT(rs) as stockCount, " +
                 "AVG(rs.popularityScore) as avgPopularityScore, " +
@@ -104,7 +104,7 @@ public interface RegionStockRepository extends JpaRepository<RegionStock, Long> 
                 Double getAvgTrendScore();
         }
 
-        // 지역별 인기 주식 TOP 5 조회 (포트폴리오 분석용)
+
         @Query("SELECT rs FROM RegionStock rs " +
                 "JOIN FETCH rs.stock s " +
                 "WHERE rs.region.id = :regionId " +
@@ -112,7 +112,7 @@ public interface RegionStockRepository extends JpaRepository<RegionStock, Long> 
                 "ORDER BY rs.popularityScore DESC")
         List<RegionStock> findTopPopularStocksByRegionId(@Param("regionId") Long regionId, Pageable pageable);
 
-        // 전체 기간 누적 인기도 기반 TOP N (집계)
+
         @Query("SELECT rs.stock as stock, SUM(rs.popularityScore) as totalPopularity " +
                 "FROM RegionStock rs " +
                 "WHERE rs.region.id = :regionId " +
@@ -127,7 +127,7 @@ public interface RegionStockRepository extends JpaRepository<RegionStock, Long> 
                 java.math.BigDecimal getTotalPopularity();
         }
 
-        // 특정 지역-주식-날짜로 단건 조회 (인기도 상세 조회용)
+
         @Query("SELECT rs FROM RegionStock rs " +
                 "WHERE rs.region.id = :regionId " +
                 "AND rs.stock.id = :stockId " +
@@ -137,7 +137,7 @@ public interface RegionStockRepository extends JpaRepository<RegionStock, Long> 
                 @Param("stockId") Long stockId,
                 @Param("date") LocalDate date);
 
-        // 특정 지역-주식의 모든 날짜 데이터 조회 (인기도 상세 조회용)
+
         @Query("SELECT rs FROM RegionStock rs " +
                 "WHERE rs.region.id = :regionId " +
                 "AND rs.stock.id = :stockId " +

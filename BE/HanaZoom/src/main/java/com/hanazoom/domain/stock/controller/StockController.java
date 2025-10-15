@@ -59,21 +59,18 @@ public class StockController {
         return ResponseEntity.ok(ApiResponse.success(tickers));
     }
 
-    /**
-     * Elasticsearch 기반 주식 검색 (오타 허용 + 형태소 분석)
-     */
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<List<StockSearchResult>>> searchStocks(@RequestParam String query) {
         try {
             log.info("🔍 주식 검색 요청: {}", query);
             List<StockSearchResult> results = stockSearchService.searchStocks(query);
 
-            // 검색 결과가 없으면 fallback으로 MySQL 검색
+
             if (results.isEmpty()) {
                 log.info("⚠️ Elasticsearch 결과 없음, MySQL fallback 사용");
                 List<StockTickerDto> mysqlResults = stockService.searchStocks(query);
 
-                // StockTickerDto를 StockSearchResult로 변환
+
                 results = mysqlResults.stream()
                         .map(this::convertToSearchResult)
                         .collect(java.util.stream.Collectors.toList());
@@ -82,7 +79,7 @@ public class StockController {
             return ResponseEntity.ok(ApiResponse.success(results));
         } catch (Exception e) {
             log.error("❌ 주식 검색 실패", e);
-            // 에러 시 MySQL fallback
+
             List<StockTickerDto> fallbackResults = stockService.searchStocks(query);
             List<StockSearchResult> results = fallbackResults.stream()
                     .map(this::convertToSearchResult)
@@ -91,9 +88,6 @@ public class StockController {
         }
     }
 
-    /**
-     * 자동완성 제안
-     */
     @GetMapping("/suggest")
     public ResponseEntity<ApiResponse<List<String>>> suggestStocks(@RequestParam String prefix) {
         try {
@@ -105,9 +99,6 @@ public class StockController {
         }
     }
 
-    /**
-     * 섹터별 검색
-     */
     @GetMapping("/search/sector")
     public ResponseEntity<ApiResponse<List<StockSearchResult>>> searchByKeywordAndSector(
             @RequestParam String keyword,
@@ -121,9 +112,6 @@ public class StockController {
         }
     }
 
-    /**
-     * Elasticsearch 수동 동기화 (관리자용)
-     */
     @PostMapping("/sync")
     public ResponseEntity<ApiResponse<Void>> syncToElasticsearch() {
         try {
@@ -136,9 +124,6 @@ public class StockController {
         }
     }
 
-    /**
-     * StockTickerDto를 StockSearchResult로 변환
-     */
     private StockSearchResult convertToSearchResult(StockTickerDto dto) {
         StockSearchResult result = StockSearchResult.builder()
                 .symbol(dto.getSymbol())
@@ -154,9 +139,6 @@ public class StockController {
         return result;
     }
 
-    /**
-     * 모든 주식 종목을 페이지네이션으로 조회
-     */
     @GetMapping("/list")
     public ResponseEntity<ApiResponse<Page<StockTickerDto>>> getAllStocks(
             @RequestParam(defaultValue = "0") int page,
@@ -167,7 +149,7 @@ public class StockController {
         try {
             log.info("getAllStocks API 호출 - page: {}, size: {}, sortBy: {}, sortDir: {}", page, size, sortBy, sortDir);
 
-            // 디버깅: 데이터베이스 상태 확인
+
             if (stockService instanceof com.hanazoom.domain.stock.service.StockServiceImpl) {
                 ((com.hanazoom.domain.stock.service.StockServiceImpl) stockService).debugDatabaseStatus();
             }
@@ -189,17 +171,12 @@ public class StockController {
         }
     }
 
-    /**
-     * KIS API를 통한 실시간 주식 현재가 조회
-     * 
-     * @param stockCode 종목코드 (6자리, 예: 005930)
-     */
     @GetMapping("/realtime/{stockCode}")
     public ResponseEntity<ApiResponse<StockPriceResponse>> getRealTimePrice(@PathVariable String stockCode) {
         log.info("Real-time price request for stock code: {}", stockCode);
 
         try {
-            // 종목코드 유효성 검사
+
             if (stockCode == null || stockCode.length() != 6 || !stockCode.matches("\\d+")) {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("유효하지 않은 종목코드입니다. 6자리 숫자로 입력해주세요."));
@@ -215,17 +192,12 @@ public class StockController {
         }
     }
 
-    /**
-     * KIS API를 통한 종목 기본정보 조회
-     * 
-     * @param stockCode 종목코드 (6자리, 예: 005930)
-     */
     @GetMapping("/info/{stockCode}")
     public ResponseEntity<ApiResponse<StockBasicInfoResponse>> getStockBasicInfo(@PathVariable String stockCode) {
         log.info("Stock basic info request for stock code: {}", stockCode);
 
         try {
-            // 종목코드 유효성 검사
+
             if (stockCode == null || stockCode.length() != 6 || !stockCode.matches("\\d+")) {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("유효하지 않은 종목코드입니다. 6자리 숫자로 입력해주세요."));
@@ -241,17 +213,12 @@ public class StockController {
         }
     }
 
-    /**
-     * KIS API를 통한 호가창 정보 조회
-     * 
-     * @param stockCode 종목코드 (6자리, 예: 005930)
-     */
     @GetMapping("/orderbook/{stockCode}")
     public ResponseEntity<ApiResponse<OrderBookResponse>> getOrderBook(@PathVariable String stockCode) {
         log.info("Order book request for stock code: {}", stockCode);
 
         try {
-            // 종목코드 유효성 검사
+
             if (stockCode == null || stockCode.length() != 6 || !stockCode.matches("\\d+")) {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("유효하지 않은 종목코드입니다. 6자리 숫자로 입력해주세요."));
@@ -267,17 +234,14 @@ public class StockController {
         }
     }
 
-    // ===== Kafka 기반 실시간 데이터 API =====
 
-    /**
-     * Kafka에서 실시간 주식 데이터 조회 (WebSocket 대신)
-     */
+
     @GetMapping("/kafka/realtime/{stockCode}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getKafkaRealTimeData(@PathVariable String stockCode) {
         log.info("Kafka 실시간 데이터 요청: {}", stockCode);
 
         try {
-            // Kafka가 활성화되지 않은 경우
+
             if (kafkaStockConsumer == null) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("stockCode", stockCode);
@@ -306,15 +270,12 @@ public class StockController {
         }
     }
 
-    /**
-     * 모든 Kafka 실시간 데이터 조회
-     */
     @GetMapping("/kafka/realtime/all")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getAllKafkaRealTimeData() {
         log.info("모든 Kafka 실시간 데이터 요청");
 
         try {
-            // Kafka가 활성화되지 않은 경우
+
             if (kafkaStockConsumer == null) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("message", "Kafka가 비활성화되어 있습니다.");
@@ -337,15 +298,12 @@ public class StockController {
         }
     }
 
-    /**
-     * Kafka Consumer 상태 조회
-     */
     @GetMapping("/kafka/status")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getKafkaConsumerStatus() {
         log.info("Kafka Consumer 상태 조회");
 
         try {
-            // Kafka가 활성화되지 않은 경우
+
             if (kafkaStockConsumer == null) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("message", "Kafka가 비활성화되어 있습니다.");
@@ -364,9 +322,6 @@ public class StockController {
         }
     }
 
-    /**
-     * Kafka 성능 비교 테스트
-     */
     @PostMapping("/kafka/test-comparison")
     public ResponseEntity<ApiResponse<Map<String, Object>>> testComparison() {
         log.info("Kafka vs WebSocket 성능 비교 테스트 시작");
@@ -374,7 +329,7 @@ public class StockController {
         try {
             Map<String, Object> result = new java.util.HashMap<>();
 
-            // Kafka가 활성화되지 않은 경우
+
             if (kafkaStockConsumer == null || kafkaStockService == null) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("message", "Kafka가 비활성화되어 테스트를 진행할 수 없습니다.");
@@ -383,15 +338,15 @@ public class StockController {
                 return ResponseEntity.ok().body(ApiResponse.<Map<String, Object>>success(response));
             }
 
-            // Kafka 테스트
+
             long kafkaStartTime = System.currentTimeMillis();
             Map<String, Map<String, Object>> kafkaData = kafkaStockConsumer.getAllRealTimeStockData();
             long kafkaEndTime = System.currentTimeMillis();
 
-            // WebSocket 시뮬레이션 (실제 WebSocket 서비스 호출)
+
             long websocketStartTime = System.currentTimeMillis();
-            // 실제로는 WebSocket 서비스 호출
-            // List<StockTickerDto> websocketData = stockService.getStockTickers();
+
+
             long websocketEndTime = System.currentTimeMillis();
 
             result.put("kafkaDataCount", kafkaData.size());
@@ -400,7 +355,7 @@ public class StockController {
             result.put("kafkaCachedStocks", kafkaStockConsumer.getCachedStockCount());
             result.put("timestamp", java.time.LocalDateTime.now());
 
-            // 성능 메트릭 전송
+
             kafkaStockService.sendComparisonMetrics(
                 "kafka",
                 "getAllData",

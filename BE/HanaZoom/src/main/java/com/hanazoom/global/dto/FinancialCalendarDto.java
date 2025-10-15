@@ -5,9 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 금융 캘린더 응답 DTO
- */
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
