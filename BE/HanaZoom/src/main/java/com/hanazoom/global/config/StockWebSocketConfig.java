@@ -14,12 +14,16 @@ public class StockWebSocketConfig implements WebSocketConfigurer {
 
     private final StockWebSocketHandler stockWebSocketHandler;
 
+    @org.springframework.beans.factory.annotation.Value("${cors.allowed-origins:http://localhost:3000,http://localhost:3001,https://*.trycloudflare.com,https://*.vercel.app}")
+    private String allowedOrigins;
+
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-
-
-
+        // 주식 웹소켓 핸들러 등록 (상담과 완전 분리)
+        // 상담용 WebSocket: /ws/consultation/{clientId} (STOMP 사용)
+        // 주식용 WebSocket: /ws/stocks (일반 WebSocket 사용)
+        String[] origins = allowedOrigins.split(",");
         registry.addHandler(stockWebSocketHandler, "/ws/stocks")
-        .setAllowedOriginPatterns("http://localhost:3000", "http://localhost:3001");
+                .setAllowedOriginPatterns(origins);
     }
 }

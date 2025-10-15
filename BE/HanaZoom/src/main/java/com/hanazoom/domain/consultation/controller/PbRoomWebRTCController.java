@@ -70,6 +70,114 @@ public class PbRoomWebRTCController {
         }
     }
 
+    /**
+     * PB의 내 방 조회
+     */
+    @GetMapping("/my-room")
+    public ResponseEntity<?> getMyRoom() {
+        try {
+            UUID pbId = getCurrentUserIdFromSecurityContext();
+            log.info("PB {} 내 방 조회 요청", pbId);
+
+            PbRoom room = pbRoomService.findActiveRoomByPbId(pbId);
+            
+            if (room == null) {
+                return ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "data", null,
+                        "message", "활성화된 방이 없습니다"));
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", Map.of(
+                            "id", room.getId(),
+                            "roomName", room.getRoomName(),
+                            "isActive", room.isActive(),
+                            "currentParticipants", room.getCurrentParticipants(),
+                            "createdAt", room.getCreatedAt(),
+                            "lastActivityAt", room.getLastActivityAt()
+                    ),
+                    "message", "내 방 정보를 조회했습니다"));
+
+        } catch (Exception e) {
+            log.error("내 방 조회 실패", e);
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 사용자가 초대 코드로 방 참여
+     */
+    @PostMapping("/user/join")
+    public ResponseEntity<?> joinRoomByInviteCode(@RequestBody Map<String, Object> requestBody) {
+        try {
+            String inviteCode = (String) requestBody.get("inviteCode");
+            String roomPassword = (String) requestBody.get("roomPassword");
+            
+            UUID userId = getCurrentUserIdFromSecurityContext();
+            log.info("사용자 {} 초대 코드 {}로 방 참여 요청", userId, inviteCode);
+
+            // 초대 코드로 방 찾기 (실제로는 초대 코드를 UUID로 사용)
+            UUID roomId;
+            try {
+                roomId = UUID.fromString(inviteCode);
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "잘못된 초대 코드입니다"));
+            }
+
+            PbRoom room = pbRoomService.findById(roomId);
+            if (room == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "존재하지 않는 방입니다"));
+            }
+
+            if (!room.isActive()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "비활성화된 방입니다"));
+            }
+
+            if (!room.canJoin()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "방이 가득 찼습니다"));
+            }
+
+            // 참여자 추가
+            Member user = memberRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalStateException("사용자 정보를 찾을 수 없습니다"));
+
+            PbRoomParticipant participant = pbRoomService.addParticipant(room, user, ParticipantRole.GUEST);
+            room.addParticipant();
+
+            log.info("사용자 {} 방 {} 참여 성공", userId, roomId);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", Map.of(
+                            "roomId", roomId,
+                            "participantId", participant.getId(),
+                            "roomName", room.getRoomName()
+                    ),
+                    "message", "방 참여 성공"));
+
+        } catch (Exception e) {
+            log.error("방 참여 실패", e);
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 고객이 초대 링크로 방에 참여 (로그인 없이도 가능)
+     */
     @PostMapping("/{roomId}/join")
     public ResponseEntity<?> joinRoom(@PathVariable UUID roomId, @RequestBody(required = false) Map<String, Object> requestBody) {
         try {

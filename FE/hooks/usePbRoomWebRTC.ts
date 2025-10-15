@@ -39,7 +39,9 @@ export const usePbRoomWebRTC = ({
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [mediaMode, setMediaMode] = useState<"video" | "audio" | "text">("video");
+  const [mediaMode, setMediaMode] = useState<"video" | "audio" | "text">(
+    "video"
+  );
 
   const peerConnectionRef = useRef<ExtendedRTCPeerConnection | null>(null);
   const stompClientRef = useRef<Client | null>(null);
@@ -85,9 +87,14 @@ export const usePbRoomWebRTC = ({
     try {
       console.log("🔌 WebSocket 연결 시도...");
 
+      const apiBaseUrl =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const tokenParam = accessToken ? `?token=${encodeURIComponent(accessToken)}` : "";
+      const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/pb-room" + tokenParam;
+
       // 백엔드 서버 상태 확인
       try {
-        const healthCheck = await fetch("http://localhost:8080/api/health");
+        const healthCheck = await fetch(`${apiBaseUrl}/api/health`);
         if (healthCheck.ok) {
           console.log("✅ 백엔드 서버 연결 성공:", healthCheck.status);
         } else {
@@ -101,13 +108,13 @@ export const usePbRoomWebRTC = ({
         return;
       }
 
-      console.log("🔗 WebSocket URL:", "ws://localhost:8080/ws/pb-room");
+      console.log("🔗 WebSocket URL:", wsUrl);
       console.log("🔑 토큰 상태:", accessToken ? "있음" : "없음");
       console.log("🔍 토큰 값:", accessToken);
       console.log("🔍 토큰 타입:", typeof accessToken);
 
       const client = new Client({
-        brokerURL: "ws://localhost:8080/ws/pb-room",
+        brokerURL: wsUrl,
         connectHeaders: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -216,15 +223,21 @@ export const usePbRoomWebRTC = ({
 
       // 먼저 사용 가능한 미디어 장치 확인
       const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter((device) => device.kind === "videoinput");
-      const audioDevices = devices.filter((device) => device.kind === "audioinput");
+      const videoDevices = devices.filter(
+        (device) => device.kind === "videoinput"
+      );
+      const audioDevices = devices.filter(
+        (device) => device.kind === "audioinput"
+      );
 
       console.log("사용 가능한 비디오 장치:", videoDevices.length);
       console.log("사용 가능한 오디오 장치:", audioDevices.length);
 
       // 장치가 없는 경우 텍스트 모드로 진행
       if (videoDevices.length === 0 && audioDevices.length === 0) {
-        console.warn("⚠️ 미디어 장치를 찾을 수 없습니다. 텍스트 채팅 모드로 진행합니다.");
+        console.warn(
+          "⚠️ 미디어 장치를 찾을 수 없습니다. 텍스트 채팅 모드로 진행합니다."
+        );
         setMediaMode("text");
         return;
       }
@@ -339,7 +352,7 @@ export const usePbRoomWebRTC = ({
           const currentUserId = getCurrentUserId?.();
           console.log("📤 고객 입장 알림 전송:", {
             userType: "guest",
-            userId: currentUserId || "unknown-guest"
+            userId: currentUserId || "unknown-guest",
           });
           stompClientRef.current.publish({
             destination: `/app/webrtc/webrtc/${roomId}/user-joined`,
@@ -352,7 +365,9 @@ export const usePbRoomWebRTC = ({
       }
     } catch (error) {
       console.error("❌ WebRTC 연결 실패:", error);
-      console.log("장치가 없거나 권한이 거부되었습니다. 텍스트 채팅으로 상담을 진행할 수 있습니다.");
+      console.log(
+        "장치가 없거나 권한이 거부되었습니다. 텍스트 채팅으로 상담을 진행할 수 있습니다."
+      );
       setMediaMode("text");
       // 에러를 던지지 않고 텍스트 모드로 진행
     }
