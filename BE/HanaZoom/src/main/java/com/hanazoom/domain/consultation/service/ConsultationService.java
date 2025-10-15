@@ -868,8 +868,7 @@ public class ConsultationService {
     }
 
     private String generateMeetingUrl(UUID consultationId) {
-
-        return "https:
+        return "https://meet.hanazoom.com/" + consultationId.toString();
     }
 
     private void updatePbRating(Member pb) {
