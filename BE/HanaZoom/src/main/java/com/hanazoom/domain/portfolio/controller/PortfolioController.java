@@ -30,7 +30,7 @@ public class PortfolioController {
     private final VirtualTradingService virtualTradingService;
     private final ConsultationRepository consultationRepository;
 
-    // 포트폴리오 요약 정보 조회
+
     @GetMapping("/summary")
     public ResponseEntity<PortfolioSummaryResponse> getPortfolioSummary(
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
@@ -51,7 +51,7 @@ public class PortfolioController {
         }
     }
 
-    // 포트폴리오 보유 주식 목록 조회
+
     @GetMapping("/stocks")
     public ResponseEntity<List<PortfolioStockResponse>> getPortfolioStocks(
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
@@ -69,7 +69,7 @@ public class PortfolioController {
         }
     }
 
-    // PB가 고객의 포트폴리오 요약 조회
+
     @GetMapping("/client/{clientId}/summary")
     public ResponseEntity<PortfolioSummaryResponse> getClientPortfolioSummary(
             @PathVariable String clientId,
@@ -78,13 +78,13 @@ public class PortfolioController {
         try {
             log.info("PB가 고객 포트폴리오 요약 조회: PB={}, 고객={}", pbMember.getEmail(), clientId);
 
-            // PB 권한 확인
+
             if (!pbMember.isActivePb()) {
                 log.warn("PB 권한 없음: 회원={}", pbMember.getEmail());
                 return ResponseEntity.status(403).build();
             }
 
-            // 상담 관계 확인
+
             if (!hasConsultationRelationship(pbMember.getId(), UUID.fromString(clientId))) {
                 log.warn("상담 관계 없음: PB={}, 고객={}", pbMember.getEmail(), clientId);
                 return ResponseEntity.status(403).build();
@@ -103,7 +103,7 @@ public class PortfolioController {
         }
     }
 
-    // PB가 고객의 포트폴리오 보유 주식 목록 조회
+
     @GetMapping("/client/{clientId}/stocks")
     public ResponseEntity<List<PortfolioStockResponse>> getClientPortfolioStocks(
             @PathVariable String clientId,
@@ -112,13 +112,13 @@ public class PortfolioController {
         try {
             log.info("PB가 고객 포트폴리오 보유 주식 조회: PB={}, 고객={}", pbMember.getEmail(), clientId);
 
-            // PB 권한 확인
+
             if (!pbMember.isActivePb()) {
                 log.warn("PB 권한 없음: 회원={}", pbMember.getEmail());
                 return ResponseEntity.status(403).build();
             }
 
-            // 상담 관계 확인
+
             if (!hasConsultationRelationship(pbMember.getId(), UUID.fromString(clientId))) {
                 log.warn("상담 관계 없음: PB={}, 고객={}", pbMember.getEmail(), clientId);
                 return ResponseEntity.status(403).build();
@@ -134,7 +134,7 @@ public class PortfolioController {
         }
     }
 
-    // PB가 고객의 거래 내역 조회
+
     @GetMapping("/client/{clientId}/trades")
     public ResponseEntity<List<TradeHistory>> getClientTradeHistory(
             @PathVariable String clientId,
@@ -143,13 +143,13 @@ public class PortfolioController {
         try {
             log.info("PB가 고객 거래 내역 조회: PB={}, 고객={}", pbMember.getEmail(), clientId);
 
-            // PB 권한 확인
+
             if (!pbMember.isActivePb()) {
                 log.warn("PB 권한 없음: 회원={}", pbMember.getEmail());
                 return ResponseEntity.status(403).build();
             }
 
-            // 상담 관계 확인
+
             if (!hasConsultationRelationship(pbMember.getId(), UUID.fromString(clientId))) {
                 log.warn("상담 관계 없음: PB={}, 고객={}", pbMember.getEmail(), clientId);
                 return ResponseEntity.status(403).build();
@@ -165,12 +165,9 @@ public class PortfolioController {
         }
     }
 
-    /**
-     * PB와 고객 간의 상담 관계 확인
-     */
     private boolean hasConsultationRelationship(UUID pbId, UUID clientId) {
         try {
-            // 최근 30일 내에 승인된 상담이 있는지 확인
+
             List<com.hanazoom.domain.consultation.entity.Consultation> consultations = 
                 consultationRepository.findByPbIdAndClientIdAndStatusIn(
                     pbId, 
@@ -185,7 +182,7 @@ public class PortfolioController {
         }
     }
 
-    // 주식 매수
+
     @PostMapping("/buy")
     public ResponseEntity<TradeResult> buyStock(
             @RequestBody BuyStockRequest request,
@@ -217,7 +214,7 @@ public class PortfolioController {
         }
     }
 
-    // 주식 매도
+
     @PostMapping("/sell")
     public ResponseEntity<TradeResult> sellStock(
             @RequestBody SellStockRequest request,
@@ -249,13 +246,13 @@ public class PortfolioController {
         }
     }
 
-    // 매수 요청 DTO
+
     public static class BuyStockRequest {
         private String stockSymbol;
         private int quantity;
         private BigDecimal price;
 
-        // Getters and Setters
+
         public String getStockSymbol() {
             return stockSymbol;
         }
@@ -281,13 +278,13 @@ public class PortfolioController {
         }
     }
 
-    // 매도 요청 DTO
+
     public static class SellStockRequest {
         private String stockSymbol;
         private int quantity;
         private BigDecimal price;
 
-        // Getters and Setters
+
         public String getStockSymbol() {
             return stockSymbol;
         }
@@ -313,7 +310,7 @@ public class PortfolioController {
         }
     }
 
-    // 거래 내역 조회
+
     @GetMapping("/trades")
     public ResponseEntity<List<TradeHistory>> getTradeHistory(
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
@@ -328,13 +325,13 @@ public class PortfolioController {
         }
     }
 
-    // 거래 결과 조회
+
     @GetMapping("/trade-result")
     public ResponseEntity<TradeResult> getTradeResult(
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
         try {
             log.info("거래 결과 조회 요청: 회원={}", member.getEmail());
-            // 임시로 빈 결과 반환 (실제 구현 필요)
+
             TradeResult result = TradeResult.success("거래 결과 조회 성공");
             return ResponseEntity.ok(result);
         } catch (Exception e) {
@@ -343,13 +340,13 @@ public class PortfolioController {
         }
     }
 
-    // 정산 일정 조회
+
     @GetMapping("/settlement-schedule")
     public ResponseEntity<Object> getSettlementSchedule(
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
         try {
             log.info("정산 일정 조회 요청: 회원={}", member.getEmail());
-            // 임시로 빈 결과 반환 (실제 구현 필요)
+
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             log.error("정산 일정 조회 실패: 회원={}", member.getId(), e);
@@ -357,7 +354,7 @@ public class PortfolioController {
         }
     }
 
-    // 계좌 정보 조회
+
     @GetMapping("/account")
     public ResponseEntity<Account> getAccountInfo(
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
@@ -371,7 +368,7 @@ public class PortfolioController {
         }
     }
 
-    // 계좌 잔고 조회
+
     @GetMapping("/account/balance")
     public ResponseEntity<AccountBalance> getAccountBalance(
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
@@ -386,14 +383,14 @@ public class PortfolioController {
         }
     }
 
-    // 특정 주식 조회
+
     @GetMapping("/stock/{stockCode}")
     public ResponseEntity<Object> getStockInfo(
             @PathVariable String stockCode,
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
         try {
             log.info("주식 정보 조회 요청: 종목={}, 회원={}", stockCode, member.getEmail());
-            // 임시로 빈 결과 반환 (실제 구현 필요)
+
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             log.error("주식 정보 조회 실패: 종목={}, 회원={}", stockCode, member.getId(), e);
@@ -401,14 +398,14 @@ public class PortfolioController {
         }
     }
 
-    // 주식 검색
+
     @GetMapping("/search-stocks")
     public ResponseEntity<List<Object>> searchStocks(
             @RequestParam String keyword,
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
         try {
             log.info("주식 검색 요청: 키워드={}, 회원={}", keyword, member.getEmail());
-            // 임시로 빈 결과 반환 (실제 구현 필요)
+
             return ResponseEntity.ok(List.of());
         } catch (Exception e) {
             log.error("주식 검색 실패: 키워드={}, 회원={}", keyword, member.getId(), e);

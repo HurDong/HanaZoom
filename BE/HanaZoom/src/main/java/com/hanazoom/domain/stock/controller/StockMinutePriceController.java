@@ -19,9 +19,6 @@ public class StockMinutePriceController {
 
     private final StockMinutePriceService stockMinutePriceService;
 
-    /**
-     * 특정 종목의 특정 분봉 간격 데이터 조회 (최근 N개)
-     */
     @GetMapping("/{stockSymbol}/{minuteInterval}")
     public ResponseEntity<List<StockMinutePrice>> getRecentMinutePrices(
             @PathVariable String stockSymbol,
@@ -43,9 +40,6 @@ public class StockMinutePriceController {
         }
     }
 
-    /**
-     * 특정 종목의 특정 분봉 간격 데이터 조회 (시간 범위 지정)
-     */
     @GetMapping("/{stockSymbol}/{minuteInterval}/range")
     public ResponseEntity<List<StockMinutePrice>> getMinutePricesByTimeRange(
             @PathVariable String stockSymbol,
@@ -69,9 +63,6 @@ public class StockMinutePriceController {
         }
     }
 
-    /**
-     * 특정 종목의 특정 분봉 간격 데이터 개수 조회
-     */
     @GetMapping("/{stockSymbol}/{minuteInterval}/count")
     public ResponseEntity<Long> getMinutePriceCount(
             @PathVariable String stockSymbol,
@@ -86,9 +77,6 @@ public class StockMinutePriceController {
         }
     }
 
-    /**
-     * 오래된 분봉 데이터 정리
-     */
     @DeleteMapping("/{stockSymbol}/{minuteInterval}/cleanup")
     public ResponseEntity<Void> cleanupOldMinutePrices(
             @PathVariable String stockSymbol,
@@ -110,9 +98,6 @@ public class StockMinutePriceController {
         }
     }
 
-    /**
-     * 특정 종목의 모든 분봉 데이터 삭제
-     */
     @DeleteMapping("/{stockSymbol}")
     public ResponseEntity<Void> deleteAllMinutePrices(@PathVariable String stockSymbol) {
         try {

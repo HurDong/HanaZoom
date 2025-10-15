@@ -48,7 +48,7 @@ public class ConsultationResponseDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // 추가 정보
+
     private long actualDurationMinutes;
     private boolean canBeCancelled;
     private boolean canBeStarted;

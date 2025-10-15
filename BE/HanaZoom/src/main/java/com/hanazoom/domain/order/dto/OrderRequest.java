@@ -20,10 +20,10 @@ public class OrderRequest {
     private String stockCode;
 
     @NotNull(message = "주문 타입은 필수입니다.")
-    private Order.OrderType orderType; // BUY, SELL
+    private Order.OrderType orderType; 
 
     @NotNull(message = "주문 방법은 필수입니다.")
-    private Order.OrderMethod orderMethod; // LIMIT, MARKET
+    private Order.OrderMethod orderMethod; 
 
     @DecimalMin(value = "0.01", message = "가격은 0.01 이상이어야 합니다.")
     @Digits(integer = 10, fraction = 2, message = "가격은 소수점 2자리까지 입력 가능합니다.")
@@ -34,13 +34,13 @@ public class OrderRequest {
     @Max(value = 1000000, message = "수량은 1,000,000 이하여야 합니다.")
     private Integer quantity;
 
-    // 시장가 주문인 경우 가격 검증을 건너뜀 (현재가로 자동 설정됨)
+
     public void validateMarketOrder() {
-        // 시장가 주문에서는 가격 검증을 하지 않음
-        // 프론트엔드에서 현재가를 전송하므로 이를 허용
+
+
     }
 
-    // 총 주문 금액 계산
+
     public BigDecimal getTotalAmount() {
         if (price == null || quantity == null) {
             return BigDecimal.ZERO;

@@ -33,7 +33,7 @@ public class StockChartServiceImpl implements StockChartService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final KisApiService kisApiService;
     private final ObjectMapper objectMapper;
-    private final Random random = new Random(); // 더미 데이터용
+    private final Random random = new Random(); 
     private final StockMinutePriceService stockMinutePriceService;
     private final StockDailyPriceRepository dailyPriceRepository;
     private final StockWeeklyPriceRepository weeklyPriceRepository;
@@ -44,7 +44,7 @@ public class StockChartServiceImpl implements StockChartService {
         try {
             log.info("차트 데이터 조회 시작: 종목={}, 시간봉={}, 제한={}", stockCode, timeframe, limit);
             
-            // 분봉 데이터인 경우 DB에서 조회 시도
+
             if (isMinuteTimeframe(timeframe)) {
                 List<CandleData> dbData = getMinuteDataFromDB(stockCode, timeframe, limit);
                 if (!dbData.isEmpty()) {
@@ -53,7 +53,7 @@ public class StockChartServiceImpl implements StockChartService {
                 }
             }
 
-            // 일/주/월봉 데이터는 DB에서 조회 시도
+
             if (timeframe.equals("1D") || timeframe.equals("1W") || timeframe.equals("1MO")) {
                 List<CandleData> dbData = getDailyWeeklyMonthlyDataFromDB(stockCode, timeframe, limit);
                 if (!dbData.isEmpty()) {
@@ -62,22 +62,22 @@ public class StockChartServiceImpl implements StockChartService {
                 }
             }
 
-            // DB에 데이터가 없거나 분봉인 경우 KIS API 호출
+
             String kisResponse;
             if (timeframe.equals("1D") || timeframe.equals("1W") || timeframe.equals("1MO")) {
-                // 일봉/주봉/월봉 데이터 - 날짜 범위 지정하여 10년치 데이터 요청
+
                 String period = timeframe.equals("1D") ? "D" : timeframe.equals("1W") ? "W" : "M";
                 kisResponse = kisApiService.getDailyChartDataWithDateRange(stockCode, period, "1", null, null);
             } else {
-                // 분봉 데이터 (1M, 5M, 15M, 1H)
+
                 String minuteCode = convertToKisMinuteCode(timeframe);
                 kisResponse = kisApiService.getMinuteChartData(stockCode, minuteCode, "1");
             }
 
-            // KIS 응답 파싱
+
             List<CandleData> parsedData = parseKisChartResponse(kisResponse, stockCode, timeframe, limit);
             
-            // 분봉 데이터인 경우 DB에 저장
+
             if (isMinuteTimeframe(timeframe)) {
                 saveMinuteDataToDB(stockCode, timeframe, parsedData);
             }
@@ -86,30 +86,27 @@ public class StockChartServiceImpl implements StockChartService {
             
         } catch (Exception e) {
             log.error("KIS 차트 데이터 조회 실패: 종목={}, 시간봉={}", stockCode, timeframe, e);
-            // 실패 시 더미 데이터 반환
+
             return generateDummyChartData(stockCode, timeframe, limit);
         }
     }
 
-    /**
-     * KIS API에서 실제 차트 데이터 조회
-     */
     private List<CandleData> getChartDataFromKis(String stockCode, String timeframe, int limit) {
         try {
             String kisResponse;
             
-            // 시간봉에 따라 다른 API 호출
+
             if (timeframe.equals("1D") || timeframe.equals("1W") || timeframe.equals("1MO")) {
-                // 일봉/주봉/월봉 데이터
+
                 String period = timeframe.equals("1D") ? "D" : timeframe.equals("1W") ? "W" : "M";
                 kisResponse = kisApiService.getDailyChartData(stockCode, period, "1");
             } else {
-                // 분봉 데이터 (1M, 5M, 15M, 1H)
+
                 String minuteCode = convertToKisMinuteCode(timeframe);
                 kisResponse = kisApiService.getMinuteChartData(stockCode, minuteCode, "1");
             }
 
-            // KIS 응답 파싱
+
             return parseKisChartResponse(kisResponse, stockCode, timeframe, limit);
             
         } catch (Exception e) {
@@ -118,9 +115,6 @@ public class StockChartServiceImpl implements StockChartService {
         }
     }
 
-    /**
-     * 시간봉을 KIS API 분봉 코드로 변환
-     */
     private String convertToKisMinuteCode(String timeframe) {
         switch (timeframe) {
             case "1M": return "01";
@@ -131,9 +125,6 @@ public class StockChartServiceImpl implements StockChartService {
         }
     }
 
-    /**
-     * KIS API 응답을 CandleData 리스트로 파싱
-     */
     private List<CandleData> parseKisChartResponse(String kisResponse, String stockCode, String timeframe, int limit) {
         List<CandleData> candleList = new ArrayList<>();
         
@@ -146,20 +137,20 @@ public class StockChartServiceImpl implements StockChartService {
                 for (JsonNode item : outputArray) {
                     if (count >= limit) break;
                     
-                    // KIS 차트 데이터 필드 파싱
-                    String date = item.path("stck_bsop_date").asText(); // 영업일자
-                    String openPrice = item.path("stck_oprc").asText(); // 시가
-                    String highPrice = item.path("stck_hgpr").asText(); // 고가
-                    String lowPrice = item.path("stck_lwpr").asText(); // 저가
-                    String closePrice = item.path("stck_clpr").asText(); // 종가
-                    String volume = item.path("acml_vol").asText(); // 누적거래량
-                    String changePrice = item.path("prdy_vrss").asText(); // 전일대비
-                    String changeRate = item.path("prdy_vrss_rate").asText(); // 전일대비율
+
+                    String date = item.path("stck_bsop_date").asText(); 
+                    String openPrice = item.path("stck_oprc").asText(); 
+                    String highPrice = item.path("stck_hgpr").asText(); 
+                    String lowPrice = item.path("stck_lwpr").asText(); 
+                    String closePrice = item.path("stck_clpr").asText(); 
+                    String volume = item.path("acml_vol").asText(); 
+                    String changePrice = item.path("prdy_vrss").asText(); 
+                    String changeRate = item.path("prdy_vrss_rate").asText(); 
                     
-                    // 등락구분 계산
+
                     String changeSign = calculateChangeSign(changePrice);
                     
-                    // LocalDateTime 변환
+
                     LocalDateTime dateTime = parseDateTime(date, timeframe);
                     
                     CandleData candle = CandleData.builder()
@@ -174,7 +165,7 @@ public class StockChartServiceImpl implements StockChartService {
                             .changePrice(changePrice)
                             .changeRate(changeRate)
                             .changeSign(changeSign)
-                            .isComplete(true) // KIS 과거 데이터는 모두 완성된 캔들
+                            .isComplete(true) 
                             .timestamp(dateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())
                             .build();
                     
@@ -193,46 +184,40 @@ public class StockChartServiceImpl implements StockChartService {
         return candleList;
     }
 
-    /**
-     * 날짜 문자열을 LocalDateTime으로 변환
-     */
     private LocalDateTime parseDateTime(String dateStr, String timeframe) {
         try {
-            // KIS API에서 받은 날짜 형식: YYYYMMDD
+
             int year = Integer.parseInt(dateStr.substring(0, 4));
             int month = Integer.parseInt(dateStr.substring(4, 6));
             int day = Integer.parseInt(dateStr.substring(6, 8));
             
-            return LocalDateTime.of(year, month, day, 9, 0); // 장 시작 시간으로 설정
+            return LocalDateTime.of(year, month, day, 9, 0); 
         } catch (Exception e) {
             log.warn("날짜 파싱 실패, 현재 시간 사용: {}", dateStr);
             return LocalDateTime.now();
         }
     }
 
-    /**
-     * 전일대비 값으로 등락구분 계산
-     */
     private String calculateChangeSign(String changePrice) {
         try {
             double change = Double.parseDouble(changePrice);
-            if (change > 0) return "2"; // 상승
-            if (change < 0) return "4"; // 하락
-            return "3"; // 보합
+            if (change > 0) return "2"; 
+            if (change < 0) return "4"; 
+            return "3"; 
         } catch (Exception e) {
-            return "3"; // 기본값
+            return "3"; 
         }
     }
 
     @Override
     public CandleData getCurrentCandle(String stockCode, String timeframe) {
         try {
-            // Redis에서 현재 캔들 조회
+
             String key = "candle:current:" + stockCode + ":" + timeframe;
             CandleData currentCandle = (CandleData) redisTemplate.opsForValue().get(key);
             
             if (currentCandle == null) {
-                // 현재 캔들이 없으면 새로 생성
+
                 currentCandle = createDummyCurrentCandle(stockCode, timeframe);
                 try {
                     redisTemplate.opsForValue().set(key, currentCandle);
@@ -246,7 +231,7 @@ public class StockChartServiceImpl implements StockChartService {
         } catch (Exception e) {
             log.error("Redis 연결 실패로 캔들 조회 중단 - 종목: {}, 시간봉: {}, 에러: {}", 
                     stockCode, timeframe, e.getMessage());
-            // Redis 실패 시 더미 데이터 반환
+
             return createDummyCurrentCandle(stockCode, timeframe);
         }
     }
@@ -254,7 +239,7 @@ public class StockChartServiceImpl implements StockChartService {
     @Override
     public void updateCurrentCandle(String stockCode, String currentPrice, String volume) {
         try {
-            // 모든 시간봉의 현재 캔들 업데이트
+
             String[] timeframes = {"1M", "5M", "15M", "1H", "1D", "1W", "1MO"};
             
             for (String timeframe : timeframes) {
@@ -269,7 +254,7 @@ public class StockChartServiceImpl implements StockChartService {
                 } catch (Exception e) {
                     log.warn("Redis 캔들 업데이트 실패 - 종목: {}, 시간봉: {}, 에러: {}", 
                             stockCode, timeframe, e.getMessage());
-                    // Redis 에러가 발생해도 다른 시간봉 처리는 계속 진행
+
                 }
             }
         } catch (Exception e) {
@@ -301,27 +286,24 @@ public class StockChartServiceImpl implements StockChartService {
         log.info("새 캔들 생성: 종목={}, 시간봉={}, 시가={}", stockCode, timeframe, openPrice);
     }
 
-    /**
-     * 더미 차트 데이터 생성 (과거 데이터 시뮬레이션)
-     */
     private List<CandleData> generateDummyChartData(String stockCode, String timeframe, int limit) {
         List<CandleData> candleList = new ArrayList<>();
         
-        // 기본 가격 설정
+
         double basePrice = getBasePriceForStock(stockCode);
         LocalDateTime currentTime = LocalDateTime.now();
         
-        // 시간봉에 따른 시간 간격 계산
+
         int minutesInterval = getMinutesInterval(timeframe);
         
         for (int i = limit - 1; i >= 0; i--) {
             LocalDateTime candleTime = currentTime.minusMinutes((long) i * minutesInterval);
             
-            // 가격 변동 시뮬레이션
-            double priceVariation = (random.nextDouble() - 0.5) * 0.1; // ±5% 변동
+
+            double priceVariation = (random.nextDouble() - 0.5) * 0.1; 
             double currentPrice = basePrice * (1 + priceVariation);
             
-            double open = currentPrice * (0.98 + random.nextDouble() * 0.04); // ±2%
+            double open = currentPrice * (0.98 + random.nextDouble() * 0.04); 
             double high = Math.max(open, currentPrice) * (1 + random.nextDouble() * 0.02);
             double low = Math.min(open, currentPrice) * (1 - random.nextDouble() * 0.02);
             double close = currentPrice;
@@ -338,20 +320,17 @@ public class StockChartServiceImpl implements StockChartService {
                     .changePrice(String.valueOf((int) (close - open)))
                     .changeRate(String.format("%.2f", ((close - open) / open) * 100))
                     .changeSign(close > open ? "2" : close < open ? "4" : "3")
-                    .isComplete(i > 0) // 마지막(현재) 캔들은 미완성
+                    .isComplete(i > 0) 
                     .timestamp(candleTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())
                     .build();
             
             candleList.add(candle);
-            basePrice = close; // 다음 캔들의 기준가로 사용
+            basePrice = close; 
         }
         
         return candleList;
     }
 
-    /**
-     * 현재 더미 캔들 생성
-     */
     private CandleData createDummyCurrentCandle(String stockCode, String timeframe) {
         double basePrice = getBasePriceForStock(stockCode);
         
@@ -372,28 +351,22 @@ public class StockChartServiceImpl implements StockChartService {
                 .build();
     }
 
-    /**
-     * 종목별 기본 가격
-     */
     private double getBasePriceForStock(String stockCode) {
         switch (stockCode) {
-            case "005930": return 71000;  // 삼성전자
-            case "000660": return 89000;  // SK하이닉스
-            case "035420": return 170000; // NAVER
-            case "035720": return 45000;  // 카카오
-            case "005380": return 45000;  // 현대자동차
-            case "051910": return 380000; // LG화학
-            case "207940": return 850000; // 삼성바이오로직스
-            case "068270": return 160000; // 셀트리온
-            case "323410": return 25000;  // 카카오뱅크
-            case "373220": return 400000; // LG에너지솔루션
+            case "005930": return 71000;  
+            case "000660": return 89000;  
+            case "035420": return 170000; 
+            case "035720": return 45000;  
+            case "005380": return 45000;  
+            case "051910": return 380000; 
+            case "207940": return 850000; 
+            case "068270": return 160000; 
+            case "323410": return 25000;  
+            case "373220": return 400000; 
             default: return 10000;
         }
     }
 
-    /**
-     * 시간봉별 분 간격 계산
-     */
     private int getMinutesInterval(String timeframe) {
         switch (timeframe) {
             case "1M": return 1;
@@ -403,23 +376,17 @@ public class StockChartServiceImpl implements StockChartService {
             case "1D": return 60 * 24;
             case "1W": return 60 * 24 * 7;
             case "1MO": return 60 * 24 * 30;
-            default: return 60 * 24; // 기본 일봉
+            default: return 60 * 24; 
         }
     }
 
-    /**
-     * 분봉 시간봉인지 확인
-     */
     private boolean isMinuteTimeframe(String timeframe) {
         return timeframe.equals("1M") || timeframe.equals("5M") || timeframe.equals("15M") || timeframe.equals("1H");
     }
 
-    /**
-     * 분봉 데이터를 DB에서 조회
-     */
     private List<CandleData> getMinuteDataFromDB(String stockCode, String timeframe, int limit) {
         try {
-            // StockMinutePriceService를 통해 분봉 데이터 조회
+
             StockMinutePrice.MinuteInterval interval = convertToMinuteInterval(timeframe);
             log.info("🔍 분봉 데이터 조회 요청: 종목={}, 시간봉={}, 간격={}, 제한={}", stockCode, timeframe, interval, limit);
             
@@ -440,9 +407,6 @@ public class StockChartServiceImpl implements StockChartService {
         }
     }
 
-    /**
-     * 분봉 데이터를 DB에 저장
-     */
     private void saveMinuteDataToDB(String stockCode, String timeframe, List<CandleData> data) {
         try {
             StockMinutePrice.MinuteInterval interval = convertToMinuteInterval(timeframe);
@@ -471,9 +435,6 @@ public class StockChartServiceImpl implements StockChartService {
         }
     }
 
-    /**
-     * StockMinutePrice를 CandleData로 변환
-     */
     private CandleData convertToCandleData(StockMinutePrice minutePrice) {
         return CandleData.builder()
                 .stockCode(minutePrice.getStockSymbol())
@@ -492,9 +453,6 @@ public class StockChartServiceImpl implements StockChartService {
                 .build();
     }
 
-    /**
-     * 시간봉을 MinuteInterval으로 변환
-     */
     private StockMinutePrice.MinuteInterval convertToMinuteInterval(String timeframe) {
         switch (timeframe) {
             case "1M": return StockMinutePrice.MinuteInterval.ONE_MINUTE;
@@ -504,9 +462,6 @@ public class StockChartServiceImpl implements StockChartService {
         }
     }
 
-    /**
-     * MinuteInterval을 시간봉으로 변환
-     */
     private String convertMinuteIntervalToTimeframe(StockMinutePrice.MinuteInterval interval) {
         switch (interval) {
             case ONE_MINUTE: return "1M";
@@ -516,9 +471,6 @@ public class StockChartServiceImpl implements StockChartService {
         }
     }
 
-    /**
-     * DB에서 일/주/월봉 데이터 조회
-     */
     private List<CandleData> getDailyWeeklyMonthlyDataFromDB(String stockCode, String timeframe, int limit) {
         try {
             log.info("DB에서 일/주/월봉 데이터 조회 시도: 종목={}, 시간봉={}, 제한={}", stockCode, timeframe, limit);
@@ -539,12 +491,9 @@ public class StockChartServiceImpl implements StockChartService {
         }
     }
 
-    /**
-     * DB에서 일봉 데이터 조회
-     */
     private List<CandleData> getDailyDataFromDB(String stockCode, int limit) {
         LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusDays(Math.min(limit, 3650)); // 최대 10년치
+        LocalDate startDate = endDate.minusDays(Math.min(limit, 3650)); 
 
         List<StockDailyPrice> dailyPrices = dailyPriceRepository
                 .findByStockSymbolAndTradeDateBetweenOrderByTradeDateAsc(stockCode, startDate, endDate);
@@ -555,12 +504,9 @@ public class StockChartServiceImpl implements StockChartService {
                 .collect(java.util.stream.Collectors.toList());
     }
 
-    /**
-     * DB에서 주봉 데이터 조회
-     */
     private List<CandleData> getWeeklyDataFromDB(String stockCode, int limit) {
         LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusWeeks(Math.min(limit, 520)); // 최대 10년치
+        LocalDate startDate = endDate.minusWeeks(Math.min(limit, 520)); 
 
         List<StockWeeklyPrice> weeklyPrices = weeklyPriceRepository
                 .findByStockSymbolAndWeekStartDateBetweenOrderByWeekStartDateAsc(stockCode, startDate, endDate);
@@ -571,12 +517,9 @@ public class StockChartServiceImpl implements StockChartService {
                 .collect(java.util.stream.Collectors.toList());
     }
 
-    /**
-     * DB에서 월봉 데이터 조회
-     */
     private List<CandleData> getMonthlyDataFromDB(String stockCode, int limit) {
         LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusMonths(Math.min(limit, 120)); // 최대 10년치
+        LocalDate startDate = endDate.minusMonths(Math.min(limit, 120)); 
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM");
         String startMonth = startDate.format(formatter);
@@ -591,9 +534,6 @@ public class StockChartServiceImpl implements StockChartService {
                 .collect(java.util.stream.Collectors.toList());
     }
 
-    /**
-     * StockDailyPrice를 CandleData로 변환
-     */
     private CandleData convertDailyToCandleData(StockDailyPrice dailyPrice) {
         LocalDateTime dateTime = dailyPrice.getTradeDate().atStartOfDay();
         return CandleData.builder()
@@ -613,9 +553,6 @@ public class StockChartServiceImpl implements StockChartService {
                 .build();
     }
 
-    /**
-     * StockWeeklyPrice를 CandleData로 변환
-     */
     private CandleData convertWeeklyToCandleData(StockWeeklyPrice weeklyPrice) {
         LocalDateTime dateTime = weeklyPrice.getWeekStartDate().atStartOfDay();
         return CandleData.builder()
@@ -635,11 +572,8 @@ public class StockChartServiceImpl implements StockChartService {
                 .build();
     }
 
-    /**
-     * StockMonthlyPrice를 CandleData로 변환
-     */
     private CandleData convertMonthlyToCandleData(StockMonthlyPrice monthlyPrice) {
-        // yearMonth를 LocalDate로 변환 (예: "2024-01" -> 2024-01-01)
+
         LocalDate date = LocalDate.parse(monthlyPrice.getYearMonth() + "-01");
         LocalDateTime dateTime = date.atStartOfDay();
 

@@ -16,13 +16,13 @@ public class CreateNotificationRequest {
     private String content;
     private String targetUrl;
 
-    // 가격 변동 알림용 필드
+
     private String stockSymbol;
     private String stockName;
     private Double priceChangePercent;
     private Long currentPrice;
 
-    // 커뮤니티 알림용 필드
+
     private Long postId;
     private Long commentId;
     private String mentionedBy;

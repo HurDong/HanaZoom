@@ -34,7 +34,7 @@ public class OrderResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // 추가 계산 필드
+
     private Integer remainingQuantity;
     private Double fillRate;
     private String statusMessage;

@@ -29,8 +29,8 @@ export function StockHeaderCard({
     : stock.priceChange || 0;
   
   const changeRate = realtimeData?.changeRate 
-    ? parseFloat(realtimeData.changeRate) / 100 
-    : stock.priceChangePercent ? stock.priceChangePercent / 100 : 0;
+    ? parseFloat(realtimeData.changeRate) 
+    : stock.priceChangePercent ? stock.priceChangePercent : 0;
   
   const volume = realtimeData?.volume 
     ? parseInt(realtimeData.volume.toString()) 

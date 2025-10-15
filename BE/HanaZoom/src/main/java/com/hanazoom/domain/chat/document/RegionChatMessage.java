@@ -22,7 +22,7 @@ import java.util.UUID;
 public class RegionChatMessage {
 
     @Id
-    private String id; // MongoDB의 ObjectId를 사용하지 않고 UUID 문자열 사용
+    private String id; 
 
     @Field("region_id")
     @Indexed
@@ -30,7 +30,7 @@ public class RegionChatMessage {
 
     @Field("member_id")
     @Indexed
-    private String memberId; // UUID를 문자열로 저장
+    private String memberId; 
 
     @Field("member_name")
     private String memberName;
@@ -39,17 +39,17 @@ public class RegionChatMessage {
     private String content;
 
     @Field("message_type")
-    private String messageType; // CHAT, ENTER, LEAVE, SYSTEM, WELCOME
+    private String messageType; 
 
     @Field("created_at")
     private LocalDateTime createdAt;
 
     @Field("images")
-    private List<String> images; // Base64 이미지 또는 이미지 URL
+    private List<String> images; 
 
     @Field("image_count")
     private Integer imageCount;
 
     @Field("portfolio_stocks")
-    private List<Map<String, Object>> portfolioStocks; // 보유종목 정보
+    private List<Map<String, Object>> portfolioStocks; 
 }

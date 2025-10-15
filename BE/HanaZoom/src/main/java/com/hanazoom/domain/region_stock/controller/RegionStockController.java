@@ -57,7 +57,7 @@ public class RegionStockController {
         try {
             PopularityDetailsResponse details = regionStockService.getPopularityDetails(regionId, symbol, date);
             
-            // 응답 데이터 로그 출력
+
             System.out.println("📊 [백엔드] 응답 데이터:");
             System.out.println("  regionId: " + details.getRegionId());
             System.out.println("  symbol: " + details.getSymbol());
@@ -68,7 +68,7 @@ public class RegionStockController {
             
             ApiResponse<PopularityDetailsResponse> apiResponse = ApiResponse.success(details);
             
-            // JSON 직렬화 결과 출력
+
             try {
                 String jsonResponse = objectMapper.writeValueAsString(apiResponse);
                 System.out.println("📄 [백엔드] JSON 응답:");

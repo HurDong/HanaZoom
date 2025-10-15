@@ -36,10 +36,10 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                     accessor.getCommand(), accessor.getDestination());
 
             if (StompCommand.CONNECT.equals(accessor.getCommand())) {
-                // 모든 헤더 로깅
+
                 log.info("WebSocket CONNECT 헤더들: {}", accessor.toNativeHeaderMap());
 
-                // 클라이언트 ID 추출 (URL에서)
+
                 String clientId = extractClientIdFromDestination(accessor);
                 log.info("추출된 클라이언트 ID: {}", clientId);
 
@@ -52,7 +52,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
                 String token = null;
 
-                // 1. Authorization 헤더에서 토큰 확인
+
                 List<String> authHeaders = accessor.getNativeHeader("Authorization");
                 if (authHeaders != null && !authHeaders.isEmpty()) {
                     String authHeader = authHeaders.get(0);
@@ -62,7 +62,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                     }
                 }
 
-                // 2. 커스텀 헤더에서 토큰 확인 (SockJS 헤더 문제 대안)
+
                 if (token == null) {
                     List<String> tokenHeaders = accessor.getNativeHeader("token");
                     if (tokenHeaders != null && !tokenHeaders.isEmpty()) {
@@ -83,26 +83,26 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
                 if (token != null) {
                     try {
-                        // JWT 토큰 검증
+
                         if (jwtUtil.validateToken(token)) {
                             UUID memberId = jwtUtil.getMemberIdFromToken(token);
 
-                            // 사용자 정보 조회
+
                             Member member = memberRepository.findById(memberId).orElse(null);
 
                             if (member != null) {
-                                // 인증 정보 설정
+
                                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                                         member, null, member.getAuthorities());
 
-                                // SecurityContext를 명시적으로 설정하고 전파
+
                                 SecurityContextHolder.setContext(SecurityContextHolder.createEmptyContext());
                                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                                // WebSocket 세션에 사용자 정보 저장
+
                                 accessor.setUser(authentication);
 
-                                // 세션 속성에도 사용자 정보 저장 (다른 스레드에서 접근 가능)
+
                                 accessor.getSessionAttributes().put("SPRING_SECURITY_CONTEXT",
                                         SecurityContextHolder.getContext());
                                 accessor.getSessionAttributes().put("USER_ID", memberId.toString());
@@ -123,10 +123,10 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                     log.warn("WebSocket 인증 실패: 토큰을 찾을 수 없음 (헤더 또는 쿼리 파라미터)");
                 }
             } else if (StompCommand.SEND.equals(accessor.getCommand())) {
-                // SEND 명령 시 인증 컨텍스트 복원
+
                 log.info("SEND 명령 수신: destination={}", accessor.getDestination());
 
-                // 세션에서 사용자 정보 복원
+
                 Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
                 if (sessionAttributes != null) {
                     String userId = (String) sessionAttributes.get("USER_ID");
@@ -136,7 +136,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                             Member member = memberRepository.findById(memberId).orElse(null);
 
                             if (member != null) {
-                                // 인증 정보 복원
+
                                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                                         member, null, member.getAuthorities());
                                 SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -156,7 +156,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
     }
 
     private String extractClientIdFromDestination(StompHeaderAccessor accessor) {
-        // WebSocket 세션 속성에서 클라이언트 ID 확인
+
         if (accessor != null) {
             Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
             if (sessionAttributes != null) {
@@ -167,7 +167,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
             }
         }
 
-        // 클라이언트 ID가 없으면 기본값 반환
+
         return "default";
     }
 }

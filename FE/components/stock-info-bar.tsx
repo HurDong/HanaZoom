@@ -39,9 +39,9 @@ export function StockInfoBar({
     : stock.priceChange || 0;
 
   const changeRate = realtimeData?.changeRate
-    ? parseFloat(realtimeData.changeRate) / 100
+    ? parseFloat(realtimeData.changeRate)
     : stock.priceChangePercent
-    ? stock.priceChangePercent / 100
+    ? stock.priceChangePercent
     : 0;
 
   const isPositive = changeRate >= 0;

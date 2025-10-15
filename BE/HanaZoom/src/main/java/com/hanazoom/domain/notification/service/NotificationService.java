@@ -29,7 +29,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final MemberRepository memberRepository;
 
-    // 알림 생성
+
     public Notification createNotification(CreateNotificationRequest request) {
         Member member = memberRepository.findById(request.getMemberId())
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + request.getMemberId()));
@@ -52,11 +52,11 @@ public class NotificationService {
         return notificationRepository.save(notification);
     }
 
-    // 주식 가격 변동 알림 생성 (중복 방지)
+
     public void createPriceChangeNotification(UUID memberId, String stockSymbol, String stockName,
             Double priceChangePercent, Long currentPrice) {
 
-        // 최근 1시간 내에 같은 종목에 대한 가격 변동 알림이 있는지 확인
+
         LocalDateTime oneHourAgo = LocalDateTime.now().minus(1, ChronoUnit.HOURS);
         List<Notification> recentNotifications = notificationRepository.findRecentPriceNotifications(
                 memberId, stockSymbol, oneHourAgo);
@@ -66,7 +66,7 @@ public class NotificationService {
             return;
         }
 
-        // 가격 변동에 따른 알림 타입 결정
+
         NotificationType notificationType = null;
         String title = "";
         String content = "";
@@ -107,12 +107,12 @@ public class NotificationService {
         }
     }
 
-    // 커뮤니티 알림 생성 (중복 방지)
+
     public void createCommunityNotification(UUID memberId, NotificationType type, String title,
             String content, String targetUrl, Long postId,
             Long commentId, String mentionedBy) {
 
-        // 최근 30분 내에 같은 게시글에 대한 알림이 있는지 확인
+
         LocalDateTime thirtyMinutesAgo = LocalDateTime.now().minus(1, ChronoUnit.MINUTES);
         List<Notification> recentNotifications = notificationRepository.findRecentCommunityNotifications(
                 memberId, postId, thirtyMinutesAgo);
@@ -137,7 +137,7 @@ public class NotificationService {
         log.info("커뮤니티 알림 생성: {} - {}", type, title);
     }
 
-    // 사용자별 알림 조회
+
     @Transactional(readOnly = true)
     public Page<NotificationDto> getUserNotifications(UUID memberId, Pageable pageable) {
         Page<Notification> notifications = notificationRepository.findByMemberIdOrderByCreatedAtDesc(memberId,
@@ -146,13 +146,13 @@ public class NotificationService {
         return notifications.map(this::convertToDto);
     }
 
-    // 읽지 않은 알림 개수 조회
+
     @Transactional(readOnly = true)
     public long getUnreadCount(UUID memberId) {
         return notificationRepository.countUnreadByMemberId(memberId);
     }
 
-    // 알림 읽음 처리
+
     public void markAsRead(Long notificationId, UUID memberId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다: " + notificationId));
@@ -165,19 +165,19 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
-    // 모든 알림 읽음 처리
+
     public void markAllAsRead(UUID memberId) {
         List<Notification> unreadNotifications = notificationRepository
                 .findByMemberIdAndIsReadFalseOrderByCreatedAtDesc(memberId);
 
-        // 각 알림을 읽음 처리
+
         unreadNotifications.forEach(Notification::markAsRead);
 
-        // 변경사항 저장
+
         notificationRepository.saveAll(unreadNotifications);
     }
 
-    // 알림 삭제
+
     public void deleteNotification(Long notificationId, UUID memberId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다: " + notificationId));
@@ -189,7 +189,7 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
-    // DTO 변환
+
     private NotificationDto convertToDto(Notification notification) {
         String timeAgo = getTimeAgo(notification.getCreatedAt());
 
@@ -213,7 +213,7 @@ public class NotificationService {
                 .build();
     }
 
-    // 시간 경과 계산
+
     private String getTimeAgo(LocalDateTime createdAt) {
         LocalDateTime now = LocalDateTime.now();
         long minutes = ChronoUnit.MINUTES.between(createdAt, now);

@@ -23,7 +23,7 @@ public class MemberInfoResponse {
     private Double longitude;
     private Long regionId;
 
-    // PB 관련 필드들
+
     private boolean isPb;
     private String pbLicenseNumber;
     private Integer pbExperienceYears;
@@ -35,7 +35,7 @@ public class MemberInfoResponse {
     private String pbApprovedAt;
     private String pbApprovedBy;
     
-    // 추가 필드들
+
     private String createdAt;
     private String lastLoginAt;
 }

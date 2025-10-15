@@ -29,7 +29,7 @@ public class ConsultationSummaryDto {
     private boolean isCancelled;
     private LocalDateTime createdAt;
 
-    // 간단한 상태 정보
+
     private String statusDisplayName;
     private String typeDisplayName;
     private boolean canBeCancelled;

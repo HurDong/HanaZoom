@@ -31,7 +31,7 @@ public class RedisConfig {
         RedisStandaloneConfiguration redisConfig = new RedisStandaloneConfiguration(host, port);
         redisConfig.setPassword(password);
         
-        // Lettuce 클라이언트 설정 - 연결 안정성 개선
+
         ClientOptions clientOptions = ClientOptions.builder()
             .socketOptions(SocketOptions.builder()
                 .connectTimeout(Duration.ofSeconds(10))
@@ -54,7 +54,7 @@ public class RedisConfig {
 
         LettuceConnectionFactory factory = new LettuceConnectionFactory(redisConfig, clientConfig);
         factory.setValidateConnection(true);
-        factory.setShareNativeConnection(true); // 연결 공유로 안정성 향상
+        factory.setShareNativeConnection(true); 
         factory.setValidateConnection(true);
         
         return factory;

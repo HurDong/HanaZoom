@@ -18,7 +18,7 @@ public interface PostService {
                         PostType postType, PostSentiment sentiment, String voteQuestion,
                         java.util.List<String> voteOptions);
 
-        // 투표가 포함된 게시글과 Poll 정보를 함께 반환
+
         PostWithPollResponse createPostWithVoteAndPoll(Member member, Stock stock, String title, String content,
                         String imageUrl,
                         PostType postType, PostSentiment sentiment, String voteQuestion,
@@ -41,7 +41,7 @@ public interface PostService {
 
         boolean isLikedByMember(Long postId, Member member);
 
-        // 투표 관련 메서드 추가
+
         void voteOnPost(Long postId, Member member, String optionId);
 
         VoteResultsResponse getVoteResults(Long postId, Member member);

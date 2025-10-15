@@ -26,9 +26,6 @@ public class WatchlistService {
     private final WatchlistRepository watchlistRepository;
     private final StockService stockService;
 
-    /**
-     * 사용자의 관심종목 목록 조회
-     */
     public List<WatchlistResponse> getMyWatchlist(Member member) {
         List<Watchlist> watchlists = watchlistRepository.findByMember_IdAndIsActiveTrue(member.getId());
         return watchlists.stream()
@@ -36,21 +33,18 @@ public class WatchlistService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 관심종목 추가
-     */
     @Transactional
     public WatchlistResponse addToWatchlist(Member member, WatchlistRequest request) {
-        // 이미 관심종목에 있는지 확인
+
         if (watchlistRepository.existsByMember_IdAndStock_SymbolAndIsActiveTrue(member.getId(),
                 request.getStockSymbol())) {
             throw new IllegalArgumentException("이미 관심종목에 등록된 종목입니다.");
         }
 
-        // 주식 정보 조회
+
         Stock stock = stockService.getStockBySymbol(request.getStockSymbol());
 
-        // 관심종목 생성
+
         Watchlist watchlist = Watchlist.builder()
                 .member(member)
                 .stock(stock)
@@ -62,24 +56,15 @@ public class WatchlistService {
         return convertToResponse(savedWatchlist);
     }
 
-    /**
-     * 관심종목 제거
-     */
     @Transactional
     public void removeFromWatchlist(Member member, String stockSymbol) {
         watchlistRepository.deactivateByMemberIdAndStockSymbol(member.getId(), stockSymbol);
     }
 
-    /**
-     * 특정 종목의 관심종목 여부 확인
-     */
     public boolean isInWatchlist(Member member, String stockSymbol) {
         return watchlistRepository.existsByMember_IdAndStock_SymbolAndIsActiveTrue(member.getId(), stockSymbol);
     }
 
-    /**
-     * 관심종목 알림 설정 업데이트
-     */
     @Transactional
     public WatchlistResponse updateAlert(Member member, String stockSymbol, WatchlistRequest request) {
         Watchlist watchlist = watchlistRepository
@@ -96,9 +81,6 @@ public class WatchlistService {
         return convertToResponse(watchlist);
     }
 
-    /**
-     * Watchlist 엔티티를 Response DTO로 변환
-     */
     private WatchlistResponse convertToResponse(Watchlist watchlist) {
         Stock stock = watchlist.getStock();
         return WatchlistResponse.builder()

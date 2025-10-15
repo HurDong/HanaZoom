@@ -21,9 +21,6 @@ public class WatchlistController {
 
     private final WatchlistService watchlistService;
 
-    /**
-     * 사용자의 관심종목 목록 조회
-     */
     @GetMapping
     public ResponseEntity<ApiResponse<List<WatchlistResponse>>> getMyWatchlist(
             @AuthenticationPrincipal Member member) {
@@ -36,9 +33,6 @@ public class WatchlistController {
         }
     }
 
-    /**
-     * 관심종목 추가
-     */
     @PostMapping
     public ResponseEntity<ApiResponse<WatchlistResponse>> addToWatchlist(
             @AuthenticationPrincipal Member member,
@@ -52,9 +46,6 @@ public class WatchlistController {
         }
     }
 
-    /**
-     * 관심종목 제거
-     */
     @DeleteMapping("/{stockSymbol}")
     public ResponseEntity<ApiResponse<Void>> removeFromWatchlist(
             @AuthenticationPrincipal Member member,
@@ -68,9 +59,6 @@ public class WatchlistController {
         }
     }
 
-    /**
-     * 특정 종목의 관심종목 여부 확인
-     */
     @GetMapping("/check/{stockSymbol}")
     public ResponseEntity<ApiResponse<Boolean>> isInWatchlist(
             @AuthenticationPrincipal Member member,
@@ -84,9 +72,6 @@ public class WatchlistController {
         }
     }
 
-    /**
-     * 관심종목 알림 설정 업데이트
-     */
     @PutMapping("/{stockSymbol}/alert")
     public ResponseEntity<ApiResponse<WatchlistResponse>> updateAlert(
             @AuthenticationPrincipal Member member,

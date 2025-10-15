@@ -127,7 +127,7 @@ export default function RegionDiscussionPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 transition-colors duration-500">
         <NavBar />
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-4 pt-20 pb-8">
           <div className="text-center">
             <p>지역 정보를 불러오는 중...</p>
           </div>
@@ -140,7 +140,7 @@ export default function RegionDiscussionPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 transition-colors duration-500">
         <NavBar />
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-4 pt-20 pb-8">
           <div className="text-center">
             <p className="text-red-500">{error}</p>
           </div>
@@ -153,10 +153,10 @@ export default function RegionDiscussionPage() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 transition-colors duration-500">
       <NavBar />
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 pt-20 pb-8">
         {/* 지역 정보 헤더 */}
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 mb-8 shadow-lg">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-green-900 dark:text-green-100">
                 {regionInfo?.name} 투자 커뮤니티
@@ -166,60 +166,6 @@ export default function RegionDiscussionPage() {
               </p>
             </div>
             <MapPin className="w-12 h-12 text-green-600 dark:text-green-400" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-gray-600 dark:text-gray-300">
-                  오늘 작성된 글
-                </h3>
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {regionInfo?.stats.todayPostCount}개
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-gray-600 dark:text-gray-300">
-                  오늘 작성된 댓글
-                </h3>
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {regionInfo?.stats.todayCommentCount}개
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-gray-600 dark:text-gray-300">
-                  인기 종목
-                </h3>
-                <div className="space-y-2">
-                  {regionInfo?.trendingStocks.map((stock) => (
-                    <div
-                      key={stock.symbol}
-                      className="flex items-center justify-between"
-                    >
-                      <span className="text-sm">
-                        {stock.name}
-                        <span className="text-xs text-gray-500 ml-1">
-                          #{stock.regionalRanking}
-                        </span>
-                      </span>
-                      <span
-                        className={`text-sm ${
-                          stock.trendScore >= 0
-                            ? "text-green-500"
-                            : "text-red-500"
-                        }`}
-                      >
-                        {stock.popularityScore.toFixed(1)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
 

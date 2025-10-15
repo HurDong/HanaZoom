@@ -30,7 +30,7 @@ public class CommunityController {
     private final StockService stockService;
     private final PollRepository pollRepository;
 
-    // 게시글 작성
+
     @PostMapping("/stocks/{symbol}/posts")
     public ResponseEntity<ApiResponse<PostResponse>> createPost(
             @PathVariable String symbol,
@@ -43,7 +43,7 @@ public class CommunityController {
         Post post;
 
         if (request.isHasVote()) {
-            // 투표 게시글 생성 (Poll 정보와 함께)
+
             
             PostWithPollResponse result = postService.createPostWithVoteAndPoll(member, stock, request.getTitle(),
                     request.getContent(), request.getImageUrl(), request.getPostType(),
@@ -57,14 +57,14 @@ public class CommunityController {
             return ResponseEntity
                     .ok(ApiResponse.success(response));
         } else {
-            // 일반 게시글 생성
+
             post = postService.createPost(member, stock, request.getTitle(),
                     request.getContent(), request.getImageUrl(), request.getPostType(), request.getSentiment());
             return ResponseEntity.ok(ApiResponse.success(PostResponse.from(post, false)));
         }
     }
 
-    // 게시글 수정
+
     @PutMapping("/posts/{postId}")
     public ResponseEntity<ApiResponse<PostResponse>> updatePost(
             @PathVariable Long postId,
@@ -77,7 +77,7 @@ public class CommunityController {
                 .ok(ApiResponse.success(PostResponse.from(post, postService.isLikedByMember(postId, member))));
     }
 
-    // 게시글 삭제
+
     @DeleteMapping("/posts/{postId}")
     public ResponseEntity<ApiResponse<Void>> deletePost(
             @PathVariable Long postId,
@@ -87,7 +87,7 @@ public class CommunityController {
         return ResponseEntity.ok(ApiResponse.success("게시글이 삭제되었습니다."));
     }
 
-    // 게시글 좋아요
+
     @PostMapping("/posts/{postId}/like")
     public ResponseEntity<ApiResponse<Void>> likePost(
             @PathVariable Long postId,
@@ -97,7 +97,7 @@ public class CommunityController {
         return ResponseEntity.ok(ApiResponse.success("게시글을 좋아요했습니다."));
     }
 
-    // 게시글 좋아요 취소
+
     @DeleteMapping("/posts/{postId}/like")
     public ResponseEntity<ApiResponse<Void>> unlikePost(
             @PathVariable Long postId,
@@ -107,7 +107,7 @@ public class CommunityController {
         return ResponseEntity.ok(ApiResponse.success("게시글 좋아요를 취소했습니다."));
     }
 
-    // 게시글 상세 조회
+
     @GetMapping("/posts/{postId}")
     public ResponseEntity<ApiResponse<PostResponse>> getPost(
             @PathVariable Long postId,
@@ -115,12 +115,12 @@ public class CommunityController {
 
         Post post = postService.getPost(postId);
         boolean isLiked = member != null && postService.isLikedByMember(postId, member);
-        // 게시글에 대한 Poll 데이터 조회
+
         Poll poll = pollRepository.findByPostId(postId).orElse(null);
         return ResponseEntity.ok(ApiResponse.success(PostResponse.from(post, isLiked, poll, null)));
     }
 
-    // 종목별 게시글 목록 조회
+
     @GetMapping("/stocks/{symbol}/posts")
     public ResponseEntity<ApiResponse<PostListResponse>> getPostsByStock(
             @PathVariable String symbol,
@@ -135,7 +135,7 @@ public class CommunityController {
         Page<PostResponse> postResponses = posts.map(post -> {
             boolean isLiked = member != null && postService.isLikedByMember(post.getId(), member);
             
-            // 각 게시글에 대한 Poll 데이터 조회
+
             Poll poll = pollRepository.findByPostId(post.getId()).orElse(null);
             PostResponse response = PostResponse.from(post, isLiked, poll, null);
             
@@ -146,7 +146,7 @@ public class CommunityController {
         return ResponseEntity.ok(ApiResponse.success(PostListResponse.from(postResponses)));
     }
 
-    // 종목별 인기 게시글 조회
+
     @GetMapping("/stocks/{symbol}/posts/top")
     public ResponseEntity<ApiResponse<PostListResponse>> getTopPostsByStock(
             @PathVariable String symbol,
@@ -157,14 +157,14 @@ public class CommunityController {
         Page<Post> posts = postService.getTopPostsByStock(stock, PageRequest.of(0, limit));
         Page<PostResponse> postResponses = posts.map(post -> {
             boolean isLiked = member != null && postService.isLikedByMember(post.getId(), member);
-            // 각 게시글에 대한 Poll 데이터 조회
+
             Poll poll = pollRepository.findByPostId(post.getId()).orElse(null);
             return PostResponse.from(post, isLiked, poll, null);
         });
         return ResponseEntity.ok(ApiResponse.success(PostListResponse.from(postResponses)));
     }
 
-    // 댓글 작성
+
     @PostMapping("/posts/{postId}/comments")
     public ResponseEntity<ApiResponse<CommentResponse>> createComment(
             @PathVariable Long postId,
@@ -177,7 +177,7 @@ public class CommunityController {
         return ResponseEntity.ok(ApiResponse.success(CommentResponse.from(comment, isLiked)));
     }
 
-    // 대댓글 생성
+
     @PostMapping("/comments/{parentCommentId}/replies")
     public ResponseEntity<ApiResponse<CommentResponse>> createReply(
             @PathVariable Long parentCommentId,
@@ -189,7 +189,7 @@ public class CommunityController {
         return ResponseEntity.ok(ApiResponse.success(CommentResponse.from(reply, isLiked)));
     }
 
-    // 특정 댓글의 대댓글 목록 조회
+
     @GetMapping("/comments/{commentId}/replies")
     public ResponseEntity<ApiResponse<java.util.List<CommentResponse>>> getRepliesByComment(
             @PathVariable Long commentId,
@@ -206,7 +206,7 @@ public class CommunityController {
         return ResponseEntity.ok(ApiResponse.success(replyResponses));
     }
 
-    // 댓글 수정
+
     @PutMapping("/comments/{commentId}")
     public ResponseEntity<ApiResponse<CommentResponse>> updateComment(
             @PathVariable Long commentId,
@@ -218,7 +218,7 @@ public class CommunityController {
                 ApiResponse.success(CommentResponse.from(comment, commentService.isLikedByMember(commentId, member))));
     }
 
-    // 댓글 삭제
+
     @DeleteMapping("/comments/{commentId}")
     public ResponseEntity<ApiResponse<Void>> deleteComment(
             @PathVariable Long commentId,
@@ -228,7 +228,7 @@ public class CommunityController {
         return ResponseEntity.ok(ApiResponse.success("댓글이 삭제되었습니다."));
     }
 
-    // 댓글 좋아요
+
     @PostMapping("/comments/{commentId}/like")
     public ResponseEntity<ApiResponse<Void>> likeComment(
             @PathVariable Long commentId,
@@ -238,7 +238,7 @@ public class CommunityController {
         return ResponseEntity.ok(ApiResponse.success("댓글을 좋아요했습니다."));
     }
 
-    // 댓글 좋아요 취소
+
     @DeleteMapping("/comments/{commentId}/like")
     public ResponseEntity<ApiResponse<Void>> unlikeComment(
             @PathVariable Long commentId,
@@ -248,7 +248,7 @@ public class CommunityController {
         return ResponseEntity.ok(ApiResponse.success("댓글 좋아요를 취소했습니다."));
     }
 
-    // 게시글별 댓글 목록 조회
+
     @GetMapping("/posts/{postId}/comments")
     public ResponseEntity<ApiResponse<CommentListResponse>> getCommentsByPost(
             @PathVariable Long postId,
@@ -264,7 +264,7 @@ public class CommunityController {
         return ResponseEntity.ok(ApiResponse.success(CommentListResponse.from(commentResponses)));
     }
 
-    // 투표하기
+
     @PostMapping("/posts/{postId}/vote")
     public ResponseEntity<ApiResponse<Void>> voteOnPost(
             @PathVariable Long postId,
@@ -275,7 +275,7 @@ public class CommunityController {
         return ResponseEntity.ok(ApiResponse.success("투표가 완료되었습니다."));
     }
 
-    // 투표 결과 조회
+
     @GetMapping("/posts/{postId}/vote-results")
     public ResponseEntity<ApiResponse<VoteResultsResponse>> getVoteResults(
             @PathVariable Long postId,

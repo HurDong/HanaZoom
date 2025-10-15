@@ -30,7 +30,7 @@ public class PostResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // 투표 관련 필드들
+
     @JsonProperty("hasVote")
     private boolean hasVote;
     @JsonProperty("voteQuestion")
@@ -51,7 +51,7 @@ public class PostResponse {
             return AuthorResponse.builder()
                     .id(post.getMember().getId().toString())
                     .name(post.getMember().getName())
-                    .avatar(null) // 현재는 avatar 기능이 없으므로 null 반환
+                    .avatar(null) 
                     .build();
         }
     }
@@ -70,7 +70,7 @@ public class PostResponse {
             return VoteOptionResponse.builder()
                     .id(pollOption.getId().toString())
                     .text(pollOption.getText())
-                    .voteCount(0) // PollOption에는 voteCount가 없으므로 0으로 설정
+                    .voteCount(0) 
                     .build();
         }
     }
@@ -87,7 +87,7 @@ public class PostResponse {
         
 
         if (hasVote) {
-            // Poll 엔티티의 optionUp, optionDown을 사용하여 voteOptions 생성
+
 
             voteOptions = List.of(
                     VoteOptionResponse.builder()

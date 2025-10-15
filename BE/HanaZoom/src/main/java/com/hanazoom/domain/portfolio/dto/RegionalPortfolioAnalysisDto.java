@@ -16,19 +16,19 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class RegionalPortfolioAnalysisDto {
     
-    // 지역 정보
+
     private String regionName;
     
-    // 사용자 포트폴리오 정보
+
     private UserPortfolioInfo userPortfolio;
     
-    // 지역 평균 정보
+
     private RegionalAverageInfo regionalAverage;
     
-    // 비교 결과
+
     private ComparisonResult comparison;
     
-    // 지역 적합도 점수
+
     private int suitabilityScore;
     
     @Getter
@@ -99,6 +99,6 @@ public class RegionalPortfolioAnalysisDto {
     public static class InvestmentTrend {
         private String sector;
         private BigDecimal percentage;
-        private String trend; // "up", "down", "stable"
+        private String trend; 
     }
 }

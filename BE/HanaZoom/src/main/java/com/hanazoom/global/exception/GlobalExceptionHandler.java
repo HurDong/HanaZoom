@@ -16,10 +16,6 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    /**
-     * Validation 에러 처리
-     * @Valid 어노테이션으로 인한 validation 실패 시 호출
-     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException ex) {
         log.warn("Validation 에러 발생: {}", ex.getMessage());
@@ -31,16 +27,13 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
-        // 첫 번째 에러 메시지를 사용자에게 표시
+
         String firstErrorMessage = errors.values().iterator().next();
         
         return ResponseEntity.badRequest()
                 .body(ApiResponse.error(firstErrorMessage));
     }
 
-    /**
-     * 비즈니스 로직 예외 처리
-     */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
         log.warn("비즈니스 예외 발생: {}", ex.getMessage());
@@ -49,9 +42,6 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
-    /**
-     * IllegalArgumentException 처리
-     */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException ex) {
         log.warn("잘못된 인수 예외 발생: {}", ex.getMessage());
@@ -60,9 +50,6 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
-    /**
-     * 기타 예외 처리
-     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
         log.error("예상치 못한 예외 발생: ", ex);

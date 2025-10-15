@@ -71,7 +71,7 @@ public class PortfolioAlert {
         this.customMessage = customMessage;
     }
 
-    // 알림 활성화/비활성화
+
     public void activate() {
         this.isActive = true;
     }
@@ -80,7 +80,7 @@ public class PortfolioAlert {
         this.isActive = false;
     }
 
-    // 알림 조건 업데이트
+
     public void updateAlertCondition(AlertType alertType, ConditionType conditionType,
             BigDecimal thresholdValue) {
         this.alertType = alertType;
@@ -88,27 +88,27 @@ public class PortfolioAlert {
         this.thresholdValue = thresholdValue;
     }
 
-    // 알림 방법 업데이트
+
     public void updateNotificationMethod(NotificationMethod notificationMethod) {
         this.notificationMethod = notificationMethod;
     }
 
-    // 사용자 정의 메시지 업데이트
+
     public void updateCustomMessage(String customMessage) {
         this.customMessage = customMessage;
     }
 
-    // 전체 포트폴리오 알림인지 확인
+
     public boolean isPortfolioWideAlert() {
         return this.stockSymbol == null;
     }
 
-    // 특정 종목 알림인지 확인
+
     public boolean isStockSpecificAlert() {
         return this.stockSymbol != null;
     }
 
-    // 알림 조건 확인 (가격 기반)
+
     public boolean checkPriceCondition(BigDecimal currentPrice) {
         if (this.alertType != AlertType.PRICE || !this.isActive) {
             return false;
@@ -126,7 +126,7 @@ public class PortfolioAlert {
         }
     }
 
-    // 알림 조건 확인 (손익 기반)
+
     public boolean checkProfitLossCondition(BigDecimal currentProfitLoss) {
         if (this.alertType != AlertType.PROFIT_LOSS || !this.isActive) {
             return false;
@@ -144,7 +144,7 @@ public class PortfolioAlert {
         }
     }
 
-    // 알림 조건 확인 (수량 기반)
+
     public boolean checkQuantityCondition(Integer currentQuantity) {
         if (this.alertType != AlertType.QUANTITY || !this.isActive) {
             return false;
@@ -162,7 +162,7 @@ public class PortfolioAlert {
         }
     }
 
-    // 알림 조건 확인 (자산 배분 기반)
+
     public boolean checkAllocationCondition(BigDecimal currentAllocationRate) {
         if (this.alertType != AlertType.ALLOCATION || !this.isActive) {
             return false;
@@ -180,7 +180,7 @@ public class PortfolioAlert {
         }
     }
 
-    // 알림 메시지 생성
+
     public String generateAlertMessage() {
         if (this.customMessage != null && !this.customMessage.trim().isEmpty()) {
             return this.customMessage;

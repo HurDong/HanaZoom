@@ -20,12 +20,9 @@ public class StockLogoUpdaterService {
     private final StockRepository stockRepository;
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // 토스투자 로고 URL 패턴
+
     private static final String TOSS_LOGO_URL_PATTERN = "https://thumb.tossinvest.com/image/resized/48x0/https%3A%2F%2Fstatic.toss.im%2Fpng-icons%2Fsecurities%2Ficn-sec-fill-%s.png";
 
-    /**
-     * 모든 종목의 로고 URL을 업데이트합니다.
-     */
     @Transactional
     public void updateAllStockLogos() {
         log.info("=== 전체 종목 로고 업데이트 시작 ===");
@@ -47,7 +44,7 @@ public class StockLogoUpdaterService {
                     log.warn("[{}] {} - 로고를 찾을 수 없습니다", stock.getSymbol(), stock.getName());
                 }
 
-                // API 요청 간격 조절 (500ms)
+
                 Thread.sleep(500);
 
             } catch (Exception e) {
@@ -60,9 +57,6 @@ public class StockLogoUpdaterService {
         log.info("성공: {}개, 실패: {}개", successCount, failCount);
     }
 
-    /**
-     * 특정 종목의 로고 URL을 업데이트합니다.
-     */
     @Transactional
     public boolean updateStockLogo(Stock stock) {
         String logoUrl = generateLogoUrl(stock.getSymbol());
@@ -76,16 +70,10 @@ public class StockLogoUpdaterService {
         return false;
     }
 
-    /**
-     * 종목 코드를 기반으로 로고 URL을 생성합니다.
-     */
     private String generateLogoUrl(String symbol) {
         return String.format(TOSS_LOGO_URL_PATTERN, symbol);
     }
 
-    /**
-     * 로고 URL이 유효한지 확인합니다.
-     */
     private boolean isLogoUrlValid(String logoUrl) {
         try {
             ResponseEntity<byte[]> response = restTemplate.getForEntity(logoUrl, byte[].class);
@@ -93,7 +81,7 @@ public class StockLogoUpdaterService {
             if (response.getStatusCode() == HttpStatus.OK) {
                 byte[] body = response.getBody();
                 if (body != null && body.length > 500) {
-                    // 응답 본문이 있고 크기가 500바이트 이상인 경우 유효한 이미지로 간주
+
                     return true;
                 }
             }
@@ -101,14 +89,11 @@ public class StockLogoUpdaterService {
             return false;
 
         } catch (Exception e) {
-            // 로고 URL 검증 실패는 로그에서 제외
+
             return false;
         }
     }
 
-    /**
-     * 특정 종목 코드 리스트의 로고만 업데이트합니다.
-     */
     @Transactional
     public void updateStockLogosBySymbols(List<String> symbols) {
         log.info("=== 지정된 종목 로고 업데이트 시작 ===");
@@ -149,9 +134,6 @@ public class StockLogoUpdaterService {
         log.info("성공: {}개, 실패: {}개", successCount, failCount);
     }
 
-    /**
-     * 로고가 없는 종목들만 업데이트합니다.
-     */
     @Transactional
     public void updateMissingLogos() {
         log.info("=== 로고가 없는 종목 업데이트 시작 ===");

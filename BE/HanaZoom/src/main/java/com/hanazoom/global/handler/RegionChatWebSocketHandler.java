@@ -38,13 +38,13 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
     private final RegionRepository regionRepository;
     private final RegionChatService regionChatService;
 
-    // 지역별 채팅방 관리: regionId -> Set<WebSocketSession>
+
     private final Map<Long, Set<WebSocketSession>> regionChatRooms = new ConcurrentHashMap<>();
 
-    // 세션별 사용자 정보 관리: sessionId -> Member
+
     private final Map<String, Member> sessionMembers = new ConcurrentHashMap<>();
 
-    // 세션별 지역 정보 관리: sessionId -> regionId
+
     private final Map<String, Long> sessionRegions = new ConcurrentHashMap<>();
 
     @Override
@@ -53,7 +53,6 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
         log.info("🔍 WebSocket URI: {}", session.getUri());
         log.info("🔍 WebSocket 헤더: {}", session.getHandshakeHeaders());
 
-        // URL에서 regionId와 token 추출
         String query = session.getUri().getQuery();
         log.info("🔍 쿼리 문자열: {}", query);
 
@@ -62,6 +61,8 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             session.close(CloseStatus.BAD_DATA.withReason("Missing query parameters"));
             return;
         }
+        
+        log.info("🔌 쿼리 파라미터: {}", query);
 
         Map<String, String> params = parseQueryParams(query);
         String regionIdStr = params.get("regionId");
@@ -79,14 +80,18 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
         try {
             Long regionId = Long.parseLong(regionIdStr);
 
-            // JWT 토큰 검증
+
+            log.info("🔌 JWT 토큰 검증 시작...");
+            log.info("🔌 토큰 길이: {}, 토큰 시작: {}", token.length(), token.substring(0, Math.min(50, token.length())));
+            
             if (!jwtUtil.validateToken(token)) {
                 log.warn("⚠️ 유효하지 않은 토큰: {}", token.substring(0, 20) + "...");
                 session.close(CloseStatus.POLICY_VIOLATION.withReason("Invalid token"));
                 return;
             }
+            log.info("✅ JWT 토큰 검증 성공");
 
-            // 사용자 정보 조회
+
             UUID memberId = jwtUtil.getMemberIdFromToken(token);
             Member member = memberRepository.findById(memberId).orElse(null);
 
@@ -96,7 +101,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // 지역 정보 조회
+
             Region region = regionRepository.findById(regionId).orElse(null);
             if (region == null) {
                 log.warn("⚠️ 지역을 찾을 수 없습니다: {}", regionId);
@@ -104,24 +109,27 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // 세션 정보 저장
+
             sessionMembers.put(session.getId(), member);
             sessionRegions.put(session.getId(), regionId);
 
-            // 지역 채팅방에 참여
+
             regionChatRooms.computeIfAbsent(regionId, k -> ConcurrentHashMap.newKeySet()).add(session);
 
             log.info("✅ 지역 채팅 WebSocket 연결 성공: 사용자={}, 지역={}, 세션={}",
                     member.getName(), region.getName(), session.getId());
 
-            // 환영 메시지 전송
+
+            sendToSession(session, createMessage("PONG", "연결 성공", null));
+
+
             sendWelcomeMessage(session, member, region);
 
-            // 해당 지역의 다른 사용자들에게 입장 알림
+
             broadcastToRegion(regionId, createSystemMessage("ENTER",
                     member.getName() + "님이 입장했습니다.", member.getName()));
 
-            // 온라인 사용자 목록 브로드캐스트
+
             broadcastUsers(regionId);
 
         } catch (NumberFormatException e) {
@@ -129,6 +137,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             session.close(CloseStatus.BAD_DATA.withReason("Invalid regionId format"));
         } catch (Exception e) {
             log.error("❌ 지역 채팅 WebSocket 연결 실패", e);
+            log.error("❌ 연결 실패 상세 정보: regionId={}, token={}", regionIdStr, token != null ? token.substring(0, 20) + "..." : "null");
             session.close(CloseStatus.SERVER_ERROR.withReason("Connection failed"));
         }
     }
@@ -183,7 +192,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             log.info("❌ 지역 채팅 WebSocket 연결 종료: 사용자={}, 지역={}, 상태={}",
                     member.getName(), regionId, status);
 
-            // 지역 채팅방에서 제거
+
             Set<WebSocketSession> roomSessions = regionChatRooms.get(regionId);
             if (roomSessions != null) {
                 roomSessions.remove(session);
@@ -192,15 +201,15 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
                 }
             }
 
-            // 퇴장 알림 전송
+
             broadcastToRegion(regionId, createSystemMessage("LEAVE",
                     member.getName() + "님이 퇴장했습니다.", member.getName()));
 
-            // 온라인 사용자 목록 브로드캐스트
+
             broadcastUsers(regionId);
         }
 
-        // 세션 정보 정리
+
         sessionMembers.remove(session.getId());
         sessionRegions.remove(session.getId());
     }
@@ -218,11 +227,11 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        // 채팅 메시지 생성
+
         String messageId = UUID.randomUUID().toString();
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
-        // 이미지 리스트 변환
+
         List<String> imageList = null;
         if (images != null && imageCount > 0) {
             try {
@@ -240,7 +249,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             }
         }
 
-        // 보유종목 정보 변환
+
         List<Map<String, Object>> portfolioList = null;
         if (portfolioStocks != null) {
             try {
@@ -275,7 +284,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             }
         }
 
-        // MongoDB에 메시지 저장 (비동기로 처리하여 WebSocket 성능에 영향 없도록)
+
         final List<String> finalImageList = imageList;
         final List<Map<String, Object>> finalPortfolioList = portfolioList;
         String finalSenderId = senderId.isEmpty() ? member.getId().toString() : senderId;
@@ -295,7 +304,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             log.error("❌ 채팅 메시지 저장 실패 (무시하고 계속)", e);
         }
 
-        // 해당 지역의 모든 사용자에게 개별적으로 메시지 전송 (isMyMessage 설정을 위해)
+
         Set<WebSocketSession> sessions = regionChatRooms.get(regionId);
         if (sessions != null) {
             List<WebSocketSession> deadSessions = new ArrayList<>();
@@ -303,7 +312,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
             for (WebSocketSession targetSession : sessions) {
                 try {
                     if (targetSession.isOpen()) {
-                        // 현재 세션이면 isMyMessage = true, 아니면 false
+
                         boolean isMyMessage = targetSession.equals(session);
 
                         Map<String, Object> chatMessage = new HashMap<>();
@@ -316,13 +325,13 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
                         chatMessage.put("isMyMessage", isMyMessage);
                         chatMessage.put("senderId", finalSenderId);
 
-                        // 이미지가 있는 경우 추가
+
                         if (images != null && imageCount > 0) {
                             chatMessage.put("images", images);
                             chatMessage.put("imageCount", imageCount);
                         }
 
-                        // 보유종목 정보가 있는 경우 추가
+
                         if (finalPortfolioList != null && !finalPortfolioList.isEmpty()) {
                             chatMessage.put("portfolioStocks", finalPortfolioList);
                         }
@@ -342,7 +351,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
                 }
             }
 
-            // 죽은 세션들 정리
+
             deadSessions.forEach(sessions::remove);
         }
     }
@@ -353,7 +362,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
         typingMessage.put("memberName", member.getName());
         typingMessage.put("isTyping", isTyping);
 
-        // 해당 지역의 다른 사용자들에게 타이핑 상태 전송 (자신 제외)
+
         broadcastToRegionExcept(regionId, session, objectMapper.valueToTree(typingMessage).toString());
     }
 
@@ -456,7 +465,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
 
             for (WebSocketSession session : sessions) {
                 if (session.equals(excludeSession)) {
-                    continue; // 자신 제외
+                    continue; 
                 }
 
                 try {
@@ -475,7 +484,7 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
                 }
             }
 
-            // 죽은 세션들 정리
+
             deadSessions.forEach(sessions::remove);
         }
     }
@@ -540,13 +549,13 @@ public class RegionChatWebSocketHandler extends TextWebSocketHandler {
         return params;
     }
 
-    // 지역별 온라인 사용자 수 조회
+
     public int getOnlineUserCount(Long regionId) {
         Set<WebSocketSession> sessions = regionChatRooms.get(regionId);
         return sessions != null ? sessions.size() : 0;
     }
 
-    // 지역별 온라인 사용자 목록 조회
+
     public List<String> getOnlineUsers(Long regionId) {
         Set<WebSocketSession> sessions = regionChatRooms.get(regionId);
         if (sessions == null) {

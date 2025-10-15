@@ -81,9 +81,9 @@ public class PostServiceImpl implements PostService {
 
         Post savedPost = postRepository.save(post);
 
-        // 투표 생성
+
         if (voteQuestion != null && !voteQuestion.trim().isEmpty() && voteOptions != null && !voteOptions.isEmpty()) {
-            // 사용자가 입력한 투표 옵션들을 Poll 엔티티의 optionUp, optionDown에 설정
+
             String optionUp = voteOptions.size() > 0 ? voteOptions.get(0) : "오를 것 같다 📈";
             String optionDown = voteOptions.size() > 1 ? voteOptions.get(1) : "떨어질 것 같다 📉";
 
@@ -92,7 +92,7 @@ public class PostServiceImpl implements PostService {
                     .question(voteQuestion)
                     .build();
 
-            // optionUp, optionDown 직접 설정
+
             poll.setOptionUp(optionUp);
             poll.setOptionDown(optionDown);
 
@@ -120,9 +120,9 @@ public class PostServiceImpl implements PostService {
         Post savedPost = postRepository.save(post);
         Poll poll = null;
 
-        // 투표 생성
+
         if (voteQuestion != null && !voteQuestion.trim().isEmpty() && voteOptions != null && !voteOptions.isEmpty()) {
-            // 사용자가 입력한 투표 옵션들을 Poll 엔티티의 optionUp, optionDown에 설정
+
             String optionUp = voteOptions.size() > 0 ? voteOptions.get(0) : "오를 것 같다 📈";
             String optionDown = voteOptions.size() > 1 ? voteOptions.get(1) : "떨어질 것 같다 📉";
 
@@ -131,7 +131,7 @@ public class PostServiceImpl implements PostService {
                     .question(voteQuestion)
                     .build();
 
-            // optionUp, optionDown 직접 설정
+
             poll.setOptionUp(optionUp);
             poll.setOptionDown(optionDown);
 
@@ -232,7 +232,7 @@ public class PostServiceImpl implements PostService {
     public void voteOnPost(Long postId, Member member, String optionId) {
         Post post = getPost(postId);
 
-        // 투표 옵션 검증
+
         VoteOption voteOption;
         try {
             voteOption = VoteOption.valueOf(optionId.toUpperCase());
@@ -240,19 +240,19 @@ public class PostServiceImpl implements PostService {
             throw new IllegalArgumentException("유효하지 않은 투표 옵션입니다.");
         }
 
-        // Poll 엔티티 조회 또는 생성
+
         Poll poll = pollRepository.findByPost(post)
                 .orElseGet(() -> pollRepository.save(Poll.builder()
                         .post(post)
                         .question("이 종목이 오를까요?")
                         .build()));
 
-        // 이미 투표했는지 확인
+
         if (pollResponseRepository.existsByPollAndMember(poll, member)) {
             throw new IllegalArgumentException("이미 투표했습니다.");
         }
 
-        // 투표 응답 저장
+
         PollResponse pollResponse = PollResponse.builder()
                 .poll(poll)
                 .member(member)
@@ -260,7 +260,7 @@ public class PostServiceImpl implements PostService {
                 .build();
         pollResponseRepository.save(pollResponse);
 
-        // 투표 수 업데이트
+
         if (voteOption == VoteOption.UP) {
             poll.incrementVoteUpCount();
         } else {
@@ -275,7 +275,7 @@ public class PostServiceImpl implements PostService {
         Poll poll = pollRepository.findByPost(post).orElse(null);
 
         if (poll == null) {
-            // 투표가 없는 경우 빈 투표 옵션 반환
+
             return VoteResultsResponse.builder()
                     .voteOptions(List.of())
                     .totalVotes(0)
@@ -283,7 +283,7 @@ public class PostServiceImpl implements PostService {
                     .build();
         }
 
-        // 사용자의 투표 확인
+
         String userVote = null;
         if (member != null) {
             Optional<PollResponse> userResponse = pollResponseRepository.findByPollAndMember(poll, member);
@@ -292,7 +292,7 @@ public class PostServiceImpl implements PostService {
             }
         }
 
-        // 투표 옵션 구성
+
         List<VoteOptionResponse> voteOptions = List.of(
                 VoteOptionResponse.builder()
                         .id("UP")

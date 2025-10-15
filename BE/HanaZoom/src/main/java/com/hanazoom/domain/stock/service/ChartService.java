@@ -25,9 +25,6 @@ public class ChartService {
     private final StockWeeklyPriceRepository weeklyPriceRepository;
     private final StockMonthlyPriceRepository monthlyPriceRepository;
 
-    /**
-     * 일봉 차트 데이터 조회
-     */
     public List<ChartDataDto> getDailyChartData(String stockSymbol, int days) {
         log.info("일봉 차트 데이터 조회 시작: stockSymbol={}, days={}", stockSymbol, days);
 
@@ -55,9 +52,6 @@ public class ChartService {
         }
     }
 
-    /**
-     * 주봉 차트 데이터 조회
-     */
     public List<ChartDataDto> getWeeklyChartData(String stockSymbol, int weeks) {
         log.info("주봉 차트 데이터 조회 시작: stockSymbol={}, weeks={}", stockSymbol, weeks);
 
@@ -85,9 +79,6 @@ public class ChartService {
         }
     }
 
-    /**
-     * 월봉 차트 데이터 조회
-     */
     public List<ChartDataDto> getMonthlyChartData(String stockSymbol, int months) {
         log.info("월봉 차트 데이터 조회 시작: stockSymbol={}, months={}", stockSymbol, months);
 
@@ -119,9 +110,6 @@ public class ChartService {
         }
     }
 
-    /**
-     * 일봉 데이터를 DTO로 변환
-     */
     private ChartDataDto convertToChartDataDto(StockDailyPrice dailyPrice) {
         return ChartDataDto.builder()
                 .stockSymbol(dailyPrice.getStockSymbol())
@@ -136,9 +124,6 @@ public class ChartService {
                 .build();
     }
 
-    /**
-     * 주봉 데이터를 DTO로 변환
-     */
     private ChartDataDto convertWeeklyToChartDataDto(StockWeeklyPrice weeklyPrice) {
         return ChartDataDto.builder()
                 .stockSymbol(weeklyPrice.getStockSymbol())
@@ -153,11 +138,8 @@ public class ChartService {
                 .build();
     }
 
-    /**
-     * 월봉 데이터를 DTO로 변환
-     */
     private ChartDataDto convertMonthlyToChartDataDto(StockMonthlyPrice monthlyPrice) {
-        // yearMonth를 LocalDate로 변환 (예: "2024-01" -> 2024-01-01)
+
         LocalDate date = LocalDate.parse(monthlyPrice.getYearMonth() + "-01");
 
         return ChartDataDto.builder()

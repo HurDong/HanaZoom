@@ -40,13 +40,13 @@ public class MemberController {
     @GetMapping("/region")
     public ResponseEntity<ApiResponse<Long>> getUserRegion(@RequestHeader("Authorization") String authHeader) {
         try {
-            // Bearer 토큰에서 JWT 추출
+
             String token = authHeader.replace("Bearer ", "");
 
-            // JWT에서 이메일 추출
+
             String email = jwtUtil.getEmailFromToken(token);
 
-            // 사용자 지역 조회
+
             Long regionId = memberService.getUserRegionId(email);
 
             return ResponseEntity.ok(ApiResponse.success(regionId));
@@ -55,7 +55,7 @@ public class MemberController {
         }
     }
 
-    // 비밀번호 찾기 - 이메일 인증 코드 발송
+
     @PostMapping("/forgot-password/send-code")
     public ResponseEntity<ApiResponse<Void>> sendPasswordResetCode(
             @RequestBody SendPasswordResetCodeRequest request) {
@@ -64,7 +64,7 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponse.success("비밀번호 재설정 인증 코드가 이메일로 발송되었습니다."));
     }
 
-    // 비밀번호 찾기 - 인증 코드 확인 및 비밀번호 재설정
+
     @PostMapping("/forgot-password/reset")
     public ResponseEntity<ApiResponse<Void>> resetPassword(
             @RequestBody ResetPasswordRequest request) {
@@ -73,7 +73,7 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponse.success("비밀번호가 성공적으로 재설정되었습니다."));
     }
 
-    // 카카오 로그인
+
     @PostMapping("/kakao-login")
     public ResponseEntity<ApiResponse<LoginResponse>> kakaoLogin(@RequestBody KakaoLoginRequest request) {
         try {
@@ -84,7 +84,7 @@ public class MemberController {
         }
     }
 
-    // 현재 사용자 정보 조회
+
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<MemberInfoResponse>> getCurrentUser(
             @RequestHeader("Authorization") String authHeader) {
@@ -99,7 +99,7 @@ public class MemberController {
         }
     }
 
-    // 위치 정보 업데이트
+
     @PutMapping("/location")
     public ResponseEntity<ApiResponse<Void>> updateLocation(
             @RequestHeader("Authorization") String authHeader,

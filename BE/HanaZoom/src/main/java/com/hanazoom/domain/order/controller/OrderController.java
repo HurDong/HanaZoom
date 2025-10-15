@@ -27,9 +27,6 @@ public class OrderController {
 
     private final OrderService orderService;
 
-    /**
-     * 주문 생성
-     */
     @PostMapping
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
             @AuthenticationPrincipal Member member,
@@ -42,9 +39,6 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    /**
-     * 주문 조회
-     */
     @GetMapping("/{orderId}")
     public ResponseEntity<ApiResponse<OrderResponse>> getOrder(
             @AuthenticationPrincipal Member member,
@@ -54,9 +48,6 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    /**
-     * 주문 목록 조회
-     */
     @GetMapping
     public ResponseEntity<ApiResponse<Page<OrderResponse>>> getOrders(
             @AuthenticationPrincipal Member member,
@@ -68,9 +59,6 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(orders));
     }
 
-    /**
-     * 특정 종목 주문 목록 조회
-     */
     @GetMapping("/stock/{stockSymbol}")
     public ResponseEntity<ApiResponse<Page<OrderResponse>>> getOrdersByStock(
             @AuthenticationPrincipal Member member,
@@ -83,9 +71,6 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(orders));
     }
 
-    /**
-     * 미체결 주문 목록 조회
-     */
     @GetMapping("/pending")
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getPendingOrders(
             @AuthenticationPrincipal Member member) {
@@ -94,9 +79,6 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(orders));
     }
 
-    /**
-     * 주문 취소
-     */
     @PostMapping("/{orderId}/cancel")
     public ResponseEntity<ApiResponse<OrderResponse>> cancelOrder(
             @AuthenticationPrincipal Member member,
@@ -108,9 +90,6 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    /**
-     * 주문 상태 조회
-     */
     @GetMapping("/{orderId}/status")
     public ResponseEntity<ApiResponse<Order.OrderStatus>> getOrderStatus(
             @AuthenticationPrincipal Member member,

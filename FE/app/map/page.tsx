@@ -465,27 +465,64 @@ export default function MapPage() {
   // 마커 클릭 핸들러 최적화
   const handleMarkerClick = useCallback(
     (region: Region) => {
-      setCenter({ lat: region.latitude, lng: region.longitude });
       setSelectedRegion(region);
 
-      let newZoomLevel: number;
-      if (region.type === "CITY") {
-        newZoomLevel = 7;
-      } else if (region.type === "DISTRICT") {
-        newZoomLevel = 4;
-      } else {
-        newZoomLevel = zoomLevel; // 기본값 유지
-      }
+      // 부드러운 이동 애니메이션
+      const moveToMarker = () => {
+        if (mapRef.current) {
+          // 현재 지도 중심과 목표 위치의 거리 계산
+          const currentCenter = mapRef.current.getCenter();
+          const targetPosition = new kakao.maps.LatLng(region.latitude, region.longitude);
+          const distance = Math.sqrt(
+            Math.pow(currentCenter.getLat() - region.latitude, 2) +
+            Math.pow(currentCenter.getLng() - region.longitude, 2)
+          );
 
-      // 줌 레벨과 디바운싱된 줌 레벨 모두 즉시 업데이트
-      setZoomLevel(newZoomLevel);
-      setDebouncedZoomLevel(newZoomLevel);
+          // 거리에 따른 줌 레벨 설정
+          let newZoomLevel: number;
+          if (region.type === "CITY") {
+            newZoomLevel = 7;
+          } else if (region.type === "DISTRICT") {
+            newZoomLevel = 4;
+          } else {
+            newZoomLevel = Math.max(zoomLevel, 3); // 최소 줌 레벨 설정
+          }
 
-      // 기존 타임아웃이 있다면 클리어 (마커 클릭은 즉시 적용)
-      if (zoomTimeoutRef.current) {
-        clearTimeout(zoomTimeoutRef.current);
-        zoomTimeoutRef.current = null;
-      }
+          // 줌 레벨과 디바운싱된 줌 레벨 모두 즉시 업데이트
+          setZoomLevel(newZoomLevel);
+          setDebouncedZoomLevel(newZoomLevel);
+
+          // 기존 타임아웃이 있다면 클리어 (마커 클릭은 즉시 적용)
+          if (zoomTimeoutRef.current) {
+            clearTimeout(zoomTimeoutRef.current);
+            zoomTimeoutRef.current = null;
+          }
+
+          // 부드러운 이동 애니메이션
+          if (distance > 0.01) { // 일정 거리 이상이면 애니메이션 적용
+            mapRef.current.panTo(targetPosition);
+
+            // 줌 레벨 변경도 부드럽게
+            setTimeout(() => {
+              mapRef.current?.setLevel(newZoomLevel, {
+                animate: true
+              });
+            }, 150);
+          } else {
+            // 가까운 거리는 즉시 이동
+            mapRef.current.setCenter(targetPosition);
+            mapRef.current.setLevel(newZoomLevel, {
+              animate: true
+            });
+          }
+
+          // 상태 업데이트
+          setCenter({ lat: region.latitude, lng: region.longitude });
+        }
+      };
+
+      // 약간의 지연 후 이동 (시각적 피드백을 위해)
+      setTimeout(moveToMarker, 100);
 
       // 상위 주식 정보 가져오기
       fetchTopStocks(region.id);
@@ -501,11 +538,12 @@ export default function MapPage() {
         region={region}
         onClick={handleMarkerClick}
         isVisible={true} // LOD 필터링으로 이미 가시성 결정됨
+        isSelected={selectedRegion?.id === region.id} // 선택된 상태 전달
       />
     ));
 
     return markers;
-  }, [visibleMarkers, handleMarkerClick]);
+  }, [visibleMarkers, handleMarkerClick, selectedRegion]);
 
   // 종목 클릭 시 상세 정보 표시
   const handleStockClick = (stock: TopStock) => {
@@ -540,29 +578,26 @@ export default function MapPage() {
 
   if (!isMapReady) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-green-600" />
-          <p className="text-lg font-semibold text-green-800 dark:text-green-200">
-            지도를 준비하고 있습니다...
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-            마커를 로딩 중입니다
-          </p>
+          <div className="mb-6">
+            <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">
+              지도 준비 중
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              지역 정보를 불러오는 중입니다...
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950 overflow-hidden relative transition-colors duration-500">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden relative">
       {/* 마우스 따라다니는 아이콘들 (사용자 설정에 따라) */}
       {isInitialized && settings.customCursorEnabled && <MouseFollower />}
-
-      {/* 배경 패턴 */}
-      <div className="absolute inset-0 pointer-events-none opacity-10 dark:opacity-5">
-        <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:20px_20px]"></div>
-      </div>
 
       {/* Floating Stock Symbols (사용자 설정에 따라) */}
       <FloatingEmojiBackground />
@@ -584,30 +619,9 @@ export default function MapPage() {
         onResetMap={handleResetMap}
       />
 
-      {/* 매달린 캐릭터 오버레이 - 지도보다 위에 배치 */}
-      <div className="fixed top-8 left-72 z-[5] pointer-events-none">
-        <div className="relative">
-          {/* 매달린 줄 효과 - 더 자연스럽게 */}
-          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-1 h-12 bg-gradient-to-b from-gray-500 via-gray-400 to-transparent rounded-full"></div>
-          {/* 그림자 효과 - 지도 위에 떨어지는 그림자 */}
-          <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-64 h-12 bg-black/15 rounded-full blur-sm"></div>
-        </div>
-      </div>
 
-      {/* 캐릭터 이미지만 별도로 높은 z-index로 배치 */}
-      <div className="fixed top-32 left-80 z-[20] pointer-events-none">
-        <img
-          src="/starpro_hang.png"
-          alt="매달린 캐릭터"
-          className="w-80 h-20 object-contain"
-          style={{
-            transform: "translateY(-8px)",
-          }}
-        />
-      </div>
-
-      <main className="relative z-10 pt-44">
-        <div className="w-full px-6 py-4 h-[calc(100vh-12rem)] flex gap-6">
+      <main className="relative z-10 pt-20">
+        <div className="w-full px-6 py-4 h-[calc(100vh-8rem)] flex gap-6">
           {/* 비치명적 경고 배너 */}
           {error && (
             <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-2 rounded-md bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border border-yellow-300/60 dark:border-yellow-700/60 shadow">
@@ -616,63 +630,45 @@ export default function MapPage() {
           )}
 
           {/* 지도 컨트롤 사이드 패널 */}
-          <Card className="w-80 hidden md:flex flex-col bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-green-200 dark:border-green-800">
+          <Card className="w-80 hidden md:flex flex-col bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border border-gray-200 dark:border-gray-700 shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-green-900 dark:text-green-100">
-                <Compass className="w-6 h-6" />
-                <span>지도 제어</span>
+              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                <Compass className="w-5 h-5 text-emerald-600" />
+                <span className="font-bold">지역 탐색</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-grow overflow-y-auto space-y-4 max-h-[calc(100vh-16rem)]">
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-300">
-                  <Layers className="w-5 h-5" />
-                  <span>줌 레벨: {zoomLevel}</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {zoomLevel <= 4
-                      ? "동/면"
-                      : zoomLevel <= 7
-                      ? "시/도"
-                      : "전국"}
-                  </span>
+            <CardContent className="flex-grow overflow-y-auto space-y-4 max-h-[calc(100vh-12rem)]">
+              <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <label className="flex items-center gap-2 font-semibold text-gray-800 dark:text-gray-200">
+                  <Layers className="w-4 h-4 text-emerald-600" />
+                  <span>탐색 범위</span>
                 </label>
-                <Slider
-                  value={[zoomLevel]}
-                  max={14}
-                  min={1}
-                  step={1}
-                  onValueChange={(value) => handleZoomChange(value[0])}
-                />
-                <div className="relative mt-1">
-                  {/* 구분선 마커 */}
-                  <div className="absolute w-full flex justify-between px-1 -mt-3">
-                    <div className="relative left-[35%]">
-                      <div className="h-3 w-0.5 bg-green-600/50 dark:bg-green-400/50"></div>
-                      <div className="absolute -top-1 -left-1 w-2 h-2 rounded-full bg-green-600 dark:bg-green-400"></div>
-                    </div>
-                    <div className="relative right-[42%]">
-                      <div className="h-3 w-0.5 bg-green-600/50 dark:bg-green-400/50"></div>
-                      <div className="absolute -top-1 -left-1 w-2 h-2 rounded-full bg-green-600 dark:bg-green-400"></div>
+
+                <div className="bg-white dark:bg-gray-700 rounded-md p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      줌 레벨: {zoomLevel}
+                    </span>
+                    <div className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs rounded-full font-medium">
+                      {zoomLevel <= 4 ? "동네" : zoomLevel <= 7 ? "도시" : "전국"}
                     </div>
                   </div>
-                  {/* 텍스트 레이블 */}
-                  <div className="flex justify-between text-xs text-gray-500 px-1">
-                    <span>읍/면/동</span>
-                    <span className="absolute left-[38%]">시/군/구</span>
-                    <span>광역시/도</span>
-                  </div>
-                  <div className="flex justify-between text-[10px] text-gray-400 px-1 mt-0.5">
-                    <span>(~5)</span>
-                    <span className="absolute left-[40%]">(6~8)</span>
-                    <span>(9~)</span>
-                  </div>
+
+                  <Slider
+                    value={[zoomLevel]}
+                    max={14}
+                    min={1}
+                    step={1}
+                    onValueChange={(value) => handleZoomChange(value[0])}
+                    className="mb-3"
+                  />
                 </div>
               </div>
 
-              <div className="space-y-4 pt-4 border-t border-green-200/50 dark:border-green-800/50">
-                <div className="space-y-2">
-                  <h4 className="font-bold text-lg flex items-center gap-2 text-green-800 dark:text-green-200">
-                    <Flame className="w-5 h-5" />
+              <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <h4 className="font-bold text-lg flex items-center gap-2 text-gray-800 dark:text-gray-200">
+                    <Flame className="w-4 h-4 text-orange-500" />
                     <span>
                       {selectedRegion
                         ? `${selectedRegion.name} 인기 종목`
@@ -680,61 +676,22 @@ export default function MapPage() {
                     </span>
                   </h4>
 
-                  {/* 시장 상태 및 실시간 데이터 상태 표시 */}
-                  {selectedRegion && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <div
-                        className={`px-2 py-1 rounded-full text-white font-semibold ${
-                          marketStatus.isMarketOpen
-                            ? "bg-green-500"
-                            : marketStatus.isAfterMarketClose
-                            ? "bg-gray-500"
-                            : "bg-blue-500"
-                        }`}
-                      >
-                        {marketStatus.marketStatus}
-                      </div>
-
-                      {isRealtimeMode && wsConnected && (
-                        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">
-                          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                          <span>실시간</span>
-                        </div>
-                      )}
-
-                      {isRealtimeMode && !wsConnected && (
-                        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300">
-                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                          <span>연결중</span>
-                        </div>
-                      )}
-
-                      {!isRealtimeMode && (
-                        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                          <span>DB 데이터</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
 
-                {/* 우리동네 인기 종목 패널 - 미니멀 스타일 */}
+                {/* 인기 종목 패널 */}
                 {loadingStocks ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                    <span className="ml-2 text-sm text-gray-500">
-                      주식 정보를 불러오는 중...
+                  <div className="flex flex-col items-center justify-center py-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <Loader2 className="w-6 h-6 animate-spin text-emerald-600 mb-2" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      종목 정보 로딩중...
                     </span>
                   </div>
                 ) : selectedRegion && topStocks.length > 0 ? (
-                  <div className="space-y-3">
-                    {/* 패널 헤더 */}
-                    <div className="text-center mb-6">
-                      <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-1">
-                        우리동네 인기 종목
+                  <div className="space-y-3 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="text-center mb-4">
+                      <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                        인기 종목 TOP 3
                       </h3>
-                      <div className="w-12 h-px bg-gray-300 dark:bg-gray-600 mx-auto"></div>
                     </div>
 
                     {/* 종목 리스트 - 개선된 카드 형식 */}
@@ -882,14 +839,8 @@ export default function MapPage() {
                                   {stock.name}
                                 </div>
 
-                                {/* 종목코드와 업종 */}
-                                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                                  <span className="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs">
-                                    {stock.symbol}
-                                  </span>
-                                  <span className="text-gray-400 dark:text-gray-500">
-                                    •
-                                  </span>
+                                {/* 업종 */}
+                                <div className="text-sm text-gray-500 dark:text-gray-400">
                                   <span className="truncate">
                                     {stock.sector}
                                   </span>
@@ -898,54 +849,59 @@ export default function MapPage() {
                             </div>
                           </div>
 
-                          {/* 선택 상태 표시 */}
-                          {isSelected && (
-                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                              <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
-                            </div>
-                          )}
+              {/* 선택 상태 표시 */}
+              {isSelected && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="w-2 h-2 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-pulse"></div>
+                </div>
+              )}
                         </div>
                       );
                     })}
                   </div>
                 ) : selectedRegion ? (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">해당 지역의 주식 정보가 없습니다.</p>
+                  <div className="text-center py-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <TrendingUp className="w-8 h-8 text-gray-400 mx-auto mb-3" />
+                    <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      종목 정보가 없습니다
+                    </h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {selectedRegion.name} 지역의 종목 정보가 아직 등록되지 않았습니다
+                    </p>
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">지도를 클릭하여 지역을 선택하세요</p>
-                  </div>
+                  <></>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* 지도 영역 */}
-          <div className="flex-1 h-full rounded-lg overflow-hidden shadow-2xl border-4 border-white/50 dark:border-gray-800/50 flex items-center justify-center bg-green-50/50 dark:bg-green-950/50">
-            <Map
-              center={center}
-              style={{ width: "100%", height: "100%" }}
-              level={zoomLevel}
-              onZoomChanged={(map) => {
-                handleZoomChange(map.getLevel());
-                updateBounds(map);
-              }}
-              onCenterChanged={(map) => {
-                updateBounds(map);
-                if (!mapRef.current) {
-                  console.log("🗺️ 카카오맵 인스턴스 저장");
-                  mapRef.current = map;
-                }
-              }}
-              onBoundsChanged={(map) => updateBounds(map)}
-              onTileLoaded={(map: kakao.maps.Map) => updateBounds(map)}
-            >
-              {renderedMarkers}
-            </Map>
-          </div>
+      {/* 지도 영역 */}
+      <div className="flex-1 h-full rounded-lg overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center relative">
+        <div className="relative w-full h-full bg-white dark:bg-gray-900 rounded-lg overflow-hidden">
+          <Map
+            center={center}
+            style={{ width: "100%", height: "100%" }}
+            level={zoomLevel}
+            onZoomChanged={(map) => {
+              handleZoomChange(map.getLevel());
+              updateBounds(map);
+            }}
+            onCenterChanged={(map) => {
+              updateBounds(map);
+              if (!mapRef.current) {
+                console.log("🗺️ 카카오맵 인스턴스 저장");
+                mapRef.current = map;
+              }
+            }}
+            onBoundsChanged={(map) => updateBounds(map)}
+            onTileLoaded={(map: kakao.maps.Map) => updateBounds(map)}
+          >
+            {renderedMarkers}
+          </Map>
+
+        </div>
+      </div>
         </div>
       </main>
 

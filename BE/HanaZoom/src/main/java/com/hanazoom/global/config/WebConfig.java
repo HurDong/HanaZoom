@@ -39,5 +39,5 @@ public class WebConfig implements WebMvcConfigurer {
         return new RestTemplate();
     }
 
-    // CORS 설정은 SecurityConfig에서 처리
+
 }

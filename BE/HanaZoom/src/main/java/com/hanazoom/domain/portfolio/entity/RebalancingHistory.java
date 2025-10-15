@@ -34,28 +34,28 @@ public class RebalancingHistory {
     @Column(name = "rebalancing_date", nullable = false)
     private LocalDate rebalancingDate;
 
-    // 리밸런싱 전후 비교
+
     @Column(name = "before_total_value", nullable = false, precision = 15, scale = 2)
     private BigDecimal beforeTotalValue;
 
     @Column(name = "after_total_value", nullable = false, precision = 15, scale = 2)
     private BigDecimal afterTotalValue;
 
-    // 거래 내역 요약
+
     @Column(name = "trades_executed", nullable = false)
     private Integer tradesExecuted = 0;
 
     @Column(name = "total_commission", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalCommission = BigDecimal.ZERO;
 
-    // 리밸런싱 결과
+
     @Column(name = "target_allocation", nullable = false, columnDefinition = "TEXT")
     private String targetAllocation;
 
     @Column(name = "actual_allocation", nullable = false, columnDefinition = "TEXT")
     private String actualAllocation;
 
-    // 메타 정보
+
     @Column(name = "rebalancing_reason", columnDefinition = "TEXT")
     private String rebalancingReason;
 
@@ -85,7 +85,7 @@ public class RebalancingHistory {
         this.rebalancingReason = rebalancingReason;
     }
 
-    // 리밸런싱 성과 계산
+
     public BigDecimal getValueChange() {
         return this.afterTotalValue.subtract(this.beforeTotalValue);
     }
@@ -99,7 +99,7 @@ public class RebalancingHistory {
         return BigDecimal.ZERO;
     }
 
-    // 수수료 비율 계산
+
     public BigDecimal getCommissionRate() {
         if (this.beforeTotalValue.compareTo(BigDecimal.ZERO) > 0) {
             return this.totalCommission
@@ -109,13 +109,13 @@ public class RebalancingHistory {
         return BigDecimal.ZERO;
     }
 
-    // 리밸런싱 성공 여부 확인
+
     public boolean isSuccessful() {
-        // 목표 자산 배분과 실제 자산 배분이 일치하는지 확인
+
         return this.targetAllocation.equals(this.actualAllocation);
     }
 
-    // 리밸런싱 효율성 계산
+
     public BigDecimal getEfficiency() {
         if (this.beforeTotalValue.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal valueGain = this.getValueChange();
@@ -128,7 +128,7 @@ public class RebalancingHistory {
         return BigDecimal.ZERO;
     }
 
-    // 리밸런싱 타입별 설명
+
     public String getRebalancingDescription() {
         String baseDescription = String.format("%s 리밸런싱", this.rebalancingType.getDescription());
 
@@ -139,7 +139,7 @@ public class RebalancingHistory {
         return baseDescription;
     }
 
-    // 거래 효율성 등급
+
     public String getTradeEfficiencyGrade() {
         if (this.tradesExecuted == 0) {
             return "N/A";
@@ -161,7 +161,7 @@ public class RebalancingHistory {
         }
     }
 
-    // 리밸런싱 결과 요약
+
     public String getResultSummary() {
         return String.format("리밸런싱 결과: %s → %s (변화: %s, 수수료: %s)",
                 this.beforeTotalValue.toString(),

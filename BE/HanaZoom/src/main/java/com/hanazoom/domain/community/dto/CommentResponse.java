@@ -29,7 +29,7 @@ public class CommentResponse {
             return AuthorResponse.builder()
                     .id(comment.getMember().getId().toString())
                     .name(comment.getMember().getName())
-                    .avatar(null) // 현재는 avatar 기능이 없으므로 null 반환
+                    .avatar(null) 
                     .build();
         }
     }

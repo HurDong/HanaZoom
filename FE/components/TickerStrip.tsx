@@ -48,7 +48,7 @@ const TickerStrip: React.FC<TickerStripProps> = ({
   className,
 }) => {
   const [copied, setCopied] = useState(false);
-  const pct = useMemo(() => (isFinite(changeRate) ? (changeRate * 100).toFixed(2) : "-"), [changeRate]);
+  const pct = useMemo(() => (isFinite(changeRate) ? changeRate.toFixed(2) : "-"), [changeRate]);
   const changeAbs = Math.abs(change);
 
   const handleCopy = async () => {

@@ -4,8 +4,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum PostType {
-    TEXT, // 일반 텍스트 게시글
-    POLL; // 투표 게시글
+    TEXT, 
+    POLL; 
 
     @JsonCreator
     public static PostType fromString(String value) {

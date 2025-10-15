@@ -32,16 +32,16 @@ public class SettlementSchedule {
     private AccountBalance accountBalance;
 
     @Column(name = "trade_history_id", nullable = false)
-    private Long tradeHistoryId; // 매도 거래 내역 ID
+    private Long tradeHistoryId; 
 
     @Column(name = "settlement_amount", nullable = false, precision = 15, scale = 2)
-    private BigDecimal settlementAmount; // 정산될 금액
+    private BigDecimal settlementAmount; 
 
     @Column(name = "trade_date", nullable = false)
-    private LocalDate tradeDate; // 매도 거래일
+    private LocalDate tradeDate; 
 
     @Column(name = "settlement_date", nullable = false)
-    private LocalDate settlementDate; // 정산 완료일 (3영업일 후)
+    private LocalDate settlementDate; 
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
@@ -56,9 +56,9 @@ public class SettlementSchedule {
     private LocalDateTime updatedAt;
 
     public enum SettlementStatus {
-        PENDING, // 정산 대기 중
-        COMPLETED, // 정산 완료
-        CANCELLED // 정산 취소
+        PENDING, 
+        COMPLETED, 
+        CANCELLED 
     }
 
     @Builder
@@ -71,12 +71,12 @@ public class SettlementSchedule {
         calculateSettlementDate();
     }
 
-    // 정산일 계산 (영업일 기준)
+
     public void calculateSettlementDate() {
         this.settlementDate = calculateBusinessDaysAfter(this.tradeDate, 3);
     }
 
-    // 영업일 계산 (주말 제외)
+
     private LocalDate calculateBusinessDaysAfter(LocalDate startDate, int businessDays) {
         LocalDate result = startDate;
         int addedDays = 0;
@@ -91,17 +91,17 @@ public class SettlementSchedule {
         return result;
     }
 
-    // 정산 완료 처리
+
     public void completeSettlement() {
         this.status = SettlementStatus.COMPLETED;
     }
 
-    // 정산 취소 처리
+
     public void cancelSettlement() {
         this.status = SettlementStatus.CANCELLED;
     }
 
-    // accountBalance 설정 (accountBalanceId도 함께 설정)
+
     public void setAccountBalance(AccountBalance accountBalance) {
         this.accountBalance = accountBalance;
         this.accountBalanceId = accountBalance.getId();

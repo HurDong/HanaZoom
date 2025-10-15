@@ -110,43 +110,50 @@ function StockItem({ stock, priceData, wsConnected }: StockItemProps) {
 
   return (
     <Link href={`/stocks/${stock.symbol}`}>
-      <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-                {stock.name}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">
-                {stock.symbol}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className={getSectorColor(stock.sector)}>
-                {stock.sector}
-              </Badge>
-              {wsConnected ? (
-                <Wifi className="w-4 h-4 text-green-500" />
-              ) : (
-                <WifiOff className="w-4 h-4 text-red-400" />
-              )}
-            </div>
+      <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group h-48">
+        <CardContent className="p-4 h-full flex flex-col">
+          {/* 상단: 섹터와 연결상태 */}
+          <div className="flex items-center justify-between mb-2">
+            <Badge 
+              className={`${getSectorColor(stock.sector)} text-xs`}
+              title={stock.sector} // 툴팁으로 전체 섹터명 표시
+            >
+              {stock.sector.length > 18 ? `${stock.sector.substring(0, 18)}...` : stock.sector}
+            </Badge>
+            {wsConnected ? (
+              <Wifi className="w-4 h-4 text-green-500 flex-shrink-0" />
+            ) : (
+              <WifiOff className="w-4 h-4 text-red-400 flex-shrink-0" />
+            )}
           </div>
 
-          {/* 가격 정보 표시 */}
-          {priceData ? (
-            <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+          {/* 종목명과 종목코드 */}
+          <div className="mb-3">
+            <h3 
+              className="font-semibold text-gray-900 dark:text-gray-100 text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors leading-tight"
+              title={stock.name} // 툴팁으로 전체 종목명 표시
+            >
+              {stock.name}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">
+              {stock.symbol}
+            </p>
+          </div>
+
+          {/* 중앙: 가격 정보 (한 줄로 정리) */}
+          <div className="flex-1 flex items-center justify-center">
+            {priceData ? (
+              <div className="text-center w-full">
+                <div className="flex items-center justify-center gap-2 mb-3">
                   {getPriceChangeIcon(priceData.changeSign)}
-                  <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                  <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {formatNumber(priceData.currentPrice)}원
                   </span>
                 </div>
                 <div
                   className={`text-sm font-semibold ${getPriceChangeColor(
                     priceData.changeSign
-                  )}`}
+                  )} mb-2`}
                 >
                   {priceData.changePrice !== "0" && (
                     <>
@@ -154,33 +161,24 @@ function StockItem({ stock, priceData, wsConnected }: StockItemProps) {
                       priceData.changeSign === "1"
                         ? "+"
                         : ""}
-                      {formatNumber(priceData.changePrice)} (
-                      {priceData.changeRate}%)
+                      {formatNumber(priceData.changePrice)} ({priceData.changeRate}%)
                     </>
                   )}
                   {priceData.changePrice === "0" && "보합"}
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div className="flex items-center justify-center">
-                <span className="text-sm text-gray-500 dark:text-gray-400">
+            ) : (
+              <div className="text-center">
+                <div className="text-sm text-gray-500 dark:text-gray-400">
                   실시간 데이터 대기 중...
-                </span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              {wsConnected
-                ? priceData
-                  ? "실시간 데이터"
-                  : "데이터 대기 중"
-                : "연결 끊김"}
-            </div>
-            <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+          {/* 하단: 상세보기 */}
+          <div className="flex items-center justify-end mt-auto">
+            <div className="flex items-center gap-1 text-green-600 dark:text-green-400 group-hover:text-green-700 dark:group-hover:text-green-300 transition-colors">
               <span className="text-xs font-medium">상세보기</span>
               <ChevronRight className="w-3 h-3" />
             </div>

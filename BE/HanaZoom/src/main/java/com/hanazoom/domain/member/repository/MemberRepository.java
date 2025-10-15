@@ -29,7 +29,7 @@ public interface MemberRepository extends JpaRepository<Member, UUID> {
     })
     boolean existsByEmail(String email);
 
-    // PB 관련 메서드들
+
     List<Member> findByIsPbTrueAndPbStatus(PbStatus pbStatus);
 
     Page<Member> findByIsPbTrueAndPbStatus(PbStatus pbStatus, Pageable pageable);

@@ -72,7 +72,14 @@ export default function StockDetailPage() {
   } = useStockWebSocket({
     stockCodes: validateStockCode(stockCode) ? [stockCode] : [],
     onStockUpdate: (data) => {
-      // 로그 제거 - 너무 많이 찍힘
+      console.log("📊 주식 상세 페이지 실시간 데이터 수신:", {
+        stockCode: data.stockCode,
+        stockName: data.stockName,
+        currentPrice: data.currentPrice,
+        changePrice: data.changePrice,
+        changeRate: data.changeRate,
+        timestamp: new Date().toISOString()
+      });
     },
     autoReconnect: true,
     reconnectInterval: 3000,
@@ -80,6 +87,21 @@ export default function StockDetailPage() {
 
   // 현재 종목의 데이터 가져오기
   const stockData = getStockData(stockCode);
+  
+  // stockData 변경 감지 로깅
+  useEffect(() => {
+    if (stockData) {
+      console.log("📈 주식 상세 페이지 stockData 업데이트:", {
+        stockCode: stockData.stockCode,
+        currentPrice: stockData.currentPrice,
+        changePrice: stockData.changePrice,
+        changeRate: stockData.changeRate,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      console.log("📈 주식 상세 페이지 stockData 없음");
+    }
+  }, [stockData]);
 
   // 관심종목 상태 확인
   const checkWatchlistStatus = async () => {
@@ -208,6 +230,15 @@ export default function StockDetailPage() {
 
   // 웹소켓 연결 상태에 따른 페이지 상태 관리
   useEffect(() => {
+    console.log("🔌 WebSocket 상태 변경:", {
+      wsConnected,
+      wsConnecting,
+      wsError,
+      initialLoad,
+      hasStockData: !!stockData,
+      stockCode
+    });
+    
     if (wsConnected) {
       // 웹소켓이 연결되면 에러 상태 해제
       setError(null);
@@ -222,7 +253,7 @@ export default function StockDetailPage() {
       setError(wsError || "웹소켓 연결이 끊어졌습니다.");
       setLoading(false);
     }
-  }, [wsConnected, wsConnecting, stockData, wsError, initialLoad]);
+  }, [wsConnected, wsConnecting, stockData, wsError, initialLoad, stockCode]);
 
   // 주식 데이터 수신 시 로딩 완료
   useEffect(() => {

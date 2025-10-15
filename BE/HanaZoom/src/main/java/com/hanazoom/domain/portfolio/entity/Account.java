@@ -63,9 +63,9 @@ public class Account {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // 연관관계 매핑
 
-    // 계좌 활성화/비활성화
+
+
     public void activate() {
         this.isActive = true;
     }
@@ -74,7 +74,7 @@ public class Account {
         this.isActive = false;
     }
 
-    // 주계좌 설정
+
     public void setAsMainAccount() {
         this.isMainAccount = true;
     }
@@ -83,7 +83,7 @@ public class Account {
         this.isMainAccount = false;
     }
 
-    // 계좌 정보 업데이트
+
     public void updateAccountInfo(String accountName, String broker) {
         this.accountName = accountName;
         this.broker = broker;

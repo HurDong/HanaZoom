@@ -40,7 +40,7 @@ public class Member implements UserDetails {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false, length = 60) // BCrypt 해시는 항상 60자
+    @Column(nullable = false, length = 60) 
     private String password;
 
     @Column(nullable = false)
@@ -80,7 +80,7 @@ public class Member implements UserDetails {
     @Column(name = "marketing_agreed", nullable = false)
     private boolean marketingAgreed;
 
-    // PB 관련 필드들
+
     @Column(name = "is_pb", nullable = false)
     private boolean isPb = false;
 
@@ -91,13 +91,13 @@ public class Member implements UserDetails {
     private Integer pbExperienceYears;
 
     @Column(name = "pb_specialties")
-    private String pbSpecialties; // JSON 형태로 저장 (예: ["포트폴리오 분석", "리밸런싱"])
+    private String pbSpecialties; 
 
     @Column(name = "pb_region")
     private String pbRegion;
 
     @Column(name = "pb_rating")
-    private Double pbRating = 0.0;
+    private Double pbRating = 5.0;
 
     @Column(name = "pb_total_consultations")
     private Integer pbTotalConsultations = 0;
@@ -110,7 +110,7 @@ public class Member implements UserDetails {
     private LocalDateTime pbApprovedAt;
 
     @Column(name = "pb_approved_by")
-    private String pbApprovedBy; // 관리자 ID 또는 이름
+    private String pbApprovedBy; 
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -122,11 +122,11 @@ public class Member implements UserDetails {
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SocialAccount> socialAccounts = new ArrayList<>();
 
-    // 포트폴리오 관련 연관관계
+
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<com.hanazoom.domain.portfolio.entity.Account> accounts = new ArrayList<>();
 
-    // 사용자 설정 연관관계
+
     @OneToOne(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
     private UserSettings userSettings;
 
@@ -213,7 +213,7 @@ public class Member implements UserDetails {
                 .orElse(null);
     }
 
-    // 포트폴리오 관련 메서드들
+
     public void addAccount(com.hanazoom.domain.portfolio.entity.Account account) {
         this.accounts.add(account);
     }
@@ -239,7 +239,7 @@ public class Member implements UserDetails {
         return this.accounts.stream().anyMatch(com.hanazoom.domain.portfolio.entity.Account::isActive);
     }
 
-    // PB 관련 메서드들
+
     public void promoteToPb(String pbLicenseNumber, Integer pbExperienceYears,
             String pbSpecialties, String pbRegion, String approvedBy) {
         this.isPb = true;

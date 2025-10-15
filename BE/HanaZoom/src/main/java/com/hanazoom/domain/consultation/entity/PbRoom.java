@@ -57,12 +57,12 @@ public class PbRoom {
     public PbRoom(Member pb, String roomName) {
         this.pb = pb;
         this.roomName = roomName;
-        this.currentParticipants = 0; // 명시적으로 초기화
-        this.isActive = true; // 명시적으로 초기화
+        this.currentParticipants = 0; 
+        this.isActive = true; 
         this.lastActivityAt = LocalDateTime.now();
     }
 
-    // 방 활성화/비활성화
+
     public void activate() {
         this.isActive = true;
         this.lastActivityAt = LocalDateTime.now();
@@ -73,9 +73,9 @@ public class PbRoom {
         this.currentParticipants = 0;
     }
 
-    // 참여자 수 관리 (1:1 화상상담)
+
     public boolean canJoin() {
-        return isActive && currentParticipants < 1; // 최대 1명
+        return isActive && currentParticipants < 1; 
     }
 
     public void addParticipant() {
@@ -94,7 +94,7 @@ public class PbRoom {
         }
     }
 
-    // 방 상태 확인
+
     public boolean isEmpty() {
         return currentParticipants == 0;
     }

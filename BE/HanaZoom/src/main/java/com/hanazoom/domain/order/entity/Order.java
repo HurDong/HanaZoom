@@ -35,11 +35,11 @@ public class Order {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "order_type", nullable = false)
-    private OrderType orderType; // BUY, SELL
+    private OrderType orderType; 
 
     @Enumerated(EnumType.STRING)
     @Column(name = "order_method", nullable = false)
-    private OrderMethod orderMethod; // LIMIT, MARKET
+    private OrderMethod orderMethod; 
 
     @Column(name = "price", precision = 15, scale = 2)
     private BigDecimal price;
@@ -53,7 +53,7 @@ public class Order {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     @Builder.Default
-    private OrderStatus status = OrderStatus.PENDING; // PENDING, PARTIAL_FILLED, FILLED, CANCELLED, REJECTED
+    private OrderStatus status = OrderStatus.PENDING; 
 
     @Column(name = "filled_quantity", nullable = false)
     @Builder.Default
@@ -95,14 +95,14 @@ public class Order {
     }
 
     public enum OrderStatus {
-        PENDING,        // 주문 접수
-        PARTIAL_FILLED, // 부분 체결
-        FILLED,         // 전량 체결
-        CANCELLED,      // 주문 취소
-        REJECTED        // 주문 거부
+        PENDING,        
+        PARTIAL_FILLED, 
+        FILLED,         
+        CANCELLED,      
+        REJECTED        
     }
 
-    // 주문 상태 업데이트 메서드들
+
     public void fill(int fillQuantity, BigDecimal fillPrice) {
         this.filledQuantity += fillQuantity;
         this.filledAmount = this.filledAmount.add(fillPrice.multiply(BigDecimal.valueOf(fillQuantity)));
@@ -129,23 +129,23 @@ public class Order {
         this.rejectReason = reason;
     }
 
-    // 남은 수량 계산
+
     public int getRemainingQuantity() {
         return this.quantity - this.filledQuantity;
     }
 
-    // 체결률 계산
+
     public double getFillRate() {
         if (this.quantity == 0) return 0.0;
         return (double) this.filledQuantity / this.quantity * 100;
     }
     
-    // 주문 상태 업데이트
+
     public void updateStatus(OrderStatus status) {
         this.status = status;
     }
     
-    // 취소 시간 업데이트
+
     public void updateCancelledAt(LocalDateTime cancelledAt) {
         this.cancelTime = cancelledAt;
     }
