@@ -43,6 +43,13 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                 String clientId = extractClientIdFromDestination(accessor);
                 log.info("추출된 클라이언트 ID: {}", clientId);
 
+                // 지역 채팅의 경우 핸들러에서 직접 토큰 검증하므로 여기서는 인증하지 않음
+                String destination = accessor.getDestination();
+                if (destination != null && destination.startsWith("/ws/chat/region")) {
+                    log.info("지역 채팅 WebSocket 연결 - 핸들러에서 토큰 검증 예정");
+                    return message;
+                }
+
                 String token = null;
 
 
@@ -64,7 +71,10 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                     }
                 }
 
+                // 참고: 지역 채팅의 경우 RegionChatWebSocketHandler에서 쿼리 파라미터 토큰을 직접 검증하므로
+                // 여기서는 헤더 기반 인증만 처리합니다.
 
+                // 3. 클라이언트 ID 헤더에서 추출
                 List<String> clientIdHeaders = accessor.getNativeHeader("CLIENT_ID");
                 if (clientIdHeaders != null && !clientIdHeaders.isEmpty()) {
                     clientId = clientIdHeaders.get(0);

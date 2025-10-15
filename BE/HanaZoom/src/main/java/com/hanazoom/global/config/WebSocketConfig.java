@@ -15,6 +15,8 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         private final WebSocketAuthInterceptor webSocketAuthInterceptor;
+        @org.springframework.beans.factory.annotation.Value("${cors.allowed-origins:http://localhost:3000,http://localhost:3001,https://*.trycloudflare.com,https://*.vercel.app}")
+        private String allowedOrigins;
 
         @Override
         public void configureMessageBroker(MessageBrokerRegistry config) {
@@ -30,14 +32,17 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         @Override
         public void registerStompEndpoints(StompEndpointRegistry registry) {
+                // 환경 변수에서 읽어온 origins를 배열로 변환
+                String[] origins = allowedOrigins.split(",");
 
+                // PB 방용 WebSocket 엔드포인트 (SockJS 포함)
                 registry.addEndpoint("/ws/pb-room")
-                                .setAllowedOriginPatterns("http://localhost:3000", "http://localhost:3001")
+                                .setAllowedOriginPatterns(origins)
                                 .withSockJS();
 
 
                 registry.addEndpoint("/ws/pb-room")
-                                .setAllowedOriginPatterns("http://localhost:3000", "http://localhost:3001");
+                                .setAllowedOriginPatterns(origins);
         }
 
         @Override

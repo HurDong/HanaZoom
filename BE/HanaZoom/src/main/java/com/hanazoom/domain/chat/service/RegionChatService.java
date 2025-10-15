@@ -86,9 +86,23 @@ public class RegionChatService {
 
     public List<RegionChatMessage> getRecentMessages(Long regionId, int limit) {
         try {
+            log.info("🔍 MongoDB 쿼리 시작: regionId={}, limit={}", regionId, limit);
+
             List<RegionChatMessage> messages = chatMessageRepository.findTop100ByRegionIdOrderByCreatedAtDesc(regionId);
 
+            log.info("🔍 MongoDB 조회 결과: regionId={}, 조회된 메시지 수={}", regionId, messages.size());
 
+            // 조회된 메시지 ID 로깅 (디버깅용)
+            if (!messages.isEmpty()) {
+                log.info("🔍 첫 번째 메시지 ID: {}, memberName: {}, content: {}",
+                        messages.get(0).getId(),
+                        messages.get(0).getMemberName(),
+                        messages.get(0).getContent());
+            } else {
+                log.warn("⚠️ regionId={}에 대한 메시지가 MongoDB에 없습니다. MongoDB 연결 상태를 확인하세요.", regionId);
+            }
+
+            // limit 적용
             if (messages.size() > limit) {
                 messages = messages.subList(0, limit);
             }
@@ -102,7 +116,7 @@ public class RegionChatService {
             return messages;
 
         } catch (Exception e) {
-            log.error("❌ 최근 채팅 메시지 조회 실패: regionId={}", regionId, e);
+            log.error("❌ 최근 채팅 메시지 조회 실패: regionId={}, 에러: {}", regionId, e.getMessage(), e);
             return Collections.emptyList();
         }
     }
@@ -116,4 +130,3 @@ public class RegionChatService {
         }
     }
 }
-

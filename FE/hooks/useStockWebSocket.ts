@@ -112,11 +112,9 @@ export function useStockWebSocket({
 
     // 서버 상태 확인 (선택적)
     try {
-      const protocol =
-        window.location.protocol === "https:" ? "https:" : "http:";
-      const host = window.location.hostname;
-      const port = process.env.NODE_ENV === "production" ? "" : ":8080";
-      const healthCheckUrl = `${protocol}//${host}${port}/api/v1/websocket/health`;
+      const apiBaseUrl =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const healthCheckUrl = `${apiBaseUrl}/api/v1/websocket/health`;
 
       console.log("🔍 서버 상태 확인 중:", healthCheckUrl);
 
@@ -140,18 +138,19 @@ export function useStockWebSocket({
     }
 
     try {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.hostname;
-      const port = process.env.NODE_ENV === "production" ? ":8080" : ":8080";
-      const wsUrl = `${protocol}//${host}${port}/ws/stocks`;
+      // 환경 변수에서 API URL 가져오기
+      const apiBaseUrl =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      // http/https를 ws/wss로 변환 + 토큰 쿼리 전달(가능 시)
+      const token = localStorage.getItem("accessToken") || undefined;
+      const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
+      const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/stocks" + tokenParam;
 
       console.log("🔄 웹소켓 연결 시도:", wsUrl);
       console.log("🔄 연결 환경:", {
-        protocol,
-        host,
-        port,
+        apiBaseUrl,
+        wsUrl,
         NODE_ENV: process.env.NODE_ENV,
-        fullUrl: wsUrl,
         windowLocation: window.location.href,
       });
 

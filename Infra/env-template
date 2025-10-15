@@ -26,4 +26,7 @@ MONGO_USERNAME=hanazoom_mongo
 MONGO_PASSWORD=mongo1234!
 
 # Logging
-LOG_LEVEL=info  # or debug for dev environment 
+LOG_LEVEL=info  # or debug for dev environment
+
+# CORS Settings
+CORS_ALLOWED_ORIGINS=https://hana-zoom.vercel.app,http://localhost:3000,http://localhost:3001

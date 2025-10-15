@@ -82,13 +82,21 @@ export function useWebRTC({
 
       // 장치가 없는 경우 상세 정보 출력
       if (videoDevices.length === 0 && audioDevices.length === 0) {
-        console.warn("⚠️ 미디어 장치를 찾을 수 없습니다. 텍스트 채팅 모드로 진행합니다.");
+        console.warn(
+          "⚠️ 미디어 장치를 찾을 수 없습니다. 텍스트 채팅 모드로 진행합니다."
+        );
         console.warn("다음 사항을 확인해주세요:");
         console.warn("1. 카메라/마이크가 연결되어 있는지 확인");
-        console.warn("2. 브라우저에서 미디어 장치 접근 권한이 허용되어 있는지 확인");
-        console.warn("3. 다른 애플리케이션에서 카메라/마이크를 사용 중인지 확인");
-        console.warn("4. Windows 설정에서 앱이 카메라/마이크에 액세스하도록 허용되어 있는지 확인");
-        
+        console.warn(
+          "2. 브라우저에서 미디어 장치 접근 권한이 허용되어 있는지 확인"
+        );
+        console.warn(
+          "3. 다른 애플리케이션에서 카메라/마이크를 사용 중인지 확인"
+        );
+        console.warn(
+          "4. Windows 설정에서 앱이 카메라/마이크에 액세스하도록 허용되어 있는지 확인"
+        );
+
         // 장치가 없어도 에러로 처리하지 않고 텍스트 모드로 진행
         setMediaMode("text");
         return null;
@@ -147,8 +155,12 @@ export function useWebRTC({
               });
               console.log("✅ 비디오만 스트림 성공");
             } catch (videoErr) {
-              console.log("❌ 모든 미디어 스트림 실패 - 텍스트 채팅 모드로 진행");
-              console.log("장치가 없거나 권한이 거부되었습니다. 텍스트 채팅으로 상담을 진행할 수 있습니다.");
+              console.log(
+                "❌ 모든 미디어 스트림 실패 - 텍스트 채팅 모드로 진행"
+              );
+              console.log(
+                "장치가 없거나 권한이 거부되었습니다. 텍스트 채팅으로 상담을 진행할 수 있습니다."
+              );
               // 장치가 없어도 텍스트 채팅은 가능하도록 빈 스트림 반환
               setMediaMode("text");
               return null;
@@ -186,19 +198,25 @@ export function useWebRTC({
     } catch (err) {
       console.error("미디어 스트림 접근 오류:", err);
 
-      let errorMsg = "카메라/마이크를 사용할 수 없습니다. 텍스트 채팅으로 진행합니다.";
+      let errorMsg =
+        "카메라/마이크를 사용할 수 없습니다. 텍스트 채팅으로 진행합니다.";
 
       if (err instanceof Error) {
         if (err.name === "NotAllowedError") {
-          errorMsg = "카메라/마이크 접근이 거부되었습니다. 텍스트 채팅으로 진행합니다.";
+          errorMsg =
+            "카메라/마이크 접근이 거부되었습니다. 텍스트 채팅으로 진행합니다.";
         } else if (err.name === "NotFoundError") {
-          errorMsg = "카메라/마이크를 찾을 수 없습니다. 텍스트 채팅으로 진행합니다.";
+          errorMsg =
+            "카메라/마이크를 찾을 수 없습니다. 텍스트 채팅으로 진행합니다.";
         } else if (err.name === "NotReadableError") {
-          errorMsg = "카메라/마이크가 다른 애플리케이션에서 사용 중입니다. 텍스트 채팅으로 진행합니다.";
+          errorMsg =
+            "카메라/마이크가 다른 애플리케이션에서 사용 중입니다. 텍스트 채팅으로 진행합니다.";
         } else if (err.name === "OverconstrainedError") {
-          errorMsg = "카메라/마이크 설정을 지원하지 않습니다. 텍스트 채팅으로 진행합니다.";
+          errorMsg =
+            "카메라/마이크 설정을 지원하지 않습니다. 텍스트 채팅으로 진행합니다.";
         } else {
-          errorMsg = "미디어 장치를 사용할 수 없습니다. 텍스트 채팅으로 진행합니다.";
+          errorMsg =
+            "미디어 장치를 사용할 수 없습니다. 텍스트 채팅으로 진행합니다.";
         }
       }
 
@@ -292,8 +310,10 @@ export function useWebRTC({
 
     // 백엔드 서버 연결 테스트
     console.log("🧪 백엔드 서버 연결 테스트 중...");
+    const apiBaseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
     try {
-      const healthResponse = await fetch(`http://localhost:8080/api/health`, {
+      const healthResponse = await fetch(`${apiBaseUrl}/api/health`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${currentToken}`,
@@ -316,7 +336,7 @@ export function useWebRTC({
     }
 
     // WebSocket URL 구성 (SockJS 경로 문제 해결)
-    const socketUrl = `http://localhost:8080/ws/consultation`;
+    const socketUrl = `${apiBaseUrl}/ws/consultation`;
     console.log("🔗 WebSocket URL:", socketUrl);
     console.log("🔑 토큰 정보:", {
       hasToken: !!currentToken,
