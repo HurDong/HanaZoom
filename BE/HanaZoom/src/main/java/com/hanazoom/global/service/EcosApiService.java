@@ -19,10 +19,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * 한국은행 ECOS API 서비스 (디버깅용)
- * 실제 경제지표 데이터를 제공하는 공식 API 연동
- */
 @Slf4j
 @Service
 public class EcosApiService {
@@ -33,7 +29,6 @@ public class EcosApiService {
     @Value("${ecos.api.key}")
     private String bokApiKey;
 
-    // ECOS API 기본 URL
     private static final String ECOS_API_BASE_URL = "https://ecos.bok.or.kr/api";
     private static final String SERVICE_NAME = "StatisticSearch";
     private static final String REQUEST_TYPE = "json";
@@ -44,30 +39,27 @@ public class EcosApiService {
         this.objectMapper = new ObjectMapper();
     }
 
-    /**
-     * 금주 금융 캘린더 조회 (한국은행 Open API 연동)
-     */
     public ResponseEntity<Map<String, Object>> getWeeklyFinancialCalendar() {
         try {
             Map<String, Object> result = new HashMap<>();
 
-            // 현재 날짜 기준으로 금주 금융 일정 조회
+
             LocalDate today = LocalDate.now();
             LocalDate weekStart = today.with(DayOfWeek.MONDAY);
             LocalDate weekEnd = today.with(DayOfWeek.SUNDAY);
 
             log.info("금주 금융 캘린더 조회: {} ~ {}", weekStart, weekEnd);
 
-            // API 키 확인
+
             log.info("API 키 존재 여부: {}", bokApiKey != null ? "있음" : "없음");
             if (bokApiKey != null) {
                 log.info("API 키 첫 10자: {}", bokApiKey.substring(0, Math.min(10, bokApiKey.length())));
             }
 
-            // 한국은행 API 호출
+
             List<Map<String, Object>> weeklySchedule = getKoreaBankFinancialCalendar(weekStart, weekEnd);
 
-            // 실제 API에서 가져온 데이터인지 확인
+
             boolean isRealData = isRealDataFromApi(weeklySchedule);
 
             log.info("조회된 데이터 개수: {}", weeklySchedule.size());
@@ -95,21 +87,18 @@ public class EcosApiService {
         }
     }
 
-    /**
-     * 한국은행 API에서 금주 금융 캘린더 조회
-     */
     private List<Map<String, Object>> getKoreaBankFinancialCalendar(LocalDate weekStart, LocalDate weekEnd) {
         List<Map<String, Object>> scheduleList = new ArrayList<>();
 
         try {
-            // API 키 조회 및 유효성 검사
+
             if (bokApiKey == null || bokApiKey.isEmpty() || bokApiKey.equals("your_korean_bank_api_key_here")) {
                 log.warn("한국은행 API 키가 설정되지 않았습니다. application.properties의 ecos.api.key를 확인하세요.");
                 log.warn("API 키 값: '{}'", bokApiKey);
                 return getEmptyFinancialCalendar();
             }
 
-            // 주요 금융 지표 통계 코드들
+
             Map<String, String> financialIndicators = Map.of(
                     "소비자물가지수", "901Y009",
                     "산업생산지수", "901Y015",
@@ -123,7 +112,7 @@ public class EcosApiService {
             log.info("조회할 지표 목록:");
             financialIndicators.forEach((name, code) -> log.info("- {}: {}", name, code));
 
-            // 각 지표별로 데이터 조회
+
             for (Map.Entry<String, String> entry : financialIndicators.entrySet()) {
                 String indicatorName = entry.getKey();
                 String statCode = entry.getValue();
@@ -153,15 +142,12 @@ public class EcosApiService {
         return scheduleList.isEmpty() ? getEmptyFinancialCalendar() : scheduleList;
     }
 
-    /**
-     * 한국은행 통계 데이터 조회
-     */
     private List<Map<String, Object>> getKoreaBankIndicatorData(String apiKey, String statCode, String indicatorName,
             LocalDate weekStart, LocalDate weekEnd) {
         List<Map<String, Object>> indicatorData = new ArrayList<>();
 
         try {
-            // 한국은행 통계 데이터 조회 API
+
             String dataUrl = String.format(
                     "%s/%s/%s/%s/1/1000/%s/D/%s/%s",
                     ECOS_API_BASE_URL, SERVICE_NAME, apiKey, REQUEST_TYPE, LANGUAGE, statCode,
@@ -188,9 +174,6 @@ public class EcosApiService {
         return indicatorData;
     }
 
-    /**
-     * 한국은행 API 응답 파싱
-     */
     private List<Map<String, Object>> parseKoreaBankResponse(String responseBody, String indicatorName) {
         List<Map<String, Object>> scheduleList = new ArrayList<>();
 
@@ -211,17 +194,17 @@ public class EcosApiService {
 
                             Map<String, Object> schedule = new HashMap<>();
 
-                            // 통계 항목명
+
                             String itemName = getTextValue(row, "ITEM_NAME");
                             String unitName = getTextValue(row, "UNIT_NAME");
 
                             if (itemName != null) {
                                 schedule.put("indicator", itemName + (unitName != null ? " (" + unitName + ")" : ""));
 
-                                // 발표 시간 (한국은행 표준 발표 시간)
+
                                 schedule.put("time", "08:00");
 
-                                // 발표 날짜 (실제 발표일 기준)
+
                                 String timeValue = getTextValue(row, "TIME");
                                 if (timeValue != null && timeValue.length() >= 8) {
                                     String dateStr = timeValue.substring(0, 8);
@@ -232,17 +215,17 @@ public class EcosApiService {
 
                                     schedule.put("date", eventDate.toString());
 
-                                    // 요일 계산
+
                                     String dayOfWeek = eventDate.getDayOfWeek().getDisplayName(TextStyle.FULL,
                                             Locale.KOREAN);
                                     schedule.put("dayOfWeek", dayOfWeek);
                                 }
 
-                                // 중요도 설정
+
                                 schedule.put("importance", "high");
                                 schedule.put("country", "한국");
 
-                                // 데이터 값
+
                                 String dataValue = getTextValue(row, "DATA_VALUE");
                                 if (dataValue != null) {
                                     schedule.put("forecast", dataValue);
@@ -274,24 +257,18 @@ public class EcosApiService {
         return scheduleList;
     }
 
-    /**
-     * API 실패 시 빈 리스트 반환 (더미 데이터 제공하지 않음)
-     */
     private List<Map<String, Object>> getEmptyFinancialCalendar() {
         log.warn("❌ 한국은행 API 호출 실패 - 빈 데이터 반환 (사용자에게 데이터 없음 표시)");
         return new ArrayList<>();
     }
 
-    /**
-     * 실제 API에서 가져온 데이터인지 확인
-     */
     private boolean isRealDataFromApi(List<Map<String, Object>> scheduleList) {
         if (scheduleList == null || scheduleList.isEmpty()) {
             log.info("데이터 리스트가 비어있거나 null임 - 실제 데이터 아님");
             return false;
         }
 
-        // 실제 데이터는 한국은행 API에서 온 것이므로 실제 데이터
+
         boolean hasRealData = scheduleList.stream()
                 .anyMatch(item -> "한국".equals(item.get("country")));
 
@@ -299,9 +276,6 @@ public class EcosApiService {
         return hasRealData;
     }
 
-    /**
-     * JSON 노드에서 텍스트 값 추출
-     */
     private String getTextValue(JsonNode node, String fieldName) {
         JsonNode fieldNode = node.get(fieldName);
         return fieldNode != null && !fieldNode.isNull() ? fieldNode.asText() : null;

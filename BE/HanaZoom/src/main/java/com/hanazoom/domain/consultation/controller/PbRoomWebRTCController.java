@@ -31,19 +31,13 @@ public class PbRoomWebRTCController {
     private final MemberRepository memberRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
-    /**
-     * PB가 화상상담 시작 버튼을 눌렀을 때
-     * 1. 기존 활성 방 확인
-     * 2. 없으면 새 방 생성
-     * 3. 초대 링크 반환
-     */
     @PostMapping("/start")
     public ResponseEntity<?> startVideoConsultation() {
         try {
             UUID pbId = getCurrentUserIdFromSecurityContext();
             log.info("PB {} 화상상담 시작 요청", pbId);
 
-            // 기존 활성 방 확인
+
             PbRoom existingRoom = pbRoomService.findActiveRoomByPbId(pbId);
 
             if (existingRoom != null) {
@@ -55,7 +49,7 @@ public class PbRoomWebRTCController {
                         "message", "기존 방을 사용합니다"));
             }
 
-            // 새 방 생성
+
             Member pb = memberRepository.findById(pbId)
                     .orElseThrow(() -> new IllegalStateException("PB 정보를 찾을 수 없습니다"));
 
@@ -76,9 +70,6 @@ public class PbRoomWebRTCController {
         }
     }
 
-    /**
-     * 고객이 초대 링크로 방에 참여 (로그인 없이도 가능)
-     */
     @PostMapping("/{roomId}/join")
     public ResponseEntity<?> joinRoom(@PathVariable UUID roomId, @RequestBody(required = false) Map<String, Object> requestBody) {
         try {
@@ -89,11 +80,11 @@ public class PbRoomWebRTCController {
             UUID customerId;
 
             try {
-                // 로그인된 사용자인 경우
+
                 customerId = getCurrentUserIdFromSecurityContext();
                 log.info("로그인된 고객 {} 방 {} 참여 요청", customerId, roomId);
             } catch (Exception e) {
-                // 로그인하지 않은 사용자는 입장 불가
+
                 log.warn("비로그인 사용자 입장 시도 - 거부됨");
                 return ResponseEntity.status(401).body(Map.of(
                         "success", false,
@@ -113,7 +104,7 @@ public class PbRoomWebRTCController {
                         "error", "방이 가득 찼습니다"));
             }
 
-            // 참여자 추가 (로그인된 사용자만)
+
             log.info("참여자 추가 시작: customerId={}, roomId={}", customerId, roomId);
             Member customer = memberRepository.findById(customerId)
                     .orElseThrow(() -> new IllegalStateException("고객 정보를 찾을 수 없습니다"));
@@ -138,9 +129,6 @@ public class PbRoomWebRTCController {
         }
     }
 
-    /**
-     * 사용자 강제 퇴장 (PB만 가능) - memberId로 퇴장
-     */
     @PostMapping("/{roomId}/kick/{memberId}")
     public ResponseEntity<?> kickParticipant(
             @PathVariable UUID roomId,
@@ -160,14 +148,14 @@ public class PbRoomWebRTCController {
                         "error", "존재하지 않는 방입니다"));
             }
 
-            // PB가 방의 주인인지 확인
+
             if (!room.getPb().getId().equals(pbId)) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
                         "error", "방의 주인이 아닙니다"));
             }
 
-            // 참여자 강제 퇴장
+
             try {
                 pbRoomService.removeParticipant(roomId, memberId);
             } catch (Exception e) {
@@ -177,7 +165,7 @@ public class PbRoomWebRTCController {
                         "error", "참여자를 찾을 수 없습니다"));
             }
 
-            // WebSocket으로 강제 퇴장 알림 전송
+
             messagingTemplate.convertAndSend(
                     "/topic/pb-room/" + roomId + "/webrtc",
                     Map.of(
@@ -198,9 +186,6 @@ public class PbRoomWebRTCController {
         }
     }
 
-    /**
-     * 방에서 나가기
-     */
     @PostMapping("/{roomId}/leave")
     public ResponseEntity<?> leaveRoom(@PathVariable UUID roomId) {
         try {
@@ -223,9 +208,6 @@ public class PbRoomWebRTCController {
         }
     }
 
-    /**
-     * WebRTC Offer 전송
-     */
     @MessageMapping("/webrtc/{roomId}/offer")
     public void handleOffer(
             @DestinationVariable UUID roomId,
@@ -236,7 +218,7 @@ public class PbRoomWebRTCController {
             UUID fromUserId = getCurrentUserId(headerAccessor);
             log.info("방 {}에서 사용자 {}가 Offer 전송", roomId, fromUserId);
 
-            // 다른 참여자들에게 Offer 전달
+
             messagingTemplate.convertAndSend(
                     "/topic/pb-room/" + roomId + "/webrtc",
                     Map.of(
@@ -249,9 +231,6 @@ public class PbRoomWebRTCController {
         }
     }
 
-    /**
-     * WebRTC Answer 전송
-     */
     @MessageMapping("/webrtc/{roomId}/answer")
     public void handleAnswer(
             @DestinationVariable UUID roomId,
@@ -262,7 +241,7 @@ public class PbRoomWebRTCController {
             UUID fromUserId = getCurrentUserId(headerAccessor);
             log.info("방 {}에서 사용자 {}가 Answer 전송", roomId, fromUserId);
 
-            // 다른 참여자들에게 Answer 전달
+
             messagingTemplate.convertAndSend(
                     "/topic/pb-room/" + roomId + "/webrtc",
                     Map.of(
@@ -275,9 +254,6 @@ public class PbRoomWebRTCController {
         }
     }
 
-    /**
-     * WebRTC ICE Candidate 전송
-     */
     @MessageMapping("/webrtc/{roomId}/ice-candidate")
     public void handleIceCandidate(
             @DestinationVariable UUID roomId,
@@ -288,7 +264,7 @@ public class PbRoomWebRTCController {
             UUID fromUserId = getCurrentUserId(headerAccessor);
             log.info("방 {}에서 사용자 {}가 ICE Candidate 전송", roomId, fromUserId);
 
-            // 다른 참여자들에게 ICE Candidate 전달
+
             messagingTemplate.convertAndSend(
                     "/topic/pb-room/" + roomId + "/webrtc",
                     Map.of(
@@ -301,9 +277,6 @@ public class PbRoomWebRTCController {
         }
     }
 
-    /**
-     * 사용자 입장 알림 처리
-     */
     @MessageMapping("/webrtc/{roomId}/user-joined")
     public void handleUserJoined(
             @DestinationVariable UUID roomId,
@@ -315,7 +288,7 @@ public class PbRoomWebRTCController {
             String userType = (String) userData.get("userType");
             log.info("방 {}에서 사용자 {} ({}) 입장 알림", roomId, fromUserId, userType);
 
-            // 다른 참여자들에게 사용자 입장 알림 전달
+
             messagingTemplate.convertAndSend(
                     "/topic/pb-room/" + roomId + "/webrtc",
                     Map.of(
@@ -328,9 +301,6 @@ public class PbRoomWebRTCController {
         }
     }
 
-    /**
-     * 채팅 메시지 전송 처리
-     */
     @MessageMapping("/chat/{roomId}/send")
     public void handleChatMessage(
             @DestinationVariable String roomId,
@@ -343,7 +313,7 @@ public class PbRoomWebRTCController {
         log.info("🎯 headerAccessor: {}", headerAccessor);
 
         try {
-            // 인증 정보 확인
+
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             log.info("SecurityContext Authentication: {}", authentication);
 
@@ -354,7 +324,7 @@ public class PbRoomWebRTCController {
 
             log.info("방 {}에서 사용자 {} ({})가 채팅 메시지 전송: {}", roomId, fromUserId, senderName, message);
 
-            // 모든 참여자들에게 채팅 메시지 전달
+
             messagingTemplate.convertAndSend(
                     "/topic/pb-room/" + roomId + "/chat",
                     Map.of(
@@ -371,7 +341,7 @@ public class PbRoomWebRTCController {
         }
     }
 
-    // 테스트용 간단한 메시지 매핑
+
     @MessageMapping("/test")
     public void handleTest(@Payload Map<String, Object> data) {
         log.info("🧪 테스트 메시지 수신: {}", data);
@@ -380,7 +350,7 @@ public class PbRoomWebRTCController {
     private UUID getCurrentUserId(SimpMessageHeaderAccessor headerAccessor) {
         log.info("=== getCurrentUserId 호출 ===");
 
-        // 1. SecurityContext에서 사용자 정보 확인
+
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         log.info("SecurityContext Authentication: {}", authentication);
 
@@ -390,7 +360,7 @@ public class PbRoomWebRTCController {
             return member.getId();
         }
 
-        // 2. WebSocket 세션 속성에서 사용자 정보 확인
+
         if (headerAccessor != null) {
             Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
             log.info("WebSocket 세션 속성: {}", sessionAttributes);
