@@ -33,7 +33,6 @@ public class CommentServiceImpl implements CommentService {
                 .build();
         Comment savedComment = commentRepository.save(comment);
         
-        // 게시글의 댓글 수 증가
         post.incrementCommentCount();
         
         return savedComment;
@@ -44,7 +43,6 @@ public class CommentServiceImpl implements CommentService {
     public Comment createReply(Long parentCommentId, Member member, String content) {
         Comment parentComment = getComment(parentCommentId);
 
-        // 대댓글은 최대 1단계까지만 허용 (depth 0 -> 1)
         if (parentComment.getDepth() >= 1) {
             throw new IllegalArgumentException("대댓글에는 답글을 달 수 없습니다.");
         }
@@ -59,7 +57,6 @@ public class CommentServiceImpl implements CommentService {
 
         Comment savedReply = commentRepository.save(reply);
         
-        // 게시글의 댓글 수 증가
         parentComment.getPost().incrementCommentCount();
         
         return savedReply;
@@ -79,7 +76,6 @@ public class CommentServiceImpl implements CommentService {
         Comment comment = getCommentWithMemberCheck(commentId, member);
         comment.delete();
         
-        // 게시글의 댓글 수 감소
         comment.getPost().decrementCommentCount();
     }
 

@@ -45,7 +45,6 @@ public class PriceChangeNotificationService {
     }
 
     private void checkAndCreatePriceNotification(Watchlist watchlist) {
-        // TODO: 실제 주식 가격 데이터 API 연동 필요
         // 현재는 목데이터로 테스트
 
         String stockSymbol = watchlist.getStock().getSymbol();

@@ -171,7 +171,6 @@ public class MarketTimeUtils {
     private boolean isPublicHoliday(LocalDateTime dateTime) {
         String monthDay = dateTime.format(DateTimeFormatter.ofPattern("MM-dd"));
         return FIXED_HOLIDAYS.contains(monthDay);
-        // TODO: 음력 공휴일 (설날, 추석 등) 계산 로직 추가 가능
     }
 
     /**

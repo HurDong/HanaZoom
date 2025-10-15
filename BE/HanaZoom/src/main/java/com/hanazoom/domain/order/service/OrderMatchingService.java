@@ -342,7 +342,6 @@ public class OrderMatchingService {
                 reason
             );
 
-            // TODO: 특정 사용자에게 알림 전송 (실제로는 사용자별 세션 관리 필요)
             // 이벤트 기반으로 변경하거나 별도 서비스로 분리 필요
             log.info("주문 체결 알림: 사용자={}, 주문={}, 알림={}", 
                 order.getMember().getId(), order.getId(), notification);

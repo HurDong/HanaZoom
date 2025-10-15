@@ -1119,7 +1119,6 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
                 orderId, message, System.currentTimeMillis()
             );
             
-            // TODO: 사용자별 세션 관리 구현 필요
             // 현재는 모든 연결된 클라이언트에게 전송
             broadcastToAllClients(notificationMessage);
             

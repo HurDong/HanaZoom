@@ -232,7 +232,7 @@ public class MemberServiceImpl implements MemberService {
 
             // 비밀번호 검증
             boolean passwordValid = passwordUtil.matches(request.getPassword(), member.getPassword());
-            // TODO : 삭제 필요
+
             // BCrypt 해시로 검증 실패 시 평문으로도 시도 (Python 스크립트로 생성된 사용자들 대응)
             if (!passwordValid && !request.getPassword().equals(member.getPassword())) {
                 log.error("❌ 비밀번호 검증 실패 - 이메일: {}", request.getEmail());
@@ -354,7 +354,6 @@ public class MemberServiceImpl implements MemberService {
     @Override
     @Transactional
     public void sendPasswordResetCode(String email) {
-        // TODO: 이메일 인증 코드 발송 로직 구현
         log.info("비밀번호 재설정 인증 코드 발송 요청 - 이메일: {}", email);
         throw new UnsupportedOperationException("비밀번호 재설정 기능은 아직 구현되지 않았습니다.");
     }
@@ -362,7 +361,6 @@ public class MemberServiceImpl implements MemberService {
     @Override
     @Transactional
     public void resetPassword(String email, String code, String newPassword) {
-        // TODO: 비밀번호 재설정 로직 구현
         log.info("비밀번호 재설정 요청 - 이메일: {}, 코드: {}", email, code);
         throw new UnsupportedOperationException("비밀번호 재설정 기능은 아직 구현되지 않았습니다.");
     }

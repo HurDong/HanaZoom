@@ -30,8 +30,6 @@ public class NotificationController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PageableDefault(size = 20) Pageable pageable) {
 
-        // TODO: UserDetails에서 memberId 추출 로직 구현 필요
-        // 임시로 테스트용 UUID 사용 (data.sql의 UUID와 일치해야 함)
         UUID memberId = UUID.fromString("e2fb8dd0-70e7-4549-9bab-eeafcbe70f56");
 
         Page<NotificationDto> notifications = notificationService.getUserNotifications(memberId, pageable);
@@ -43,8 +41,6 @@ public class NotificationController {
     public ResponseEntity<Map<String, Object>> getUnreadCount(
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        // TODO: UserDetails에서 memberId 추출 로직 구현 필요
-        // 임시로 테스트용 UUID 사용 (data.sql의 UUID와 일치해야 함)
         UUID memberId = UUID.fromString("e2fb8dd0-70e7-4549-9bab-eeafcbe70f56");
 
         long unreadCount = notificationService.getUnreadCount(memberId);
@@ -62,8 +58,6 @@ public class NotificationController {
             @PathVariable Long notificationId,
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        // TODO: UserDetails에서 memberId 추출 로직 구현 필요
-        // 임시로 테스트용 UUID 사용 (data.sql의 UUID와 일치해야 함)
         UUID memberId = UUID.fromString("e2fb8dd0-70e7-4549-9bab-eeafcbe70f56");
 
         notificationService.markAsRead(notificationId, memberId);
@@ -80,8 +74,6 @@ public class NotificationController {
     public ResponseEntity<Map<String, Object>> markAllAsRead(
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        // TODO: UserDetails에서 memberId 추출 로직 구현 필요
-        // 임시로 테스트용 UUID 사용 (data.sql의 UUID와 일치해야 함)
         UUID memberId = UUID.fromString("e2fb8dd0-70e7-4549-9bab-eeafcbe70f56");
 
         notificationService.markAllAsRead(memberId);
@@ -99,8 +91,6 @@ public class NotificationController {
             @PathVariable Long notificationId,
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        // TODO: UserDetails에서 memberId 추출 로직 구현 필요
-        // 임시로 테스트용 UUID 사용 (data.sql의 UUID와 일치해야 함)
         UUID memberId = UUID.fromString("e2fb8dd0-70e7-4549-9bab-eeafcbe70f56");
 
         notificationService.deleteNotification(notificationId, memberId);
