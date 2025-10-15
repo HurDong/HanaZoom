@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import {
   PortfolioSummary,
@@ -17,6 +17,7 @@ import PortfolioAnalysis from "./PortfolioAnalysis";
 import RegionPortfolioComparison from "./RegionPortfolioComparison";
 import { useRouter } from "next/navigation";
 import ConsultationBooking from "../pb/ConsultationBooking";
+import { getStock } from "@/lib/api/stock";
 
 export default function PortfolioDashboard() {
   const router = useRouter();
@@ -37,6 +38,8 @@ export default function PortfolioDashboard() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
   const [showConsultationModal, setShowConsultationModal] = useState(false);
+  // 심볼 -> 종목명 캐시 (세션 동안 재사용)
+  const stockNameCacheRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     loadPortfolioData();
@@ -56,7 +59,46 @@ export default function PortfolioDashboard() {
       }
 
       const stocks = await getPortfolioStocks();
-      if (stocks) setPortfolioStocks(stocks);
+      if (stocks) {
+        // 종목명이 누락된 항목을 보완: 심볼 기반으로 백엔드에서 이름 조회
+        const missingSymbols = Array.from(
+          new Set(
+            stocks
+              .filter(
+                (s) => !s.stockName || String(s.stockName).trim().length === 0
+              )
+              .map((s) => s.stockSymbol)
+          )
+        ).filter(Boolean);
+
+        if (missingSymbols.length > 0) {
+          const promises = missingSymbols
+            .filter((sym) => !stockNameCacheRef.current.has(sym))
+            .map(async (sym) => {
+              try {
+                const info = await getStock(sym);
+                if (info?.name) {
+                  stockNameCacheRef.current.set(sym, info.name);
+                }
+              } catch (_) {
+                // 무시: 이름 보완 실패 시 심볼 그대로 사용
+              }
+            });
+          if (promises.length > 0) {
+            await Promise.allSettled(promises);
+          }
+        }
+
+        const enriched = stocks.map((s) => ({
+          ...s,
+          stockName:
+            (s.stockName && String(s.stockName).trim().length > 0
+              ? s.stockName
+              : stockNameCacheRef.current.get(s.stockSymbol)) || s.stockName || s.stockSymbol,
+        }));
+
+        setPortfolioStocks(enriched);
+      }
 
       const trades = await getTradeHistory();
       if (trades) {

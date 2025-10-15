@@ -2,6 +2,7 @@ package com.hanazoom.domain.portfolio.service;
 
 import com.hanazoom.domain.portfolio.dto.PortfolioSummaryResponse;
 import com.hanazoom.domain.portfolio.dto.PortfolioStockResponse;
+import com.hanazoom.domain.stock.repository.StockRepository;
 import com.hanazoom.domain.portfolio.entity.Account;
 import com.hanazoom.domain.portfolio.entity.AccountBalance;
 import com.hanazoom.domain.portfolio.entity.PortfolioStock;
@@ -31,6 +32,7 @@ public class PortfolioService {
     private final AccountRepository accountRepository;
     private final AccountBalanceRepository accountBalanceRepository;
     private final PortfolioStockRepository portfolioStockRepository;
+    private final StockRepository stockRepository;
     private final TradeHistoryRepository tradeHistoryRepository;
     private final StockService stockService;
 
@@ -209,23 +211,9 @@ public class PortfolioService {
 
 
     private String getStockName(String stockSymbol) {
-
-        switch (stockSymbol) {
-            case "005930":
-                return "삼성전자";
-            case "035420":
-                return "NAVER";
-            case "051910":
-                return "LG화학";
-            case "006400":
-                return "삼성SDI";
-            case "000660":
-                return "SK하이닉스";
-            case "207940":
-                return "삼성바이오로직스";
-            default:
-                return "알 수 없음";
-        }
+        return stockRepository.findBySymbol(stockSymbol)
+                .map(com.hanazoom.domain.stock.entity.Stock::getName)
+                .orElse("알 수 없음");
     }
 
 
