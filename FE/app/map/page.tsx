@@ -478,19 +478,8 @@ export default function MapPage() {
             Math.pow(currentCenter.getLng() - region.longitude, 2)
           );
 
-          // 거리에 따른 줌 레벨 설정
-          let newZoomLevel: number;
-          if (region.type === "CITY") {
-            newZoomLevel = 7;
-          } else if (region.type === "DISTRICT") {
-            newZoomLevel = 4;
-          } else {
-            newZoomLevel = Math.max(zoomLevel, 3); // 최소 줌 레벨 설정
-          }
-
-          // 줌 레벨과 디바운싱된 줌 레벨 모두 즉시 업데이트
-          setZoomLevel(newZoomLevel);
-          setDebouncedZoomLevel(newZoomLevel);
+          // 마커 클릭 시 줌 레벨은 절대 변경하지 않음 - 현재 줌 레벨 유지
+          const newZoomLevel = zoomLevel;
 
           // 기존 타임아웃이 있다면 클리어 (마커 클릭은 즉시 적용)
           if (zoomTimeoutRef.current) {
@@ -498,22 +487,12 @@ export default function MapPage() {
             zoomTimeoutRef.current = null;
           }
 
-          // 부드러운 이동 애니메이션
+          // 부드러운 이동 애니메이션 - 위치만 이동, 줌 레벨은 변경하지 않음
           if (distance > 0.01) { // 일정 거리 이상이면 애니메이션 적용
             mapRef.current.panTo(targetPosition);
-
-            // 줌 레벨 변경도 부드럽게
-            setTimeout(() => {
-              mapRef.current?.setLevel(newZoomLevel, {
-                animate: true
-              });
-            }, 150);
           } else {
             // 가까운 거리는 즉시 이동
             mapRef.current.setCenter(targetPosition);
-            mapRef.current.setLevel(newZoomLevel, {
-              animate: true
-            });
           }
 
           // 상태 업데이트

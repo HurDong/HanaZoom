@@ -52,9 +52,11 @@ interface StockItemProps {
   stock: Stock;
   priceData?: StockPriceData;
   wsConnected: boolean;
+  isLoading?: boolean;
+  onRef?: (element: HTMLDivElement | null, stockCode: string) => void;
 }
 
-function StockItem({ stock, priceData, wsConnected }: StockItemProps) {
+function StockItem({ stock, priceData, wsConnected, isLoading = false, onRef }: StockItemProps) {
   const getSectorColor = (sector: string) => {
     switch (sector) {
       case "IT/전자":
@@ -110,7 +112,10 @@ function StockItem({ stock, priceData, wsConnected }: StockItemProps) {
 
   return (
     <Link href={`/stocks/${stock.symbol}`}>
-      <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group h-48">
+      <Card 
+        ref={(el) => onRef?.(el, stock.symbol)}
+        className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200 dark:border-green-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group h-48"
+      >
         <CardContent className="p-4 h-full flex flex-col">
           {/* 상단: 섹터와 연결상태 */}
           <div className="flex items-center justify-between mb-2">
@@ -169,9 +174,25 @@ function StockItem({ stock, priceData, wsConnected }: StockItemProps) {
               </div>
             ) : (
               <div className="text-center">
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  실시간 데이터 대기 중...
-                </div>
+                {isLoading ? (
+                  <div className="flex flex-col items-center space-y-2">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      종가 데이터 조회 중...
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      {wsConnected ? "실시간 데이터 대기 중..." : "연결 중..."}
+                    </div>
+                    {!wsConnected && (
+                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        WebSocket 연결 후 실시간 데이터 제공
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -207,10 +228,14 @@ export default function StocksPage() {
 
   const pageSize = 50;
 
+  // 가시 영역에 있는 종목만 구독 (성능 최적화)
+  const [visibleStockCodes, setVisibleStockCodes] = useState<string[]>([]);
+  const [isIntersecting, setIsIntersecting] = useState(false);
+
   // 모든 종목 코드 추출 (웹소켓용)
   const stockCodes = stocks.map((stock) => stock.symbol);
 
-  // 웹소켓으로 실시간 주식 데이터 수신
+  // 웹소켓으로 실시간 주식 데이터 수신 (가시 영역 종목만)
   const {
     connected: wsConnected,
     connecting: wsConnecting,
@@ -222,7 +247,7 @@ export default function StocksPage() {
     disconnect: wsDisconnect,
     getStockDataMap,
   } = useStockWebSocket({
-    stockCodes: stockCodes,
+    stockCodes: visibleStockCodes, // 가시 영역 종목만 구독
     onStockUpdate: (data) => {
       console.log(
         "📈 목록 페이지 실시간 데이터:",
@@ -286,6 +311,46 @@ export default function StocksPage() {
     setFilteredStocks([]);
     fetchStocks(0, true);
   }, [sortBy, sortDir, fetchStocks]);
+
+  // 가시 영역 종목 감지 (Intersection Observer)
+  const stockObserver = useRef<IntersectionObserver | null>(null);
+  const stockRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // 가시 영역에 있는 종목들을 추적
+  useEffect(() => {
+    const updateVisibleStocks = () => {
+      const visibleCodes: string[] = [];
+      
+      stockRefs.current.forEach((element, stockCode) => {
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+          if (isVisible) {
+            visibleCodes.push(stockCode);
+          }
+        }
+      });
+      
+      setVisibleStockCodes(visibleCodes);
+      console.log("👁️ 가시 영역 종목 업데이트:", visibleCodes.length, "개");
+    };
+
+    // 스크롤 이벤트로 가시 영역 업데이트
+    const handleScroll = () => {
+      requestAnimationFrame(updateVisibleStocks);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll, { passive: true });
+    
+    // 초기 실행
+    updateVisibleStocks();
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, [filteredStocks]);
 
   // 무한 스크롤 설정
   const lastElementRef = useCallback(
@@ -382,6 +447,81 @@ export default function StocksPage() {
 
   // 스톡 데이터 맵 가져오기
   const stockPricesMap = getStockDataMap();
+
+  // 구독되지 않은 종목에 대한 fallback 데이터 제공
+  const [fallbackData, setFallbackData] = useState<Map<string, StockPriceData>>(new Map());
+  const [loadingStocks, setLoadingStocks] = useState<Set<string>>(new Set());
+
+  const getStockPriceData = useCallback((stock: Stock) => {
+    const wsData = stockPricesMap.get(stock.symbol);
+    if (wsData) {
+      return wsData;
+    }
+
+    // Fallback 데이터 확인
+    const fallback = fallbackData.get(stock.symbol);
+    if (fallback) {
+      return fallback;
+    }
+
+    // WebSocket 데이터와 fallback 데이터가 모두 없으면 API 호출
+    if (!loadingStocks.has(stock.symbol)) {
+      fetchFallbackPrice(stock.symbol);
+    }
+
+    // 기본 데이터 반환 (API 호출 중이거나 실패한 경우)
+    if (stock.currentPrice && stock.priceChange && stock.changeRate) {
+      return {
+        stockCode: stock.symbol,
+        stockName: stock.name,
+        currentPrice: stock.currentPrice,
+        changePrice: stock.priceChange,
+        changeRate: stock.changeRate,
+        changeSign: parseFloat(stock.priceChange) > 0 ? "2" : parseFloat(stock.priceChange) < 0 ? "4" : "3",
+        volume: "0",
+        openPrice: "0",
+        highPrice: "0",
+        lowPrice: "0",
+        marketCap: "0",
+        marketStatus: "CLOSED",
+        timestamp: Date.now()
+      } as StockPriceData;
+    }
+
+    return undefined;
+  }, [stockPricesMap, fallbackData, loadingStocks]);
+
+  // 백엔드 API에서 종가 데이터 가져오기
+  const fetchFallbackPrice = useCallback(async (stockCode: string) => {
+    if (loadingStocks.has(stockCode)) return;
+
+    setLoadingStocks(prev => new Set(prev).add(stockCode));
+
+    try {
+      console.log(`🔍 종가 데이터 조회 중: ${stockCode}`);
+      
+      const response = await api.get(`/stocks/realtime/${stockCode}`);
+      
+      if (response.data && response.data.success) {
+        const priceData = response.data.data;
+        console.log(`✅ 종가 데이터 조회 성공: ${stockCode} - ${priceData.currentPrice}원`);
+        
+        setFallbackData(prev => {
+          const newMap = new Map(prev);
+          newMap.set(stockCode, priceData);
+          return newMap;
+        });
+      }
+    } catch (error) {
+      console.warn(`⚠️ 종가 데이터 조회 실패: ${stockCode}`, error);
+    } finally {
+      setLoadingStocks(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(stockCode);
+        return newSet;
+      });
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-950">
@@ -540,7 +680,7 @@ export default function StocksPage() {
                   {wsConnected ? "재연결" : "연결"}
                 </Button>
                 <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                  웹소켓 실시간
+                  웹소켓 실시간 ({visibleStockCodes.length}개 구독)
                 </Badge>
               </div>
             </div>
@@ -590,8 +730,16 @@ export default function StocksPage() {
                     <div key={stock.symbol} ref={lastElementRef}>
                       <StockItem
                         stock={stock}
-                        priceData={stockPricesMap.get(stock.symbol)}
+                        priceData={getStockPriceData(stock)}
                         wsConnected={wsConnected}
+                        isLoading={loadingStocks.has(stock.symbol)}
+                        onRef={(el, stockCode) => {
+                          if (el) {
+                            stockRefs.current.set(stockCode, el);
+                          } else {
+                            stockRefs.current.delete(stockCode);
+                          }
+                        }}
                       />
                     </div>
                   );
@@ -600,8 +748,16 @@ export default function StocksPage() {
                     <StockItem
                       key={stock.symbol}
                       stock={stock}
-                      priceData={stockPricesMap.get(stock.symbol)}
+                      priceData={getStockPriceData(stock)}
                       wsConnected={wsConnected}
+                      isLoading={loadingStocks.has(stock.symbol)}
+                      onRef={(el, stockCode) => {
+                        if (el) {
+                          stockRefs.current.set(stockCode, el);
+                        } else {
+                          stockRefs.current.delete(stockCode);
+                        }
+                      }}
                     />
                   );
                 }

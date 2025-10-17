@@ -245,6 +245,10 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         setReadyState("connecting");
         setError(null);
 
+        // API Base URL 설정
+        const apiBaseUrl =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
         // Clear any existing timeouts
         if (reconnectTimeoutId.current) {
           clearTimeout(reconnectTimeoutId.current);
@@ -264,28 +268,50 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
 
         // 토큰 유효성 검사
         if (!token || token.trim() === '') {
-          console.error("WebSocket connection failed: No token provided");
+          console.error("❌ WebSocket 연결 실패: 토큰이 없음");
           setError("인증 토큰이 없습니다. 다시 로그인해주세요.");
+          return;
+        }
+
+        // 백엔드 서버 상태 확인
+        try {
+          console.log("🧪 백엔드 서버 상태 확인 중...");
+          const healthResponse = await fetch(`${apiBaseUrl}/api/health`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (healthResponse.ok) {
+            console.log("✅ 백엔드 서버 연결 성공:", healthResponse.status);
+          } else {
+            console.warn("⚠️ 백엔드 서버 응답 이상:", healthResponse.status);
+            setError("백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.");
+            return;
+          }
+        } catch (healthError) {
+          console.error("❌ 백엔드 서버 연결 실패:", healthError);
+          setError("백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.");
           return;
         }
 
         // Create new WebSocket connection with encoded token
         const encodedToken = encodeURIComponent(token);
-        const apiBaseUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
         const wsUrl =
           apiBaseUrl.replace(/^http/, "ws") +
           `/ws/chat/region?regionId=${regionId}&token=${encodedToken}`;
 
         console.log(
-          "Connecting to WebSocket:",
+          "🔌 WebSocket 연결 시도:",
           wsUrl.replace(encodedToken, "REDACTED"),
           {
-            protocol,
-            host,
+            apiBaseUrl,
             regionId,
             tokenPresent: !!token,
-            tokenLength: token.length
+            tokenLength: token.length,
+            NODE_ENV: process.env.NODE_ENV,
+            windowLocation: typeof window !== 'undefined' ? window.location.href : 'SSR'
           }
         );
 
@@ -433,19 +459,22 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
         };
 
         ws.current.onerror = (event) => {
-          console.error("WebSocket error:", {
+          console.error("❌ WebSocket 연결 오류:", {
             type: event.type,
             readyState: ws.current?.readyState,
             regionId: regionId,
-            url: ws.current?.url?.replace(/token=[^&]*/, 'token=REDACTED')
+            url: ws.current?.url?.replace(/token=[^&]*/, 'token=REDACTED'),
+            apiBaseUrl,
+            timestamp: new Date().toISOString()
           });
 
           // 에러 상태 설정
-          setError("WebSocket 연결에 오류가 발생했습니다.");
+          setError("WebSocket 연결에 오류가 발생했습니다. 서버가 실행 중인지 확인해주세요.");
           setReadyState("closed");
 
           // 연결 상태가 CONNECTING인 경우에만 재연결 시도
           if (ws.current?.readyState === WebSocket.CONNECTING) {
+            console.log("🔄 CONNECTING 상태에서 오류 발생 - 재연결 시도");
             // 토큰 만료 가능성이 있으므로 토큰 갱신 후 재연결 시도
             setTimeout(async () => {
               try {
@@ -453,24 +482,27 @@ export default function RegionChat({ regionId, regionName }: RegionChatProps) {
                 if (refreshResult) {
                   const newToken = await getAccessToken();
                   if (newToken) {
+                    console.log("🔄 토큰 갱신 성공 - 재연결 시도");
                     connectWebSocket(newToken);
                   }
                 }
               } catch (refreshError) {
-                console.error("Token refresh failed during reconnection:", refreshError);
+                console.error("❌ 토큰 갱신 실패:", refreshError);
                 handleReconnect(token);
               }
             }, 1000);
           }
         };
       } catch (err) {
-        console.error("Error connecting to WebSocket:", {
+        console.error("❌ WebSocket 연결 실패:", {
           error: err,
           regionId: regionId,
           token: token ? "present" : "missing",
-          host: window.location.hostname
+          host: typeof window !== 'undefined' ? window.location.hostname : 'SSR',
+          apiBaseUrl,
+          timestamp: new Date().toISOString()
         });
-        setError("WebSocket 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        setError("WebSocket 연결에 실패했습니다. 서버가 실행 중인지 확인해주세요.");
         setReadyState("closed");
         handleReconnect(token);
       }

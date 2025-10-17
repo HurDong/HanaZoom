@@ -39,6 +39,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.Random;
+import java.util.stream.Collectors;
 import org.springframework.scheduling.annotation.Scheduled;
 
 @Slf4j
@@ -339,45 +340,92 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    // KIS API 구독 제한 상수 (한국투자증권 API 제한사항)
+    private static final int MAX_CONCURRENT_SUBSCRIPTIONS = 50; // 동시 구독 가능한 최대 종목 수
+    private static final int BATCH_SIZE = 20; // 배치 구독 크기
+    private static final int BATCH_DELAY_MS = 100; // 배치 간 지연 시간
+
     private void subscribeToKisWebSocket(List<String> stockCodes) {
         if (kisWebSocketSession != null && kisWebSocketSession.isOpen()) {
-            for (String stockCode : stockCodes) {
+            // 구독 가능한 종목만 필터링
+            List<String> validCodes = stockCodes.stream()
+                .filter(code -> stockSubscriptions.containsKey(code) && !stockSubscriptions.get(code).isEmpty())
+                .collect(Collectors.toList());
 
-                if (!stockSubscriptions.containsKey(stockCode) || stockSubscriptions.get(stockCode).isEmpty()) {
-                    continue; 
-                }
-
-                try {
-                    JSONObject request = createKisSubscriptionRequest(stockCode);
-
-                    synchronized (kisWebSocketSession) {
-                        if (kisWebSocketSession.isOpen()) {
-                            kisWebSocketSession.sendMessage(new TextMessage(request.toString()));
-                            log.debug("✅ KIS 구독 요청 성공: {}", stockCode);
-                        } else {
-                            log.warn("⚠️ KIS WebSocket 세션이 닫혀있음: {}", stockCode);
-                            handleKisSessionError();
-                            break; 
-                        }
-                    }
-                } catch (IllegalStateException e) {
-                    log.warn("⚠️ KIS WebSocket 세션 상태 오류 ({}): {}", stockCode, e.getMessage());
-                    handleKisSessionError();
-                    break; 
-                } catch (Exception e) {
-                    log.error("❌ KIS 구독 요청 실패: {}", stockCode, e);
-
-                    if (e.getMessage().contains("TEXT_PARTIAL_WRITING") || 
-                        e.getMessage().contains("remote endpoint")) {
-                        handleKisSessionError();
-                        break;
-                    }
-                }
+            if (validCodes.isEmpty()) {
+                log.info("📊 구독할 유효한 종목이 없습니다.");
+                return;
             }
+
+            // 현재 구독 중인 종목 수 확인
+            int currentSubscriptions = getCurrentKisSubscriptionsCount();
+            int availableSlots = MAX_CONCURRENT_SUBSCRIPTIONS - currentSubscriptions;
+            
+            if (availableSlots <= 0) {
+                log.warn("⚠️ KIS API 구독 한도 초과: 현재={}, 최대={}", 
+                    currentSubscriptions, MAX_CONCURRENT_SUBSCRIPTIONS);
+                return;
+            }
+
+            // 사용 가능한 슬롯만큼만 구독
+            List<String> codesToSubscribe = validCodes.stream()
+                .limit(Math.min(availableSlots, BATCH_SIZE))
+                .collect(Collectors.toList());
+
+            log.info("📡 KIS 구독 시도: 요청={}, 사용가능={}, 실제구독={}", 
+                validCodes.size(), availableSlots, codesToSubscribe.size());
+
+            // 배치 구독 실행
+            subscribeBatch(codesToSubscribe);
         } else {
             log.warn("⚠️ KIS 웹소켓이 연결되지 않음 - 재연결 시도");
             handleKisSessionError();
         }
+    }
+
+    private void subscribeBatch(List<String> stockCodes) {
+        for (int i = 0; i < stockCodes.size(); i++) {
+            String stockCode = stockCodes.get(i);
+            
+            try {
+                JSONObject request = createKisSubscriptionRequest(stockCode);
+
+                synchronized (kisWebSocketSession) {
+                    if (kisWebSocketSession.isOpen()) {
+                        kisWebSocketSession.sendMessage(new TextMessage(request.toString()));
+                        log.debug("✅ KIS 구독 요청 성공: {} ({}/{})", 
+                            stockCode, i + 1, stockCodes.size());
+                        
+                        // 배치 간 지연 (API 부하 방지)
+                        if (i < stockCodes.size() - 1) {
+                            Thread.sleep(BATCH_DELAY_MS);
+                        }
+                    } else {
+                        log.warn("⚠️ KIS WebSocket 세션이 닫혀있음: {}", stockCode);
+                        handleKisSessionError();
+                        break; 
+                    }
+                }
+            } catch (IllegalStateException e) {
+                log.warn("⚠️ KIS WebSocket 세션 상태 오류 ({}): {}", stockCode, e.getMessage());
+                handleKisSessionError();
+                break; 
+            } catch (Exception e) {
+                log.error("❌ KIS 구독 요청 실패: {}", stockCode, e);
+
+                if (e.getMessage().contains("TEXT_PARTIAL_WRITING") || 
+                    e.getMessage().contains("remote endpoint")) {
+                    handleKisSessionError();
+                    break;
+                }
+            }
+        }
+    }
+
+    private int getCurrentKisSubscriptionsCount() {
+        // 현재 KIS API에 구독 중인 종목 수를 추적하는 로직
+        // 실제 구현에서는 Redis나 메모리 캐시를 사용하여 추적
+        return stockSubscriptions.size();
     }
 
     private JSONObject createKisSubscriptionRequest(String stockCode) {
