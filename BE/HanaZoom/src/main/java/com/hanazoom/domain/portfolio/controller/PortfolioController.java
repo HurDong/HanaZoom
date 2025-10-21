@@ -1,4 +1,4 @@
- package com.hanazoom.domain.portfolio.controller;
+package com.hanazoom.domain.portfolio.controller;
 
 import com.hanazoom.domain.portfolio.dto.PortfolioSummaryResponse;
 import com.hanazoom.domain.portfolio.dto.PortfolioStockResponse;
@@ -27,7 +27,6 @@ public class PortfolioController {
     private final PortfolioService portfolioService;
     private final VirtualTradingService virtualTradingService;
 
-
     @GetMapping("/summary")
     public ResponseEntity<PortfolioSummaryResponse> getPortfolioSummary(
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
@@ -48,7 +47,6 @@ public class PortfolioController {
         }
     }
 
-
     @GetMapping("/stocks")
     public ResponseEntity<List<PortfolioStockResponse>> getPortfolioStocks(
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
@@ -66,7 +64,6 @@ public class PortfolioController {
         }
     }
 
-
     @GetMapping("/client/{clientId}/summary")
     public ResponseEntity<PortfolioSummaryResponse> getClientPortfolioSummary(
             @PathVariable String clientId,
@@ -78,7 +75,8 @@ public class PortfolioController {
             // 임시로 PB 권한 검증 제거 - 프론트엔드에서 PB만 접근하도록 제어
             // TODO: 필요시 PB 권한 검증 로직 추가
 
-            PortfolioSummaryResponse summary = portfolioService.getPortfolioSummaryByMemberId(UUID.fromString(clientId));
+            PortfolioSummaryResponse summary = portfolioService
+                    .getPortfolioSummaryByMemberId(UUID.fromString(clientId));
 
             return ResponseEntity.ok(summary);
 
@@ -91,7 +89,6 @@ public class PortfolioController {
         }
     }
 
-
     @GetMapping("/client/{clientId}/stocks")
     public ResponseEntity<List<PortfolioStockResponse>> getClientPortfolioStocks(
             @PathVariable String clientId,
@@ -103,7 +100,8 @@ public class PortfolioController {
             // 임시로 PB 권한 검증 제거 - 프론트엔드에서 PB만 접근하도록 제어
             // TODO: 필요시 PB 권한 검증 로직 추가
 
-            List<PortfolioStockResponse> stocks = portfolioService.getPortfolioStocksByMemberId(UUID.fromString(clientId));
+            List<PortfolioStockResponse> stocks = portfolioService
+                    .getPortfolioStocksByMemberId(UUID.fromString(clientId));
 
             return ResponseEntity.ok(stocks);
 
@@ -112,7 +110,6 @@ public class PortfolioController {
             return ResponseEntity.badRequest().build();
         }
     }
-
 
     @GetMapping("/client/{clientId}/trades")
     public ResponseEntity<List<TradeHistory>> getClientTradeHistory(
@@ -134,8 +131,6 @@ public class PortfolioController {
             return ResponseEntity.badRequest().build();
         }
     }
-
-
 
     @PostMapping("/buy")
     public ResponseEntity<TradeResult> buyStock(
@@ -168,7 +163,6 @@ public class PortfolioController {
         }
     }
 
-
     @PostMapping("/sell")
     public ResponseEntity<TradeResult> sellStock(
             @RequestBody SellStockRequest request,
@@ -200,12 +194,10 @@ public class PortfolioController {
         }
     }
 
-
     public static class BuyStockRequest {
         private String stockSymbol;
         private int quantity;
         private BigDecimal price;
-
 
         public String getStockSymbol() {
             return stockSymbol;
@@ -231,14 +223,12 @@ public class PortfolioController {
             this.price = price;
         }
     }
-
 
     public static class SellStockRequest {
         private String stockSymbol;
         private int quantity;
         private BigDecimal price;
 
-
         public String getStockSymbol() {
             return stockSymbol;
         }
@@ -263,7 +253,6 @@ public class PortfolioController {
             this.price = price;
         }
     }
-
 
     @GetMapping("/trades")
     public ResponseEntity<List<TradeHistory>> getTradeHistory(
@@ -279,7 +268,6 @@ public class PortfolioController {
         }
     }
 
-
     @GetMapping("/trade-result")
     public ResponseEntity<TradeResult> getTradeResult(
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
@@ -294,7 +282,6 @@ public class PortfolioController {
         }
     }
 
-
     @GetMapping("/settlement-schedule")
     public ResponseEntity<Object> getSettlementSchedule(
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
@@ -308,7 +295,6 @@ public class PortfolioController {
         }
     }
 
-
     @GetMapping("/account")
     public ResponseEntity<Account> getAccountInfo(
             @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
@@ -321,7 +307,6 @@ public class PortfolioController {
             return ResponseEntity.badRequest().build();
         }
     }
-
 
     @GetMapping("/account/balance")
     public ResponseEntity<AccountBalance> getAccountBalance(
@@ -337,7 +322,6 @@ public class PortfolioController {
         }
     }
 
-
     @GetMapping("/stock/{stockCode}")
     public ResponseEntity<Object> getStockInfo(
             @PathVariable String stockCode,
@@ -351,7 +335,6 @@ public class PortfolioController {
             return ResponseEntity.badRequest().build();
         }
     }
-
 
     @GetMapping("/search-stocks")
     public ResponseEntity<List<Object>> searchStocks(
