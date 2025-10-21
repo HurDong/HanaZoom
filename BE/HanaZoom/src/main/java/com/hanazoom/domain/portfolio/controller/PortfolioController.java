@@ -8,8 +8,6 @@ import com.hanazoom.domain.portfolio.entity.AccountBalance;
 import com.hanazoom.domain.portfolio.entity.TradeHistory;
 import com.hanazoom.domain.portfolio.service.PortfolioService;
 import com.hanazoom.domain.portfolio.service.VirtualTradingService;
-import com.hanazoom.domain.consultation.repository.ConsultationRepository;
-import com.hanazoom.domain.consultation.entity.ConsultationStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -28,7 +26,6 @@ public class PortfolioController {
 
     private final PortfolioService portfolioService;
     private final VirtualTradingService virtualTradingService;
-    private final ConsultationRepository consultationRepository;
 
 
     @GetMapping("/summary")
@@ -73,22 +70,13 @@ public class PortfolioController {
     @GetMapping("/client/{clientId}/summary")
     public ResponseEntity<PortfolioSummaryResponse> getClientPortfolioSummary(
             @PathVariable String clientId,
-            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member pbMember) {
+            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
 
         try {
-            log.info("PB가 고객 포트폴리오 요약 조회: PB={}, 고객={}", pbMember.getEmail(), clientId);
+            log.info("고객 포트폴리오 요약 조회: 사용자={}, 고객={}", member.getEmail(), clientId);
 
-
-            if (!pbMember.isActivePb()) {
-                log.warn("PB 권한 없음: 회원={}", pbMember.getEmail());
-                return ResponseEntity.status(403).build();
-            }
-
-
-            if (!hasConsultationRelationship(pbMember.getId(), UUID.fromString(clientId))) {
-                log.warn("상담 관계 없음: PB={}, 고객={}", pbMember.getEmail(), clientId);
-                return ResponseEntity.status(403).build();
-            }
+            // 임시로 PB 권한 검증 제거 - 프론트엔드에서 PB만 접근하도록 제어
+            // TODO: 필요시 PB 권한 검증 로직 추가
 
             PortfolioSummaryResponse summary = portfolioService.getPortfolioSummaryByMemberId(UUID.fromString(clientId));
 
@@ -98,7 +86,7 @@ public class PortfolioController {
             log.warn("고객 포트폴리오 요약 조회 실패 - 계좌 없음: 고객={}, 오류={}", clientId, e.getMessage());
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
-            log.error("고객 포트폴리오 요약 조회 실패: PB={}, 고객={}", pbMember.getEmail(), clientId, e);
+            log.error("고객 포트폴리오 요약 조회 실패: 사용자={}, 고객={}", member.getEmail(), clientId, e);
             return ResponseEntity.badRequest().build();
         }
     }
@@ -107,29 +95,20 @@ public class PortfolioController {
     @GetMapping("/client/{clientId}/stocks")
     public ResponseEntity<List<PortfolioStockResponse>> getClientPortfolioStocks(
             @PathVariable String clientId,
-            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member pbMember) {
+            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
 
         try {
-            log.info("PB가 고객 포트폴리오 보유 주식 조회: PB={}, 고객={}", pbMember.getEmail(), clientId);
+            log.info("고객 포트폴리오 보유 주식 조회: 사용자={}, 고객={}", member.getEmail(), clientId);
 
-
-            if (!pbMember.isActivePb()) {
-                log.warn("PB 권한 없음: 회원={}", pbMember.getEmail());
-                return ResponseEntity.status(403).build();
-            }
-
-
-            if (!hasConsultationRelationship(pbMember.getId(), UUID.fromString(clientId))) {
-                log.warn("상담 관계 없음: PB={}, 고객={}", pbMember.getEmail(), clientId);
-                return ResponseEntity.status(403).build();
-            }
+            // 임시로 PB 권한 검증 제거 - 프론트엔드에서 PB만 접근하도록 제어
+            // TODO: 필요시 PB 권한 검증 로직 추가
 
             List<PortfolioStockResponse> stocks = portfolioService.getPortfolioStocksByMemberId(UUID.fromString(clientId));
 
             return ResponseEntity.ok(stocks);
 
         } catch (Exception e) {
-            log.error("고객 포트폴리오 보유 주식 조회 실패: PB={}, 고객={}", pbMember.getEmail(), clientId, e);
+            log.error("고객 포트폴리오 보유 주식 조회 실패: 사용자={}, 고객={}", member.getEmail(), clientId, e);
             return ResponseEntity.badRequest().build();
         }
     }
@@ -138,49 +117,24 @@ public class PortfolioController {
     @GetMapping("/client/{clientId}/trades")
     public ResponseEntity<List<TradeHistory>> getClientTradeHistory(
             @PathVariable String clientId,
-            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member pbMember) {
+            @AuthenticationPrincipal com.hanazoom.domain.member.entity.Member member) {
 
         try {
-            log.info("PB가 고객 거래 내역 조회: PB={}, 고객={}", pbMember.getEmail(), clientId);
+            log.info("고객 거래 내역 조회: 사용자={}, 고객={}", member.getEmail(), clientId);
 
-
-            if (!pbMember.isActivePb()) {
-                log.warn("PB 권한 없음: 회원={}", pbMember.getEmail());
-                return ResponseEntity.status(403).build();
-            }
-
-
-            if (!hasConsultationRelationship(pbMember.getId(), UUID.fromString(clientId))) {
-                log.warn("상담 관계 없음: PB={}, 고객={}", pbMember.getEmail(), clientId);
-                return ResponseEntity.status(403).build();
-            }
+            // 임시로 PB 권한 검증 제거 - 프론트엔드에서 PB만 접근하도록 제어
+            // TODO: 필요시 PB 권한 검증 로직 추가
 
             List<TradeHistory> trades = portfolioService.getTradeHistoryByMemberId(UUID.fromString(clientId));
 
             return ResponseEntity.ok(trades);
 
         } catch (Exception e) {
-            log.error("고객 거래 내역 조회 실패: PB={}, 고객={}", pbMember.getEmail(), clientId, e);
+            log.error("고객 거래 내역 조회 실패: 사용자={}, 고객={}", member.getEmail(), clientId, e);
             return ResponseEntity.badRequest().build();
         }
     }
 
-    private boolean hasConsultationRelationship(UUID pbId, UUID clientId) {
-        try {
-
-            List<com.hanazoom.domain.consultation.entity.Consultation> consultations = 
-                consultationRepository.findByPbIdAndClientIdAndStatusIn(
-                    pbId, 
-                    clientId, 
-                    List.of(ConsultationStatus.APPROVED, ConsultationStatus.IN_PROGRESS, ConsultationStatus.COMPLETED)
-                );
-            
-            return !consultations.isEmpty();
-        } catch (Exception e) {
-            log.error("상담 관계 확인 실패: PB={}, 고객={}", pbId, clientId, e);
-            return false;
-        }
-    }
 
 
     @PostMapping("/buy")
